@@ -13,12 +13,12 @@ export default function SudokuGrid({
   return (
     <div className="relative">
       {/* Outer glow effect */}
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 to-indigo-400/20 rounded-2xl blur-xl"></div>
+      <div className="absolute inset-0 bg-gradient-to-br from-blue-500/30 to-indigo-500/30 rounded-2xl blur-xl"></div>
       
       {/* Grid container */}
-      <div className="relative bg-white rounded-2xl shadow-2xl shadow-slate-200/50 p-3 sm:p-4">
+      <div className="relative bg-slate-900 rounded-2xl shadow-2xl shadow-black/50 p-3 sm:p-4 border border-slate-700">
         <div 
-          className="grid grid-cols-9 gap-0 border-2 border-slate-800 rounded-lg overflow-hidden"
+          className="grid grid-cols-9 gap-0 border-2 border-slate-600 rounded-lg overflow-hidden"
           style={{ 
             width: 'min(90vw, 450px)', 
             height: 'min(90vw, 450px)' 
@@ -29,8 +29,8 @@ export default function SudokuGrid({
             const col = index % 9;
             
             // Determine border styling for 3x3 boxes
-            const borderRight = (col + 1) % 3 === 0 && col !== 8 ? 'border-r-2 border-r-slate-800' : 'border-r border-r-slate-300';
-            const borderBottom = (row + 1) % 3 === 0 && row !== 8 ? 'border-b-2 border-b-slate-800' : 'border-b border-b-slate-300';
+            const borderRight = (col + 1) % 3 === 0 && col !== 8 ? 'border-r-2 border-r-slate-600' : 'border-r border-r-slate-700';
+            const borderBottom = (row + 1) % 3 === 0 && row !== 8 ? 'border-b-2 border-b-slate-600' : 'border-b border-b-slate-700';
             
             return (
               <Cell

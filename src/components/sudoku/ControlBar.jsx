@@ -22,7 +22,7 @@ export default function ControlBar({
   return (
     <div className="flex flex-wrap items-center justify-center gap-3">
       {/* Primary Actions */}
-      <div className="flex items-center gap-2 bg-white rounded-2xl shadow-lg shadow-slate-200/50 p-2">
+      <div className="flex items-center gap-2 bg-slate-900 rounded-2xl shadow-lg shadow-black/50 p-2 border border-slate-700">
         <motion.button
           onClick={onNextStep}
           whileHover={{ scale: 1.05 }}
@@ -52,7 +52,7 @@ export default function ControlBar({
       </div>
       
       {/* History Controls */}
-      <div className="flex items-center gap-1 bg-white rounded-2xl shadow-lg shadow-slate-200/50 p-2">
+      <div className="flex items-center gap-1 bg-slate-900 rounded-2xl shadow-lg shadow-black/50 p-2 border border-slate-700">
         <motion.button
           onClick={onUndo}
           disabled={!canUndo}
@@ -91,9 +91,9 @@ export default function ControlBar({
         onClick={onClear}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
-        className="p-2.5 bg-white rounded-2xl shadow-lg shadow-slate-200/50 text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all duration-200"
+        className="p-2.5 bg-slate-900 rounded-2xl shadow-lg shadow-black/50 border border-slate-700 text-slate-400 hover:text-red-400 hover:bg-red-950/40 transition-all duration-200"
       >
-        <Trash2 className="w-5 h-5" />
+        <Trash2 className="w-6 h-6" />
       </motion.button>
     </div>
   );

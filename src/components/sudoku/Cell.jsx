@@ -17,22 +17,22 @@ export default function Cell({
   const { value, isFixed, candidates, isBaseCell, isTargetCell, highlightColor } = cell;
 
   // Determine background color based on state
-  let bgColor = 'bg-white';
-  let textColor = isFixed ? 'text-slate-800' : 'text-blue-600';
+  let bgColor = 'bg-slate-950';
+  let textColor = isFixed ? 'text-slate-100' : 'text-blue-400';
   
   if (hasError) {
-    bgColor = 'bg-red-50';
-    textColor = 'text-red-600';
+    bgColor = 'bg-red-900/40';
+    textColor = 'text-red-400';
   } else if (isBaseCell) {
-    bgColor = 'bg-blue-100';
+    bgColor = 'bg-blue-900/40';
   } else if (isTargetCell) {
-    bgColor = 'bg-red-100';
+    bgColor = 'bg-red-900/40';
   } else if (isSelected) {
-    bgColor = 'bg-blue-50';
+    bgColor = 'bg-blue-950/60';
   } else if (isFocusedDigit) {
-    bgColor = 'bg-emerald-50';
+    bgColor = 'bg-emerald-900/40';
   } else if (isHighlightedNumber) {
-    bgColor = 'bg-amber-50';
+    bgColor = 'bg-amber-900/40';
   }
 
   // Calculate opacity for focus mode
@@ -44,7 +44,7 @@ export default function Cell({
         relative aspect-square flex items-center justify-center cursor-pointer
         ${bgColor} ${borderClasses} ${opacity}
         transition-all duration-200 ease-out
-        hover:bg-slate-50
+        hover:bg-slate-800/50
         ${isSelected ? 'ring-2 ring-blue-500 ring-inset z-10' : ''}
         ${isFocusedDigit ? 'ring-2 ring-emerald-500 ring-inset' : ''}
         ${isHighlightedNumber ? 'ring-2 ring-amber-400 ring-inset' : ''}
@@ -57,7 +57,7 @@ export default function Cell({
           initial={{ scale: 0.5, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           className={`
-            text-lg sm:text-2xl font-semibold ${textColor}
+            text-xl sm:text-3xl font-semibold ${textColor}
             ${isFixed ? '' : 'font-medium'}
             ${hasError ? 'animate-pulse' : ''}
           `}
@@ -75,18 +75,18 @@ export default function Cell({
               <div 
                 key={num} 
                 className={`
-                  flex items-center justify-center text-[8px] sm:text-[10px]
+                  flex items-center justify-center text-[10px] sm:text-xs
                   transition-all duration-200
                   ${hasCandidate ? (
                     isTargetCell && focusedDigit === num 
-                      ? 'text-red-500 font-bold animate-pulse' 
+                      ? 'text-red-400 font-bold animate-pulse' 
                       : isBaseCell && focusedDigit === num
-                        ? 'text-blue-600 font-bold'
+                        ? 'text-blue-400 font-bold'
                         : isHighlightedCandidate 
-                          ? 'text-emerald-600 font-semibold' 
+                          ? 'text-emerald-400 font-semibold' 
                           : shouldDim 
-                            ? 'text-slate-200' 
-                            : 'text-slate-400'
+                            ? 'text-slate-700' 
+                            : 'text-slate-500'
                   ) : ''}
                 `}
               >
@@ -104,7 +104,7 @@ export default function Cell({
           animate={{ opacity: 1 }}
           className={`
             absolute inset-0 pointer-events-none
-            ${isBaseCell ? 'bg-blue-500/10' : 'bg-red-500/10'}
+            ${isBaseCell ? 'bg-blue-500/20' : 'bg-red-500/20'}
           `}
         />
       )}

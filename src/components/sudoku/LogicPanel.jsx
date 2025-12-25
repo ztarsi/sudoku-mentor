@@ -94,24 +94,24 @@ export default function LogicPanel({ currentStep, focusedDigit, grid }) {
       {/* Current Hint Card */}
       <motion.div 
         layout
-        className="bg-white rounded-2xl shadow-lg shadow-slate-200/50 overflow-hidden"
+        className="bg-slate-900 rounded-2xl shadow-lg shadow-black/50 overflow-hidden border border-slate-700"
       >
-        <div className="p-5 border-b border-slate-100">
+        <div className="p-5 border-b border-slate-800">
           <div className="flex items-center gap-3">
             <div className={`
               w-10 h-10 rounded-xl flex items-center justify-center
               ${currentStep 
                 ? `bg-gradient-to-br ${levelColors[techniqueInfo?.color || 'emerald']} shadow-lg` 
-                : 'bg-slate-100'
+                : 'bg-slate-800'
               }
             `}>
-              <Lightbulb className={`w-5 h-5 ${currentStep ? 'text-white' : 'text-slate-400'}`} />
+              <Lightbulb className={`w-6 h-6 ${currentStep ? 'text-white' : 'text-slate-500'}`} />
             </div>
             <div>
-              <h3 className="font-semibold text-slate-800">
+              <h3 className="text-lg font-semibold text-white">
                 {currentStep ? 'Technique Found!' : 'Ready for a Hint?'}
               </h3>
-              <p className="text-sm text-slate-500">
+              <p className="text-base text-slate-400">
                 {currentStep ? techniqueInfo?.level : 'Click "Hint" to analyze the board'}
               </p>
             </div>
@@ -130,21 +130,21 @@ export default function LogicPanel({ currentStep, focusedDigit, grid }) {
               {/* Technique Name */}
               <div className="flex items-center gap-2">
                 <span className={`
-                  px-3 py-1 rounded-full text-sm font-medium
+                  px-3 py-1 rounded-full text-base font-medium
                   bg-gradient-to-r ${levelColors[techniqueInfo?.color || 'emerald']} text-white
                 `}>
                   {currentStep.technique}
                 </span>
                 {currentStep.digit && (
-                  <span className="px-2 py-1 bg-slate-100 rounded-lg text-sm font-medium text-slate-600">
+                  <span className="px-2 py-1 bg-slate-800 rounded-lg text-base font-medium text-slate-300">
                     Digit: {currentStep.digit}
                   </span>
                 )}
               </div>
               
               {/* Explanation */}
-              <div className="bg-slate-50 rounded-xl p-4">
-                <p className="text-slate-700 leading-relaxed">
+              <div className="bg-slate-800 rounded-xl p-4">
+                <p className="text-slate-200 leading-relaxed text-base">
                   {currentStep.explanation}
                 </p>
               </div>
@@ -152,18 +152,18 @@ export default function LogicPanel({ currentStep, focusedDigit, grid }) {
               {/* Action Summary */}
               {currentStep.eliminations && currentStep.eliminations.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-sm font-medium text-slate-600">Eliminations:</p>
+                  <p className="text-base font-medium text-slate-300">Eliminations:</p>
                   <div className="flex flex-wrap gap-2">
                     {currentStep.eliminations.slice(0, 6).map((elim, idx) => (
                       <span 
                         key={idx}
-                        className="px-2 py-1 bg-red-50 text-red-600 text-sm rounded-lg"
+                        className="px-2 py-1 bg-red-950/50 text-red-400 text-base rounded-lg"
                       >
                         R{Math.floor(elim.cell / 9) + 1}C{(elim.cell % 9) + 1}: -{elim.digit}
                       </span>
                     ))}
                     {currentStep.eliminations.length > 6 && (
-                      <span className="px-2 py-1 bg-slate-100 text-slate-500 text-sm rounded-lg">
+                      <span className="px-2 py-1 bg-slate-800 text-slate-400 text-base rounded-lg">
                         +{currentStep.eliminations.length - 6} more
                       </span>
                     )}
@@ -172,9 +172,9 @@ export default function LogicPanel({ currentStep, focusedDigit, grid }) {
               )}
               
               {currentStep.placement && (
-                <div className="flex items-center gap-2 text-emerald-600">
-                  <ChevronRight className="w-4 h-4" />
-                  <span className="text-sm font-medium">
+                <div className="flex items-center gap-2 text-emerald-400">
+                  <ChevronRight className="w-5 h-5" />
+                  <span className="text-base font-medium">
                     Place {currentStep.placement.digit} at R{Math.floor(currentStep.placement.cell / 9) + 1}C{(currentStep.placement.cell % 9) + 1}
                   </span>
                 </div>
@@ -188,10 +188,10 @@ export default function LogicPanel({ currentStep, focusedDigit, grid }) {
               exit={{ opacity: 0 }}
               className="p-5 text-center"
             >
-              <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-slate-100 flex items-center justify-center">
-                <Info className="w-8 h-8 text-slate-400" />
+              <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-slate-800 flex items-center justify-center">
+                <Info className="w-8 h-8 text-slate-500" />
               </div>
-              <p className="text-slate-500 text-sm">
+              <p className="text-slate-400 text-base">
                 {focusedDigit 
                   ? `Filtering for digit ${focusedDigit}. Click Hint to find patterns.`
                   : 'Load a puzzle and click Hint to get started.'
@@ -203,8 +203,8 @@ export default function LogicPanel({ currentStep, focusedDigit, grid }) {
       </motion.div>
       
       {/* Technique Reference */}
-      <div className="bg-white rounded-2xl shadow-lg shadow-slate-200/50 p-5">
-        <h4 className="font-semibold text-slate-800 mb-4">Technique Hierarchy</h4>
+      <div className="bg-slate-900 rounded-2xl shadow-lg shadow-black/50 p-5 border border-slate-700">
+        <h4 className="text-lg font-semibold text-white mb-4">Technique Hierarchy</h4>
         <div className="space-y-3">
           {[
             { level: 'Basic', techniques: ['Naked Single', 'Hidden Single'], color: 'emerald' },
@@ -215,8 +215,8 @@ export default function LogicPanel({ currentStep, focusedDigit, grid }) {
             <div key={tier.level} className="flex items-start gap-3">
               <div className={`w-2 h-2 mt-2 rounded-full bg-gradient-to-br ${levelColors[tier.color]}`}></div>
               <div>
-                <p className="text-sm font-medium text-slate-700">{tier.level}</p>
-                <p className="text-xs text-slate-500">{tier.techniques.join(', ')}</p>
+                <p className="text-base font-medium text-slate-200">{tier.level}</p>
+                <p className="text-sm text-slate-400">{tier.techniques.join(', ')}</p>
               </div>
             </div>
           ))}
@@ -224,27 +224,27 @@ export default function LogicPanel({ currentStep, focusedDigit, grid }) {
       </div>
       
       {/* Keyboard Shortcuts */}
-      <div className="bg-slate-800 rounded-2xl p-5 text-white">
-        <h4 className="font-semibold mb-3 flex items-center gap-2">
-          <span className="text-xs px-2 py-0.5 bg-slate-700 rounded">Tips</span>
+      <div className="bg-slate-900 rounded-2xl p-5 text-white border border-slate-700">
+        <h4 className="text-lg font-semibold mb-3 flex items-center gap-2">
+          <span className="text-sm px-2 py-0.5 bg-slate-700 rounded">Tips</span>
           Keyboard Shortcuts
         </h4>
-        <div className="space-y-2 text-sm">
+        <div className="space-y-2 text-base">
           <div className="flex justify-between">
-            <span className="text-slate-400">Focus digit</span>
-            <span className="font-mono bg-slate-700 px-2 py-0.5 rounded">Shift + 1-9</span>
+            <span className="text-slate-300">Focus digit</span>
+            <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">Shift + 1-9</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-400">Enter number</span>
-            <span className="font-mono bg-slate-700 px-2 py-0.5 rounded">1-9</span>
+            <span className="text-slate-300">Enter number</span>
+            <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">1-9</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-400">Clear cell</span>
-            <span className="font-mono bg-slate-700 px-2 py-0.5 rounded">Delete</span>
+            <span className="text-slate-300">Clear cell</span>
+            <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">Delete</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-400">Clear focus</span>
-            <span className="font-mono bg-slate-700 px-2 py-0.5 rounded">Esc</span>
+            <span className="text-slate-300">Clear focus</span>
+            <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">Esc</span>
           </div>
         </div>
       </div>

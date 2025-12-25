@@ -9,10 +9,10 @@ export default function DigitFilter({ focusedDigit, onDigitClick, grid }) {
   }
 
   return (
-    <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg shadow-slate-200/50 p-4">
+    <div className="bg-slate-900/90 backdrop-blur-sm rounded-2xl shadow-lg shadow-black/50 p-4 border border-slate-700">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-sm font-medium text-slate-600">Focus Mode</span>
-        <span className="text-xs text-slate-400">Press Shift + 1-9 or click</span>
+        <span className="text-base font-medium text-slate-300">Focus Mode</span>
+        <span className="text-sm text-slate-500">Press Shift + 1-9 or click</span>
       </div>
       
       <div className="flex justify-center gap-2">
@@ -28,13 +28,13 @@ export default function DigitFilter({ focusedDigit, onDigitClick, grid }) {
               whileHover={{ scale: isComplete ? 1 : 1.1 }}
               whileTap={{ scale: isComplete ? 1 : 0.95 }}
               className={`
-                relative w-10 h-10 sm:w-12 sm:h-12 rounded-xl font-semibold text-lg
+                relative w-10 h-10 sm:w-12 sm:h-12 rounded-xl font-semibold text-xl
                 transition-all duration-300 ease-out
                 ${isComplete 
-                  ? 'bg-emerald-100 text-emerald-400 cursor-not-allowed' 
+                  ? 'bg-emerald-900/40 text-emerald-600 cursor-not-allowed' 
                   : isActive 
                     ? 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/40' 
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
                 }
               `}
             >
@@ -42,11 +42,11 @@ export default function DigitFilter({ focusedDigit, onDigitClick, grid }) {
               
               {/* Count indicator */}
               <span className={`
-                absolute -top-1 -right-1 w-4 h-4 rounded-full text-[10px] font-medium
+                absolute -top-1 -right-1 w-5 h-5 rounded-full text-xs font-medium
                 flex items-center justify-center
                 ${isComplete 
                   ? 'bg-emerald-500 text-white' 
-                  : 'bg-slate-200 text-slate-500'
+                  : 'bg-slate-700 text-slate-400'
                 }
               `}>
                 {digitCounts[digit]}
