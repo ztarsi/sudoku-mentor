@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import SudokuGrid from '@/components/sudoku/SudokuGrid';
 import DigitFilter from '@/components/sudoku/DigitFilter';
 import LogicPanel from '@/components/sudoku/LogicPanel';
@@ -6,6 +6,7 @@ import ControlBar from '@/components/sudoku/ControlBar';
 import PuzzleLibrary from '@/components/sudoku/PuzzleLibrary';
 import OCRUpload from '@/components/sudoku/OCRUpload';
 import { generateCandidates, findNextLogicStep, applyLogicStep } from '@/components/sudoku/logicEngine';
+import { solveSudoku } from '@/components/sudoku/solver';
 
 const createEmptyGrid = () => {
   return Array(81).fill(null).map((_, index) => ({
@@ -31,6 +32,8 @@ export default function SudokuMentor() {
   const [showOCRUpload, setShowOCRUpload] = useState(false);
   const [validationErrors, setValidationErrors] = useState([]);
   const [highlightedDigit, setHighlightedDigit] = useState(null);
+  const [solution, setSolution] = useState(null);
+  const errorAudioRef = useRef(null);
 
   // Auto-generate candidates whenever grid changes
   useEffect(() => {
@@ -58,6 +61,15 @@ export default function SudokuMentor() {
   }, [grid]);
 
   const handleCellInput = useCallback((cellIndex, value) => {
+    // If solution exists and value doesn't match, play error sound and reject
+    if (solution && value !== null && solution[cellIndex].value !== value) {
+      if (errorAudioRef.current) {
+        errorAudioRef.current.currentTime = 0;
+        errorAudioRef.current.play();
+      }
+      return; // Block invalid input
+    }
+    
     setGrid(prev => {
       const newGrid = [...prev];
       const cell = { ...newGrid[cellIndex] };
@@ -75,7 +87,7 @@ export default function SudokuMentor() {
       return newGrid;
     });
     validateGrid();
-  }, [historyIndex]);
+  }, [historyIndex, solution]);
 
   const handleDigitFilter = useCallback((digit) => {
     setFocusedDigit(prev => prev === digit ? null : digit);
@@ -162,6 +174,7 @@ export default function SudokuMentor() {
     setStepHistory(h => [...h, { grid, action: 'clear' }]);
     setHistoryIndex(i => i + 1);
     setGrid(createEmptyGrid());
+    setSolution(null);
     clearHighlights();
     setValidationErrors([]);
   }, [grid]);
@@ -178,6 +191,16 @@ export default function SudokuMentor() {
         };
       }
     });
+    
+    // Solve the puzzle to get the solution
+    const solved = solveSudoku(newGrid);
+    if (solved) {
+      setSolution(solved);
+    } else {
+      setSolution(null);
+      alert('This puzzle has no valid solution!');
+    }
+    
     setGrid(newGrid);
     setShowLibrary(false);
     setShowOCRUpload(false);
@@ -260,6 +283,9 @@ export default function SudokuMentor() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+      {/* Error sound */}
+      <audio ref={errorAudioRef} src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIF2i777edTRALUKXi8LljHAU2jdTwzIUsBS2Ayv=="  preload="auto"></audio>
+      
       {/* Header */}
       <header className="bg-slate-900/90 backdrop-blur-md border-b border-slate-700/60 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
