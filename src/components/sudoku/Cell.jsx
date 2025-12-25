@@ -73,7 +73,7 @@ export default function Cell({
               <div 
                 key={num} 
                 className={`
-                  flex items-center justify-center text-sm sm:text-base
+                  flex items-center justify-center text-xs sm:text-sm
                   transition-all duration-200
                   ${!hasCandidate ? 'text-transparent' : (
                     isTargetCell && focusedDigit === num 
