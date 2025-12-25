@@ -1,0 +1,333 @@
+import React, { useState, useCallback, useEffect } from 'react';
+import SudokuGrid from '@/components/sudoku/SudokuGrid';
+import DigitFilter from '@/components/sudoku/DigitFilter';
+import LogicPanel from '@/components/sudoku/LogicPanel';
+import ControlBar from '@/components/sudoku/ControlBar';
+import PuzzleLibrary from '@/components/sudoku/PuzzleLibrary';
+import { generateCandidates, findNextLogicStep, applyLogicStep } from '@/components/sudoku/logicEngine';
+
+const createEmptyGrid = () => {
+  return Array(81).fill(null).map((_, index) => ({
+    cellIndex: index,
+    value: null,
+    isFixed: false,
+    candidates: [],
+    isHighlighted: false,
+    highlightColor: null,
+    isBaseCell: false,
+    isTargetCell: false
+  }));
+};
+
+export default function SudokuMentor() {
+  const [grid, setGrid] = useState(createEmptyGrid());
+  const [selectedCell, setSelectedCell] = useState(null);
+  const [focusedDigit, setFocusedDigit] = useState(null);
+  const [currentStep, setCurrentStep] = useState(null);
+  const [stepHistory, setStepHistory] = useState([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [showLibrary, setShowLibrary] = useState(false);
+  const [validationErrors, setValidationErrors] = useState([]);
+
+  // Auto-generate candidates whenever grid changes
+  useEffect(() => {
+    const newGrid = generateCandidates(grid);
+    const hasChanged = newGrid.some((cell, i) => 
+      JSON.stringify(cell.candidates) !== JSON.stringify(grid[i].candidates)
+    );
+    if (hasChanged) {
+      setGrid(newGrid);
+    }
+  }, [grid.map(c => c.value).join(',')]);
+
+  const handleCellClick = useCallback((cellIndex) => {
+    setSelectedCell(cellIndex);
+    clearHighlights();
+  }, []);
+
+  const handleCellInput = useCallback((cellIndex, value) => {
+    setGrid(prev => {
+      const newGrid = [...prev];
+      const cell = { ...newGrid[cellIndex] };
+      
+      if (!cell.isFixed) {
+        cell.value = value;
+        cell.candidates = value ? [] : cell.candidates;
+        newGrid[cellIndex] = cell;
+        
+        // Save to history
+        setStepHistory(h => [...h.slice(0, historyIndex + 1), { grid: prev, action: 'input' }]);
+        setHistoryIndex(i => i + 1);
+      }
+      
+      return newGrid;
+    });
+    validateGrid();
+  }, [historyIndex]);
+
+  const handleDigitFilter = useCallback((digit) => {
+    setFocusedDigit(prev => prev === digit ? null : digit);
+    clearHighlights();
+  }, []);
+
+  const clearHighlights = () => {
+    setGrid(prev => prev.map(cell => ({
+      ...cell,
+      isHighlighted: false,
+      highlightColor: null,
+      isBaseCell: false,
+      isTargetCell: false
+    })));
+    setCurrentStep(null);
+  };
+
+  const handleNextStep = useCallback(() => {
+    const step = findNextLogicStep(grid, focusedDigit);
+    if (step) {
+      setCurrentStep(step);
+      setGrid(prev => {
+        const newGrid = prev.map(cell => ({
+          ...cell,
+          isHighlighted: false,
+          highlightColor: null,
+          isBaseCell: false,
+          isTargetCell: false
+        }));
+        
+        // Highlight base cells
+        step.baseCells?.forEach(idx => {
+          newGrid[idx] = {
+            ...newGrid[idx],
+            isHighlighted: true,
+            isBaseCell: true,
+            highlightColor: 'blue'
+          };
+        });
+        
+        // Highlight target cells
+        step.targetCells?.forEach(idx => {
+          newGrid[idx] = {
+            ...newGrid[idx],
+            isHighlighted: true,
+            isTargetCell: true,
+            highlightColor: 'red'
+          };
+        });
+        
+        return newGrid;
+      });
+    }
+  }, [grid, focusedDigit]);
+
+  const handleApplyStep = useCallback(() => {
+    if (currentStep) {
+      setStepHistory(h => [...h.slice(0, historyIndex + 1), { grid, action: currentStep.technique }]);
+      setHistoryIndex(i => i + 1);
+      
+      const newGrid = applyLogicStep(grid, currentStep);
+      setGrid(newGrid);
+      setCurrentStep(null);
+      clearHighlights();
+    }
+  }, [currentStep, grid, historyIndex]);
+
+  const handleUndo = useCallback(() => {
+    if (historyIndex >= 0) {
+      setGrid(stepHistory[historyIndex].grid);
+      setHistoryIndex(i => i - 1);
+      clearHighlights();
+    }
+  }, [historyIndex, stepHistory]);
+
+  const handleRedo = useCallback(() => {
+    if (historyIndex < stepHistory.length - 1) {
+      setHistoryIndex(i => i + 1);
+      // Reapply the action
+    }
+  }, [historyIndex, stepHistory]);
+
+  const handleClearGrid = useCallback(() => {
+    setStepHistory(h => [...h, { grid, action: 'clear' }]);
+    setHistoryIndex(i => i + 1);
+    setGrid(createEmptyGrid());
+    clearHighlights();
+    setValidationErrors([]);
+  }, [grid]);
+
+  const handleLoadPuzzle = useCallback((puzzle) => {
+    const newGrid = createEmptyGrid();
+    puzzle.forEach((value, index) => {
+      if (value !== 0) {
+        newGrid[index] = {
+          ...newGrid[index],
+          value,
+          isFixed: true,
+          candidates: []
+        };
+      }
+    });
+    setGrid(newGrid);
+    setShowLibrary(false);
+    clearHighlights();
+    setStepHistory([]);
+    setHistoryIndex(-1);
+    setValidationErrors([]);
+  }, []);
+
+  const validateGrid = useCallback(() => {
+    const errors = [];
+    grid.forEach((cell, index) => {
+      if (cell.value) {
+        const row = Math.floor(index / 9);
+        const col = index % 9;
+        const box = Math.floor(row / 3) * 3 + Math.floor(col / 3);
+        
+        // Check row
+        for (let c = 0; c < 9; c++) {
+          const checkIdx = row * 9 + c;
+          if (checkIdx !== index && grid[checkIdx].value === cell.value) {
+            errors.push(index);
+            break;
+          }
+        }
+        
+        // Check column
+        for (let r = 0; r < 9; r++) {
+          const checkIdx = r * 9 + col;
+          if (checkIdx !== index && grid[checkIdx].value === cell.value) {
+            if (!errors.includes(index)) errors.push(index);
+            break;
+          }
+        }
+        
+        // Check box
+        const boxStartRow = Math.floor(row / 3) * 3;
+        const boxStartCol = Math.floor(col / 3) * 3;
+        for (let r = boxStartRow; r < boxStartRow + 3; r++) {
+          for (let c = boxStartCol; c < boxStartCol + 3; c++) {
+            const checkIdx = r * 9 + c;
+            if (checkIdx !== index && grid[checkIdx].value === cell.value) {
+              if (!errors.includes(index)) errors.push(index);
+              break;
+            }
+          }
+        }
+      }
+    });
+    setValidationErrors(errors);
+  }, [grid]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key >= '1' && e.key <= '9') {
+        if (selectedCell !== null && !grid[selectedCell].isFixed) {
+          handleCellInput(selectedCell, parseInt(e.key));
+        } else if (e.shiftKey) {
+          handleDigitFilter(parseInt(e.key));
+        }
+      } else if (e.key === 'Backspace' || e.key === 'Delete') {
+        if (selectedCell !== null && !grid[selectedCell].isFixed) {
+          handleCellInput(selectedCell, null);
+        }
+      } else if (e.key === 'Escape') {
+        setFocusedDigit(null);
+        setSelectedCell(null);
+        clearHighlights();
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedCell, grid, handleCellInput, handleDigitFilter]);
+
+  const solvedCount = grid.filter(c => c.value !== null).length;
+  const progress = Math.round((solvedCount / 81) * 100);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
+      {/* Header */}
+      <header className="bg-white/80 backdrop-blur-md border-b border-slate-200/60 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
+                <span className="text-white font-bold text-lg">9</span>
+              </div>
+              <div>
+                <h1 className="text-xl font-semibold text-slate-800 tracking-tight">Sudoku Mentor</h1>
+                <p className="text-xs text-slate-500">Learn logic-based solving</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <div className="hidden sm:flex items-center gap-2 bg-slate-100 rounded-full px-4 py-2">
+                <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                <span className="text-sm text-slate-600">{progress}% Complete</span>
+              </div>
+              <button
+                onClick={() => setShowLibrary(true)}
+                className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white text-sm font-medium rounded-xl shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 transition-all duration-300 hover:-translate-y-0.5"
+              >
+                Load Puzzle
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid lg:grid-cols-[1fr,380px] gap-8">
+          {/* Left Column - Grid & Controls */}
+          <div className="space-y-6">
+            {/* Digit Filter */}
+            <DigitFilter 
+              focusedDigit={focusedDigit} 
+              onDigitClick={handleDigitFilter}
+              grid={grid}
+            />
+            
+            {/* Sudoku Grid */}
+            <div className="flex justify-center">
+              <SudokuGrid
+                grid={grid}
+                selectedCell={selectedCell}
+                focusedDigit={focusedDigit}
+                validationErrors={validationErrors}
+                onCellClick={handleCellClick}
+                onCellInput={handleCellInput}
+              />
+            </div>
+            
+            {/* Control Bar */}
+            <ControlBar
+              onNextStep={handleNextStep}
+              onApplyStep={handleApplyStep}
+              onUndo={handleUndo}
+              onRedo={handleRedo}
+              onClear={handleClearGrid}
+              canUndo={historyIndex >= 0}
+              canRedo={historyIndex < stepHistory.length - 1}
+              hasStep={currentStep !== null}
+            />
+          </div>
+          
+          {/* Right Column - Logic Panel */}
+          <LogicPanel 
+            currentStep={currentStep}
+            focusedDigit={focusedDigit}
+            grid={grid}
+          />
+        </div>
+      </main>
+
+      {/* Puzzle Library Modal */}
+      {showLibrary && (
+        <PuzzleLibrary 
+          onClose={() => setShowLibrary(false)}
+          onSelectPuzzle={handleLoadPuzzle}
+        />
+      )}
+    </div>
+  );
+}
