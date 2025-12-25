@@ -49,52 +49,51 @@ export default function Cell({
       onClick={onClick}
       whileTap={{ scale: 0.95 }}
     >
-      <div className={isDimmed ? 'opacity-20' : 'opacity-100'}>
-        {value ? (
-          <motion.span
-            initial={{ scale: 0.5, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className={`
-              text-xl sm:text-3xl font-semibold ${textColor}
-              ${isFixed ? '' : 'font-medium'}
-              ${hasError ? 'animate-pulse' : ''}
-            `}
-          >
-            {value}
-          </motion.span>
-        ) : (
-          <div className="grid grid-cols-3 gap-0 w-full h-full p-0.5">
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => {
-              const hasCandidate = candidates.includes(num);
-              const isHighlightedCandidate = focusedDigit === num && hasCandidate;
-              const shouldDim = focusedDigit !== null && focusedDigit !== num;
-              
-              return (
-                <div 
-                  key={num} 
-                  className={`
-                    flex items-center justify-center text-[10px] sm:text-xs
-                    transition-all duration-200
-                    ${!hasCandidate ? 'text-transparent' : (
-                      isTargetCell && focusedDigit === num 
-                        ? 'text-red-400 font-bold animate-pulse' 
-                        : isBaseCell && focusedDigit === num
-                          ? 'text-blue-400 font-bold'
-                          : isHighlightedCandidate 
-                            ? 'text-emerald-400 font-semibold' 
-                            : shouldDim 
-                              ? 'text-slate-700' 
-                              : 'text-slate-500'
-                    )}
-                  `}
-                >
-                  {num}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+      {value ? (
+        <motion.span
+          initial={{ scale: 0.5, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className={`
+            text-xl sm:text-3xl font-semibold ${textColor}
+            ${isFixed ? '' : 'font-medium'}
+            ${hasError ? 'animate-pulse' : ''}
+            ${isDimmed ? 'opacity-20' : 'opacity-100'}
+          `}
+        >
+          {value}
+        </motion.span>
+      ) : (
+        <div className={`grid grid-cols-3 gap-0 w-full h-full p-0.5 ${isDimmed ? 'opacity-20' : 'opacity-100'}`}>
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => {
+            const hasCandidate = candidates.includes(num);
+            const isHighlightedCandidate = focusedDigit === num && hasCandidate;
+            const shouldDim = focusedDigit !== null && focusedDigit !== num;
+            
+            return (
+              <div 
+                key={num} 
+                className={`
+                  flex items-center justify-center text-[10px] sm:text-xs
+                  transition-all duration-200
+                  ${!hasCandidate ? 'text-transparent' : (
+                    isTargetCell && focusedDigit === num 
+                      ? 'text-red-400 font-bold animate-pulse' 
+                      : isBaseCell && focusedDigit === num
+                        ? 'text-blue-400 font-bold'
+                        : isHighlightedCandidate 
+                          ? 'text-emerald-400 font-semibold' 
+                          : shouldDim 
+                            ? 'text-slate-700' 
+                            : 'text-slate-500'
+                  )}
+                `}
+              >
+                {num}
+              </div>
+            );
+          })}
+        </div>
+      )}
       
       {/* Highlight overlay for base/target cells */}
       {(isBaseCell || isTargetCell) && (
