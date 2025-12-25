@@ -7,6 +7,7 @@ export default function Cell({
   isFocusedDigit,
   isFocusCandidate,
   isDimmed,
+  isHighlightedNumber,
   hasError,
   borderClasses,
   focusedDigit,
@@ -30,6 +31,8 @@ export default function Cell({
     bgColor = 'bg-blue-50';
   } else if (isFocusedDigit) {
     bgColor = 'bg-emerald-50';
+  } else if (isHighlightedNumber) {
+    bgColor = 'bg-amber-50';
   }
 
   // Calculate opacity for focus mode
@@ -44,6 +47,7 @@ export default function Cell({
         hover:bg-slate-50
         ${isSelected ? 'ring-2 ring-blue-500 ring-inset z-10' : ''}
         ${isFocusedDigit ? 'ring-2 ring-emerald-500 ring-inset' : ''}
+        ${isHighlightedNumber ? 'ring-2 ring-amber-400 ring-inset' : ''}
       `}
       onClick={onClick}
       whileTap={{ scale: 0.95 }}

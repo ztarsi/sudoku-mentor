@@ -4,7 +4,8 @@ import Cell from './Cell';
 export default function SudokuGrid({ 
   grid, 
   selectedCell, 
-  focusedDigit, 
+  focusedDigit,
+  highlightedDigit,
   validationErrors,
   onCellClick, 
   onCellInput 
@@ -39,6 +40,7 @@ export default function SudokuGrid({
                 isFocusedDigit={focusedDigit !== null && cell.value === focusedDigit}
                 isFocusCandidate={focusedDigit !== null && cell.candidates.includes(focusedDigit)}
                 isDimmed={focusedDigit !== null && cell.value !== focusedDigit && !cell.candidates.includes(focusedDigit)}
+                isHighlightedNumber={highlightedDigit !== null && cell.value === highlightedDigit}
                 hasError={validationErrors.includes(index)}
                 borderClasses={`${borderRight} ${borderBottom}`}
                 focusedDigit={focusedDigit}

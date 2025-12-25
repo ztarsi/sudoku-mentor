@@ -4,6 +4,7 @@ import DigitFilter from '@/components/sudoku/DigitFilter';
 import LogicPanel from '@/components/sudoku/LogicPanel';
 import ControlBar from '@/components/sudoku/ControlBar';
 import PuzzleLibrary from '@/components/sudoku/PuzzleLibrary';
+import OCRUpload from '@/components/sudoku/OCRUpload';
 import { generateCandidates, findNextLogicStep, applyLogicStep } from '@/components/sudoku/logicEngine';
 
 const createEmptyGrid = () => {
@@ -27,7 +28,9 @@ export default function SudokuMentor() {
   const [stepHistory, setStepHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [showLibrary, setShowLibrary] = useState(false);
+  const [showOCRUpload, setShowOCRUpload] = useState(false);
   const [validationErrors, setValidationErrors] = useState([]);
+  const [highlightedDigit, setHighlightedDigit] = useState(null);
 
   // Auto-generate candidates whenever grid changes
   useEffect(() => {
@@ -42,8 +45,17 @@ export default function SudokuMentor() {
 
   const handleCellClick = useCallback((cellIndex) => {
     setSelectedCell(cellIndex);
+    
+    // If clicking a solved cell, highlight all instances of that number
+    const clickedValue = grid[cellIndex].value;
+    if (clickedValue !== null) {
+      setHighlightedDigit(prev => prev === clickedValue ? null : clickedValue);
+    } else {
+      setHighlightedDigit(null);
+    }
+    
     clearHighlights();
-  }, []);
+  }, [grid]);
 
   const handleCellInput = useCallback((cellIndex, value) => {
     setGrid(prev => {
@@ -168,10 +180,12 @@ export default function SudokuMentor() {
     });
     setGrid(newGrid);
     setShowLibrary(false);
+    setShowOCRUpload(false);
     clearHighlights();
     setStepHistory([]);
     setHistoryIndex(-1);
     setValidationErrors([]);
+    setHighlightedDigit(null);
   }, []);
 
   const validateGrid = useCallback(() => {
@@ -265,12 +279,20 @@ export default function SudokuMentor() {
                 <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
                 <span className="text-sm text-slate-600">{progress}% Complete</span>
               </div>
-              <button
-                onClick={() => setShowLibrary(true)}
-                className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white text-sm font-medium rounded-xl shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 transition-all duration-300 hover:-translate-y-0.5"
-              >
-                Load Puzzle
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowOCRUpload(true)}
+                  className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-medium rounded-xl shadow-lg shadow-purple-500/25 hover:shadow-xl hover:shadow-purple-500/30 transition-all duration-300 hover:-translate-y-0.5"
+                >
+                  OCR Upload
+                </button>
+                <button
+                  onClick={() => setShowLibrary(true)}
+                  className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white text-sm font-medium rounded-xl shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 transition-all duration-300 hover:-translate-y-0.5"
+                >
+                  Load Puzzle
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -293,6 +315,7 @@ export default function SudokuMentor() {
                 grid={grid}
                 selectedCell={selectedCell}
                 focusedDigit={focusedDigit}
+                highlightedDigit={highlightedDigit}
                 validationErrors={validationErrors}
                 onCellClick={handleCellClick}
                 onCellInput={handleCellInput}
@@ -326,6 +349,14 @@ export default function SudokuMentor() {
         <PuzzleLibrary 
           onClose={() => setShowLibrary(false)}
           onSelectPuzzle={handleLoadPuzzle}
+        />
+      )}
+      
+      {/* OCR Upload Modal */}
+      {showOCRUpload && (
+        <OCRUpload
+          onClose={() => setShowOCRUpload(false)}
+          onPuzzleExtracted={handleLoadPuzzle}
         />
       )}
     </div>
