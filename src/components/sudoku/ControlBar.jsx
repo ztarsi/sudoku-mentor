@@ -27,9 +27,9 @@ export default function ControlBar({
           onClick={onNextStep}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-amber-400 to-orange-500 text-white font-medium rounded-xl shadow-lg shadow-amber-500/25 hover:shadow-xl hover:shadow-amber-500/30 transition-all duration-300"
+          className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-amber-400 to-orange-500 text-white font-medium rounded-xl shadow-lg shadow-amber-500/25 hover:shadow-xl hover:shadow-amber-500/30 transition-all duration-300 text-base"
         >
-          <Lightbulb className="w-4 h-4" />
+          <Lightbulb className="w-5 h-5" />
           <span className="hidden sm:inline">Hint</span>
         </motion.button>
         
@@ -39,14 +39,14 @@ export default function ControlBar({
           whileHover={{ scale: hasStep ? 1.05 : 1 }}
           whileTap={{ scale: hasStep ? 0.95 : 1 }}
           className={`
-            flex items-center gap-2 px-4 py-2.5 font-medium rounded-xl transition-all duration-300
+            flex items-center gap-2 px-4 py-2.5 font-medium rounded-xl transition-all duration-300 text-base
             ${hasStep 
               ? 'bg-gradient-to-r from-emerald-400 to-green-500 text-white shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:shadow-emerald-500/30' 
-              : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+              : 'bg-slate-800 text-slate-600 cursor-not-allowed'
             }
           `}
         >
-          <Play className="w-4 h-4" />
+          <Play className="w-5 h-5" />
           <span className="hidden sm:inline">Apply</span>
         </motion.button>
       </div>
@@ -61,12 +61,12 @@ export default function ControlBar({
           className={`
             p-2.5 rounded-xl transition-all duration-200
             ${canUndo 
-              ? 'text-slate-600 hover:bg-slate-100' 
-              : 'text-slate-300 cursor-not-allowed'
+              ? 'text-slate-300 hover:bg-slate-800' 
+              : 'text-slate-700 cursor-not-allowed'
             }
           `}
         >
-          <Undo2 className="w-5 h-5" />
+          <Undo2 className="w-6 h-6" />
         </motion.button>
         
         <motion.button
@@ -77,12 +77,12 @@ export default function ControlBar({
           className={`
             p-2.5 rounded-xl transition-all duration-200
             ${canRedo 
-              ? 'text-slate-600 hover:bg-slate-100' 
-              : 'text-slate-300 cursor-not-allowed'
+              ? 'text-slate-300 hover:bg-slate-800' 
+              : 'text-slate-700 cursor-not-allowed'
             }
           `}
         >
-          <Redo2 className="w-5 h-5" />
+          <Redo2 className="w-6 h-6" />
         </motion.button>
       </div>
       
