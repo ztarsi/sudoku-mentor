@@ -54,7 +54,7 @@ export default function Cell({
           initial={{ scale: 0.5, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           className={`
-            text-xl sm:text-3xl font-semibold ${textColor}
+            text-2xl sm:text-4xl font-semibold ${textColor}
             ${isFixed ? '' : 'font-medium'}
             ${hasError ? 'animate-pulse' : ''}
             ${isDimmed ? 'opacity-20' : 'opacity-100'}
@@ -73,7 +73,7 @@ export default function Cell({
               <div 
                 key={num} 
                 className={`
-                  flex items-center justify-center text-[10px] sm:text-xs
+                  flex items-center justify-center text-xs sm:text-sm
                   transition-all duration-200
                   ${!hasCandidate ? 'text-transparent' : (
                     isTargetCell && focusedDigit === num 

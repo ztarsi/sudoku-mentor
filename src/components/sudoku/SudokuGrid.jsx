@@ -20,8 +20,8 @@ export default function SudokuGrid({
         <div 
           className="grid grid-cols-9 gap-0 border-2 border-slate-600 rounded-lg overflow-hidden"
           style={{ 
-            width: 'min(90vw, 450px)', 
-            height: 'min(90vw, 450px)' 
+            width: 'min(90vw, 600px)', 
+            height: 'min(90vw, 600px)' 
           }}
         >
           {grid.map((cell, index) => {
