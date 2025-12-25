@@ -83,8 +83,8 @@ export default function Cell({
                         : isHighlightedCandidate 
                           ? 'text-emerald-400 font-semibold' 
                           : shouldDim 
-                            ? 'text-slate-700' 
-                            : 'text-slate-500'
+                            ? 'text-slate-600' 
+                            : 'text-white'
                   )}
                 `}
               >
