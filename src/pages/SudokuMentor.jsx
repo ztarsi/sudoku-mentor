@@ -562,6 +562,12 @@ export default function SudokuMentor() {
 
                 return newGrid;
               });
+
+              // If all instances involve the same digit, highlight it
+              const digits = [...new Set(instances.map(s => s.digit).filter(d => d))];
+              if (digits.length === 1) {
+                setFocusedDigit(digits[0]);
+              }
             }}
           />
         </div>
