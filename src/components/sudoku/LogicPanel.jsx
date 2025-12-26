@@ -111,8 +111,11 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
   const handleTechniqueClick = (techniqueName) => {
     const instances = findAllTechniqueInstances(grid, techniqueName);
     if (instances.length > 0 && onHighlightTechnique) {
-      // Get current index for this technique (or start at 0)
-      const currentIndex = techniqueIndices[techniqueName] || 0;
+      // Get current index for this technique (or start at 0), ensure it's valid
+      let currentIndex = techniqueIndices[techniqueName] || 0;
+      if (currentIndex >= instances.length) {
+        currentIndex = 0;
+      }
       const nextIndex = (currentIndex + 1) % instances.length;
       
       // Update the index for next click
