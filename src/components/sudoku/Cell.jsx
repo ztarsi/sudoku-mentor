@@ -43,6 +43,8 @@ export default function Cell({
 
   const focusDigitColor = colors?.focusDigit || '#10b981';
   const candidateColor = colors?.candidate || '#ffffff';
+  const cellNumberColor = colors?.cellNumber || '#3b82f6';
+  const gridLineColor = colors?.gridLines || '#475569';
 
   return (
     <motion.div
@@ -55,7 +57,12 @@ export default function Cell({
         ${isFocusedDigit ? 'ring-2 ring-emerald-500 ring-inset' : ''}
         ${isHighlightedNumber ? 'ring-2 ring-amber-400 ring-inset' : ''}
       `}
-      style={useCustomBg ? { backgroundColor: bgColor } : {}}
+      style={useCustomBg ? { 
+        backgroundColor: bgColor,
+        borderColor: gridLineColor 
+      } : {
+        borderColor: gridLineColor
+      }}
       onClick={onClick}
       whileTap={{ scale: 0.95 }}
     >
@@ -74,11 +81,12 @@ export default function Cell({
         >
           <span
             className={`
-              text-2xl sm:text-4xl font-semibold ${textColor}
+              text-2xl sm:text-4xl font-semibold ${isFixed ? 'text-slate-100' : ''}
               ${isFixed ? '' : 'font-medium'}
               ${hasError ? 'animate-pulse' : ''}
               ${isDimmed ? 'opacity-20' : 'opacity-100'}
             `}
+            style={!isFixed && !hasError ? { color: cellNumberColor } : {}}
           >
             {value}
           </span>

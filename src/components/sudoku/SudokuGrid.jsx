@@ -24,7 +24,8 @@ export default function SudokuGrid({
         style={{ backgroundColor: colors.gridBg }}
       >
         <div 
-          className="grid grid-cols-9 gap-0 border-2 border-slate-600 rounded-lg overflow-hidden"
+          className="grid grid-cols-9 gap-0 rounded-lg overflow-hidden"
+          style={{ border: `2px solid ${colors?.gridLines || '#475569'}` }}
           style={{ 
             width: 'min(90vw, 600px)', 
             height: 'min(90vw, 600px)' 
@@ -35,8 +36,8 @@ export default function SudokuGrid({
             const col = index % 9;
             
             // Determine border styling for 3x3 boxes
-            const borderRight = (col + 1) % 3 === 0 && col !== 8 ? 'border-r-2 border-r-slate-600' : 'border-r border-r-slate-700';
-            const borderBottom = (row + 1) % 3 === 0 && row !== 8 ? 'border-b-2 border-b-slate-600' : 'border-b border-b-slate-700';
+            const borderRight = (col + 1) % 3 === 0 && col !== 8 ? 'border-r-2' : 'border-r';
+            const borderBottom = (row + 1) % 3 === 0 && row !== 8 ? 'border-b-2' : 'border-b';
             
             return (
               <Cell

@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Palette, X, Check } from 'lucide-react';
 
 const PRESET_COLORS = [
+  { name: 'White', value: '#ffffff' },
+  { name: 'Black', value: '#000000' },
   { name: 'Red', value: '#ef4444' },
   { name: 'Orange', value: '#f97316' },
   { name: 'Amber', value: '#f59e0b' },
@@ -28,6 +30,8 @@ export default function ColorSettings({ colors, onColorsChange, onClose }) {
   const sections = {
     focusDigit: { label: 'Focused Digit', key: 'focusDigit' },
     candidate: { label: 'Focused Candidate', key: 'candidate' },
+    cellNumber: { label: 'Cell Numbers', key: 'cellNumber' },
+    gridLines: { label: 'Grid Lines', key: 'gridLines' },
     gridBg: { label: 'Grid Background', key: 'gridBg' },
     cellBg: { label: 'Cell Background', key: 'cellBg' },
   };
@@ -47,6 +51,8 @@ export default function ColorSettings({ colors, onColorsChange, onClose }) {
     onColorsChange({
       focusDigit: '#10b981',
       candidate: '#ffffff',
+      cellNumber: '#3b82f6',
+      gridLines: '#475569',
       gridBg: '#0f172a',
       cellBg: '#020617',
     });
@@ -127,7 +133,7 @@ export default function ColorSettings({ colors, onColorsChange, onClose }) {
             {/* Preset Colors */}
             <div>
               <h4 className="text-sm font-medium text-slate-300 mb-3">Preset Colors</h4>
-              <div className="grid grid-cols-8 gap-2">
+              <div className="grid grid-cols-9 gap-2">
                 {PRESET_COLORS.map((color) => (
                   <button
                     key={color.value}
