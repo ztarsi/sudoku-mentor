@@ -529,8 +529,8 @@ export default function SudokuMentor() {
             currentStep={currentStep}
             focusedDigit={focusedDigit}
             grid={grid}
-            onHighlightTechnique={(instances) => {
-              // Highlight all cells from all instances
+            onHighlightTechnique={(instances, total, current) => {
+              // Highlight cells from the current instance
               setGrid(prev => {
                 const newGrid = prev.map(cell => ({
                   ...cell,

@@ -85,6 +85,7 @@ const TECHNIQUE_INFO = {
 export default function LogicPanel({ currentStep, focusedDigit, grid, onHighlightTechnique }) {
   const [selectedTechnique, setSelectedTechnique] = useState(null);
   const [shortcutsExpanded, setShortcutsExpanded] = useState(true);
+  const [techniqueIndices, setTechniqueIndices] = useState({});
   
   const techniqueInfo = currentStep ? TECHNIQUE_INFO[currentStep.technique] : null;
   const LevelIcon = techniqueInfo?.icon || Info;
@@ -110,7 +111,18 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
   const handleTechniqueClick = (techniqueName) => {
     const instances = findAllTechniqueInstances(grid, techniqueName);
     if (instances.length > 0 && onHighlightTechnique) {
-      onHighlightTechnique(instances);
+      // Get current index for this technique (or start at 0)
+      const currentIndex = techniqueIndices[techniqueName] || 0;
+      const nextIndex = (currentIndex + 1) % instances.length;
+      
+      // Update the index for next click
+      setTechniqueIndices(prev => ({
+        ...prev,
+        [techniqueName]: nextIndex
+      }));
+      
+      // Show only the current instance
+      onHighlightTechnique([instances[currentIndex]], instances.length, currentIndex + 1);
     }
   };
 
