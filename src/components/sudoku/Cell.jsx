@@ -83,7 +83,7 @@ export default function Cell({
                 className={`
                   flex items-center justify-center text-xs sm:text-sm
                   transition-all duration-200 rounded
-                  ${isHighlightedCandidate ? 'bg-emerald-500/70 ring-2 ring-emerald-300' : ''}
+                  ${isHighlightedCandidate ? 'bg-white/90 ring-2 ring-white' : ''}
                   ${!hasCandidate ? 'text-transparent' : (
                     isTargetCell && focusedDigit === num 
                       ? 'text-red-400 font-bold animate-pulse' 
