@@ -73,12 +73,11 @@ export default function ColorSettings({ colors, onColorsChange, onClose }) {
   };
 
   const sections = {
-    focusDigit: { label: 'Focused Digit', key: 'focusDigit' },
-    candidate: { label: 'Focused Candidate', key: 'candidate' },
-    cellNumber: { label: 'Cell Numbers', key: 'cellNumber' },
-    gridLines: { label: 'Grid Lines', key: 'gridLines' },
-    gridBg: { label: 'Grid Background', key: 'gridBg' },
-    cellBg: { label: 'Cell Background', key: 'cellBg' },
+    focusDigit: { label: 'Focused Digit', key: 'focusDigit', preview: 'digit' },
+    candidate: { label: 'Focused Candidate', key: 'candidate', preview: 'candidate' },
+    cellNumber: { label: 'Cell Numbers', key: 'cellNumber', preview: 'number' },
+    gridLines: { label: 'Grid Lines', key: 'gridLines', preview: 'lines' },
+    cellBg: { label: 'Cell Background', key: 'cellBg', preview: 'cell' },
   };
 
   const handleColorSelect = (color) => {
@@ -98,7 +97,6 @@ export default function ColorSettings({ colors, onColorsChange, onClose }) {
       candidate: '#ffffff',
       cellNumber: '#3b82f6',
       gridLines: '#475569',
-      gridBg: '#0f172a',
       cellBg: '#020617',
     });
   };
@@ -249,17 +247,66 @@ export default function ColorSettings({ colors, onColorsChange, onClose }) {
 
             {/* Current Color Preview */}
             <div className="bg-slate-800 rounded-xl p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-300 font-medium">Current Color</span>
-                <div className="flex items-center gap-3">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-slate-300 font-medium">Preview</span>
+                <span className="font-mono text-sm text-slate-400">
+                  {colors[activeSection]}
+                </span>
+              </div>
+              <div className="flex items-center justify-center bg-slate-900 rounded-lg p-4 min-h-[80px]">
+                {sections[activeSection]?.preview === 'digit' && (
                   <div
-                    className="w-12 h-12 rounded-lg border-2 border-slate-600 shadow-inner"
+                    className="px-6 py-3 rounded-lg font-semibold text-3xl"
+                    style={{
+                      backgroundColor: `${colors[activeSection]}40`,
+                      boxShadow: `0 0 0 2px ${colors[activeSection]}`,
+                      color: '#fff'
+                    }}
+                  >
+                    5
+                  </div>
+                )}
+                {sections[activeSection]?.preview === 'candidate' && (
+                  <div
+                    className="px-4 py-2 rounded font-semibold text-xl"
+                    style={{
+                      backgroundColor: `${colors[activeSection]}E6`,
+                      boxShadow: `0 0 0 2px ${colors[activeSection]}`,
+                      color: '#000'
+                    }}
+                  >
+                    7
+                  </div>
+                )}
+                {sections[activeSection]?.preview === 'number' && (
+                  <div
+                    className="text-4xl font-semibold"
+                    style={{ color: colors[activeSection] }}
+                  >
+                    8
+                  </div>
+                )}
+                {sections[activeSection]?.preview === 'lines' && (
+                  <div className="grid grid-cols-3 gap-0 w-24 h-24">
+                    {[...Array(9)].map((_, i) => (
+                      <div
+                        key={i}
+                        className="border"
+                        style={{ 
+                          borderColor: colors[activeSection],
+                          borderWidth: (i + 1) % 3 === 0 && i !== 8 ? '0 2px 0 0' : '0 1px 0 0',
+                          borderBottomWidth: Math.floor(i / 3) === 2 ? '0' : Math.floor(i / 3 + 1) % 1 === 0 ? '2px' : '1px'
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+                {sections[activeSection]?.preview === 'cell' && (
+                  <div
+                    className="w-16 h-16 rounded-lg border-2 border-slate-600"
                     style={{ backgroundColor: colors[activeSection] }}
                   />
-                  <span className="font-mono text-sm text-slate-400">
-                    {colors[activeSection]}
-                  </span>
-                </div>
+                )}
               </div>
             </div>
 

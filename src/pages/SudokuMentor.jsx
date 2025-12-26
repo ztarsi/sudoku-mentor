@@ -42,7 +42,6 @@ export default function SudokuMentor() {
     candidate: '#ffffff',
     cellNumber: '#3b82f6',
     gridLines: '#475569',
-    gridBg: '#0f172a',
     cellBg: '#020617',
   });
   const [startTime, setStartTime] = useState(null);
