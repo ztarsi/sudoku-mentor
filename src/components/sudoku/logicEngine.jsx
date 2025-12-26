@@ -91,6 +91,72 @@ export const findNextLogicStep = (grid, focusedDigit = null) => {
   return null;
 };
 
+// Find all instances of a specific technique
+export const findAllTechniqueInstances = (grid, techniqueName) => {
+  const instances = [];
+  
+  const findAll = (findFunc) => {
+    const tempGrid = [...grid.map(c => ({...c}))];
+    let step;
+    let attempts = 0;
+    const maxAttempts = 50; // Safety limit
+    
+    while (attempts < maxAttempts) {
+      step = findFunc(tempGrid, null);
+      if (!step) break;
+      instances.push(step);
+      
+      // Simulate applying the step to find the next one
+      if (step.placement) {
+        tempGrid[step.placement.cell].value = step.placement.digit;
+        tempGrid[step.placement.cell].candidates = [];
+      }
+      if (step.eliminations?.length > 0) {
+        step.eliminations.forEach(elim => {
+          tempGrid[elim.cell].candidates = tempGrid[elim.cell].candidates.filter(c => c !== elim.digit);
+        });
+      }
+      attempts++;
+    }
+  };
+  
+  switch(techniqueName) {
+    case 'Naked Single':
+      findAll(findNakedSingle);
+      break;
+    case 'Hidden Single':
+      findAll(findHiddenSingle);
+      break;
+    case 'Pointing Pair':
+    case 'Pointing Triple':
+      findAll(findPointing);
+      break;
+    case 'Claiming':
+      findAll(findClaiming);
+      break;
+    case 'Naked Pair':
+      findAll(findNakedPair);
+      break;
+    case 'Hidden Pair':
+      findAll(findHiddenPair);
+      break;
+    case 'Naked Triple':
+      // Not implemented yet
+      break;
+    case 'X-Wing':
+      findAll(findXWing);
+      break;
+    case 'Swordfish':
+      findAll(findSwordfish);
+      break;
+    case 'XY-Wing':
+      findAll(findXYWing);
+      break;
+  }
+  
+  return instances;
+};
+
 // Naked Single: Cell with only one candidate
 const findNakedSingle = (grid, focusedDigit) => {
   for (let i = 0; i < 81; i++) {

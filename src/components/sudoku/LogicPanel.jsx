@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Lightbulb, 
@@ -11,6 +11,7 @@ import {
   ChevronUp
 } from 'lucide-react';
 import TechniqueModal from './TechniqueModal';
+import { findAllTechniqueInstances } from './logicEngine';
 
 const TECHNIQUE_INFO = {
   'Naked Single': {
@@ -81,12 +82,37 @@ const TECHNIQUE_INFO = {
   }
 };
 
-export default function LogicPanel({ currentStep, focusedDigit, grid }) {
+export default function LogicPanel({ currentStep, focusedDigit, grid, onHighlightTechnique }) {
   const [selectedTechnique, setSelectedTechnique] = useState(null);
   const [shortcutsExpanded, setShortcutsExpanded] = useState(true);
   
   const techniqueInfo = currentStep ? TECHNIQUE_INFO[currentStep.technique] : null;
   const LevelIcon = techniqueInfo?.icon || Info;
+  
+  // Count occurrences of each technique
+  const techniqueCounts = useMemo(() => {
+    const counts = {};
+    const techniques = [
+      'Naked Single', 'Hidden Single',
+      'Pointing Pair', 'Pointing Triple', 'Claiming',
+      'Naked Pair', 'Hidden Pair', 'Naked Triple',
+      'X-Wing', 'Swordfish', 'XY-Wing'
+    ];
+    
+    techniques.forEach(tech => {
+      const instances = findAllTechniqueInstances(grid, tech);
+      counts[tech] = instances.length;
+    });
+    
+    return counts;
+  }, [grid]);
+  
+  const handleTechniqueClick = (techniqueName) => {
+    const instances = findAllTechniqueInstances(grid, techniqueName);
+    if (instances.length > 0 && onHighlightTechnique) {
+      onHighlightTechnique(instances);
+    }
+  };
 
   const levelColors = {
     emerald: 'from-emerald-400 to-green-500',
@@ -241,15 +267,28 @@ export default function LogicPanel({ currentStep, focusedDigit, grid }) {
               <div className="flex-1">
                 <p className="text-base font-medium text-slate-200">{tier.level}</p>
                 <div className="flex flex-wrap gap-2 mt-1">
-                  {tier.techniques.map((tech) => (
-                    <button
-                      key={tech.name}
-                      onClick={() => setSelectedTechnique(tech.full)}
-                      className="text-sm text-blue-400 hover:text-blue-300 hover:underline cursor-pointer"
-                    >
-                      {tech.name}
-                    </button>
-                  ))}
+                  {tier.techniques.map((tech) => {
+                    const count = techniqueCounts[tech.full] || 0;
+                    return (
+                      <div key={tech.name} className="flex items-center gap-1">
+                        <button
+                          onClick={() => setSelectedTechnique(tech.full)}
+                          className="text-sm text-blue-400 hover:text-blue-300 hover:underline cursor-pointer"
+                        >
+                          {tech.name}
+                        </button>
+                        {count > 0 && (
+                          <button
+                            onClick={() => handleTechniqueClick(tech.full)}
+                            className="text-xs px-1.5 py-0.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded cursor-pointer transition-colors"
+                            title={`Show ${count} instance${count > 1 ? 's' : ''}`}
+                          >
+                            ({count})
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>

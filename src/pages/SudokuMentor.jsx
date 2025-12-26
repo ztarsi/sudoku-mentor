@@ -529,6 +529,40 @@ export default function SudokuMentor() {
             currentStep={currentStep}
             focusedDigit={focusedDigit}
             grid={grid}
+            onHighlightTechnique={(instances) => {
+              // Highlight all cells from all instances
+              setGrid(prev => {
+                const newGrid = prev.map(cell => ({
+                  ...cell,
+                  isHighlighted: false,
+                  highlightColor: null,
+                  isBaseCell: false,
+                  isTargetCell: false
+                }));
+
+                instances.forEach(step => {
+                  step.baseCells?.forEach(idx => {
+                    newGrid[idx] = {
+                      ...newGrid[idx],
+                      isHighlighted: true,
+                      isBaseCell: true,
+                      highlightColor: 'blue'
+                    };
+                  });
+
+                  step.targetCells?.forEach(idx => {
+                    newGrid[idx] = {
+                      ...newGrid[idx],
+                      isHighlighted: true,
+                      isTargetCell: true,
+                      highlightColor: 'red'
+                    };
+                  });
+                });
+
+                return newGrid;
+              });
+            }}
           />
         </div>
       </main>
