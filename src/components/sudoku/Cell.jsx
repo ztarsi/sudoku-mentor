@@ -76,7 +76,8 @@ export default function Cell({
                 key={num}
                 className={`
                   flex items-center justify-center text-xs sm:text-sm
-                  transition-all duration-200
+                  transition-all duration-200 rounded
+                  ${isHighlightedCandidate ? 'ring-2 ring-emerald-400 bg-emerald-900/30' : ''}
                   ${!hasCandidate ? 'text-transparent' : (
                     isTargetCell && focusedDigit === num 
                       ? 'text-red-400 font-bold animate-pulse' 
