@@ -186,7 +186,9 @@ export default function SudokuMentor() {
       setHistoryIndex(i => i + 1);
       
       const newGrid = applyLogicStep(grid, currentStep);
-      setGrid(newGrid);
+      // Regenerate candidates after applying step
+      const gridWithCandidates = generateCandidates(newGrid);
+      setGrid(gridWithCandidates);
       setCurrentStep(null);
       clearHighlights();
     }
