@@ -307,6 +307,29 @@ export default function SudokuMentor() {
         return;
       }
       
+      // Hint shortcut (H key)
+      if (e.key.toLowerCase() === 'h' && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        handleNextStep();
+        return;
+      }
+      
+      // Apply step (A key)
+      if (e.key.toLowerCase() === 'a' && !e.ctrlKey && !e.metaKey && currentStep) {
+        e.preventDefault();
+        handleApplyStep();
+        return;
+      }
+      
+      // Undo (Z or Ctrl+Z)
+      if ((e.key.toLowerCase() === 'z' && !e.ctrlKey && !e.metaKey) || (e.key.toLowerCase() === 'z' && (e.ctrlKey || e.metaKey))) {
+        e.preventDefault();
+        if (historyIndex >= 0) {
+          handleUndo();
+        }
+        return;
+      }
+      
       if (e.key >= '1' && e.key <= '9') {
         const digit = parseInt(e.key);
         
@@ -318,7 +341,7 @@ export default function SudokuMentor() {
         }
         
         // Candidate mode (Shift + digit)
-        if ((candidateMode || e.shiftKey) && selectedCell !== null && !grid[selectedCell].isFixed) {
+        if (e.shiftKey && selectedCell !== null && !grid[selectedCell].isFixed) {
           e.preventDefault();
           handleToggleCandidate(selectedCell, digit);
           return;
@@ -360,7 +383,7 @@ export default function SudokuMentor() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [selectedCell, grid, candidateMode, handleCellInput, handleToggleCandidate, handleDigitFilter, handleClearGrid]);
+  }, [selectedCell, grid, candidateMode, currentStep, historyIndex, handleCellInput, handleToggleCandidate, handleDigitFilter, handleClearGrid, handleNextStep, handleApplyStep, handleUndo]);
 
   const solvedCount = grid.filter(c => c.value !== null).length;
   const progress = Math.round((solvedCount / 81) * 100);
@@ -419,15 +442,6 @@ export default function SudokuMentor() {
               grid={grid}
             />
             
-            {/* Candidate Mode Indicator */}
-            {candidateMode && (
-              <div className="bg-amber-900/40 border border-amber-500 rounded-xl p-3 text-center">
-                <span className="text-amber-300 font-medium">
-                  📝 Candidate Mode Active - Press numbers to toggle candidates
-                </span>
-              </div>
-            )}
-            
             {/* Sudoku Grid */}
             <div className="flex justify-center">
               <SudokuGrid
@@ -443,17 +457,7 @@ export default function SudokuMentor() {
               />
             </div>
             
-            {/* Control Bar */}
-            <ControlBar
-              onNextStep={handleNextStep}
-              onApplyStep={handleApplyStep}
-              onUndo={handleUndo}
-              onRedo={handleRedo}
-              onClear={handleClearGrid}
-              canUndo={historyIndex >= 0}
-              canRedo={historyIndex < stepHistory.length - 1}
-              hasStep={currentStep !== null}
-            />
+
           </div>
           
           {/* Right Column - Logic Panel */}

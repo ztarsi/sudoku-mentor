@@ -74,16 +74,9 @@ export default function Cell({
             return (
               <div 
                 key={num}
-                onClick={(e) => {
-                  if (candidateMode && !isFixed) {
-                    e.stopPropagation();
-                    onToggleCandidate(num);
-                  }
-                }}
                 className={`
                   flex items-center justify-center text-xs sm:text-sm
                   transition-all duration-200
-                  ${candidateMode && !isFixed ? 'cursor-pointer hover:bg-slate-700/50' : ''}
                   ${!hasCandidate ? 'text-transparent' : (
                     isTargetCell && focusedDigit === num 
                       ? 'text-red-400 font-bold animate-pulse' 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Lightbulb, 
@@ -6,8 +6,11 @@ import {
   Zap, 
   BookOpen,
   ChevronRight,
-  Info
+  Info,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
+import TechniqueModal from './TechniqueModal';
 
 const TECHNIQUE_INFO = {
   'Naked Single': {
@@ -79,6 +82,9 @@ const TECHNIQUE_INFO = {
 };
 
 export default function LogicPanel({ currentStep, focusedDigit, grid }) {
+  const [selectedTechnique, setSelectedTechnique] = useState(null);
+  const [shortcutsExpanded, setShortcutsExpanded] = useState(true);
+  
   const techniqueInfo = currentStep ? TECHNIQUE_INFO[currentStep.technique] : null;
   const LevelIcon = techniqueInfo?.icon || Info;
 
@@ -129,12 +135,16 @@ export default function LogicPanel({ currentStep, focusedDigit, grid }) {
             >
               {/* Technique Name */}
               <div className="flex items-center gap-2">
-                <span className={`
-                  px-3 py-1 rounded-full text-base font-medium
-                  bg-gradient-to-r ${levelColors[techniqueInfo?.color || 'emerald']} text-white
-                `}>
+                <button
+                  onClick={() => setSelectedTechnique(currentStep.technique)}
+                  className={`
+                    px-3 py-1 rounded-full text-base font-medium
+                    bg-gradient-to-r ${levelColors[techniqueInfo?.color || 'emerald']} text-white
+                    hover:shadow-lg transition-all cursor-pointer
+                  `}
+                >
                   {currentStep.technique}
-                </span>
+                </button>
                 {currentStep.digit && (
                   <span className="px-2 py-1 bg-slate-800 rounded-lg text-base font-medium text-slate-300">
                     Digit: {currentStep.digit}
@@ -207,16 +217,40 @@ export default function LogicPanel({ currentStep, focusedDigit, grid }) {
         <h4 className="text-lg font-semibold text-white mb-4">Technique Hierarchy</h4>
         <div className="space-y-3">
           {[
-            { level: 'Basic', techniques: ['Naked Single', 'Hidden Single'], color: 'emerald' },
-            { level: 'Intermediate', techniques: ['Pointing', 'Claiming'], color: 'blue' },
-            { level: 'Advanced', techniques: ['Naked Pairs/Triples', 'Hidden Pairs'], color: 'purple' },
-            { level: 'Expert', techniques: ['X-Wing', 'Swordfish', 'XY-Wing'], color: 'orange' },
+            { level: 'Basic', techniques: [
+              { name: 'Naked Single', full: 'Naked Single' },
+              { name: 'Hidden Single', full: 'Hidden Single' }
+            ], color: 'emerald' },
+            { level: 'Intermediate', techniques: [
+              { name: 'Pointing Pair', full: 'Pointing Pair' },
+              { name: 'Claiming', full: 'Claiming' }
+            ], color: 'blue' },
+            { level: 'Advanced', techniques: [
+              { name: 'Naked Pair', full: 'Naked Pair' },
+              { name: 'Hidden Pair', full: 'Hidden Pair' },
+              { name: 'Naked Triple', full: 'Naked Triple' }
+            ], color: 'purple' },
+            { level: 'Expert', techniques: [
+              { name: 'X-Wing', full: 'X-Wing' },
+              { name: 'Swordfish', full: 'Swordfish' },
+              { name: 'XY-Wing', full: 'XY-Wing' }
+            ], color: 'orange' },
           ].map((tier) => (
             <div key={tier.level} className="flex items-start gap-3">
               <div className={`w-2 h-2 mt-2 rounded-full bg-gradient-to-br ${levelColors[tier.color]}`}></div>
-              <div>
+              <div className="flex-1">
                 <p className="text-base font-medium text-slate-200">{tier.level}</p>
-                <p className="text-sm text-slate-400">{tier.techniques.join(', ')}</p>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {tier.techniques.map((tech) => (
+                    <button
+                      key={tech.name}
+                      onClick={() => setSelectedTechnique(tech.full)}
+                      className="text-sm text-blue-400 hover:text-blue-300 hover:underline cursor-pointer"
+                    >
+                      {tech.name}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           ))}
@@ -224,42 +258,85 @@ export default function LogicPanel({ currentStep, focusedDigit, grid }) {
       </div>
       
       {/* Keyboard Shortcuts */}
-      <div className="bg-slate-900 rounded-2xl p-5 text-white border border-slate-700">
-        <h4 className="text-lg font-semibold mb-3 flex items-center gap-2">
-          <span className="text-sm px-2 py-0.5 bg-slate-700 rounded">Tips</span>
-          Keyboard Shortcuts
-        </h4>
-        <div className="space-y-2 text-base">
-          <div className="flex justify-between">
-            <span className="text-slate-300">Navigate cells</span>
-            <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">Arrow Keys</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-slate-300">Enter number</span>
-            <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">1-9</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-slate-300">Toggle candidate</span>
-            <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">Shift + 1-9</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-slate-300">Focus digit</span>
-            <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">Ctrl/Cmd + 1-9</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-slate-300">Clear cell</span>
-            <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">Delete / Backspace</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-slate-300">Clear grid</span>
-            <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">C</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-slate-300">Clear focus</span>
-            <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">Esc</span>
-          </div>
-        </div>
+      <div className="bg-slate-900 rounded-2xl text-white border border-slate-700 overflow-hidden">
+        <button
+          onClick={() => setShortcutsExpanded(!shortcutsExpanded)}
+          className="w-full p-5 flex items-center justify-between hover:bg-slate-800/50 transition-colors"
+        >
+          <h4 className="text-lg font-semibold flex items-center gap-2">
+            <span className="text-sm px-2 py-0.5 bg-slate-700 rounded">Tips</span>
+            Keyboard Shortcuts
+          </h4>
+          {shortcutsExpanded ? (
+            <ChevronUp className="w-5 h-5 text-slate-400" />
+          ) : (
+            <ChevronDown className="w-5 h-5 text-slate-400" />
+          )}
+        </button>
+        
+        <AnimatePresence>
+          {shortcutsExpanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div className="px-5 pb-5 space-y-2 text-base border-t border-slate-800">
+                <div className="flex justify-between pt-3">
+                  <span className="text-slate-300">Navigate cells</span>
+                  <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">Arrow Keys</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-300">Enter number</span>
+                  <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">1-9</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-300">Toggle candidate</span>
+                  <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">Shift + 1-9</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-300">Focus digit</span>
+                  <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">Ctrl/Cmd + 1-9</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-300">Hint</span>
+                  <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">H</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-300">Apply step</span>
+                  <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">A</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-300">Undo</span>
+                  <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">Z</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-300">Clear cell</span>
+                  <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">Delete / Backspace</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-300">Clear grid</span>
+                  <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">C</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-300">Clear focus</span>
+                  <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">Esc</span>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
+      
+      {/* Technique Modal */}
+      {selectedTechnique && (
+        <TechniqueModal
+          technique={selectedTechnique}
+          onClose={() => setSelectedTechnique(null)}
+        />
+      )}
     </div>
   );
 }
