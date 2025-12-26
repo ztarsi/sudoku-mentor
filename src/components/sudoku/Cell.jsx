@@ -65,11 +65,10 @@ export default function Cell({
           {value}
         </motion.span>
       ) : (
-        <div className={`grid grid-cols-3 gap-0 w-full h-full p-0.5 ${isDimmed ? 'opacity-20' : 'opacity-100'}`}>
+        <div className="grid grid-cols-3 gap-0 w-full h-full p-0.5">
           {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => {
             const hasCandidate = candidates.includes(num);
             const isHighlightedCandidate = focusedDigit === num && hasCandidate;
-            const shouldDim = focusedDigit !== null && focusedDigit !== num;
 
             return (
               <div 
@@ -85,9 +84,7 @@ export default function Cell({
                         ? 'text-blue-400 font-bold'
                         : isHighlightedCandidate 
                           ? 'text-emerald-400 font-semibold' 
-                          : shouldDim 
-                            ? 'text-slate-600' 
-                            : 'text-white'
+                          : 'text-white'
                   )}
                 `}
               >

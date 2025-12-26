@@ -91,27 +91,34 @@ export default function SudokuMentor() {
   }, [historyIndex, solution]);
 
   const handleToggleCandidate = useCallback((cellIndex, candidate) => {
+    const cell = grid[cellIndex];
+    
+    // Only toggle if cell is empty and not fixed
+    if (cell.isFixed || cell.value !== null) {
+      return;
+    }
+    
     setGrid(prev => {
       const newGrid = [...prev];
-      const cell = { ...newGrid[cellIndex] };
+      const updatedCell = { ...newGrid[cellIndex] };
       
-      if (!cell.isFixed && !cell.value) {
-        const candidateIdx = cell.candidates.indexOf(candidate);
-        if (candidateIdx >= 0) {
-          cell.candidates = cell.candidates.filter(c => c !== candidate);
-        } else {
-          cell.candidates = [...cell.candidates, candidate].sort();
-        }
-        newGrid[cellIndex] = cell;
-        
-        // Save to history
-        setStepHistory(h => [...h.slice(0, historyIndex + 1), { grid: prev, action: 'toggle_candidate' }]);
-        setHistoryIndex(i => i + 1);
+      const candidateIdx = updatedCell.candidates.indexOf(candidate);
+      if (candidateIdx >= 0) {
+        // Remove candidate
+        updatedCell.candidates = updatedCell.candidates.filter(c => c !== candidate);
+      } else {
+        // Add candidate
+        updatedCell.candidates = [...updatedCell.candidates, candidate].sort((a, b) => a - b);
       }
       
+      newGrid[cellIndex] = updatedCell;
       return newGrid;
     });
-  }, [historyIndex]);
+    
+    // Save to history
+    setStepHistory(h => [...h.slice(0, historyIndex + 1), { grid, action: 'toggle_candidate' }]);
+    setHistoryIndex(i => i + 1);
+  }, [grid, historyIndex]);
 
   const handleDigitFilter = useCallback((digit) => {
     setFocusedDigit(prev => prev === digit ? null : digit);
@@ -340,11 +347,14 @@ export default function SudokuMentor() {
           return;
         }
         
-        // Candidate mode (Shift + digit)
-        if (e.shiftKey && selectedCell !== null && !grid[selectedCell].isFixed) {
-          e.preventDefault();
-          handleToggleCandidate(selectedCell, digit);
-          return;
+        // Candidate mode (Shift + digit) - check selected cell exists and is empty
+        if (e.shiftKey && selectedCell !== null) {
+          const cell = grid[selectedCell];
+          if (!cell.isFixed && cell.value === null) {
+            e.preventDefault();
+            handleToggleCandidate(selectedCell, digit);
+            return;
+          }
         }
         
         // Regular input
