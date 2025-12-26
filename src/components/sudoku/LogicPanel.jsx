@@ -231,6 +231,10 @@ export default function LogicPanel({ currentStep, focusedDigit, grid }) {
         </h4>
         <div className="space-y-2 text-base">
           <div className="flex justify-between">
+            <span className="text-slate-300">Navigate cells</span>
+            <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">Arrow Keys</span>
+          </div>
+          <div className="flex justify-between">
             <span className="text-slate-300">Enter number</span>
             <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">1-9</span>
           </div>

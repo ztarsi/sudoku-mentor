@@ -286,20 +286,48 @@ export default function SudokuMentor() {
         setCandidateMode(true);
       }
       
+      // Arrow key navigation
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        e.preventDefault();
+        if (selectedCell !== null) {
+          const row = Math.floor(selectedCell / 9);
+          const col = selectedCell % 9;
+          let newRow = row;
+          let newCol = col;
+          
+          if (e.key === 'ArrowUp') newRow = Math.max(0, row - 1);
+          if (e.key === 'ArrowDown') newRow = Math.min(8, row + 1);
+          if (e.key === 'ArrowLeft') newCol = Math.max(0, col - 1);
+          if (e.key === 'ArrowRight') newCol = Math.min(8, col + 1);
+          
+          setSelectedCell(newRow * 9 + newCol);
+        } else {
+          setSelectedCell(0); // Start at top-left if no cell selected
+        }
+        return;
+      }
+      
       if (e.key >= '1' && e.key <= '9') {
         const digit = parseInt(e.key);
         
-        if (selectedCell !== null && !grid[selectedCell].isFixed) {
-          if (candidateMode || e.shiftKey) {
-            e.preventDefault();
-            handleToggleCandidate(selectedCell, digit);
-          } else {
-            e.preventDefault();
-            handleCellInput(selectedCell, digit);
-          }
-        } else if (e.ctrlKey || e.metaKey) {
+        // Focus digit mode (Ctrl/Cmd + digit)
+        if (e.ctrlKey || e.metaKey) {
           e.preventDefault();
           handleDigitFilter(digit);
+          return;
+        }
+        
+        // Candidate mode (Shift + digit)
+        if ((candidateMode || e.shiftKey) && selectedCell !== null && !grid[selectedCell].isFixed) {
+          e.preventDefault();
+          handleToggleCandidate(selectedCell, digit);
+          return;
+        }
+        
+        // Regular input
+        if (selectedCell !== null && !grid[selectedCell].isFixed) {
+          e.preventDefault();
+          handleCellInput(selectedCell, digit);
         }
       } else if (e.key === 'Backspace' || e.key === 'Delete') {
         e.preventDefault();
