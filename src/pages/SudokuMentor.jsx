@@ -6,6 +6,7 @@ import ControlBar from '@/components/sudoku/ControlBar';
 import PuzzleLibrary from '@/components/sudoku/PuzzleLibrary';
 import OCRUpload from '@/components/sudoku/OCRUpload';
 import ColorSettings from '@/components/sudoku/ColorSettings';
+import CompletionModal from '@/components/sudoku/CompletionModal';
 import { generateCandidates, findNextLogicStep, applyLogicStep } from '@/components/sudoku/logicEngine';
 import { solveSudoku } from '@/components/sudoku/solver';
 
@@ -44,6 +45,9 @@ export default function SudokuMentor() {
     gridBg: '#0f172a',
     cellBg: '#020617',
   });
+  const [startTime, setStartTime] = useState(null);
+  const [errorCount, setErrorCount] = useState(0);
+  const [showCompletion, setShowCompletion] = useState(false);
   const errorAudioRef = useRef(null);
 
   // Auto-generate candidates whenever grid changes
@@ -78,6 +82,7 @@ export default function SudokuMentor() {
         errorAudioRef.current.currentTime = 0;
         errorAudioRef.current.play();
       }
+      setErrorCount(prev => prev + 1);
       return; // Block invalid input
     }
     
@@ -250,6 +255,8 @@ export default function SudokuMentor() {
     setHistoryIndex(-1);
     setValidationErrors([]);
     setHighlightedDigit(null);
+    setStartTime(Date.now());
+    setErrorCount(0);
   }, []);
 
   const validateGrid = useCallback(() => {
@@ -405,6 +412,20 @@ export default function SudokuMentor() {
     };
   }, [selectedCell, grid, candidateMode, currentStep, historyIndex, handleCellInput, handleToggleCandidate, handleDigitFilter, handleClearGrid, handleNextStep, handleApplyStep, handleUndo]);
 
+  // Check if puzzle is complete
+  useEffect(() => {
+    if (!solution || !startTime) return;
+    
+    const isSolved = grid.every((cell, idx) => 
+      cell.value !== null && cell.value === solution[idx].value
+    );
+    
+    if (isSolved && solvedCount === 81) {
+      const timeInSeconds = Math.floor((Date.now() - startTime) / 1000);
+      setShowCompletion(true);
+    }
+  }, [grid, solution, startTime]);
+
   const solvedCount = grid.filter(c => c.value !== null).length;
   const progress = Math.round((solvedCount / 81) * 100);
 
@@ -523,6 +544,16 @@ export default function SudokuMentor() {
           onClose={() => setShowColorSettings(false)}
         />
       )}
+
+      {/* Completion Modal */}
+      <CompletionModal
+        isOpen={showCompletion}
+        onClose={() => setShowCompletion(false)}
+        stats={{
+          timeInSeconds: startTime ? Math.floor((Date.now() - startTime) / 1000) : 0,
+          errorCount: errorCount
+        }}
+      />
       </div>
       );
       }
