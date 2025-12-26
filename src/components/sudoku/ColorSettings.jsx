@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Palette, X, Check } from 'lucide-react';
+import { Palette, X, Check, Save, Trash2 } from 'lucide-react';
 
 const PRESET_COLORS = [
   { name: 'White', value: '#ffffff' },
@@ -26,6 +26,51 @@ const PRESET_COLORS = [
 export default function ColorSettings({ colors, onColorsChange, onClose }) {
   const [customHex, setCustomHex] = useState('');
   const [activeSection, setActiveSection] = useState('focusDigit');
+  const [presets, setPresets] = useState([]);
+  const [presetName, setPresetName] = useState('');
+  const [showSaveInput, setShowSaveInput] = useState(false);
+
+  // Load presets from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('sudoku-color-presets');
+    if (saved) {
+      try {
+        setPresets(JSON.parse(saved));
+      } catch (e) {
+        console.error('Failed to load presets', e);
+      }
+    }
+  }, []);
+
+  const savePreset = () => {
+    if (!presetName.trim()) return;
+    if (presets.length >= 3) {
+      alert('Maximum 3 presets allowed. Delete one to add a new preset.');
+      return;
+    }
+
+    const newPreset = {
+      id: Date.now(),
+      name: presetName.trim(),
+      colors: { ...colors }
+    };
+
+    const updated = [...presets, newPreset];
+    setPresets(updated);
+    localStorage.setItem('sudoku-color-presets', JSON.stringify(updated));
+    setPresetName('');
+    setShowSaveInput(false);
+  };
+
+  const loadPreset = (preset) => {
+    onColorsChange(preset.colors);
+  };
+
+  const deletePreset = (id) => {
+    const updated = presets.filter(p => p.id !== id);
+    setPresets(updated);
+    localStorage.setItem('sudoku-color-presets', JSON.stringify(updated));
+  };
 
   const sections = {
     focusDigit: { label: 'Focused Digit', key: 'focusDigit' },
@@ -95,6 +140,94 @@ export default function ColorSettings({ colors, onColorsChange, onClose }) {
 
           {/* Content */}
           <div className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+            {/* Saved Presets */}
+            {presets.length > 0 && (
+              <div>
+                <h4 className="text-sm font-medium text-slate-300 mb-3">Saved Presets</h4>
+                <div className="space-y-2">
+                  {presets.map((preset) => (
+                    <div
+                      key={preset.id}
+                      className="flex items-center gap-3 bg-slate-800 rounded-lg p-3 hover:bg-slate-750 transition-colors"
+                    >
+                      <div className="flex gap-1">
+                        {Object.entries(preset.colors).slice(0, 4).map(([key, color]) => (
+                          <div
+                            key={key}
+                            className="w-6 h-6 rounded border border-slate-600"
+                            style={{ backgroundColor: color }}
+                          />
+                        ))}
+                      </div>
+                      <span className="flex-1 text-white font-medium">{preset.name}</span>
+                      <button
+                        onClick={() => loadPreset(preset)}
+                        className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 transition-colors"
+                      >
+                        Load
+                      </button>
+                      <button
+                        onClick={() => deletePreset(preset.id)}
+                        className="p-1 hover:bg-red-500/20 text-red-400 rounded transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Save Current Colors */}
+            <div>
+              <h4 className="text-sm font-medium text-slate-300 mb-3">Save Current Theme</h4>
+              {showSaveInput ? (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={presetName}
+                    onChange={(e) => setPresetName(e.target.value)}
+                    placeholder="Enter preset name..."
+                    className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    maxLength={20}
+                    onKeyDown={(e) => e.key === 'Enter' && savePreset()}
+                  />
+                  <button
+                    onClick={savePreset}
+                    disabled={!presetName.trim() || presets.length >= 3}
+                    className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                      presetName.trim() && presets.length < 3
+                        ? 'bg-emerald-500 text-white hover:bg-emerald-600'
+                        : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                    }`}
+                  >
+                    <Save className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowSaveInput(false);
+                      setPresetName('');
+                    }}
+                    className="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowSaveInput(true)}
+                  disabled={presets.length >= 3}
+                  className={`w-full py-2 rounded-lg font-medium transition-all ${
+                    presets.length < 3
+                      ? 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                      : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                  }`}
+                >
+                  {presets.length >= 3 ? 'Maximum Presets Reached (3/3)' : `Save Preset (${presets.length}/3)`}
+                </button>
+              )}
+            </div>
+
             {/* Section Selector */}
             <div className="flex gap-2 flex-wrap">
               {Object.entries(sections).map(([key, section]) => (
