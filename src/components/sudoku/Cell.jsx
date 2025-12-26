@@ -12,6 +12,7 @@ export default function Cell({
   borderClasses,
   focusedDigit,
   candidateMode,
+  colors,
   onClick, 
   onInput,
   onToggleCandidate
@@ -19,8 +20,9 @@ export default function Cell({
   const { value, isFixed, candidates, isBaseCell, isTargetCell, highlightColor } = cell;
 
   // Determine background color based on state
-  let bgColor = 'bg-slate-950';
+  let bgColor = colors?.cellBg || '#020617';
   let textColor = isFixed ? 'text-slate-100' : 'text-blue-400';
+  let useCustomBg = false;
   
   if (hasError) {
     bgColor = 'bg-red-900/40';
@@ -35,19 +37,25 @@ export default function Cell({
     bgColor = 'bg-emerald-900/40';
   } else if (isHighlightedNumber) {
     bgColor = 'bg-amber-900/40';
+  } else {
+    useCustomBg = true;
   }
+
+  const focusDigitColor = colors?.focusDigit || '#10b981';
+  const candidateColor = colors?.candidate || '#ffffff';
 
   return (
     <motion.div
       className={`
         relative aspect-square flex items-center justify-center cursor-pointer
-        ${bgColor} ${borderClasses}
+        ${!useCustomBg ? bgColor : ''} ${borderClasses}
         transition-all duration-200 ease-out
         hover:bg-slate-800/50
         ${isSelected ? 'ring-2 ring-blue-500 ring-inset z-10' : ''}
         ${isFocusedDigit ? 'ring-2 ring-emerald-500 ring-inset' : ''}
         ${isHighlightedNumber ? 'ring-2 ring-amber-400 ring-inset' : ''}
       `}
+      style={useCustomBg ? { backgroundColor: bgColor } : {}}
       onClick={onClick}
       whileTap={{ scale: 0.95 }}
     >
@@ -57,8 +65,12 @@ export default function Cell({
           animate={{ scale: 1, opacity: 1 }}
           className={`
             flex items-center justify-center rounded-lg
-            ${isFocusedDigit ? 'bg-emerald-500/25 ring-2 ring-emerald-400 px-3 py-1' : ''}
+            ${isFocusedDigit ? 'px-3 py-1' : ''}
           `}
+          style={isFocusedDigit ? {
+            backgroundColor: `${focusDigitColor}40`,
+            boxShadow: `0 0 0 2px ${focusDigitColor}`
+          } : {}}
         >
           <span
             className={`
@@ -83,17 +95,21 @@ export default function Cell({
                 className={`
                   flex items-center justify-center text-xs sm:text-sm
                   transition-all duration-200 rounded
-                  ${isHighlightedCandidate ? 'bg-white/90 ring-2 ring-white' : ''}
                   ${!hasCandidate ? 'text-transparent' : (
                     isTargetCell && focusedDigit === num 
                       ? 'text-red-400 font-bold animate-pulse' 
                       : isBaseCell && focusedDigit === num
                         ? 'text-blue-400 font-bold'
                         : isHighlightedCandidate 
-                          ? 'text-emerald-400 font-semibold' 
+                          ? 'font-semibold' 
                           : 'text-white'
                   )}
                 `}
+                style={isHighlightedCandidate ? {
+                  backgroundColor: `${candidateColor}E6`,
+                  boxShadow: `0 0 0 2px ${candidateColor}`,
+                  color: '#000'
+                } : {}}
               >
                 {num}
               </div>

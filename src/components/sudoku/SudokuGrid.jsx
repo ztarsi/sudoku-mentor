@@ -8,6 +8,7 @@ export default function SudokuGrid({
   highlightedDigit,
   validationErrors,
   candidateMode,
+  colors,
   onCellClick, 
   onCellInput,
   onToggleCandidate
@@ -18,7 +19,10 @@ export default function SudokuGrid({
       <div className="absolute inset-0 bg-gradient-to-br from-blue-500/30 to-indigo-500/30 rounded-2xl blur-xl"></div>
       
       {/* Grid container */}
-      <div className="relative bg-slate-900 rounded-2xl shadow-2xl shadow-black/50 p-3 sm:p-4 border border-slate-700">
+      <div 
+        className="relative rounded-2xl shadow-2xl shadow-black/50 p-3 sm:p-4 border border-slate-700"
+        style={{ backgroundColor: colors.gridBg }}
+      >
         <div 
           className="grid grid-cols-9 gap-0 border-2 border-slate-600 rounded-lg overflow-hidden"
           style={{ 
@@ -47,6 +51,7 @@ export default function SudokuGrid({
                 borderClasses={`${borderRight} ${borderBottom}`}
                 focusedDigit={focusedDigit}
                 candidateMode={candidateMode}
+                colors={colors}
                 onClick={() => onCellClick(index)}
                 onInput={(value) => onCellInput(index, value)}
                 onToggleCandidate={(candidate) => onToggleCandidate(index, candidate)}
