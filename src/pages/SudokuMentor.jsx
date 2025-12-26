@@ -7,6 +7,7 @@ import PuzzleLibrary from '@/components/sudoku/PuzzleLibrary';
 import OCRUpload from '@/components/sudoku/OCRUpload';
 import ColorSettings from '@/components/sudoku/ColorSettings';
 import CompletionModal from '@/components/sudoku/CompletionModal';
+import TextPuzzleUpload from '@/components/sudoku/TextPuzzleUpload';
 import { generateCandidates, findNextLogicStep, applyLogicStep } from '@/components/sudoku/logicEngine';
 import { solveSudoku } from '@/components/sudoku/solver';
 
@@ -32,6 +33,7 @@ export default function SudokuMentor() {
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [showLibrary, setShowLibrary] = useState(false);
   const [showOCRUpload, setShowOCRUpload] = useState(false);
+  const [showTextUpload, setShowTextUpload] = useState(false);
   const [validationErrors, setValidationErrors] = useState([]);
   const [highlightedDigit, setHighlightedDigit] = useState(null);
   const [solution, setSolution] = useState(null);
@@ -249,6 +251,7 @@ export default function SudokuMentor() {
     setGrid(newGrid);
     setShowLibrary(false);
     setShowOCRUpload(false);
+    setShowTextUpload(false);
     clearHighlights();
     setStepHistory([]);
     setHistoryIndex(-1);
@@ -453,28 +456,34 @@ export default function SudokuMentor() {
                 <span className="text-base text-slate-300">{progress}% Complete</span>
               </div>
               <div className="flex gap-2">
-                <button
-                  onClick={() => setShowColorSettings(true)}
-                  className="p-2 bg-slate-800 text-slate-300 rounded-xl hover:bg-slate-700 transition-all duration-200"
-                  title="Color Settings"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-                  </svg>
-                </button>
-                <button
-                  onClick={() => setShowOCRUpload(true)}
-                  className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-medium rounded-xl shadow-lg shadow-purple-500/25 hover:shadow-xl hover:shadow-purple-500/30 transition-all duration-300 hover:-translate-y-0.5"
-                >
-                  OCR Upload
-                </button>
-                <button
-                  onClick={() => setShowLibrary(true)}
-                  className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white text-sm font-medium rounded-xl shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 transition-all duration-300 hover:-translate-y-0.5"
-                >
-                  Load Puzzle
-                </button>
-              </div>
+                  <button
+                    onClick={() => setShowColorSettings(true)}
+                    className="p-2 bg-slate-800 text-slate-300 rounded-xl hover:bg-slate-700 transition-all duration-200"
+                    title="Color Settings"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => setShowTextUpload(true)}
+                    className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-sm font-medium rounded-xl shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30 transition-all duration-300 hover:-translate-y-0.5"
+                  >
+                    Text Upload
+                  </button>
+                  <button
+                    onClick={() => setShowOCRUpload(true)}
+                    className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-medium rounded-xl shadow-lg shadow-purple-500/25 hover:shadow-xl hover:shadow-purple-500/30 transition-all duration-300 hover:-translate-y-0.5"
+                  >
+                    OCR Upload
+                  </button>
+                  <button
+                    onClick={() => setShowLibrary(true)}
+                    className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white text-sm font-medium rounded-xl shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 transition-all duration-300 hover:-translate-y-0.5"
+                  >
+                    Load Puzzle
+                  </button>
+                </div>
             </div>
           </div>
         </div>
@@ -527,6 +536,14 @@ export default function SudokuMentor() {
         />
       )}
       
+      {/* Text Upload Modal */}
+      {showTextUpload && (
+        <TextPuzzleUpload
+          onClose={() => setShowTextUpload(false)}
+          onPuzzleLoaded={handleLoadPuzzle}
+        />
+      )}
+
       {/* OCR Upload Modal */}
       {showOCRUpload && (
         <OCRUpload
