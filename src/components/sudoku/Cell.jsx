@@ -52,18 +52,25 @@ export default function Cell({
       whileTap={{ scale: 0.95 }}
     >
       {value ? (
-        <motion.span
+        <motion.div
           initial={{ scale: 0.5, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           className={`
-            text-2xl sm:text-4xl font-semibold ${textColor}
-            ${isFixed ? '' : 'font-medium'}
-            ${hasError ? 'animate-pulse' : ''}
-            ${isDimmed ? 'opacity-20' : 'opacity-100'}
+            flex items-center justify-center rounded-lg
+            ${isFocusedDigit ? 'bg-emerald-500/25 ring-2 ring-emerald-400 px-3 py-1' : ''}
           `}
         >
-          {value}
-        </motion.span>
+          <span
+            className={`
+              text-2xl sm:text-4xl font-semibold ${textColor}
+              ${isFixed ? '' : 'font-medium'}
+              ${hasError ? 'animate-pulse' : ''}
+              ${isDimmed ? 'opacity-20' : 'opacity-100'}
+            `}
+          >
+            {value}
+          </span>
+        </motion.div>
       ) : (
         <div className="grid grid-cols-3 gap-0 w-full h-full p-0.5">
           {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => {
