@@ -112,7 +112,13 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
     const instances = findAllTechniqueInstances(grid, techniqueName);
     if (instances.length > 0 && onHighlightTechnique) {
       // Get current index for this technique (or start at 0)
-      const currentIndex = techniqueIndices[techniqueName] || 0;
+      let currentIndex = techniqueIndices[techniqueName] || 0;
+      
+      // Make sure index is within bounds
+      if (currentIndex >= instances.length) {
+        currentIndex = 0;
+      }
+      
       const nextIndex = (currentIndex + 1) % instances.length;
       
       // Update the index for next click
@@ -121,8 +127,11 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
         [techniqueName]: nextIndex
       }));
       
-      // Show only the current instance
-      onHighlightTechnique([instances[currentIndex]], instances.length, currentIndex + 1);
+      // Show only the current instance (make sure it exists)
+      const instance = instances[currentIndex];
+      if (instance) {
+        onHighlightTechnique([instance], instances.length, currentIndex + 1);
+      }
     }
   };
 
