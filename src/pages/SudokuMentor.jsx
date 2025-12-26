@@ -33,6 +33,7 @@ export default function SudokuMentor() {
   const [validationErrors, setValidationErrors] = useState([]);
   const [highlightedDigit, setHighlightedDigit] = useState(null);
   const [solution, setSolution] = useState(null);
+  const [candidateMode, setCandidateMode] = useState(false);
   const errorAudioRef = useRef(null);
 
   // Auto-generate candidates whenever grid changes
@@ -88,6 +89,29 @@ export default function SudokuMentor() {
     });
     validateGrid();
   }, [historyIndex, solution]);
+
+  const handleToggleCandidate = useCallback((cellIndex, candidate) => {
+    setGrid(prev => {
+      const newGrid = [...prev];
+      const cell = { ...newGrid[cellIndex] };
+      
+      if (!cell.isFixed && !cell.value) {
+        const candidateIdx = cell.candidates.indexOf(candidate);
+        if (candidateIdx >= 0) {
+          cell.candidates = cell.candidates.filter(c => c !== candidate);
+        } else {
+          cell.candidates = [...cell.candidates, candidate].sort();
+        }
+        newGrid[cellIndex] = cell;
+        
+        // Save to history
+        setStepHistory(h => [...h.slice(0, historyIndex + 1), { grid: prev, action: 'toggle_candidate' }]);
+        setHistoryIndex(i => i + 1);
+      }
+      
+      return newGrid;
+    });
+  }, [historyIndex]);
 
   const handleDigitFilter = useCallback((digit) => {
     setFocusedDigit(prev => prev === digit ? null : digit);
@@ -257,26 +281,58 @@ export default function SudokuMentor() {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Shift key toggles candidate mode
+      if (e.key === 'Shift' && !e.repeat) {
+        setCandidateMode(true);
+      }
+      
       if (e.key >= '1' && e.key <= '9') {
+        const digit = parseInt(e.key);
+        
         if (selectedCell !== null && !grid[selectedCell].isFixed) {
-          handleCellInput(selectedCell, parseInt(e.key));
-        } else if (e.shiftKey) {
-          handleDigitFilter(parseInt(e.key));
+          if (candidateMode || e.shiftKey) {
+            e.preventDefault();
+            handleToggleCandidate(selectedCell, digit);
+          } else {
+            e.preventDefault();
+            handleCellInput(selectedCell, digit);
+          }
+        } else if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          handleDigitFilter(digit);
         }
       } else if (e.key === 'Backspace' || e.key === 'Delete') {
+        e.preventDefault();
         if (selectedCell !== null && !grid[selectedCell].isFixed) {
           handleCellInput(selectedCell, null);
         }
       } else if (e.key === 'Escape') {
+        e.preventDefault();
         setFocusedDigit(null);
         setSelectedCell(null);
+        setHighlightedDigit(null);
         clearHighlights();
+      } else if (e.key === 'c' && (e.ctrlKey || e.metaKey)) {
+        // Allow default copy
+      } else if (e.key.toLowerCase() === 'c' && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        handleClearGrid();
+      }
+    };
+    
+    const handleKeyUp = (e) => {
+      if (e.key === 'Shift') {
+        setCandidateMode(false);
       }
     };
     
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedCell, grid, handleCellInput, handleDigitFilter]);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [selectedCell, grid, candidateMode, handleCellInput, handleToggleCandidate, handleDigitFilter, handleClearGrid]);
 
   const solvedCount = grid.filter(c => c.value !== null).length;
   const progress = Math.round((solvedCount / 81) * 100);
@@ -335,6 +391,15 @@ export default function SudokuMentor() {
               grid={grid}
             />
             
+            {/* Candidate Mode Indicator */}
+            {candidateMode && (
+              <div className="bg-amber-900/40 border border-amber-500 rounded-xl p-3 text-center">
+                <span className="text-amber-300 font-medium">
+                  📝 Candidate Mode Active - Press numbers to toggle candidates
+                </span>
+              </div>
+            )}
+            
             {/* Sudoku Grid */}
             <div className="flex justify-center">
               <SudokuGrid
@@ -343,8 +408,10 @@ export default function SudokuMentor() {
                 focusedDigit={focusedDigit}
                 highlightedDigit={highlightedDigit}
                 validationErrors={validationErrors}
+                candidateMode={candidateMode}
                 onCellClick={handleCellClick}
                 onCellInput={handleCellInput}
+                onToggleCandidate={handleToggleCandidate}
               />
             </div>
             

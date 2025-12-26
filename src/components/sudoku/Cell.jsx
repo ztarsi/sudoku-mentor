@@ -11,8 +11,10 @@ export default function Cell({
   hasError,
   borderClasses,
   focusedDigit,
+  candidateMode,
   onClick, 
-  onInput 
+  onInput,
+  onToggleCandidate
 }) {
   const { value, isFixed, candidates, isBaseCell, isTargetCell, highlightColor } = cell;
 
@@ -68,13 +70,20 @@ export default function Cell({
             const hasCandidate = candidates.includes(num);
             const isHighlightedCandidate = focusedDigit === num && hasCandidate;
             const shouldDim = focusedDigit !== null && focusedDigit !== num;
-            
+
             return (
               <div 
-                key={num} 
+                key={num}
+                onClick={(e) => {
+                  if (candidateMode && !isFixed) {
+                    e.stopPropagation();
+                    onToggleCandidate(num);
+                  }
+                }}
                 className={`
                   flex items-center justify-center text-xs sm:text-sm
                   transition-all duration-200
+                  ${candidateMode && !isFixed ? 'cursor-pointer hover:bg-slate-700/50' : ''}
                   ${!hasCandidate ? 'text-transparent' : (
                     isTargetCell && focusedDigit === num 
                       ? 'text-red-400 font-bold animate-pulse' 

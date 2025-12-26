@@ -7,8 +7,10 @@ export default function SudokuGrid({
   focusedDigit,
   highlightedDigit,
   validationErrors,
+  candidateMode,
   onCellClick, 
-  onCellInput 
+  onCellInput,
+  onToggleCandidate
 }) {
   return (
     <div className="relative">
@@ -44,8 +46,10 @@ export default function SudokuGrid({
                 hasError={validationErrors.includes(index)}
                 borderClasses={`${borderRight} ${borderBottom}`}
                 focusedDigit={focusedDigit}
+                candidateMode={candidateMode}
                 onClick={() => onCellClick(index)}
                 onInput={(value) => onCellInput(index, value)}
+                onToggleCandidate={(candidate) => onToggleCandidate(index, candidate)}
               />
             );
           })}
