@@ -51,17 +51,6 @@ export default function SudokuMentor() {
   const [showCompletion, setShowCompletion] = useState(false);
   const errorAudioRef = useRef(null);
 
-  // Auto-generate candidates whenever grid changes
-  useEffect(() => {
-    const newGrid = generateCandidates(grid);
-    const hasChanged = newGrid.some((cell, i) => 
-      JSON.stringify(cell.candidates) !== JSON.stringify(grid[i].candidates)
-    );
-    if (hasChanged) {
-      setGrid(newGrid);
-    }
-  }, [grid.map(c => c.value).join(',')]);
-
   const handleCellClick = useCallback((cellIndex) => {
     setSelectedCell(cellIndex);
     
@@ -101,7 +90,8 @@ export default function SudokuMentor() {
         setHistoryIndex(i => i + 1);
       }
       
-      return newGrid;
+      // Regenerate candidates after setting a value
+      return generateCandidates(newGrid);
     });
     validateGrid();
   }, [historyIndex, solution]);
@@ -239,8 +229,11 @@ export default function SudokuMentor() {
       }
     });
     
+    // Generate initial candidates
+    const gridWithCandidates = generateCandidates(newGrid);
+    
     // Solve the puzzle to get the solution
-    const solved = solveSudoku(newGrid);
+    const solved = solveSudoku(gridWithCandidates);
     if (solved) {
       setSolution(solved);
     } else {
@@ -248,7 +241,7 @@ export default function SudokuMentor() {
       alert('This puzzle has no valid solution!');
     }
     
-    setGrid(newGrid);
+    setGrid(gridWithCandidates);
     setShowLibrary(false);
     setShowOCRUpload(false);
     setShowTextUpload(false);

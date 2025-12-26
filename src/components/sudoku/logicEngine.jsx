@@ -653,5 +653,7 @@ export const applyLogicStep = (grid, step) => {
     };
   }
   
-  return generateCandidates(newGrid);
+  // Don't regenerate all candidates, just return the modified grid
+  // This preserves any manual candidate toggles the user made
+  return newGrid;
 };
