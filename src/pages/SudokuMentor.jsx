@@ -146,6 +146,10 @@ export default function SudokuMentor() {
     const step = findNextLogicStep(grid, focusedDigit);
     if (step) {
       setCurrentStep(step);
+      // Highlight the digit from the hint
+      if (step.digit) {
+        setFocusedDigit(step.digit);
+      }
       setGrid(prev => {
         const newGrid = prev.map(cell => ({
           ...cell,
