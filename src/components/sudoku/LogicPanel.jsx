@@ -231,16 +231,24 @@ export default function LogicPanel({ currentStep, focusedDigit, grid }) {
         </h4>
         <div className="space-y-2 text-base">
           <div className="flex justify-between">
-            <span className="text-slate-300">Focus digit</span>
-            <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">Shift + 1-9</span>
-          </div>
-          <div className="flex justify-between">
             <span className="text-slate-300">Enter number</span>
             <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">1-9</span>
           </div>
           <div className="flex justify-between">
+            <span className="text-slate-300">Toggle candidate</span>
+            <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">Shift + 1-9</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-slate-300">Focus digit</span>
+            <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">Ctrl/Cmd + 1-9</span>
+          </div>
+          <div className="flex justify-between">
             <span className="text-slate-300">Clear cell</span>
-            <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">Delete</span>
+            <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">Delete / Backspace</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-slate-300">Clear grid</span>
+            <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">C</span>
           </div>
           <div className="flex justify-between">
             <span className="text-slate-300">Clear focus</span>
