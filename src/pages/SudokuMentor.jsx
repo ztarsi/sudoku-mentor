@@ -368,12 +368,12 @@ export default function SudokuMentor() {
         
         // Candidate mode (Shift + digit) - check selected cell exists and is empty
         if (e.shiftKey && selectedCell !== null) {
+          e.preventDefault();
           const cell = grid[selectedCell];
           if (!cell.isFixed && cell.value === null) {
-            e.preventDefault();
             handleToggleCandidate(selectedCell, digit);
-            return;
           }
+          return;
         }
         
         // Regular input
