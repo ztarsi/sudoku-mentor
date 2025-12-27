@@ -452,7 +452,8 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
               { label: '0.5x', value: 2000 },
               { label: '1x', value: 1000 },
               { label: '2x', value: 500 },
-              { label: '4x', value: 250 }
+              { label: '4x', value: 250 },
+              { label: '16x', value: 63 }
             ].map(({ label, value }) => (
               <button
                 key={value}
