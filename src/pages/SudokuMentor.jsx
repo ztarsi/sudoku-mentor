@@ -193,19 +193,12 @@ export default function SudokuMentor() {
       });
     } else {
       // No regular techniques found - search for forcing chains automatically
-      setIsLoading(true);
-      setLoadingStage(0);
-      
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
       const { findForcingChain, findHypothesis } = await import('@/components/sudoku/forcingChainEngine');
       
       let result = findForcingChain(grid, 100);
       if (!result) {
         result = findHypothesis(grid, 100);
       }
-      
-      setIsLoading(false);
       
       if (result) {
         setCurrentStep(result);
