@@ -7,7 +7,7 @@ export default function UltimateTechniqueScanModal({ isOpen, currentTechnique, r
     { name: 'X-Cycle', time: '~2s' },
     { name: 'Finned X-Wing', time: '~1s' },
     { name: 'ALS-XZ', time: '~3s' },
-    { name: 'Unique Rectangle', time: '~2s' },
+    { name: 'Unique Rectangle Type 1', time: '~2s' },
     { name: 'BUG+1', time: '~1s' }
   ];
 
