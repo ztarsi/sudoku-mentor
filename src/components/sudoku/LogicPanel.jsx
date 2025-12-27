@@ -119,7 +119,7 @@ const TECHNIQUE_INFO = {
   }
 };
 
-export default function LogicPanel({ currentStep, focusedDigit, grid, onHighlightTechnique, onApplyStep, onNextStep }) {
+export default function LogicPanel({ currentStep, focusedDigit, grid, onHighlightTechnique, onApplyStep, onNextStep, onReplayAnimation }) {
   const [selectedTechnique, setSelectedTechnique] = useState(null);
   const [shortcutsExpanded, setShortcutsExpanded] = useState(true);
   const [techniqueIndices, setTechniqueIndices] = useState({});
@@ -346,14 +346,9 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
               </div>
               
               {/* Replay button for Deep Forcing Chains */}
-              {currentStep.technique === 'Deep Forcing Chain' && (
+              {currentStep.technique === 'Deep Forcing Chain' && onReplayAnimation && (
                 <button
-                  onClick={() => {
-                    // Force re-render of visualization by clearing and restoring step
-                    const step = currentStep;
-                    setCurrentStep(null);
-                    setTimeout(() => setCurrentStep(step), 50);
-                  }}
+                  onClick={onReplayAnimation}
                   className="w-full px-4 py-2 bg-fuchsia-600 hover:bg-fuchsia-500 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

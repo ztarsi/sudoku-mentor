@@ -150,6 +150,14 @@ export default function SudokuMentor() {
     setCurrentStep(null);
   };
 
+  const handleReplayAnimation = useCallback(() => {
+    if (currentStep) {
+      const step = currentStep;
+      setCurrentStep(null);
+      setTimeout(() => setCurrentStep(step), 50);
+    }
+  }, [currentStep]);
+
   const handleNextStep = useCallback(() => {
     const step = findNextLogicStep(grid, null);
     if (step) {
@@ -559,6 +567,7 @@ export default function SudokuMentor() {
               grid={grid}
               onApplyStep={handleApplyStep}
               onNextStep={handleNextStep}
+              onReplayAnimation={handleReplayAnimation}
               onHighlightTechnique={(instances, total, current) => {
                 // Set the first instance as the current step so it can be applied
                 if (instances.length > 0) {
@@ -617,6 +626,7 @@ export default function SudokuMentor() {
           grid={grid}
           onApplyStep={handleApplyStep}
           onNextStep={handleNextStep}
+          onReplayAnimation={handleReplayAnimation}
           onHighlightTechnique={(instances, total, current) => {
             setGrid(prev => {
               const newGrid = prev.map(cell => ({
