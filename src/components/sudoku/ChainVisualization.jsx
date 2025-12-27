@@ -1,8 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 
-export default function ChainVisualization({ chains, strongLinks, weakLinks, cellSize = 50, gridSize = 450 }) {
-  if (!chains && (!strongLinks || strongLinks.length === 0)) return null;
+export default function ChainVisualization({ chains, strongLinks, weakLinks, alsLinks, cellSize = 50, gridSize = 450 }) {
+  if (!chains && (!strongLinks || strongLinks.length === 0) && (!alsLinks || alsLinks.length === 0)) return null;
 
   const getCellCenter = (cellIndex) => {
     const row = Math.floor(cellIndex / 9);
@@ -12,9 +12,9 @@ export default function ChainVisualization({ chains, strongLinks, weakLinks, cel
     return { x, y };
   };
 
-  const renderArrow = (from, to, type = 'strong', key) => {
-    const start = getCellCenter(from);
-    const end = getCellCenter(to);
+  const renderArrow = (from, to, type = 'strong', key, isALS = false) => {
+    const start = isALS ? from : getCellCenter(from);
+    const end = isALS ? to : getCellCenter(to);
     
     const dx = end.x - start.x;
     const dy = end.y - start.y;
@@ -93,6 +93,10 @@ export default function ChainVisualization({ chains, strongLinks, weakLinks, cel
           const type = idx % 2 === 0 ? 'strong' : 'weak';
           return renderArrow(cell, chains[idx + 1], type, `chain-${idx}`);
         })}
+        
+        {alsLinks && alsLinks.map((link, idx) => 
+          renderArrow(link.from, link.to, link.type, `als-${idx}`, true)
+        )}
       </svg>
     </div>
   );
