@@ -549,6 +549,7 @@ export default function SudokuMentor() {
                 validationErrors={validationErrors}
                 candidateMode={candidateMode}
                 colors={colors}
+                currentStep={currentStep}
                 onCellClick={handleCellClick}
                 onCellInput={handleCellInput}
                 onToggleCandidate={handleToggleCandidate}

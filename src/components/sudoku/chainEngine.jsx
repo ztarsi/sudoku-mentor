@@ -157,12 +157,22 @@ export const findXCycle = (grid, focusedDigit) => {
               }
               
               if (eliminations.length > 0) {
+                // Build chain links for visualization
+                const chainLinks = [];
+                for (let i = 0; i < path.length - 1; i++) {
+                  chainLinks.push({
+                    from: { cell: path[i], digit },
+                    to: { cell: path[i + 1], digit }
+                  });
+                }
+                
                 return {
                   technique: 'X-Cycle',
                   digit,
                   baseCells: [...colorA, ...colorB],
                   targetCells: eliminations.map(e => e.cell),
                   chains: path,
+                  strongLinks: chainLinks,
                   eliminations,
                   explanation: `An X-Cycle on digit ${digit} creates two color groups. Candidates seeing both colors can be eliminated.`
                 };
@@ -462,12 +472,24 @@ export const findFinnedXWing = (grid, focusedDigit) => {
             
             if (eliminations.length > 0) {
               const baseCells = [...r1.positions, ...r2.positions];
+              
+              // Build strong links for the X-Wing pattern
+              const xwingLinks = [];
+              // Link cells in same rows
+              if (r1.positions.length === 2) {
+                xwingLinks.push({ from: { cell: r1.positions[0], digit }, to: { cell: r1.positions[1], digit } });
+              }
+              if (r2.positions.length === 2) {
+                xwingLinks.push({ from: { cell: r2.positions[0], digit }, to: { cell: r2.positions[1], digit } });
+              }
+              
               return {
                 technique: 'Finned X-Wing',
                 digit,
                 baseCells,
                 targetCells: eliminations.map(e => e.cell),
                 finCells: fins,
+                strongLinks: xwingLinks,
                 eliminations,
                 explanation: `Finned X-Wing on ${digit} in Rows ${r1.row+1} and ${r2.row+1}. Fin cells create restricted eliminations.`
               };

@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import Cell from './Cell';
 import CellContextMenu from './CellContextMenu';
+import ChainVisualization from './ChainVisualization';
 
 export default function SudokuGrid({ 
   grid, 
@@ -10,6 +11,7 @@ export default function SudokuGrid({
   validationErrors,
   candidateMode,
   colors,
+  currentStep,
   onCellClick, 
   onCellInput,
   onToggleCandidate
@@ -57,6 +59,9 @@ export default function SudokuGrid({
     }
   };
 
+  const gridSize = typeof window !== 'undefined' ? Math.min(window.innerWidth * 0.9, 600) : 600;
+  const cellSize = gridSize / 9;
+
   return (
     <>
       <div className="relative">
@@ -66,13 +71,23 @@ export default function SudokuGrid({
         {/* Grid container */}
         <div className="relative bg-slate-900 rounded-2xl shadow-2xl shadow-black/50 p-3 sm:p-4 border border-slate-700">
           <div 
-            className="grid grid-cols-9 gap-0 rounded-lg overflow-hidden"
+            className="grid grid-cols-9 gap-0 rounded-lg overflow-hidden relative"
             style={{ 
               border: `2px solid ${colors?.gridLines || '#475569'}`,
               width: 'min(90vw, 600px)', 
               height: 'min(90vw, 600px)' 
             }}
           >
+            {/* Chain Visualization Overlay */}
+            {currentStep && (currentStep.chains || currentStep.strongLinks || currentStep.weakLinks) && (
+              <ChainVisualization
+                chains={currentStep.chains}
+                strongLinks={currentStep.strongLinks}
+                weakLinks={currentStep.weakLinks}
+                cellSize={cellSize}
+                gridSize={gridSize}
+              />
+            )}
             {grid.map((cell, index) => {
               const row = Math.floor(index / 9);
               const col = index % 9;

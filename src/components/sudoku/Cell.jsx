@@ -47,6 +47,7 @@ export default function Cell({
   const gridLineColor = colors?.gridLines || '#475569';
 
   return (
+    <div className="relative">
     <motion.div
       className={`
         relative aspect-square flex items-center justify-center cursor-pointer
@@ -151,5 +152,6 @@ export default function Cell({
         />
       )}
     </motion.div>
+    </div>
   );
 }
