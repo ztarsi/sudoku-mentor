@@ -50,6 +50,9 @@ export default function SudokuMentor() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStage, setLoadingStage] = useState(0);
+  const [whatIfOverlay, setWhatIfOverlay] = useState(null);
+  const [whatIfAnimStep, setWhatIfAnimStep] = useState(0);
+  const whatIfTimerRef = useRef(null);
   const errorAudioRef = useRef(null);
 
   const loadingStages = [
@@ -148,20 +151,52 @@ export default function SudokuMentor() {
       isTargetCell: false
     })));
     setCurrentStep(null);
+    setWhatIfOverlay(null);
+    setWhatIfAnimStep(0);
   };
 
   const handleReplayAnimation = useCallback(() => {
-    if (currentStep) {
-      const step = currentStep;
-      setCurrentStep(null);
-      setTimeout(() => setCurrentStep(step), 50);
+    if (currentStep && currentStep.technique === 'Deep Forcing Chain' && currentStep.chain) {
+      // Reset and start the what-if overlay animation
+      setWhatIfAnimStep(0);
+      setWhatIfOverlay({ chain: currentStep.chain, baseGrid: grid });
+      
+      // Clear any existing timer
+      if (whatIfTimerRef.current) {
+        clearTimeout(whatIfTimerRef.current);
+      }
     }
-  }, [currentStep]);
+  }, [currentStep, grid]);
+
+  // Handle what-if overlay animation
+  useEffect(() => {
+    if (!whatIfOverlay || !whatIfOverlay.chain) return;
+
+    const chain = whatIfOverlay.chain;
+    if (whatIfAnimStep < chain.length) {
+      whatIfTimerRef.current = setTimeout(() => {
+        setWhatIfAnimStep(prev => prev + 1);
+      }, 600);
+    }
+
+    return () => {
+      if (whatIfTimerRef.current) {
+        clearTimeout(whatIfTimerRef.current);
+      }
+    };
+  }, [whatIfOverlay, whatIfAnimStep]);
 
   const handleNextStep = useCallback(() => {
     const step = findNextLogicStep(grid, null);
     if (step) {
       setCurrentStep(step);
+      
+      // If it's a forcing chain, start the animation immediately
+      if (step.technique === 'Deep Forcing Chain' && step.chain) {
+        setWhatIfAnimStep(0);
+        setWhatIfOverlay({ chain: step.chain, baseGrid: grid });
+      }
+      
       setGrid(prev => {
         const newGrid = prev.map(cell => ({
           ...cell,
@@ -213,6 +248,8 @@ export default function SudokuMentor() {
       
       setCurrentStep(null);
       setFocusedDigit(null);
+      setWhatIfOverlay(null);
+      setWhatIfAnimStep(0);
       clearHighlights();
     }
   }, [currentStep, grid, historyIndex]);
@@ -552,6 +589,8 @@ export default function SudokuMentor() {
                 candidateMode={candidateMode}
                 colors={colors}
                 currentStep={currentStep}
+                whatIfOverlay={whatIfOverlay}
+                whatIfAnimStep={whatIfAnimStep}
                 onCellClick={handleCellClick}
                 onCellInput={handleCellInput}
                 onToggleCandidate={handleToggleCandidate}
