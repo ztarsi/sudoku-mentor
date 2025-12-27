@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import Cell from './Cell';
+import CellContextMenu from './CellContextMenu';
 
 export default function SudokuGrid({ 
   grid, 
@@ -13,51 +14,111 @@ export default function SudokuGrid({
   onCellInput,
   onToggleCandidate
 }) {
+  const [contextMenu, setContextMenu] = useState({ isOpen: false, cellIndex: null, position: { x: 0, y: 0 } });
+  const longPressTimerRef = useRef(null);
+  const touchStartPosRef = useRef({ x: 0, y: 0 });
+
+  const handleTouchStart = (e, cellIndex) => {
+    const touch = e.touches[0];
+    touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
+    
+    longPressTimerRef.current = setTimeout(() => {
+      setContextMenu({
+        isOpen: true,
+        cellIndex,
+        position: { x: touch.clientX, y: touch.clientY - 10 }
+      });
+    }, 500);
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const handleTouchMove = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const handleContextMenuClear = () => {
+    if (contextMenu.cellIndex !== null) {
+      onCellInput(contextMenu.cellIndex, null);
+    }
+  };
+
+  const handleContextMenuToggleCandidates = () => {
+    if (contextMenu.cellIndex !== null && focusedDigit) {
+      onToggleCandidate(contextMenu.cellIndex, focusedDigit);
+    }
+  };
+
   return (
-    <div className="relative">
-      {/* Outer glow effect */}
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-500/30 to-indigo-500/30 rounded-2xl blur-xl"></div>
-      
-      {/* Grid container */}
-      <div className="relative bg-slate-900 rounded-2xl shadow-2xl shadow-black/50 p-3 sm:p-4 border border-slate-700">
-        <div 
-          className="grid grid-cols-9 gap-0 rounded-lg overflow-hidden"
-          style={{ border: `2px solid ${colors?.gridLines || '#475569'}` }}
-          style={{ 
-            width: 'min(90vw, 600px)', 
-            height: 'min(90vw, 600px)' 
-          }}
-        >
-          {grid.map((cell, index) => {
-            const row = Math.floor(index / 9);
-            const col = index % 9;
-            
-            // Determine border styling for 3x3 boxes
-            const borderRight = (col + 1) % 3 === 0 && col !== 8 ? 'border-r-2' : 'border-r';
-            const borderBottom = (row + 1) % 3 === 0 && row !== 8 ? 'border-b-2' : 'border-b';
-            
-            return (
-              <Cell
-                key={index}
-                cell={cell}
-                isSelected={selectedCell === index}
-                isFocusedDigit={focusedDigit !== null && cell.value === focusedDigit}
-                isFocusCandidate={focusedDigit !== null && cell.candidates.includes(focusedDigit)}
-                isDimmed={focusedDigit !== null && cell.value !== focusedDigit && !cell.candidates.includes(focusedDigit)}
-                isHighlightedNumber={highlightedDigit !== null && cell.value === highlightedDigit}
-                hasError={validationErrors.includes(index)}
-                borderClasses={`${borderRight} ${borderBottom}`}
-                focusedDigit={focusedDigit}
-                candidateMode={candidateMode}
-                colors={colors}
-                onClick={() => onCellClick(index)}
-                onInput={(value) => onCellInput(index, value)}
-                onToggleCandidate={(candidate) => onToggleCandidate(index, candidate)}
-              />
-            );
-          })}
+    <>
+      <div className="relative">
+        {/* Outer glow effect */}
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/30 to-indigo-500/30 rounded-2xl blur-xl"></div>
+        
+        {/* Grid container */}
+        <div className="relative bg-slate-900 rounded-2xl shadow-2xl shadow-black/50 p-3 sm:p-4 border border-slate-700">
+          <div 
+            className="grid grid-cols-9 gap-0 rounded-lg overflow-hidden"
+            style={{ 
+              border: `2px solid ${colors?.gridLines || '#475569'}`,
+              width: 'min(90vw, 600px)', 
+              height: 'min(90vw, 600px)' 
+            }}
+          >
+            {grid.map((cell, index) => {
+              const row = Math.floor(index / 9);
+              const col = index % 9;
+              
+              // Determine border styling for 3x3 boxes
+              const borderRight = (col + 1) % 3 === 0 && col !== 8 ? 'border-r-2' : 'border-r';
+              const borderBottom = (row + 1) % 3 === 0 && row !== 8 ? 'border-b-2' : 'border-b';
+              
+              return (
+                <div
+                  key={index}
+                  onTouchStart={(e) => handleTouchStart(e, index)}
+                  onTouchEnd={handleTouchEnd}
+                  onTouchMove={handleTouchMove}
+                >
+                  <Cell
+                    cell={cell}
+                    isSelected={selectedCell === index}
+                    isFocusedDigit={focusedDigit !== null && cell.value === focusedDigit}
+                    isFocusCandidate={focusedDigit !== null && cell.candidates.includes(focusedDigit)}
+                    isDimmed={focusedDigit !== null && cell.value !== focusedDigit && !cell.candidates.includes(focusedDigit)}
+                    isHighlightedNumber={highlightedDigit !== null && cell.value === highlightedDigit}
+                    hasError={validationErrors.includes(index)}
+                    borderClasses={`${borderRight} ${borderBottom}`}
+                    focusedDigit={focusedDigit}
+                    candidateMode={candidateMode}
+                    colors={colors}
+                    onClick={() => onCellClick(index)}
+                    onInput={(value) => onCellInput(index, value)}
+                    onToggleCandidate={(candidate) => onToggleCandidate(index, candidate)}
+                  />
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
-    </div>
+
+      <CellContextMenu
+        isOpen={contextMenu.isOpen}
+        position={contextMenu.position}
+        cell={contextMenu.cellIndex !== null ? grid[contextMenu.cellIndex] : null}
+        onClose={() => setContextMenu({ isOpen: false, cellIndex: null, position: { x: 0, y: 0 } })}
+        onClear={handleContextMenuClear}
+        onToggleCandidateMode={handleContextMenuToggleCandidates}
+      />
+    </>
   );
 }
