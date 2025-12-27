@@ -163,7 +163,7 @@ export default function SudokuMentor() {
       if (chain) {
         // Reset and start the what-if overlay animation
         setWhatIfAnimStep(0);
-        setWhatIfOverlay({ chain, baseGrid: grid });
+        setWhatIfOverlay({ chain, baseGrid: grid, initialCell: currentStep.baseCells?.[0] });
         
         // Clear any existing timer
         if (whatIfTimerRef.current) {
@@ -203,7 +203,7 @@ export default function SudokuMentor() {
         
         if (chain) {
           setWhatIfAnimStep(0);
-          setWhatIfOverlay({ chain, baseGrid: grid });
+          setWhatIfOverlay({ chain, baseGrid: grid, initialCell: step.baseCells?.[0] });
         }
       }
       
@@ -620,7 +620,17 @@ export default function SudokuMentor() {
               onHighlightTechnique={(instances, total, current) => {
                 // Set the first instance as the current step so it can be applied
                 if (instances.length > 0) {
-                  setCurrentStep(instances[0]);
+                  const newStep = instances[0];
+                  setCurrentStep(newStep);
+
+                  // If it's a forcing chain, start the animation immediately
+                  if (newStep.technique === 'Deep Forcing Chain') {
+                    const chain = newStep.chain || (newStep.chains && newStep.chains[0]?.cells);
+                    if (chain) {
+                      setWhatIfAnimStep(0);
+                      setWhatIfOverlay({ chain, baseGrid: grid, initialCell: newStep.baseCells?.[0] });
+                    }
+                  }
                 }
 
                 // Highlight cells from the current instance

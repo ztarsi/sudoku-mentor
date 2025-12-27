@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export default function ChainVisualization({ chains, strongLinks, weakLinks, alsLinks, forcingChains, cellSize = 50, gridSize = 450, currentStep }) {
+export default function ChainVisualization({ chains, strongLinks, weakLinks, alsLinks, forcingChains, cellSize = 50, gridSize = 450, currentStep, whatIfOverlay }) {
   const [currentAnimStep, setCurrentAnimStep] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
 
@@ -373,11 +373,11 @@ export default function ChainVisualization({ chains, strongLinks, weakLinks, als
               }}
             />
 
-            {/* Blinking initial assumption cell (baseCells[0]) */}
-            {currentStep.baseCells && currentStep.baseCells[0] !== undefined && (
+            {/* Blinking initial assumption cell */}
+            {whatIfOverlay?.initialCell !== undefined && whatIfOverlay.initialCell !== null && (
               <motion.rect
-                x={getCellCenter(currentStep.baseCells[0]).x - cellSize * 0.4}
-                y={getCellCenter(currentStep.baseCells[0]).y - cellSize * 0.4}
+                x={getCellCenter(whatIfOverlay.initialCell).x - cellSize * 0.4}
+                y={getCellCenter(whatIfOverlay.initialCell).y - cellSize * 0.4}
                 width={cellSize * 0.8}
                 height={cellSize * 0.8}
                 rx={cellSize * 0.1}

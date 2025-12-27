@@ -213,6 +213,7 @@ export default function SudokuGrid({
                   cellSize={cellSize}
                   gridSize={gridSize}
                   currentStep={currentStep}
+                  whatIfOverlay={whatIfOverlay}
                 />
               </div>
             )}
