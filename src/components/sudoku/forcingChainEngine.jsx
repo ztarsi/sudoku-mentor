@@ -98,19 +98,17 @@ export const findForcingChain = (grid, maxDepth = 8) => {
       const placements = branch1.chain.filter(c => c.action === 'place');
       const eliminations = branch1.chain.filter(c => c.action === 'eliminate');
       
-      let explanation = `If R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} = ${value1}, the following chain occurs:\n\n`;
-      explanation += 'Forced Placements (Green):\n';
-      placements.forEach(p => {
-        explanation += `• R${getRow(p.cell) + 1}C${getCol(p.cell) + 1} = ${p.value}\n`;
+      let explanation = `If R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} = ${value1}, the following chain of forced moves occurs:\n\n`;
+      
+      // Build a narrative of the chain
+      branch1.chain.forEach((step, idx) => {
+        if (step.action === 'place') {
+          explanation += `${idx + 1}. Place ${step.value} at R${getRow(step.cell) + 1}C${getCol(step.cell) + 1} → `;
+        }
       });
-      explanation += '\nEliminations (Orange):\n';
-      eliminations.slice(0, 10).forEach(e => {
-        explanation += `• R${getRow(e.cell) + 1}C${getCol(e.cell) + 1} removes ${e.value}\n`;
-      });
-      if (eliminations.length > 10) {
-        explanation += `• ...and ${eliminations.length - 10} more eliminations\n`;
-      }
-      explanation += `\nThis leads to a contradiction at R${getRow(branch1.contradictionCell) + 1}C${getCol(branch1.contradictionCell) + 1}. Therefore, it must be ${value2}.`;
+      
+      explanation += `\n\nThis sequence eliminates all candidates from R${getRow(branch1.contradictionCell) + 1}C${getCol(branch1.contradictionCell) + 1}, creating a contradiction.\n\n`;
+      explanation += `Therefore, R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} must be ${value2}.`;
       
       return {
         technique: 'Deep Forcing Chain',
@@ -131,19 +129,17 @@ export const findForcingChain = (grid, maxDepth = 8) => {
       const placements = branch2.chain.filter(c => c.action === 'place');
       const eliminations = branch2.chain.filter(c => c.action === 'eliminate');
       
-      let explanation = `If R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} = ${value2}, the following chain occurs:\n\n`;
-      explanation += 'Forced Placements (Green):\n';
-      placements.forEach(p => {
-        explanation += `• R${getRow(p.cell) + 1}C${getCol(p.cell) + 1} = ${p.value}\n`;
+      let explanation = `If R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} = ${value2}, the following chain of forced moves occurs:\n\n`;
+      
+      // Build a narrative of the chain
+      branch2.chain.forEach((step, idx) => {
+        if (step.action === 'place') {
+          explanation += `${idx + 1}. Place ${step.value} at R${getRow(step.cell) + 1}C${getCol(step.cell) + 1} → `;
+        }
       });
-      explanation += '\nEliminations (Orange):\n';
-      eliminations.slice(0, 10).forEach(e => {
-        explanation += `• R${getRow(e.cell) + 1}C${getCol(e.cell) + 1} removes ${e.value}\n`;
-      });
-      if (eliminations.length > 10) {
-        explanation += `• ...and ${eliminations.length - 10} more eliminations\n`;
-      }
-      explanation += `\nThis leads to a contradiction at R${getRow(branch2.contradictionCell) + 1}C${getCol(branch2.contradictionCell) + 1}. Therefore, it must be ${value1}.`;
+      
+      explanation += `\n\nThis sequence eliminates all candidates from R${getRow(branch2.contradictionCell) + 1}C${getCol(branch2.contradictionCell) + 1}, creating a contradiction.\n\n`;
+      explanation += `Therefore, R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} must be ${value1}.`;
       
       return {
         technique: 'Deep Forcing Chain',
