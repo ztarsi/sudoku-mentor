@@ -229,7 +229,7 @@ export default function ChainVisualization({ chains, strongLinks, weakLinks, als
                         const midX = (startX + endX) / 2;
                         const midY = (startY + endY) / 2;
                         const perpAngle = angle + Math.PI / 2;
-                        const curveAmount = cellSize * 0.15;
+                        const curveAmount = cellSize * 0.4;
                         const controlX = midX + Math.cos(perpAngle) * curveAmount;
                         const controlY = midY + Math.sin(perpAngle) * curveAmount;
 

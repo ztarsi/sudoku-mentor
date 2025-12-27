@@ -100,15 +100,37 @@ export const findForcingChain = (grid, maxDepth = 8) => {
       
       let explanation = `If R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} = ${value1}, the following chain of forced moves occurs:\n\n`;
       
-      // Build a narrative of the chain
+      // Build a detailed narrative
+      let placementCount = 0;
       branch1.chain.forEach((step, idx) => {
         if (step.action === 'place') {
-          explanation += `${idx + 1}. Place ${step.value} at R${getRow(step.cell) + 1}C${getCol(step.cell) + 1} → `;
+          placementCount++;
+          const cellRef = `R${getRow(step.cell) + 1}C${getCol(step.cell) + 1}`;
+          explanation += `Step ${placementCount}: ${cellRef} must be ${step.value}\n`;
+          
+          // Find eliminations that follow this placement
+          const nextElims = [];
+          for (let i = idx + 1; i < branch1.chain.length; i++) {
+            if (branch1.chain[i].action === 'eliminate') {
+              nextElims.push(branch1.chain[i]);
+            } else {
+              break;
+            }
+          }
+          
+          if (nextElims.length > 0) {
+            explanation += `  ↳ This forces the elimination of ${nextElims.map(e => `${e.value} from R${getRow(e.cell) + 1}C${getCol(e.cell) + 1}`).slice(0, 3).join(', ')}`;
+            if (nextElims.length > 3) {
+              explanation += ` and ${nextElims.length - 3} more`;
+            }
+            explanation += '\n';
+          }
+          explanation += '\n';
         }
       });
       
-      explanation += `\n\nThis sequence eliminates all candidates from R${getRow(branch1.contradictionCell) + 1}C${getCol(branch1.contradictionCell) + 1}, creating a contradiction.\n\n`;
-      explanation += `Therefore, R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} must be ${value2}.`;
+      explanation += `❌ Contradiction: This chain eliminates all candidates from R${getRow(branch1.contradictionCell) + 1}C${getCol(branch1.contradictionCell) + 1}, making it impossible to solve.\n\n`;
+      explanation += `✓ Conclusion: R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} must be ${value2}.`;
       
       return {
         technique: 'Deep Forcing Chain',
@@ -131,15 +153,37 @@ export const findForcingChain = (grid, maxDepth = 8) => {
       
       let explanation = `If R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} = ${value2}, the following chain of forced moves occurs:\n\n`;
       
-      // Build a narrative of the chain
+      // Build a detailed narrative
+      let placementCount = 0;
       branch2.chain.forEach((step, idx) => {
         if (step.action === 'place') {
-          explanation += `${idx + 1}. Place ${step.value} at R${getRow(step.cell) + 1}C${getCol(step.cell) + 1} → `;
+          placementCount++;
+          const cellRef = `R${getRow(step.cell) + 1}C${getCol(step.cell) + 1}`;
+          explanation += `Step ${placementCount}: ${cellRef} must be ${step.value}\n`;
+          
+          // Find eliminations that follow this placement
+          const nextElims = [];
+          for (let i = idx + 1; i < branch2.chain.length; i++) {
+            if (branch2.chain[i].action === 'eliminate') {
+              nextElims.push(branch2.chain[i]);
+            } else {
+              break;
+            }
+          }
+          
+          if (nextElims.length > 0) {
+            explanation += `  ↳ This forces the elimination of ${nextElims.map(e => `${e.value} from R${getRow(e.cell) + 1}C${getCol(e.cell) + 1}`).slice(0, 3).join(', ')}`;
+            if (nextElims.length > 3) {
+              explanation += ` and ${nextElims.length - 3} more`;
+            }
+            explanation += '\n';
+          }
+          explanation += '\n';
         }
       });
       
-      explanation += `\n\nThis sequence eliminates all candidates from R${getRow(branch2.contradictionCell) + 1}C${getCol(branch2.contradictionCell) + 1}, creating a contradiction.\n\n`;
-      explanation += `Therefore, R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} must be ${value1}.`;
+      explanation += `❌ Contradiction: This chain eliminates all candidates from R${getRow(branch2.contradictionCell) + 1}C${getCol(branch2.contradictionCell) + 1}, making it impossible to solve.\n\n`;
+      explanation += `✓ Conclusion: R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} must be ${value1}.`;
       
       return {
         technique: 'Deep Forcing Chain',
