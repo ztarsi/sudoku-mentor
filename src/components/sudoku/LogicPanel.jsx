@@ -204,12 +204,12 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
 
   const handleWhatIfSearch = async () => {
     setSearchingForcingChain(true);
-    setCurrentSearchDepth(10);
+    setCurrentSearchDepth(100);
 
     // Small delay for UI responsiveness
     await new Promise(resolve => setTimeout(resolve, 100));
 
-    const result = await performDeepSearch(10);
+    const result = await performDeepSearch(100);
 
     setSearchingForcingChain(false);
 
@@ -709,7 +709,7 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
         isOpen={showDeepSearchModal}
         onClose={() => {
           setShowDeepSearchModal(false);
-          setCurrentSearchDepth(10);
+          setCurrentSearchDepth(100);
         }}
         onGoDeeper={handleGoDeeper}
         currentDepth={currentSearchDepth}
