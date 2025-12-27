@@ -100,10 +100,8 @@ const buildLinkGraph = (grid) => {
 export const findXCycle = (grid, focusedDigit) => {
   const digitsToCheck = focusedDigit ? [focusedDigit] : [1, 2, 3, 4, 5, 6, 7, 8, 9];
   
-  // Build link graph once for all digits
-  const { strongLinks } = buildLinkGraph(grid);
-  
   for (const digit of digitsToCheck) {
+    const { strongLinks } = buildLinkGraph(grid);
     const digitLinks = strongLinks.filter(link => 
       link.from.digit === digit && link.to.digit === digit
     );
@@ -123,15 +121,13 @@ export const findXCycle = (grid, focusedDigit) => {
       graph.get(toKey).push({ cell: link.from.cell, link });
     });
     
-    // Try to find a cycle (limit search depth)
+    // Try to find a cycle
     for (const startCell of graph.keys()) {
       const visited = new Map();
       const queue = [{ cell: parseInt(startCell), color: 0, path: [parseInt(startCell)] }];
       visited.set(parseInt(startCell), 0);
-      let iterations = 0;
-      const maxIterations = 50; // Limit search
       
-      while (queue.length > 0 && iterations++ < maxIterations) {
+      while (queue.length > 0) {
         const { cell, color, path } = queue.shift();
         const neighbors = graph.get(`${cell}`) || [];
         
@@ -204,11 +200,7 @@ const arePeers = (cell1, cell2) => {
 export const findALSXZ = (grid, focusedDigit) => {
   const findALS = (indices) => {
     const als = [];
-    const emptyCells = indices.filter(i => grid[i].value === null);
-    const n = emptyCells.length;
-    
-    // Only check subsets up to size 4 for performance
-    if (n > 7) return als;
+    const n = indices.length;
     
     for (let mask = 1; mask < (1 << n); mask++) {
       const cells = [];
@@ -216,14 +208,15 @@ export const findALSXZ = (grid, focusedDigit) => {
       
       for (let i = 0; i < n; i++) {
         if (mask & (1 << i)) {
-          const cell = emptyCells[i];
+          const cell = indices[i];
+          if (grid[cell].value !== null) continue;
           cells.push(cell);
           grid[cell].candidates.forEach(c => candidates.add(c));
         }
       }
       
-      // ALS: n cells with n+1 candidates, limit to size 4
-      if (cells.length > 0 && cells.length <= 4 && candidates.size === cells.length + 1) {
+      // ALS: n cells with n+1 candidates
+      if (cells.length > 0 && candidates.size === cells.length + 1) {
         als.push({ cells, candidates: Array.from(candidates) });
       }
     }
@@ -239,12 +232,8 @@ export const findALSXZ = (grid, focusedDigit) => {
   
   const allALS = [];
   for (const unit of units) {
-    const als = findALS(unit);
-    if (als.length > 0) allALS.push(...als);
+    allALS.push(...findALS(unit));
   }
-  
-  // Limit total ALS checked for performance
-  if (allALS.length > 30) return null;
   
   // Find ALS-XZ: Two ALS sharing one digit (X), and another digit (Z) common to both
   for (let i = 0; i < allALS.length; i++) {
@@ -296,16 +285,6 @@ export const findALSXZ = (grid, focusedDigit) => {
 
 // Unique Rectangle Type 1
 export const findUniqueRectangle = (grid) => {
-  // Pre-filter bi-value cells to speed up search
-  const biValueCells = [];
-  for (let i = 0; i < 81; i++) {
-    if (grid[i].value === null && grid[i].candidates.length === 2) {
-      biValueCells.push(i);
-    }
-  }
-  
-  if (biValueCells.length < 3) return null;
-  
   for (let r1 = 0; r1 < 8; r1++) {
     for (let r2 = r1 + 1; r2 < 9; r2++) {
       for (let c1 = 0; c1 < 8; c1++) {
@@ -317,13 +296,12 @@ export const findUniqueRectangle = (grid) => {
             r2 * 9 + c2
           ];
           
-          // Check if all corners are empty first (fastest check)
-          if (!corners.every(c => grid[c].value === null)) continue;
-          
           // Must be in different boxes
           const boxes = corners.map(getBox);
-          const uniqueBoxes = new Set(boxes).size;
-          if (uniqueBoxes !== 2 && uniqueBoxes !== 4) continue;
+          if (new Set(boxes).size !== 2 && new Set(boxes).size !== 4) continue;
+          
+          // Check if all corners are empty
+          if (!corners.every(c => grid[c].value === null)) continue;
           
           // Find common bi-value pattern
           const cands = corners.map(c => grid[c].candidates);
@@ -374,23 +352,25 @@ export const findUniqueRectangle = (grid) => {
 // BUG+1 (Bivalue Universal Grave plus 1)
 export const findBUGPlus1 = (grid) => {
   let extraCell = null;
+  let extraDigit = null;
+  
+  // Count bi-value cells and tri-value cells
+  let biValueCount = 0;
   let triValueCount = 0;
   
-  // Quick scan for pattern validity
   for (let i = 0; i < 81; i++) {
     const cell = grid[i];
     if (cell.value !== null) continue;
     
     const candCount = cell.candidates.length;
     
-    if (candCount === 3) {
+    if (candCount === 2) {
+      biValueCount++;
+    } else if (candCount === 3) {
       triValueCount++;
       extraCell = i;
-      if (triValueCount > 1) return null; // Early exit
     } else if (candCount > 3) {
       return null; // Not a BUG pattern
-    } else if (candCount < 2) {
-      return null; // Invalid state
     }
   }
   
@@ -452,12 +432,10 @@ export const findFinnedXWing = (grid, focusedDigit) => {
     for (let row = 0; row < 9; row++) {
       const positions = getRowIndices(row)
         .filter(i => grid[i].value === null && grid[i].candidates.includes(digit));
-      if (positions.length >= 2 && positions.length <= 3) {
+      if (positions.length === 2 || positions.length === 3) {
         rowsWithPositions.push({ row, positions, cols: positions.map(getCol) });
       }
     }
-    
-    if (rowsWithPositions.length < 2) continue;
     
     // Look for finned pattern
     for (let i = 0; i < rowsWithPositions.length; i++) {
