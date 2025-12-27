@@ -9,6 +9,7 @@ import ColorSettings from '@/components/sudoku/ColorSettings';
 import CompletionModal from '@/components/sudoku/CompletionModal';
 import TextPuzzleUpload from '@/components/sudoku/TextPuzzleUpload';
 import MobileDrawer from '@/components/sudoku/MobileDrawer';
+import LoadingModal from '@/components/sudoku/LoadingModal';
 import { generateCandidates, findNextLogicStep, applyLogicStep } from '@/components/sudoku/logicEngine';
 import { solveSudoku } from '@/components/sudoku/solver';
 
@@ -51,7 +52,17 @@ export default function SudokuMentor() {
   const [errorCount, setErrorCount] = useState(0);
   const [showCompletion, setShowCompletion] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingStage, setLoadingStage] = useState(0);
   const errorAudioRef = useRef(null);
+
+  const loadingStages = [
+    'Loading puzzle...',
+    'Validating solution...',
+    'Generating candidates...',
+    'Analyzing techniques...',
+    'Ready to solve!'
+  ];
 
   const handleCellClick = useCallback((cellIndex) => {
     setSelectedCell(cellIndex);
@@ -230,7 +241,12 @@ export default function SudokuMentor() {
     setValidationErrors([]);
   }, [grid]);
 
-  const handleLoadPuzzle = useCallback((puzzle) => {
+  const handleLoadPuzzle = useCallback(async (puzzle) => {
+    setIsLoading(true);
+    setLoadingStage(0);
+    
+    // Stage 1: Loading puzzle
+    await new Promise(resolve => setTimeout(resolve, 300));
     const newGrid = createEmptyGrid();
     puzzle.forEach((value, index) => {
       if (value !== 0) {
@@ -243,17 +259,31 @@ export default function SudokuMentor() {
       }
     });
     
-    // Generate initial candidates
+    // Stage 2: Validating solution
+    setLoadingStage(1);
+    await new Promise(resolve => setTimeout(resolve, 400));
+    const solved = solveSudoku(newGrid);
+    if (!solved) {
+      setIsLoading(false);
+      alert('This puzzle has no valid solution!');
+      return;
+    }
+    setSolution(solved);
+    
+    // Stage 3: Generating candidates
+    setLoadingStage(2);
+    await new Promise(resolve => setTimeout(resolve, 300));
     const gridWithCandidates = generateCandidates(newGrid);
     
-    // Solve the puzzle to get the solution
-    const solved = solveSudoku(gridWithCandidates);
-    if (solved) {
-      setSolution(solved);
-    } else {
-      setSolution(null);
-      alert('This puzzle has no valid solution!');
-    }
+    // Stage 4: Analyzing techniques
+    setLoadingStage(3);
+    await new Promise(resolve => setTimeout(resolve, 500));
+    // Pre-compute first hint to warm up the engine
+    findNextLogicStep(gridWithCandidates, null);
+    
+    // Stage 5: Ready!
+    setLoadingStage(4);
+    await new Promise(resolve => setTimeout(resolve, 200));
     
     setGrid(gridWithCandidates);
     setShowLibrary(false);
@@ -266,6 +296,7 @@ export default function SudokuMentor() {
     setHighlightedDigit(null);
     setStartTime(Date.now());
     setErrorCount(0);
+    setIsLoading(false);
   }, []);
 
   const validateGrid = useCallback(() => {
@@ -698,6 +729,13 @@ export default function SudokuMentor() {
           errorCount: errorCount
         }}
       />
-      </div>
-      );
-      }
+
+      {/* Loading Modal */}
+      <LoadingModal
+        isOpen={isLoading}
+        stages={loadingStages}
+        currentStage={loadingStage}
+      />
+    </div>
+  );
+}
