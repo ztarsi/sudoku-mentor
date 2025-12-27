@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button';
 import TechniqueModal from './TechniqueModal';
 import UltimateTechniqueScanModal from './UltimateTechniqueScanModal';
 import { findAllTechniqueInstances, findNextLogicStep } from './logicEngine';
-import { findForcingChain } from './forcingChainEngine';
+import { findForcingChain, findHypothesis } from './forcingChainEngine';
 
 const TECHNIQUE_INFO = {
   'Naked Single': {
@@ -193,14 +193,20 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
     // Small delay for UI responsiveness
     await new Promise(resolve => setTimeout(resolve, 100));
 
-    const result = findForcingChain(grid, 8);
+    // Try logical forcing chains first (convergence-based)
+    let result = findForcingChain(grid, 10);
+
+    // Fallback to hypothesis mode (contradiction-based)
+    if (!result) {
+      result = findHypothesis(grid, 8);
+    }
 
     setSearchingForcingChain(false);
 
     if (result) {
       onHighlightTechnique([result], 1, 1);
     } else {
-      alert('No forcing chains found at this depth. The puzzle may require trial and error beyond logical deduction.');
+      alert('No forcing chains or valid hypotheses found. The puzzle may require advanced techniques or trial and error.');
     }
   };
 
@@ -508,9 +514,10 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
               scanButton: true
             },
             { 
-              level: 'What If', 
+              level: 'Forcing Chains', 
               techniques: [
-                { name: 'Deep Forcing Chain', full: 'Deep Forcing Chain' }
+                { name: 'Cell Forcing Chain', full: 'Cell Forcing Chain' },
+                { name: 'Hypothesis Mode', full: 'Hypothesis Mode' }
               ], 
               color: 'fuchsia',
               isWhatIf: true

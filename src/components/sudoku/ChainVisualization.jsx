@@ -159,6 +159,39 @@ export default function ChainVisualization({ chains, strongLinks, weakLinks, als
           >
             <path d="M0,0 L0,6 L9,3 z" fill="#10b981" />
           </marker>
+          <marker
+            id="arrow-forcing-0"
+            markerWidth="10"
+            markerHeight="10"
+            refX="9"
+            refY="3"
+            orient="auto"
+            markerUnits="strokeWidth"
+          >
+            <path d="M0,0 L0,6 L9,3 z" fill="#10b981" />
+          </marker>
+          <marker
+            id="arrow-forcing-1"
+            markerWidth="10"
+            markerHeight="10"
+            refX="9"
+            refY="3"
+            orient="auto"
+            markerUnits="strokeWidth"
+          >
+            <path d="M0,0 L0,6 L9,3 z" fill="#a855f7" />
+          </marker>
+          <marker
+            id="arrow-forcing-2"
+            markerWidth="10"
+            markerHeight="10"
+            refX="9"
+            refY="3"
+            orient="auto"
+            markerUnits="strokeWidth"
+          >
+            <path d="M0,0 L0,6 L9,3 z" fill="#3b82f6" />
+          </marker>
         </defs>
         
         {strongLinks && strongLinks.map((link, idx) => 
@@ -217,42 +250,30 @@ export default function ChainVisualization({ chains, strongLinks, weakLinks, als
                 // Find next step for arrow (any action) - only if it's visible
                 const nextStep = idx < visibleSteps.length - 1 ? visibleSteps[idx + 1] : null;
 
+                // Use chain color for markers
+                const chainColor = color || '#a855f7';
+
                 return (
                   <g key={`step-${idx}`}>
                     {/* Marker with pulsing animation for current step */}
                     {step.action === 'place' ? (
-                      (() => {
-                        // Color progression: purple (initial) -> violet -> blue -> cyan -> green
-                        const colors = [
-                          { fill: '#a855f7', stroke: '#7e22ce' }, // purple - initial assumption
-                          { fill: '#8b5cf6', stroke: '#6d28d9' }, // violet
-                          { fill: '#3b82f6', stroke: '#1d4ed8' }, // blue
-                          { fill: '#06b6d4', stroke: '#0891b2' }, // cyan
-                          { fill: '#10b981', stroke: '#059669' }, // green
-                        ];
-                        const colorIndex = Math.min(idx, colors.length - 1);
-                        const color = colors[colorIndex];
-
-                        return (
-                          <motion.circle
-                            initial={{ r: 0, opacity: 0 }}
-                            animate={{ 
-                              r: cellSize * 0.08, 
-                              opacity: idx === currentAnimStep && isAnimating ? [0.95, 1, 0.95] : 0.95,
-                              scale: idx === currentAnimStep && isAnimating ? [1, 1.3, 1] : 1
-                            }}
-                            transition={{ 
-                              duration: 0.3, 
-                              scale: { duration: 0.6, repeat: Infinity }
-                            }}
-                            cx={candPos.x}
-                            cy={candPos.y}
-                            fill={color.fill}
-                            stroke={color.stroke}
-                            strokeWidth="1.5"
-                          />
-                        );
-                      })()
+                      <motion.circle
+                        initial={{ r: 0, opacity: 0 }}
+                        animate={{ 
+                          r: cellSize * 0.08, 
+                          opacity: idx === currentAnimStep && isAnimating ? [0.95, 1, 0.95] : 0.95,
+                          scale: idx === currentAnimStep && isAnimating ? [1, 1.3, 1] : 1
+                        }}
+                        transition={{ 
+                          duration: 0.3, 
+                          scale: { duration: 0.6, repeat: Infinity }
+                        }}
+                        cx={candPos.x}
+                        cy={candPos.y}
+                        fill={chainColor}
+                        stroke={chainColor}
+                        strokeWidth="1.5"
+                      />
                     ) : (
                       <motion.g
                         initial={{ opacity: 0, scale: 0 }}
@@ -309,20 +330,17 @@ export default function ChainVisualization({ chains, strongLinks, weakLinks, als
 
                         const pathD = `M ${startX} ${startY} Q ${controlX} ${controlY}, ${endX} ${endY}`;
 
-                        const arrowColor = nextStep.action === 'place' ? '#10b981' : '#f97316';
-                        const markerId = nextStep.action === 'place' ? 'arrow-forcing-green' : 'arrow-forcing-red';
-
                         return (
                           <motion.path
                             key={`arrow-${idx}`}
                             initial={{ pathLength: 0, opacity: 0 }}
-                            animate={{ pathLength: 1, opacity: 0.7 }}
+                            animate={{ pathLength: 1, opacity: 0.8 }}
                             transition={{ duration: 0.4 }}
                             d={pathD}
-                            stroke={arrowColor}
-                            strokeWidth="2"
+                            stroke={chainColor}
+                            strokeWidth="2.5"
                             fill="none"
-                            markerEnd={`url(#${markerId})`}
+                            markerEnd={`url(#arrow-forcing-${chainIdx})`}
                           />
                         );
                       })()
@@ -338,7 +356,7 @@ export default function ChainVisualization({ chains, strongLinks, weakLinks, als
                   x={getCandidatePosition(visibleSteps[0].cell, visibleSteps[0].value).x}
                   y={getCandidatePosition(visibleSteps[0].cell, visibleSteps[0].value).y - cellSize * 0.25}
                   textAnchor="middle"
-                  fill="#ef4444"
+                  fill={color}
                   fontSize={cellSize * 0.18}
                   fontWeight="bold"
                   style={{ textShadow: '0 0 4px rgba(0,0,0,0.8)' }}
@@ -349,6 +367,29 @@ export default function ChainVisualization({ chains, strongLinks, weakLinks, als
             </g>
           );
         })}
+
+        {/* Golden border for convergence cell */}
+        {currentStep?.convergenceCell !== undefined && currentStep.convergenceCell !== null && !isAnimating && (
+          <motion.rect
+            x={getCellCenter(currentStep.convergenceCell).x - cellSize * 0.4}
+            y={getCellCenter(currentStep.convergenceCell).y - cellSize * 0.4}
+            width={cellSize * 0.8}
+            height={cellSize * 0.8}
+            rx={cellSize * 0.1}
+            fill="none"
+            stroke="#fbbf24"
+            strokeWidth="4"
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ 
+              opacity: [1, 0.5, 1], 
+              scale: 1 
+            }}
+            transition={{ 
+              opacity: { duration: 1.2, repeat: Infinity },
+              scale: { duration: 0.3 }
+            }}
+          />
+        )}
 
         {currentStep?.contradictionCell !== undefined && currentStep.contradictionCell !== null && !isAnimating && (
           <motion.g>
