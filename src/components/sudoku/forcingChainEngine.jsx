@@ -97,30 +97,32 @@ export const findForcingChain = (grid, maxDepth = 8) => {
     if (branch1.contradiction && !branch2.contradiction) {
       return {
         technique: 'Deep Forcing Chain',
-        explanation: `If R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} = ${value1}, it leads to a contradiction. Therefore, it must be ${value2}.`,
-        baseCells: [cellIndex],
-        targetCells: [],
+        explanation: `If R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} = ${value1}, it creates this chain leading to a contradiction at R${getRow(branch1.contradictionCell) + 1}C${getCol(branch1.contradictionCell) + 1}.`,
+        baseCells: branch1.chain.map(c => c.cell),
+        targetCells: [branch1.contradictionCell],
         placement: { cell: cellIndex, digit: value2 },
         eliminations: [],
         chain: branch1.chain,
         contradiction: true,
         contradictionCell: branch1.contradictionCell,
-        digit: value2
+        digit: value1,
+        contradictoryDigit: value1
       };
     }
     
     if (branch2.contradiction && !branch1.contradiction) {
       return {
         technique: 'Deep Forcing Chain',
-        explanation: `If R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} = ${value2}, it leads to a contradiction. Therefore, it must be ${value1}.`,
-        baseCells: [cellIndex],
-        targetCells: [],
+        explanation: `If R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} = ${value2}, it creates this chain leading to a contradiction at R${getRow(branch2.contradictionCell) + 1}C${getCol(branch2.contradictionCell) + 1}.`,
+        baseCells: branch2.chain.map(c => c.cell),
+        targetCells: [branch2.contradictionCell],
         placement: { cell: cellIndex, digit: value1 },
         eliminations: [],
         chain: branch2.chain,
         contradiction: true,
         contradictionCell: branch2.contradictionCell,
-        digit: value1
+        digit: value2,
+        contradictoryDigit: value2
       };
     }
     

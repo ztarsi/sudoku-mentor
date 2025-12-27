@@ -114,9 +114,8 @@ export default function SudokuGrid({
     if (currentStep?.technique === 'Deep Forcing Chain') {
       if (currentStep.chains) {
         return currentStep.chains;
-      } else if (currentStep.chain) {
-        const color = currentStep.contradiction ? '#ef4444' : '#3b82f6';
-        return [{ cells: currentStep.chain, color, label: 'Contradiction' }];
+      } else if (currentStep.chain && currentStep.contradiction) {
+        return [{ cells: currentStep.chain, color: '#ef4444', label: `If ${currentStep.contradictoryDigit}` }];
       }
     }
     return null;
