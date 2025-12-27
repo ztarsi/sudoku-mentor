@@ -12,6 +12,7 @@ export default function OCRUpload({ onClose, onPuzzleExtracted, embedded = false
   const [puzzleName, setPuzzleName] = useState('');
   const [extractedGrid, setExtractedGrid] = useState(null);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [selectedCell, setSelectedCell] = useState(null);
 
   const handleFileSelect = (e) => {
     const selectedFile = e.target.files[0];
@@ -101,7 +102,33 @@ export default function OCRUpload({ onClose, onPuzzleExtracted, embedded = false
     setIsVerifying(false);
     setStatus(null);
     setMessage('');
+    setSelectedCell(null);
   };
+
+  const handleKeyDown = (e) => {
+    if (!isVerifying || selectedCell === null) return;
+
+    if (e.key >= '1' && e.key <= '9') {
+      handleCellEdit(selectedCell, parseInt(e.key));
+    } else if (e.key === 'Backspace' || e.key === 'Delete' || e.key === '0') {
+      handleCellEdit(selectedCell, 0);
+    } else if (e.key === 'ArrowUp' && selectedCell >= 9) {
+      setSelectedCell(selectedCell - 9);
+    } else if (e.key === 'ArrowDown' && selectedCell < 72) {
+      setSelectedCell(selectedCell + 9);
+    } else if (e.key === 'ArrowLeft' && selectedCell % 9 !== 0) {
+      setSelectedCell(selectedCell - 1);
+    } else if (e.key === 'ArrowRight' && selectedCell % 9 !== 8) {
+      setSelectedCell(selectedCell + 1);
+    }
+  };
+
+  React.useEffect(() => {
+    if (isVerifying) {
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [isVerifying, selectedCell, extractedGrid]);
 
   if (embedded) {
     // Verification view
@@ -125,29 +152,41 @@ export default function OCRUpload({ onClose, onPuzzleExtracted, embedded = false
             {/* Editable Grid */}
             <div>
               <label className="block text-slate-300 text-sm font-medium mb-2">Extracted Grid (click to edit)</label>
-              <div className="bg-slate-800 rounded-lg p-2">
-                <div className="grid grid-cols-9 gap-0.5 bg-slate-700 p-1 rounded">
-                  {extractedGrid.map((value, index) => (
-                    <input
-                      key={index}
-                      type="text"
-                      maxLength="1"
-                      value={value === 0 ? '' : value}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val === '' || (val >= '1' && val <= '9')) {
-                          handleCellEdit(index, val === '' ? 0 : parseInt(val));
-                        }
-                      }}
-                      className={`
-                        w-full aspect-square text-center text-sm font-semibold
-                        bg-slate-900 text-white border-0 focus:outline-none focus:ring-2 focus:ring-blue-500
-                        ${value === 0 ? 'text-slate-600' : ''}
-                        ${Math.floor(index / 27) % 2 === Math.floor((index % 9) / 3) % 2 ? 'bg-slate-850' : 'bg-slate-900'}
-                      `}
-                    />
-                  ))}
+              <div className="bg-slate-800 rounded-lg p-3">
+                <div 
+                  className="grid grid-cols-9 gap-0 bg-slate-600 rounded"
+                  style={{ border: '2px solid #475569' }}
+                >
+                  {extractedGrid.map((value, index) => {
+                    const row = Math.floor(index / 9);
+                    const col = index % 9;
+                    const borderRight = (col + 1) % 3 === 0 && col !== 8 ? 'border-r-2' : 'border-r';
+                    const borderBottom = (row + 1) % 3 === 0 && row !== 8 ? 'border-b-2' : 'border-b';
+                    
+                    return (
+                      <button
+                        key={index}
+                        onClick={() => setSelectedCell(index)}
+                        className={`
+                          w-full aspect-square text-center font-bold text-base
+                          border-slate-600 ${borderRight} ${borderBottom}
+                          transition-all
+                          ${selectedCell === index 
+                            ? 'bg-blue-600 text-white ring-2 ring-blue-400' 
+                            : value === 0 
+                              ? 'bg-slate-900 text-slate-600 hover:bg-slate-800' 
+                              : 'bg-slate-900 text-blue-400 hover:bg-slate-800'
+                          }
+                        `}
+                      >
+                        {value === 0 ? '·' : value}
+                      </button>
+                    );
+                  })}
                 </div>
+                <p className="text-slate-400 text-xs mt-2 text-center">
+                  Use arrow keys to navigate • Press 1-9 to enter digit • Delete/Backspace to clear
+                </p>
               </div>
             </div>
           </div>
@@ -168,15 +207,15 @@ export default function OCRUpload({ onClose, onPuzzleExtracted, embedded = false
           <div className="flex gap-3">
             <button
               onClick={handleRetry}
-              className="flex-1 px-4 py-3 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-all"
+              className="px-4 py-3 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 transition-all"
             >
-              Try Again
+              Start Over
             </button>
             <button
               onClick={handleConfirmExtraction}
-              className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg hover:shadow-lg transition-all"
+              className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-medium rounded-lg hover:shadow-lg transition-all"
             >
-              Confirm & Load
+              Confirm & Load Puzzle
             </button>
           </div>
         </div>
