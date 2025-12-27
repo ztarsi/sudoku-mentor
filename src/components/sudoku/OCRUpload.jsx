@@ -9,6 +9,7 @@ export default function OCRUpload({ onClose, onPuzzleExtracted, embedded = false
   const [isProcessing, setIsProcessing] = useState(false);
   const [status, setStatus] = useState(null); // 'success' | 'error'
   const [message, setMessage] = useState('');
+  const [puzzleName, setPuzzleName] = useState('');
 
   const handleFileSelect = (e) => {
     const selectedFile = e.target.files[0];
@@ -68,7 +69,7 @@ export default function OCRUpload({ onClose, onPuzzleExtracted, embedded = false
           
           // Convert to puzzle format (0 for empty cells)
           setTimeout(() => {
-            onPuzzleExtracted(grid);
+            onPuzzleExtracted(grid, puzzleName || null);
             onClose();
           }, 1000);
         } else {
@@ -109,6 +110,19 @@ export default function OCRUpload({ onClose, onPuzzleExtracted, embedded = false
           <div className="space-y-4">
             <div className="relative rounded-xl overflow-hidden bg-slate-800">
               <img src={preview} alt="Selected puzzle" className="w-full h-auto" />
+            </div>
+            
+            <div>
+              <label className="block text-slate-300 text-sm font-medium mb-2">
+                Puzzle Name (optional)
+              </label>
+              <input
+                type="text"
+                value={puzzleName}
+                onChange={(e) => setPuzzleName(e.target.value)}
+                placeholder="e.g., My Favorite Puzzle"
+                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+              />
             </div>
             
             {message && (

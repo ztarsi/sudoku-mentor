@@ -6,27 +6,59 @@ import OCRUpload from './OCRUpload';
 import TextPuzzleUpload from './TextPuzzleUpload';
 import { analyzeDifficulty } from './difficultyAnalyzer';
 import { base44 } from '@/api/base44Client';
+import { solveSudoku } from './solver';
 
 export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded }) {
   const [activeTab, setActiveTab] = useState('library');
   const [savingPuzzle, setSavingPuzzle] = useState(false);
 
-  const handlePuzzleLoad = async (puzzle, source = 'library') => {
+  const handlePuzzleLoad = async (puzzle, source = 'library', customName = null) => {
     // If from library, just load it
     if (source === 'library') {
       onPuzzleLoaded(puzzle);
       return;
     }
 
-    // For OCR/text uploads, analyze and save
+    // For OCR/text uploads, validate, check duplicates, analyze and save
     setSavingPuzzle(true);
     try {
+      // Check if puzzle is solvable
+      const gridForSolving = puzzle.map((value, index) => ({
+        cellIndex: index,
+        value: value || null,
+        isFixed: value !== 0,
+        candidates: []
+      }));
+      
+      const solved = solveSudoku(gridForSolving);
+      if (!solved) {
+        alert('This puzzle has no valid solution and cannot be saved.');
+        setSavingPuzzle(false);
+        return;
+      }
+
+      // Check for duplicates
+      const existingPuzzles = await base44.entities.SudokuPuzzle.list();
+      const isDuplicate = existingPuzzles.some(existing => 
+        JSON.stringify(existing.puzzle) === JSON.stringify(puzzle)
+      );
+      
+      if (isDuplicate) {
+        alert('This puzzle already exists in your library!');
+        setSavingPuzzle(false);
+        onPuzzleLoaded(puzzle);
+        return;
+      }
+
+      // Analyze difficulty
       const difficulty = analyzeDifficulty(puzzle);
       const clueCount = puzzle.filter(v => v !== 0).length;
       const timestamp = new Date().toLocaleString();
       
+      const name = customName || `${source === 'ocr' ? 'OCR' : 'Custom'} Puzzle (${clueCount} clues) - ${timestamp}`;
+      
       await base44.entities.SudokuPuzzle.create({
-        name: `${source === 'ocr' ? 'OCR' : 'Custom'} Puzzle (${clueCount} clues) - ${timestamp}`,
+        name,
         difficulty,
         puzzle,
         source
@@ -35,8 +67,9 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
       onPuzzleLoaded(puzzle);
     } catch (error) {
       console.error('Error saving puzzle:', error);
-      // Still load the puzzle even if save fails
-      onPuzzleLoaded(puzzle);
+      alert('Failed to save puzzle: ' + error.message);
+      setSavingPuzzle(false);
+      return;
     } finally {
       setSavingPuzzle(false);
     }
@@ -125,7 +158,7 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
                 <OCRUpload
                   isOpen={true}
                   onClose={onClose}
-                  onPuzzleExtracted={(puzzle) => handlePuzzleLoad(puzzle, 'ocr')}
+                  onPuzzleExtracted={(puzzle, name) => handlePuzzleLoad(puzzle, 'ocr', name)}
                   embedded={true}
                 />
               </div>
@@ -135,7 +168,7 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
                 <TextPuzzleUpload
                   isOpen={true}
                   onClose={onClose}
-                  onPuzzleLoaded={(puzzle) => handlePuzzleLoad(puzzle, 'text')}
+                  onPuzzleLoaded={(puzzle, name) => handlePuzzleLoad(puzzle, 'text', name)}
                   embedded={true}
                 />
               </div>

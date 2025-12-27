@@ -5,6 +5,7 @@ import { X, Upload, FileText } from 'lucide-react';
 export default function TextPuzzleUpload({ onClose, onPuzzleLoaded, embedded = false }) {
   const [text, setText] = useState('');
   const [error, setError] = useState('');
+  const [puzzleName, setPuzzleName] = useState('');
 
   const parseTextPuzzle = (input) => {
     try {
@@ -39,7 +40,7 @@ export default function TextPuzzleUpload({ onClose, onPuzzleLoaded, embedded = f
     setError('');
     try {
       const grid = parseTextPuzzle(text);
-      onPuzzleLoaded(grid);
+      onPuzzleLoaded(grid, puzzleName || null);
     } catch (e) {
       setError(e.message);
     }
@@ -59,6 +60,17 @@ export default function TextPuzzleUpload({ onClose, onPuzzleLoaded, embedded = f
   if (embedded) {
     return (
       <div className="space-y-4">
+        <div>
+          <label className="block text-white font-medium mb-2">Puzzle Name (optional):</label>
+          <input
+            type="text"
+            value={puzzleName}
+            onChange={(e) => setPuzzleName(e.target.value)}
+            placeholder="e.g., Daily Challenge"
+            className="w-full px-4 py-2 bg-slate-800 text-white border border-slate-700 rounded-lg focus:border-blue-500 focus:outline-none mb-4"
+          />
+        </div>
+        
         <div>
           <label className="block text-white font-medium mb-2">Paste or type your puzzle:</label>
           <textarea

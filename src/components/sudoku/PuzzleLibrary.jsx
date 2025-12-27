@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Sparkles, Flame, Zap, Crown, Skull, Brain } from 'lucide-react';
+import { X, Sparkles, Flame, Zap, Crown, Skull, Brain, Edit2, Check } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 const PUZZLES = {
   easy: [
@@ -198,12 +198,26 @@ const DIFFICULTY_CONFIG = {
 
 export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = false }) {
   const [selectedDifficulty, setSelectedDifficulty] = useState('easy');
+  const [editingPuzzleId, setEditingPuzzleId] = useState(null);
+  const [editingName, setEditingName] = useState('');
+
+  const queryClient = useQueryClient();
 
   // Fetch user-added puzzles
   const { data: userPuzzles = [] } = useQuery({
     queryKey: ['sudoku-puzzles'],
     queryFn: () => base44.entities.SudokuPuzzle.list('-created_date'),
     initialData: []
+  });
+
+  // Update puzzle name mutation
+  const updatePuzzleMutation = useMutation({
+    mutationFn: ({ id, name }) => base44.entities.SudokuPuzzle.update(id, { name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sudoku-puzzles'] });
+      setEditingPuzzleId(null);
+      setEditingName('');
+    }
   });
 
   const config = DIFFICULTY_CONFIG[selectedDifficulty];
@@ -214,7 +228,7 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
     ...PUZZLES[selectedDifficulty],
     ...userPuzzles
       .filter(p => p.difficulty === selectedDifficulty)
-      .map(p => ({ name: p.name, puzzle: p.puzzle, isCustom: true }))
+      .map(p => ({ id: p.id, name: p.name, puzzle: p.puzzle, isCustom: true }))
   ];
 
   const colorClasses = {
@@ -284,12 +298,54 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
               </div>
               
               <div className="flex-1">
-                <h3 className="font-semibold text-slate-800 group-hover:text-slate-900 flex items-center gap-2">
-                  {puzzle.name}
-                  {puzzle.isCustom && (
-                    <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">Custom</span>
-                  )}
-                </h3>
+                {editingPuzzleId === puzzle.id ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={editingName}
+                      onChange={(e) => setEditingName(e.target.value)}
+                      className="flex-1 px-2 py-1 border border-slate-300 rounded text-sm"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          updatePuzzleMutation.mutate({ id: puzzle.id, name: editingName });
+                        } else if (e.key === 'Escape') {
+                          setEditingPuzzleId(null);
+                          setEditingName('');
+                        }
+                      }}
+                    />
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        updatePuzzleMutation.mutate({ id: puzzle.id, name: editingName });
+                      }}
+                      className="p-1 hover:bg-slate-200 rounded"
+                    >
+                      <Check className="w-4 h-4 text-green-600" />
+                    </button>
+                  </div>
+                ) : (
+                  <h3 className="font-semibold text-slate-800 group-hover:text-slate-900 flex items-center gap-2">
+                    {puzzle.name}
+                    {puzzle.isCustom && (
+                      <>
+                        <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">Custom</span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingPuzzleId(puzzle.id);
+                            setEditingName(puzzle.name);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-slate-200 rounded transition-opacity"
+                          title="Edit name"
+                        >
+                          <Edit2 className="w-3 h-3 text-slate-600" />
+                        </button>
+                      </>
+                    )}
+                  </h3>
+                )}
                 <p className="text-sm text-slate-500">
                   {puzzle.puzzle.filter(v => v !== 0).length} clues given
                 </p>
