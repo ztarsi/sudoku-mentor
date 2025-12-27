@@ -128,7 +128,7 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
   const [scanResults, setScanResults] = useState({});
   const [searchingForcingChain, setSearchingForcingChain] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [playSpeed, setPlaySpeed] = useState(2000); // milliseconds per step
+  const [playSpeed, setPlaySpeed] = useState(1000); // milliseconds per step
   const playIntervalRef = useRef(null);
   
   const techniqueInfo = currentStep ? TECHNIQUE_INFO[currentStep.technique] : null;
@@ -208,57 +208,48 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
     if (isPlaying) {
       setIsPlaying(false);
       if (playIntervalRef.current) {
-        clearInterval(playIntervalRef.current);
+        clearTimeout(playIntervalRef.current);
         playIntervalRef.current = null;
       }
     } else {
       setIsPlaying(true);
-      autoPlayNextStep();
-    }
-  };
-
-  const autoPlayNextStep = () => {
-    if (playIntervalRef.current) {
-      clearInterval(playIntervalRef.current);
-    }
-
-    playIntervalRef.current = setInterval(() => {
-      if (currentStep) {
-        onApplyStep?.();
-        setTimeout(() => {
-          const nextStep = findNextLogicStep(grid);
-          if (!nextStep) {
-            setIsPlaying(false);
-            clearInterval(playIntervalRef.current);
-            playIntervalRef.current = null;
-          }
-        }, 100);
-      } else {
+      if (!currentStep) {
         onNextStep?.();
       }
-    }, playSpeed);
+    }
   };
 
   const handleSkipStep = () => {
     if (currentStep) {
       onApplyStep?.();
     }
-    onNextStep?.();
+    setTimeout(() => onNextStep?.(), 50);
   };
 
   useEffect(() => {
     return () => {
       if (playIntervalRef.current) {
-        clearInterval(playIntervalRef.current);
+        clearTimeout(playIntervalRef.current);
       }
     };
   }, []);
 
   useEffect(() => {
     if (isPlaying && currentStep) {
-      autoPlayNextStep();
+      playIntervalRef.current = setTimeout(() => {
+        onApplyStep?.();
+        setTimeout(() => {
+          onNextStep?.();
+        }, 100);
+      }, playSpeed);
     }
-  }, [playSpeed, isPlaying]);
+    
+    return () => {
+      if (playIntervalRef.current) {
+        clearTimeout(playIntervalRef.current);
+      }
+    };
+  }, [isPlaying, currentStep, playSpeed]);
   
   const handleTechniqueClick = (techniqueName) => {
     const instances = findAllTechniqueInstances(grid, techniqueName);
@@ -439,10 +430,10 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
           <label className="text-sm text-slate-300">Speed</label>
           <div className="flex gap-2">
             {[
-              { label: '0.5x', value: 4000 },
-              { label: '1x', value: 2000 },
-              { label: '2x', value: 1000 },
-              { label: '4x', value: 500 }
+              { label: '0.5x', value: 2000 },
+              { label: '1x', value: 1000 },
+              { label: '2x', value: 500 },
+              { label: '4x', value: 250 }
             ].map(({ label, value }) => (
               <button
                 key={value}
