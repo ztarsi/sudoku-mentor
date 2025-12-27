@@ -445,9 +445,10 @@ export default function SudokuMentor() {
       
       {/* Header */}
       <header className="bg-slate-900/90 backdrop-blur-md border-b border-slate-700/60 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="max-w-7xl mx-auto px-2 lg:px-8 py-1 lg:py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+            {/* Desktop Title */}
+            <div className="hidden lg:flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
                 <span className="text-white font-bold text-lg">9</span>
               </div>
@@ -457,46 +458,64 @@ export default function SudokuMentor() {
               </div>
             </div>
             
-            <div className="flex items-center gap-4">
-              <div className="hidden sm:flex items-center gap-2 bg-slate-800 rounded-full px-4 py-2">
+            {/* Mobile - just icon */}
+            <div className="lg:hidden w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+              <span className="text-white font-bold text-sm">9</span>
+            </div>
+            
+            <div className="flex items-center gap-2 lg:gap-4">
+              {/* Progress - desktop only */}
+              <div className="hidden lg:flex items-center gap-2 bg-slate-800 rounded-full px-4 py-2">
                 <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
                 <span className="text-base text-slate-300">{progress}% Complete</span>
               </div>
-              <div className="flex gap-2">
-                  <button
-                    onClick={() => setShowColorSettings(true)}
-                    className="p-2 bg-slate-800 text-slate-300 rounded-xl hover:bg-slate-700 transition-all duration-200"
-                    title="Color Settings"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => setShowTextUpload(true)}
-                    className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-sm font-medium rounded-xl shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30 transition-all duration-300 hover:-translate-y-0.5"
-                  >
-                    Text Upload
-                  </button>
-                  <button
-                    onClick={() => setShowOCRUpload(true)}
-                    className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-medium rounded-xl shadow-lg shadow-purple-500/25 hover:shadow-xl hover:shadow-purple-500/30 transition-all duration-300 hover:-translate-y-0.5"
-                  >
-                    OCR Upload
-                  </button>
-                  <button
-                    onClick={() => setShowLibrary(true)}
-                    className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white text-sm font-medium rounded-xl shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 transition-all duration-300 hover:-translate-y-0.5"
-                  >
-                    Load Puzzle
-                  </button>
-                </div>
+              
+              {/* Buttons - icons on mobile, text on desktop */}
+              <button
+                onClick={() => setShowColorSettings(true)}
+                className="p-2 bg-slate-800 text-slate-300 rounded-lg lg:rounded-xl hover:bg-slate-700 transition-all duration-200"
+                title="Color Settings"
+              >
+                <svg className="w-4 h-4 lg:w-5 lg:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                </svg>
+              </button>
+              <button
+                onClick={() => setShowTextUpload(true)}
+                className="p-2 lg:px-4 lg:py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg lg:rounded-xl transition-all duration-200"
+                title="Text Upload"
+              >
+                <svg className="w-4 h-4 lg:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span className="hidden lg:inline text-sm font-medium">Text Upload</span>
+              </button>
+              <button
+                onClick={() => setShowOCRUpload(true)}
+                className="p-2 lg:px-4 lg:py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg lg:rounded-xl transition-all duration-200"
+                title="OCR Upload"
+              >
+                <svg className="w-4 h-4 lg:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span className="hidden lg:inline text-sm font-medium">OCR Upload</span>
+              </button>
+              <button
+                onClick={() => setShowLibrary(true)}
+                className="p-2 lg:px-4 lg:py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg lg:rounded-xl transition-all duration-200"
+                title="Load Puzzle"
+              >
+                <svg className="w-4 h-4 lg:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+                <span className="hidden lg:inline text-sm font-medium">Load Puzzle</span>
+              </button>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 lg:pb-8 pt-20 lg:pt-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 lg:pb-8 pt-12 lg:pt-8">
         <div className="grid lg:grid-cols-[1fr,380px] gap-8">
           {/* Left Column - Grid & Controls */}
           <div className="space-y-6">
