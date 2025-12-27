@@ -1,4 +1,5 @@
 // Sudoku Logic Engine - Human-style solving techniques
+import { findXCycle, findALSXZ, findUniqueRectangle, findBUGPlus1, findFinnedXWing } from './chainEngine';
 
 // Helper functions
 const getRow = (index) => Math.floor(index / 9);
@@ -88,9 +89,6 @@ export const findNextLogicStep = (grid, focusedDigit = null) => {
   step = findXYWing(grid, focusedDigit);
   if (step) return step;
   
-  // Import advanced techniques
-  const { findXCycle, findALSXZ, findUniqueRectangle, findBUGPlus1, findFinnedXWing } = require('./chainEngine');
-  
   // 10. X-Cycles
   step = findXCycle(grid, focusedDigit);
   if (step) return step;
@@ -176,23 +174,18 @@ export const findAllTechniqueInstances = (grid, techniqueName) => {
       findAll(findXYWing);
       break;
     case 'X-Cycle':
-      const { findXCycle } = require('./chainEngine');
       findAll(findXCycle);
       break;
     case 'Finned X-Wing':
-      const { findFinnedXWing } = require('./chainEngine');
       findAll(findFinnedXWing);
       break;
     case 'ALS-XZ':
-      const { findALSXZ } = require('./chainEngine');
       findAll(findALSXZ);
       break;
     case 'Unique Rectangle Type 1':
-      const { findUniqueRectangle } = require('./chainEngine');
       findAll(findUniqueRectangle);
       break;
     case 'BUG+1':
-      const { findBUGPlus1 } = require('./chainEngine');
       findAll(findBUGPlus1);
       break;
     }
