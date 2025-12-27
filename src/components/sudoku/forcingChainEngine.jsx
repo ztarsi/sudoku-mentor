@@ -129,6 +129,7 @@ export const findForcingChain = (grid, maxDepth = 10) => {
 
 // FALLBACK: Hypothesis mode (contradiction-based, not pure logic)
 export const findHypothesis = (grid, maxDepth = 8) => {
+  // Try bi-value cells first (most efficient)
   const biValueCells = [];
   for (let i = 0; i < 81; i++) {
     if (grid[i].value === null && grid[i].candidates.length === 2) {
@@ -259,6 +260,110 @@ export const findHypothesis = (grid, maxDepth = 8) => {
         digit: value2,
         contradictoryDigit: value2
       };
+    }
+  }
+  
+  // If no bi-value contradictions, try tri-value cells
+  const triValueCells = [];
+  for (let i = 0; i < 81; i++) {
+    if (grid[i].value === null && grid[i].candidates.length === 3) {
+      triValueCells.push(i);
+    }
+  }
+  
+  for (const cellIndex of triValueCells) {
+    const [value1, value2, value3] = grid[cellIndex].candidates;
+    
+    const branch1 = exploreBranch(grid, cellIndex, value1, maxDepth, []);
+    const branch2 = exploreBranch(grid, cellIndex, value2, maxDepth, []);
+    const branch3 = exploreBranch(grid, cellIndex, value3, maxDepth, []);
+    
+    if (branch1.contradiction && !branch2.contradiction && !branch3.contradiction) {
+      let explanation = `🔍 Hypothesis Mode: What if R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} = ${value1}?\n\n`;
+      explanation += `This leads to a contradiction. Therefore, R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} must be ${value2} or ${value3}.\n`;
+      explanation += `Eliminating ${value1} from this cell.`;
+      
+      return {
+        technique: 'Hypothesis Mode',
+        explanation,
+        baseCells: [cellIndex],
+        targetCells: [branch1.contradictionCell],
+        placement: null,
+        eliminations: [{ cell: cellIndex, digit: value1 }],
+        chain: branch1.chain,
+        contradiction: true,
+        contradictionCell: branch1.contradictionCell,
+        digit: value1,
+        contradictoryDigit: value1
+      };
+    }
+    
+    if (branch2.contradiction && !branch1.contradiction && !branch3.contradiction) {
+      let explanation = `🔍 Hypothesis Mode: What if R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} = ${value2}?\n\n`;
+      explanation += `This leads to a contradiction. Therefore, it cannot be ${value2}.\n`;
+      explanation += `Eliminating ${value2} from this cell.`;
+      
+      return {
+        technique: 'Hypothesis Mode',
+        explanation,
+        baseCells: [cellIndex],
+        targetCells: [branch2.contradictionCell],
+        placement: null,
+        eliminations: [{ cell: cellIndex, digit: value2 }],
+        chain: branch2.chain,
+        contradiction: true,
+        contradictionCell: branch2.contradictionCell,
+        digit: value2,
+        contradictoryDigit: value2
+      };
+    }
+    
+    if (branch3.contradiction && !branch1.contradiction && !branch2.contradiction) {
+      let explanation = `🔍 Hypothesis Mode: What if R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} = ${value3}?\n\n`;
+      explanation += `This leads to a contradiction. Therefore, it cannot be ${value3}.\n`;
+      explanation += `Eliminating ${value3} from this cell.`;
+      
+      return {
+        technique: 'Hypothesis Mode',
+        explanation,
+        baseCells: [cellIndex],
+        targetCells: [branch3.contradictionCell],
+        placement: null,
+        eliminations: [{ cell: cellIndex, digit: value3 }],
+        chain: branch3.chain,
+        contradiction: true,
+        contradictionCell: branch3.contradictionCell,
+        digit: value3,
+        contradictoryDigit: value3
+      };
+    }
+  }
+  
+  // Last resort: try any empty cell with candidates
+  for (let i = 0; i < 81; i++) {
+    if (grid[i].value === null && grid[i].candidates.length > 0) {
+      for (const value of grid[i].candidates) {
+        const branch = exploreBranch(grid, i, value, maxDepth, []);
+        if (branch.contradiction) {
+          let explanation = `🔍 Hypothesis Mode: Testing R${getRow(i) + 1}C${getCol(i) + 1} = ${value}\n\n`;
+          explanation += `This assumption leads to a contradiction at R${getRow(branch.contradictionCell) + 1}C${getCol(branch.contradictionCell) + 1}.\n`;
+          explanation += `Therefore, ${value} can be eliminated from R${getRow(i) + 1}C${getCol(i) + 1}.`;
+          
+          return {
+            technique: 'Hypothesis Mode',
+            explanation,
+            baseCells: [i],
+            targetCells: [branch.contradictionCell],
+            placement: null,
+            eliminations: [{ cell: i, digit: value }],
+            chain: branch.chain,
+            contradiction: true,
+            contradictionCell: branch.contradictionCell,
+            digit: value,
+            contradictoryDigit: value
+          };
+        }
+      }
     }
   }
   
