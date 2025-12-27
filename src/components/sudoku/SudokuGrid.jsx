@@ -164,34 +164,40 @@ export default function SudokuGrid({
           >
             {/* What-If Overlay Grid - shown on top during animation */}
             {overlayGrid && (
-              <div className="absolute inset-0 z-50 pointer-events-none grid grid-cols-9 gap-0">
-                {overlayGrid.map((cell, index) => {
-                  const row = Math.floor(index / 9);
-                  const col = index % 9;
-                  const borderRight = (col + 1) % 3 === 0 && col !== 8 ? 'border-r-2' : 'border-r';
-                  const borderBottom = (row + 1) % 3 === 0 && row !== 8 ? 'border-b-2' : 'border-b';
-                  
-                  return (
-                    <div
-                      key={`overlay-${index}`}
-                      className={`flex items-center justify-center ${borderRight} ${borderBottom} border-slate-600 bg-slate-900/95`}
-                    >
-                      {cell.value !== null ? (
-                        <span className="text-2xl font-bold text-emerald-400">
-                          {cell.value}
-                        </span>
-                      ) : cell.candidates.length > 0 && (
-                        <div className="grid grid-cols-3 gap-0 w-full h-full p-1">
-                          {[1,2,3,4,5,6,7,8,9].map(num => (
-                            <div key={num} className="flex items-center justify-center text-[8px] text-slate-400">
-                              {cell.candidates.includes(num) ? num : ''}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+              <div className="absolute inset-0 z-50 pointer-events-none">
+                <div className="w-full h-full grid grid-cols-9 gap-0">
+                  {overlayGrid.map((cell, index) => {
+                    const row = Math.floor(index / 9);
+                    const col = index % 9;
+                    const borderRight = (col + 1) % 3 === 0 && col !== 8 ? 'border-r-2' : 'border-r';
+                    const borderBottom = (row + 1) % 3 === 0 && row !== 8 ? 'border-b-2' : 'border-b';
+                    
+                    return (
+                      <div
+                        key={`overlay-${index}`}
+                        className={`flex items-center justify-center ${borderRight} ${borderBottom} border-slate-600 bg-slate-800`}
+                        style={{
+                          width: `${cellSize}px`,
+                          height: `${cellSize}px`
+                        }}
+                      >
+                        {cell.value !== null ? (
+                          <span className="text-2xl font-bold text-emerald-400">
+                            {cell.value}
+                          </span>
+                        ) : cell.candidates.length > 0 && (
+                          <div className="grid grid-cols-3 gap-0 w-full h-full p-1">
+                            {[1,2,3,4,5,6,7,8,9].map(num => (
+                              <div key={num} className="flex items-center justify-center text-[8px] text-slate-300">
+                                {cell.candidates.includes(num) ? num : ''}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
