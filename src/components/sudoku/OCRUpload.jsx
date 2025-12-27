@@ -10,6 +10,8 @@ export default function OCRUpload({ onClose, onPuzzleExtracted, embedded = false
   const [status, setStatus] = useState(null); // 'success' | 'error'
   const [message, setMessage] = useState('');
   const [puzzleName, setPuzzleName] = useState('');
+  const [extractedGrid, setExtractedGrid] = useState(null);
+  const [isVerifying, setIsVerifying] = useState(false);
 
   const handleFileSelect = (e) => {
     const selectedFile = e.target.files[0];
@@ -65,13 +67,9 @@ export default function OCRUpload({ onClose, onPuzzleExtracted, embedded = false
         // Validate grid
         if (grid.length === 81 && grid.every(n => n >= 0 && n <= 9)) {
           setStatus('success');
-          setMessage('Puzzle extracted successfully!');
-          
-          // Convert to puzzle format (0 for empty cells)
-          setTimeout(() => {
-            onPuzzleExtracted(grid, puzzleName || null);
-            onClose();
-          }, 1000);
+          setMessage('Puzzle extracted! Please verify and correct if needed.');
+          setExtractedGrid(grid);
+          setIsVerifying(true);
         } else {
           throw new Error('Invalid grid format received');
         }
@@ -87,7 +85,104 @@ export default function OCRUpload({ onClose, onPuzzleExtracted, embedded = false
     }
   };
 
+  const handleCellEdit = (index, value) => {
+    const newGrid = [...extractedGrid];
+    newGrid[index] = value;
+    setExtractedGrid(newGrid);
+  };
+
+  const handleConfirmExtraction = () => {
+    onPuzzleExtracted(extractedGrid, puzzleName || null);
+    onClose();
+  };
+
+  const handleRetry = () => {
+    setExtractedGrid(null);
+    setIsVerifying(false);
+    setStatus(null);
+    setMessage('');
+  };
+
   if (embedded) {
+    // Verification view
+    if (isVerifying && extractedGrid) {
+      return (
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-white font-medium mb-2">Verify Extracted Puzzle</h3>
+            <p className="text-slate-400 text-sm">Compare with the original image and correct any errors</p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            {/* Original Image */}
+            <div>
+              <label className="block text-slate-300 text-sm font-medium mb-2">Original Image</label>
+              <div className="bg-slate-800 rounded-lg overflow-hidden">
+                <img src={preview} alt="Original puzzle" className="w-full h-auto" />
+              </div>
+            </div>
+
+            {/* Editable Grid */}
+            <div>
+              <label className="block text-slate-300 text-sm font-medium mb-2">Extracted Grid (click to edit)</label>
+              <div className="bg-slate-800 rounded-lg p-2">
+                <div className="grid grid-cols-9 gap-0.5 bg-slate-700 p-1 rounded">
+                  {extractedGrid.map((value, index) => (
+                    <input
+                      key={index}
+                      type="text"
+                      maxLength="1"
+                      value={value === 0 ? '' : value}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === '' || (val >= '1' && val <= '9')) {
+                          handleCellEdit(index, val === '' ? 0 : parseInt(val));
+                        }
+                      }}
+                      className={`
+                        w-full aspect-square text-center text-sm font-semibold
+                        bg-slate-900 text-white border-0 focus:outline-none focus:ring-2 focus:ring-blue-500
+                        ${value === 0 ? 'text-slate-600' : ''}
+                        ${Math.floor(index / 27) % 2 === Math.floor((index % 9) / 3) % 2 ? 'bg-slate-850' : 'bg-slate-900'}
+                      `}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-slate-300 text-sm font-medium mb-2">
+              Puzzle Name (optional)
+            </label>
+            <input
+              type="text"
+              value={puzzleName}
+              onChange={(e) => setPuzzleName(e.target.value)}
+              placeholder="e.g., My Favorite Puzzle"
+              className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+            />
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={handleRetry}
+              className="flex-1 px-4 py-3 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-all"
+            >
+              Try Again
+            </button>
+            <button
+              onClick={handleConfirmExtraction}
+              className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg hover:shadow-lg transition-all"
+            >
+              Confirm & Load
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="space-y-4">
         <p className="text-slate-400 text-center">Upload an image of a Sudoku puzzle for automatic extraction</p>
@@ -110,19 +205,6 @@ export default function OCRUpload({ onClose, onPuzzleExtracted, embedded = false
           <div className="space-y-4">
             <div className="relative rounded-xl overflow-hidden bg-slate-800">
               <img src={preview} alt="Selected puzzle" className="w-full h-auto" />
-            </div>
-            
-            <div>
-              <label className="block text-slate-300 text-sm font-medium mb-2">
-                Puzzle Name (optional)
-              </label>
-              <input
-                type="text"
-                value={puzzleName}
-                onChange={(e) => setPuzzleName(e.target.value)}
-                placeholder="e.g., My Favorite Puzzle"
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
-              />
             </div>
             
             {message && (
