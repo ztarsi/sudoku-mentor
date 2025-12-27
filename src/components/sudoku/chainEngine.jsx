@@ -271,6 +271,10 @@ export const findALSXZ = (grid, focusedDigit) => {
                 baseCells: [...als1.cells, ...als2.cells],
                 targetCells: eliminations.map(e => e.cell),
                 eliminations,
+                als1,
+                als2,
+                xDigit: x,
+                zDigit: z,
                 explanation: `Two Almost Locked Sets with restricted common ${x} and eliminating digit ${z}.`
               };
             }

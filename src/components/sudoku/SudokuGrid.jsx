@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import Cell from './Cell';
 import CellContextMenu from './CellContextMenu';
 import ChainVisualization from './ChainVisualization';
@@ -62,6 +62,54 @@ export default function SudokuGrid({
   const gridSize = typeof window !== 'undefined' ? Math.min(window.innerWidth * 0.9, 600) : 600;
   const cellSize = gridSize / 9;
 
+  const getCellCenter = (index) => {
+    const row = Math.floor(index / 9);
+    const col = index % 9;
+    return {
+      x: col * cellSize + cellSize / 2,
+      y: row * cellSize + cellSize / 2
+    };
+  };
+
+  const alsLinks = useMemo(() => {
+    if (currentStep?.technique !== 'ALS-XZ' || !currentStep.als1 || !currentStep.als2) {
+      return [];
+    }
+
+    const links = [];
+    const { als1, als2, zDigit } = currentStep;
+
+    // Create links for z digit cells within each ALS
+    const als1ZCells = als1.cells.filter(c => grid[c].candidates.includes(zDigit));
+    const als2ZCells = als2.cells.filter(c => grid[c].candidates.includes(zDigit));
+
+    // Draw connections between ALS1 z-cells
+    for (let i = 0; i < als1ZCells.length; i++) {
+      for (let j = i + 1; j < als1ZCells.length; j++) {
+        links.push({
+          from: getCellCenter(als1ZCells[i]),
+          to: getCellCenter(als1ZCells[j]),
+          color: '#3b82f6',
+          type: 'strong'
+        });
+      }
+    }
+
+    // Draw connections between ALS2 z-cells
+    for (let i = 0; i < als2ZCells.length; i++) {
+      for (let j = i + 1; j < als2ZCells.length; j++) {
+        links.push({
+          from: getCellCenter(als2ZCells[i]),
+          to: getCellCenter(als2ZCells[j]),
+          color: '#3b82f6',
+          type: 'strong'
+        });
+      }
+    }
+
+    return links;
+  }, [currentStep, grid, cellSize]);
+
   return (
     <>
       <div className="relative">
@@ -79,11 +127,12 @@ export default function SudokuGrid({
             }}
           >
             {/* Chain Visualization Overlay */}
-            {currentStep && (currentStep.chains || currentStep.strongLinks || currentStep.weakLinks) && (
+            {currentStep && (currentStep.chains || currentStep.strongLinks || currentStep.weakLinks || alsLinks.length > 0) && (
               <ChainVisualization
                 chains={currentStep.chains}
                 strongLinks={currentStep.strongLinks}
                 weakLinks={currentStep.weakLinks}
+                alsLinks={alsLinks}
                 cellSize={cellSize}
                 gridSize={gridSize}
               />
