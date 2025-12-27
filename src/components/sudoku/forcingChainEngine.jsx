@@ -101,9 +101,9 @@ export const findForcingChain = (grid, maxDepth = 8) => {
       let explanation = `🔍 Let's explore: What if R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} = ${value1}?\n\n`;
 
       // Build a detailed narrative with natural language
-      const placements = branch1.chain.filter(s => s.action === 'place');
+      const placements1 = branch1.chain.filter(s => s.action === 'place');
 
-      placements.forEach((step, idx) => {
+      placements1.forEach((step, idx) => {
         const cellRef = `R${getRow(step.cell) + 1}C${getCol(step.cell) + 1}`;
         const boxNum = getBox(step.cell) + 1;
 
@@ -135,7 +135,7 @@ export const findForcingChain = (grid, maxDepth = 8) => {
       });
 
       const contradCell = `R${getRow(branch1.contradictionCell) + 1}C${getCol(branch1.contradictionCell) + 1}`;
-      explanation += `❌ CONTRADICTION: After ${placements.length} forced placement${placements.length > 1 ? 's' : ''}, ${contradCell} has no valid candidates left!\n\n`;
+      explanation += `❌ CONTRADICTION: After ${placements1.length} forced placement${placements1.length > 1 ? 's' : ''}, ${contradCell} has no valid candidates left!\n\n`;
       explanation += `✅ Conclusion: The assumption was wrong. R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} must be ${value2}.`;
       
       return {
@@ -160,9 +160,9 @@ export const findForcingChain = (grid, maxDepth = 8) => {
       let explanation = `🔍 Let's explore: What if R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} = ${value2}?\n\n`;
 
       // Build a detailed narrative with natural language
-      const placements = branch2.chain.filter(s => s.action === 'place');
+      const placements2 = branch2.chain.filter(s => s.action === 'place');
 
-      placements.forEach((step, idx) => {
+      placements2.forEach((step, idx) => {
         const cellRef = `R${getRow(step.cell) + 1}C${getCol(step.cell) + 1}`;
         const boxNum = getBox(step.cell) + 1;
 
@@ -194,7 +194,7 @@ export const findForcingChain = (grid, maxDepth = 8) => {
       });
 
       const contradCell = `R${getRow(branch2.contradictionCell) + 1}C${getCol(branch2.contradictionCell) + 1}`;
-      explanation += `❌ CONTRADICTION: After ${placements.length} forced placement${placements.length > 1 ? 's' : ''}, ${contradCell} has no valid candidates left!\n\n`;
+      explanation += `❌ CONTRADICTION: After ${placements2.length} forced placement${placements2.length > 1 ? 's' : ''}, ${contradCell} has no valid candidates left!\n\n`;
       explanation += `✅ Conclusion: The assumption was wrong. R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} must be ${value1}.`;
       
       return {
