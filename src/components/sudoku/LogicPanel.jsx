@@ -8,9 +8,11 @@ import {
   ChevronRight,
   Info,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Search
 } from 'lucide-react';
 import TechniqueModal from './TechniqueModal';
+import UltimateTechniqueScanModal from './UltimateTechniqueScanModal';
 import { findAllTechniqueInstances } from './logicEngine';
 
 const TECHNIQUE_INFO = {
@@ -116,20 +118,21 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
   const [selectedTechnique, setSelectedTechnique] = useState(null);
   const [shortcutsExpanded, setShortcutsExpanded] = useState(true);
   const [techniqueIndices, setTechniqueIndices] = useState({});
+  const [showUltimateScan, setShowUltimateScan] = useState(false);
+  const [scanningTechnique, setScanningTechnique] = useState(null);
+  const [scanResults, setScanResults] = useState({});
   
   const techniqueInfo = currentStep ? TECHNIQUE_INFO[currentStep.technique] : null;
   const LevelIcon = techniqueInfo?.icon || Info;
   
-  // Count occurrences of each technique
+  // Count occurrences of each technique (excluding ultimate for performance)
   const techniqueCounts = useMemo(() => {
     const counts = {};
     const techniques = [
       'Naked Single', 'Hidden Single',
       'Pointing Pair', 'Pointing Triple', 'Claiming',
       'Naked Pair', 'Hidden Pair', 'Naked Triple',
-      'X-Wing', 'Swordfish', 'XY-Wing',
-      'X-Cycle', 'Finned X-Wing', 'ALS-XZ', 
-      'Unique Rectangle Type 1', 'BUG+1'
+      'X-Wing', 'Swordfish', 'XY-Wing'
     ];
 
     techniques.forEach(tech => {
@@ -137,8 +140,43 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
       counts[tech] = instances.length;
     });
 
+    // Add ultimate technique counts from scan results
+    if (Object.keys(scanResults).length > 0) {
+      counts['X-Cycle'] = scanResults['X-Cycle'] || 0;
+      counts['Finned X-Wing'] = scanResults['Finned X-Wing'] || 0;
+      counts['ALS-XZ'] = scanResults['ALS-XZ'] || 0;
+      counts['Unique Rectangle Type 1'] = scanResults['Unique Rectangle Type 1'] || 0;
+      counts['BUG+1'] = scanResults['BUG+1'] || 0;
+    }
+
     return counts;
-  }, [grid]);
+  }, [grid, scanResults]);
+  
+  const handleUltimateScan = async () => {
+    setShowUltimateScan(true);
+    setScanResults({});
+    
+    const ultimateTechniques = [
+      'X-Cycle',
+      'Finned X-Wing',
+      'ALS-XZ',
+      'Unique Rectangle Type 1',
+      'BUG+1'
+    ];
+    
+    const results = {};
+    
+    for (const tech of ultimateTechniques) {
+      setScanningTechnique(tech);
+      await new Promise(resolve => setTimeout(resolve, 100)); // Small delay for UI update
+      
+      const instances = findAllTechniqueInstances(grid, tech);
+      results[tech] = instances.length;
+      setScanResults({...results});
+    }
+    
+    setScanningTechnique(null);
+  };
   
   const handleTechniqueClick = (techniqueName) => {
     const instances = findAllTechniqueInstances(grid, techniqueName);
@@ -309,18 +347,35 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
               { name: 'Swordfish', full: 'Swordfish' },
               { name: 'XY-Wing', full: 'XY-Wing' }
             ], color: 'orange' },
-            { level: 'Ultimate', techniques: [
-              { name: 'X-Cycle', full: 'X-Cycle' },
-              { name: 'Finned X-Wing', full: 'Finned X-Wing' },
-              { name: 'ALS-XZ', full: 'ALS-XZ' },
-              { name: 'Unique Rect.', full: 'Unique Rectangle Type 1' },
-              { name: 'BUG+1', full: 'BUG+1' }
-            ], color: 'violet' },
+            { 
+              level: 'Ultimate', 
+              techniques: [
+                { name: 'X-Cycle', full: 'X-Cycle' },
+                { name: 'Finned X-Wing', full: 'Finned X-Wing' },
+                { name: 'ALS-XZ', full: 'ALS-XZ' },
+                { name: 'Unique Rect.', full: 'Unique Rectangle Type 1' },
+                { name: 'BUG+1', full: 'BUG+1' }
+              ], 
+              color: 'violet',
+              scanButton: true
+            },
             ].map((tier) => (
             <div key={tier.level} className="flex items-start gap-3">
               <div className={`w-2 h-2 mt-2 rounded-full bg-gradient-to-br ${levelColors[tier.color]}`}></div>
               <div className="flex-1">
-                <p className="text-base font-medium text-slate-200">{tier.level}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-base font-medium text-slate-200">{tier.level}</p>
+                  {tier.scanButton && (
+                    <button
+                      onClick={handleUltimateScan}
+                      className="px-2 py-1 bg-violet-600 hover:bg-violet-500 text-white text-xs rounded flex items-center gap-1 transition-colors"
+                      title="Scan for ultimate techniques (~10s)"
+                    >
+                      <Search className="w-3 h-3" />
+                      Scan
+                    </button>
+                  )}
+                </div>
                 <div className="flex flex-wrap gap-2 mt-1">
                   {tier.techniques.map((tech) => {
                     const count = techniqueCounts[tech.full] || 0;
@@ -431,6 +486,14 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
           onClose={() => setSelectedTechnique(null)}
         />
       )}
+
+      {/* Ultimate Technique Scan Modal */}
+      <UltimateTechniqueScanModal
+        isOpen={showUltimateScan}
+        currentTechnique={scanningTechnique}
+        results={scanResults}
+        onClose={() => setShowUltimateScan(false)}
+      />
     </div>
   );
 }

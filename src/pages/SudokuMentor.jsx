@@ -56,7 +56,6 @@ export default function SudokuMentor() {
     'Loading puzzle...',
     'Validating solution...',
     'Generating candidates...',
-    'Analyzing techniques...',
     'Ready to solve!'
   ];
 
@@ -271,14 +270,8 @@ export default function SudokuMentor() {
     await new Promise(resolve => setTimeout(resolve, 300));
     const gridWithCandidates = generateCandidates(newGrid);
     
-    // Stage 4: Analyzing techniques
+    // Stage 4: Ready!
     setLoadingStage(3);
-    await new Promise(resolve => setTimeout(resolve, 500));
-    // Pre-compute first hint to warm up the engine
-    findNextLogicStep(gridWithCandidates, null);
-    
-    // Stage 5: Ready!
-    setLoadingStage(4);
     await new Promise(resolve => setTimeout(resolve, 200));
     
     setGrid(gridWithCandidates);
