@@ -88,6 +88,29 @@ export const findNextLogicStep = (grid, focusedDigit = null) => {
   step = findXYWing(grid, focusedDigit);
   if (step) return step;
   
+  // Import advanced techniques
+  const { findXCycle, findALSXZ, findUniqueRectangle, findBUGPlus1, findFinnedXWing } = require('./chainEngine');
+  
+  // 10. X-Cycles
+  step = findXCycle(grid, focusedDigit);
+  if (step) return step;
+  
+  // 11. Finned X-Wing
+  step = findFinnedXWing(grid, focusedDigit);
+  if (step) return step;
+  
+  // 12. ALS-XZ
+  step = findALSXZ(grid, focusedDigit);
+  if (step) return step;
+  
+  // 13. Unique Rectangle
+  step = findUniqueRectangle(grid);
+  if (step) return step;
+  
+  // 14. BUG+1
+  step = findBUGPlus1(grid);
+  if (step) return step;
+  
   return null;
 };
 

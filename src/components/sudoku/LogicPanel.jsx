@@ -79,6 +79,36 @@ const TECHNIQUE_INFO = {
     color: 'orange',
     description: 'Three bi-value cells form a chain for eliminations.',
     icon: Lightbulb
+  },
+  'X-Cycle': {
+    level: 'Ultimate',
+    color: 'violet',
+    description: 'Chain-based coloring technique using strong links.',
+    icon: Lightbulb
+  },
+  'Finned X-Wing': {
+    level: 'Ultimate',
+    color: 'violet',
+    description: 'X-Wing pattern with additional fin cells.',
+    icon: Lightbulb
+  },
+  'ALS-XZ': {
+    level: 'Ultimate',
+    color: 'violet',
+    description: 'Almost Locked Sets with restricted common digits.',
+    icon: Lightbulb
+  },
+  'Unique Rectangle Type 1': {
+    level: 'Ultimate',
+    color: 'violet',
+    description: 'Avoids deadly patterns with multiple solutions.',
+    icon: Lightbulb
+  },
+  'BUG+1': {
+    level: 'Ultimate',
+    color: 'violet',
+    description: 'Bivalue Universal Grave plus one tri-value cell.',
+    icon: Lightbulb
   }
 };
 
@@ -133,7 +163,8 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
     emerald: 'from-emerald-400 to-green-500',
     blue: 'from-blue-400 to-indigo-500',
     purple: 'from-purple-400 to-violet-500',
-    orange: 'from-orange-400 to-red-500'
+    orange: 'from-orange-400 to-red-500',
+    violet: 'from-indigo-600 to-violet-800'
   };
 
   return (
@@ -276,7 +307,14 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
               { name: 'Swordfish', full: 'Swordfish' },
               { name: 'XY-Wing', full: 'XY-Wing' }
             ], color: 'orange' },
-          ].map((tier) => (
+            { level: 'Ultimate', techniques: [
+              { name: 'X-Cycle', full: 'X-Cycle' },
+              { name: 'Finned X-Wing', full: 'Finned X-Wing' },
+              { name: 'ALS-XZ', full: 'ALS-XZ' },
+              { name: 'Unique Rect.', full: 'Unique Rectangle Type 1' },
+              { name: 'BUG+1', full: 'BUG+1' }
+            ], color: 'violet' },
+            ].map((tier) => (
             <div key={tier.level} className="flex items-start gap-3">
               <div className={`w-2 h-2 mt-2 rounded-full bg-gradient-to-br ${levelColors[tier.color]}`}></div>
               <div className="flex-1">
