@@ -746,13 +746,15 @@ export const applyLogicStep = (grid, step) => {
     };
   }
   
-  // Apply eliminations
-  for (const elim of step.eliminations) {
-    const { cell, digit } = elim;
-    newGrid[cell] = {
-      ...newGrid[cell],
-      candidates: newGrid[cell].candidates.filter(d => d !== digit)
-    };
+  // Apply eliminations (handle both array and potentially undefined)
+  if (step.eliminations && step.eliminations.length > 0) {
+    for (const elim of step.eliminations) {
+      const { cell, digit } = elim;
+      newGrid[cell] = {
+        ...newGrid[cell],
+        candidates: newGrid[cell].candidates.filter(d => d !== digit)
+      };
+    }
   }
   
   // Don't regenerate all candidates, just return the modified grid
