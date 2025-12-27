@@ -197,13 +197,9 @@ export default function SudokuMentor() {
       
       const newGrid = applyLogicStep(grid, currentStep);
       
-      // Only regenerate candidates if we placed a value (not just eliminated candidates)
-      if (currentStep.placement) {
-        const gridWithCandidates = generateCandidates(newGrid);
-        setGrid(gridWithCandidates);
-      } else {
-        setGrid(newGrid);
-      }
+      // Always regenerate candidates to ensure visibility
+      const gridWithCandidates = generateCandidates(newGrid);
+      setGrid(gridWithCandidates);
       
       setCurrentStep(null);
       setFocusedDigit(null);

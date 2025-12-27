@@ -436,23 +436,13 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
       
       {/* Auto-Play Controls */}
       <div className="bg-slate-900 rounded-2xl shadow-lg shadow-black/50 p-5 border border-slate-700">
-        <h4 className="text-lg font-semibold text-white mb-4">Auto-Solve</h4>
-        <div className="flex gap-3 mb-4">
+        <h4 className="text-lg font-semibold text-white mb-3">Auto-Solve</h4>
+        <div className="flex gap-2">
           <Button
             onClick={handlePlayPause}
-            className={`flex-1 ${isPlaying ? 'bg-red-600 hover:bg-red-500' : 'bg-green-600 hover:bg-green-500'}`}
+            className={`${isPlaying ? 'bg-red-600 hover:bg-red-500' : 'bg-green-600 hover:bg-green-500'}`}
           >
-            {isPlaying ? (
-              <>
-                <Pause className="w-4 h-4 mr-2" />
-                Pause
-              </>
-            ) : (
-              <>
-                <Play className="w-4 h-4 mr-2" />
-                Play
-              </>
-            )}
+            {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
           </Button>
           <Button
             onClick={handleSkipStep}
@@ -461,30 +451,24 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
           >
             <SkipForward className="w-4 h-4" />
           </Button>
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm text-slate-300">Speed</label>
-          <div className="flex gap-2">
-            {[
-              { label: '0.5x', value: 2000 },
-              { label: '1x', value: 1000 },
-              { label: '2x', value: 500 },
-              { label: '4x', value: 250 },
-              { label: '16x', value: 63 }
-            ].map(({ label, value }) => (
-              <button
-                key={value}
-                onClick={() => setPlaySpeed(value)}
-                className={`flex-1 px-2 py-1 rounded text-sm transition-colors ${
-                  playSpeed === value
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          {[
+            { label: '0.5×', value: 2000 },
+            { label: '1×', value: 1000 },
+            { label: '2×', value: 500 },
+            { label: '16×', value: 63 }
+          ].map(({ label, value }) => (
+            <button
+              key={value}
+              onClick={() => setPlaySpeed(value)}
+              className={`px-3 py-2 rounded text-sm transition-colors ${
+                playSpeed === value
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       </div>
 
