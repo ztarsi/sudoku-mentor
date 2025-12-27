@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Sparkles, Flame, Zap, Crown, Skull } from 'lucide-react';
+import { X, Sparkles, Flame, Zap, Crown, Skull, Brain } from 'lucide-react';
 
 const PUZZLES = {
   easy: [
@@ -152,6 +152,36 @@ const PUZZLES = {
         0,9,0,0,0,0,4,0,0
       ]
     }
+  ],
+  ultimate: [
+    {
+      name: 'AI Escargot',
+      puzzle: [
+        1,0,0,0,0,7,0,9,0,
+        0,3,0,0,2,0,0,0,8,
+        0,0,9,6,0,0,5,0,0,
+        0,0,5,3,0,0,9,0,0,
+        0,1,0,0,8,0,0,0,2,
+        6,0,0,0,0,4,0,0,0,
+        3,0,0,0,0,0,0,1,0,
+        0,4,0,0,0,0,0,0,7,
+        0,0,7,0,0,0,3,0,0
+      ]
+    },
+    {
+      name: 'Platinum Blonde',
+      puzzle: [
+        0,0,0,0,0,0,0,1,2,
+        0,0,0,0,0,0,0,0,3,
+        0,0,2,3,0,0,4,0,0,
+        0,0,1,8,0,0,0,0,5,
+        0,6,0,0,7,0,8,0,0,
+        0,0,0,0,0,9,0,0,0,
+        0,0,8,5,0,0,0,0,0,
+        9,0,0,0,4,0,5,0,0,
+        4,7,0,0,0,6,0,0,0
+      ]
+    }
   ]
 };
 
@@ -160,7 +190,8 @@ const DIFFICULTY_CONFIG = {
   medium: { icon: Zap, color: 'blue', label: 'Medium' },
   hard: { icon: Flame, color: 'orange', label: 'Hard' },
   expert: { icon: Crown, color: 'purple', label: 'Expert' },
-  diabolical: { icon: Skull, color: 'red', label: 'Diabolical' }
+  diabolical: { icon: Skull, color: 'red', label: 'Diabolical' },
+  ultimate: { icon: Brain, color: 'violet', label: 'Ultimate' }
 };
 
 export default function PuzzleLibrary({ onClose, onSelectPuzzle }) {
@@ -174,7 +205,8 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle }) {
     blue: 'from-blue-400 to-indigo-500',
     orange: 'from-orange-400 to-red-500',
     purple: 'from-purple-400 to-violet-500',
-    red: 'from-red-500 to-rose-600'
+    red: 'from-red-500 to-rose-600',
+    violet: 'from-indigo-600 to-violet-800'
   };
 
   return (
