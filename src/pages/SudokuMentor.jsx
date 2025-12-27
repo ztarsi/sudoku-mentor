@@ -8,6 +8,7 @@ import OCRUpload from '@/components/sudoku/OCRUpload';
 import ColorSettings from '@/components/sudoku/ColorSettings';
 import CompletionModal from '@/components/sudoku/CompletionModal';
 import TextPuzzleUpload from '@/components/sudoku/TextPuzzleUpload';
+import MobileDrawer from '@/components/sudoku/MobileDrawer';
 import { generateCandidates, findNextLogicStep, applyLogicStep } from '@/components/sudoku/logicEngine';
 import { solveSudoku } from '@/components/sudoku/solver';
 
@@ -49,6 +50,7 @@ export default function SudokuMentor() {
   const [startTime, setStartTime] = useState(null);
   const [errorCount, setErrorCount] = useState(0);
   const [showCompletion, setShowCompletion] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const errorAudioRef = useRef(null);
 
   const handleCellClick = useCallback((cellIndex) => {
@@ -494,19 +496,32 @@ export default function SudokuMentor() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 lg:pb-8">
         <div className="grid lg:grid-cols-[1fr,380px] gap-8">
           {/* Left Column - Grid & Controls */}
           <div className="space-y-6">
-            {/* Digit Filter */}
+            {/* Digit Filter - Desktop Only */}
             <DigitFilter 
               focusedDigit={focusedDigit} 
               onDigitClick={handleDigitFilter}
               grid={grid}
             />
-            
+
+            {/* Control Bar */}
+            <ControlBar
+              onHint={handleNextStep}
+              onApply={handleApplyStep}
+              onUndo={handleUndo}
+              onRedo={handleRedo}
+              onClear={handleClearGrid}
+              onOpenDrawer={() => setDrawerOpen(true)}
+              hasStep={currentStep !== null}
+              canUndo={historyIndex >= 0}
+              canRedo={historyIndex < stepHistory.length - 1}
+            />
+
             {/* Sudoku Grid */}
-            <div className="flex justify-center">
+            <div className="flex justify-center mt-20 lg:mt-0">
               <SudokuGrid
                 grid={grid}
                 selectedCell={selectedCell}
@@ -520,58 +535,106 @@ export default function SudokuMentor() {
                 onToggleCandidate={handleToggleCandidate}
               />
             </div>
-            
-
           </div>
-          
-          {/* Right Column - Logic Panel */}
-          <LogicPanel 
-            currentStep={currentStep}
-            focusedDigit={focusedDigit}
-            grid={grid}
-            onHighlightTechnique={(instances, total, current) => {
-              // Highlight cells from the current instance
-              setGrid(prev => {
-                const newGrid = prev.map(cell => ({
-                  ...cell,
-                  isHighlighted: false,
-                  highlightColor: null,
-                  isBaseCell: false,
-                  isTargetCell: false
-                }));
 
-                instances.forEach(step => {
-                  step.baseCells?.forEach(idx => {
-                    newGrid[idx] = {
-                      ...newGrid[idx],
-                      isHighlighted: true,
-                      isBaseCell: true,
-                      highlightColor: 'blue'
-                    };
+          {/* Right Column - Logic Panel (Desktop only) */}
+          <div className="hidden lg:block">
+            <LogicPanel 
+              currentStep={currentStep}
+              focusedDigit={focusedDigit}
+              grid={grid}
+              onHighlightTechnique={(instances, total, current) => {
+                // Highlight cells from the current instance
+                setGrid(prev => {
+                  const newGrid = prev.map(cell => ({
+                    ...cell,
+                    isHighlighted: false,
+                    highlightColor: null,
+                    isBaseCell: false,
+                    isTargetCell: false
+                  }));
+
+                  instances.forEach(step => {
+                    step.baseCells?.forEach(idx => {
+                      newGrid[idx] = {
+                        ...newGrid[idx],
+                        isHighlighted: true,
+                        isBaseCell: true,
+                        highlightColor: 'blue'
+                      };
+                    });
+
+                    step.targetCells?.forEach(idx => {
+                      newGrid[idx] = {
+                        ...newGrid[idx],
+                        isHighlighted: true,
+                        isTargetCell: true,
+                        highlightColor: 'red'
+                      };
+                    });
                   });
 
-                  step.targetCells?.forEach(idx => {
-                    newGrid[idx] = {
-                      ...newGrid[idx],
-                      isHighlighted: true,
-                      isTargetCell: true,
-                      highlightColor: 'red'
-                    };
-                  });
+                  return newGrid;
                 });
 
-                return newGrid;
-              });
-
-              // If all instances involve the same digit, highlight it
-              const digits = [...new Set(instances.map(s => s.digit).filter(d => d))];
-              if (digits.length === 1) {
-                setFocusedDigit(digits[0]);
-              }
-            }}
-          />
+                // If all instances involve the same digit, highlight it
+                const digits = [...new Set(instances.map(s => s.digit).filter(d => d))];
+                if (digits.length === 1) {
+                  setFocusedDigit(digits[0]);
+                }
+              }}
+            />
+          </div>
         </div>
       </main>
+
+      {/* Mobile Drawer for Logic Panel */}
+      <MobileDrawer isOpen={drawerOpen} onClose={() => setDrawerOpen(false)}>
+        <LogicPanel 
+          currentStep={currentStep}
+          focusedDigit={focusedDigit}
+          grid={grid}
+          onHighlightTechnique={(instances, total, current) => {
+            setGrid(prev => {
+              const newGrid = prev.map(cell => ({
+                ...cell,
+                isHighlighted: false,
+                highlightColor: null,
+                isBaseCell: false,
+                isTargetCell: false
+              }));
+
+              instances.forEach(step => {
+                step.baseCells?.forEach(idx => {
+                  newGrid[idx] = {
+                    ...newGrid[idx],
+                    isHighlighted: true,
+                    isBaseCell: true,
+                    highlightColor: 'blue'
+                  };
+                });
+
+                step.targetCells?.forEach(idx => {
+                  newGrid[idx] = {
+                    ...newGrid[idx],
+                    isHighlighted: true,
+                    isTargetCell: true,
+                    highlightColor: 'red'
+                  };
+                });
+              });
+
+              return newGrid;
+            });
+
+            const digits = [...new Set(instances.map(s => s.digit).filter(d => d))];
+            if (digits.length === 1) {
+              setFocusedDigit(digits[0]);
+            }
+            setDrawerOpen(false);
+          }}
+        />
+      </MobileDrawer>
 
       {/* Puzzle Library Modal */}
       {showLibrary && (
