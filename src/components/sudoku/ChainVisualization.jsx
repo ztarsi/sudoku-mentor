@@ -12,6 +12,30 @@ export default function ChainVisualization({ chains, strongLinks, weakLinks, als
     return { x, y };
   };
 
+  const getCandidatePosition = (cellIndex, candidateValue) => {
+    const row = Math.floor(cellIndex / 9);
+    const col = cellIndex % 9;
+    
+    // Base cell position
+    const cellX = col * cellSize;
+    const cellY = row * cellSize;
+    
+    // Candidate is displayed in a 3x3 grid within the cell
+    // candidateValue 1-9 maps to positions:
+    // 1 2 3
+    // 4 5 6
+    // 7 8 9
+    const candRow = Math.floor((candidateValue - 1) / 3);
+    const candCol = (candidateValue - 1) % 3;
+    
+    // Each candidate occupies 1/3 of the cell
+    const candSize = cellSize / 3;
+    const x = cellX + (candCol + 0.5) * candSize;
+    const y = cellY + (candRow + 0.5) * candSize;
+    
+    return { x, y };
+  };
+
   const renderArrow = (from, to, type = 'strong', key, isALS = false) => {
     const start = isALS ? from : getCellCenter(from);
     const end = isALS ? to : getCellCenter(to);
@@ -141,17 +165,11 @@ export default function ChainVisualization({ chains, strongLinks, weakLinks, als
             <g key={`forcing-chain-${chainIdx}`}>
               {/* Sequential markers and arrows */}
               {allSteps.map((step, idx) => {
-                const cellPos = getCellCenter(step.cell);
+                const candPos = getCandidatePosition(step.cell, step.value);
                 const baseDelay = idx * 0.3;
 
-                // Find next placement step for arrow
-                let nextPlacementIdx = -1;
-                for (let i = idx + 1; i < allSteps.length; i++) {
-                  if (allSteps[i].action === 'place') {
-                    nextPlacementIdx = i;
-                    break;
-                  }
-                }
+                // Find next step for arrow (any action)
+                const nextStep = idx < allSteps.length - 1 ? allSteps[idx + 1] : null;
 
                 return (
                   <g key={`step-${idx}`}>
@@ -159,39 +177,50 @@ export default function ChainVisualization({ chains, strongLinks, weakLinks, als
                     {step.action === 'place' ? (
                       <motion.circle
                         initial={{ r: 0, opacity: 0 }}
-                        animate={{ r: cellSize * 0.15, opacity: 0.9 }}
+                        animate={{ r: cellSize * 0.08, opacity: 0.95 }}
                         transition={{ duration: 0.3, delay: baseDelay }}
-                        cx={cellPos.x}
-                        cy={cellPos.y}
+                        cx={candPos.x}
+                        cy={candPos.y}
                         fill="#10b981"
                         stroke="#059669"
-                        strokeWidth="2"
+                        strokeWidth="1.5"
                       />
                     ) : (
-                      <motion.rect
-                        initial={{ width: 0, height: 0, opacity: 0 }}
-                        animate={{ width: cellSize * 0.15, height: cellSize * 0.15, opacity: 0.6 }}
+                      <motion.g
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 0.7 }}
                         transition={{ duration: 0.2, delay: baseDelay }}
-                        x={cellPos.x - cellSize * 0.075}
-                        y={cellPos.y - cellSize * 0.075}
-                        fill="#f97316"
-                        stroke="#ea580c"
-                        strokeWidth="1"
-                        rx={2}
-                      />
+                      >
+                        <line
+                          x1={candPos.x - cellSize * 0.06}
+                          y1={candPos.y - cellSize * 0.06}
+                          x2={candPos.x + cellSize * 0.06}
+                          y2={candPos.y + cellSize * 0.06}
+                          stroke="#f97316"
+                          strokeWidth="2"
+                        />
+                        <line
+                          x1={candPos.x - cellSize * 0.06}
+                          y1={candPos.y + cellSize * 0.06}
+                          x2={candPos.x + cellSize * 0.06}
+                          y2={candPos.y - cellSize * 0.06}
+                          stroke="#f97316"
+                          strokeWidth="2"
+                        />
+                      </motion.g>
                     )}
 
-                    {/* Arrow to next placement */}
-                    {step.action === 'place' && nextPlacementIdx !== -1 && (
+                    {/* Arrow to next step */}
+                    {nextStep && (
                       (() => {
-                        const from = cellPos;
-                        const to = getCellCenter(allSteps[nextPlacementIdx].cell);
+                        const from = candPos;
+                        const to = getCandidatePosition(nextStep.cell, nextStep.value);
 
                         const dx = to.x - from.x;
                         const dy = to.y - from.y;
                         const angle = Math.atan2(dy, dx);
 
-                        const margin = cellSize * 0.25;
+                        const margin = cellSize * 0.12;
                         const startX = from.x + Math.cos(angle) * margin;
                         const startY = from.y + Math.sin(angle) * margin;
                         const endX = to.x - Math.cos(angle) * margin;
@@ -200,22 +229,25 @@ export default function ChainVisualization({ chains, strongLinks, weakLinks, als
                         const midX = (startX + endX) / 2;
                         const midY = (startY + endY) / 2;
                         const perpAngle = angle + Math.PI / 2;
-                        const curveAmount = cellSize * 0.2;
+                        const curveAmount = cellSize * 0.15;
                         const controlX = midX + Math.cos(perpAngle) * curveAmount;
                         const controlY = midY + Math.sin(perpAngle) * curveAmount;
 
                         const pathD = `M ${startX} ${startY} Q ${controlX} ${controlY}, ${endX} ${endY}`;
 
+                        const arrowColor = nextStep.action === 'place' ? '#10b981' : '#f97316';
+                        const markerId = nextStep.action === 'place' ? 'arrow-forcing-green' : 'arrow-forcing-red';
+
                         return (
                           <motion.path
                             initial={{ pathLength: 0, opacity: 0 }}
-                            animate={{ pathLength: 1, opacity: 0.8 }}
+                            animate={{ pathLength: 1, opacity: 0.7 }}
                             transition={{ duration: 0.5, delay: baseDelay + 0.15 }}
                             d={pathD}
-                            stroke="#10b981"
-                            strokeWidth="3"
+                            stroke={arrowColor}
+                            strokeWidth="2"
                             fill="none"
-                            markerEnd="url(#arrow-forcing-green)"
+                            markerEnd={`url(#${markerId})`}
                           />
                         );
                       })()
@@ -226,11 +258,11 @@ export default function ChainVisualization({ chains, strongLinks, weakLinks, als
 
               {label && allSteps.length > 0 && (
                 <text
-                  x={getCellCenter(allSteps[0].cell).x}
-                  y={getCellCenter(allSteps[0].cell).y - cellSize * 0.4}
+                  x={getCandidatePosition(allSteps[0].cell, allSteps[0].value).x}
+                  y={getCandidatePosition(allSteps[0].cell, allSteps[0].value).y - cellSize * 0.25}
                   textAnchor="middle"
                   fill="#ef4444"
-                  fontSize={cellSize * 0.22}
+                  fontSize={cellSize * 0.18}
                   fontWeight="bold"
                 >
                   {label}
