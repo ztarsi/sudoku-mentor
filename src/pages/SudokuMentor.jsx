@@ -208,6 +208,7 @@ export default function SudokuMentor() {
       }
       
       setCurrentStep(null);
+      setFocusedDigit(null); // Exit focus mode after applying
       clearHighlights();
     }
   }, [currentStep, grid, historyIndex]);
@@ -561,6 +562,11 @@ export default function SudokuMentor() {
               focusedDigit={focusedDigit}
               grid={grid}
               onHighlightTechnique={(instances, total, current) => {
+                // Set the first instance as the current step so it can be applied
+                if (instances.length > 0) {
+                  setCurrentStep(instances[0]);
+                }
+
                 // Highlight cells from the current instance
                 setGrid(prev => {
                   const newGrid = prev.map(cell => ({
