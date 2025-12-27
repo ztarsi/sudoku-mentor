@@ -86,6 +86,65 @@ export default function OCRUpload({ onClose, onPuzzleExtracted, embedded = false
     }
   };
 
+  if (embedded) {
+    return (
+      <div className="space-y-4">
+        <p className="text-slate-400 text-center">Upload an image of a Sudoku puzzle for automatic extraction</p>
+        
+        {!preview ? (
+          <label className="block cursor-pointer">
+            <div className="border-2 border-dashed border-slate-700 rounded-xl p-12 text-center hover:border-blue-500 transition-all bg-slate-800/50">
+              <Camera className="w-16 h-16 mx-auto mb-4 text-slate-500" />
+              <p className="text-white font-medium mb-2">Click to upload an image</p>
+              <p className="text-sm text-slate-400">PNG, JPG up to 10MB</p>
+            </div>
+            <input
+              type="file"
+              accept="image/png,image/jpeg"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+          </label>
+        ) : (
+          <div className="space-y-4">
+            <div className="relative rounded-xl overflow-hidden bg-slate-800">
+              <img src={preview} alt="Selected puzzle" className="w-full h-auto" />
+            </div>
+            
+            {message && (
+              <div className={`p-4 rounded-lg ${
+                status === 'error' ? 'bg-red-900/20 text-red-400' : 'bg-blue-900/20 text-blue-400'
+              }`}>
+                {message}
+              </div>
+            )}
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setFile(null);
+                  setPreview(null);
+                  setStatus(null);
+                  setMessage('');
+                }}
+                className="flex-1 px-4 py-3 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUploadAndExtract}
+                disabled={isProcessing}
+                className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg hover:shadow-lg transition-all disabled:opacity-50"
+              >
+                {isProcessing ? 'Processing...' : 'Extract Puzzle'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0 }}

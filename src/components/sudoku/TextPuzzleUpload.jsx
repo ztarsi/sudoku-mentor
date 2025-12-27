@@ -56,6 +56,55 @@ export default function TextPuzzleUpload({ onClose, onPuzzleLoaded, embedded = f
     }
   };
 
+  if (embedded) {
+    return (
+      <div className="space-y-4">
+        <div>
+          <label className="block text-white font-medium mb-2">Paste or type your puzzle:</label>
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Format: Each line = 3 digits&#10;1st digit: Row (1-9)&#10;2nd digit: Column (1-9)&#10;3rd digit: Value (1-9)&#10;&#10;Example:&#10;131&#10;155&#10;273..."
+            className="w-full h-48 px-4 py-3 bg-slate-800 text-white border border-slate-700 rounded-lg focus:border-blue-500 focus:outline-none resize-none font-mono"
+          />
+        </div>
+
+        <div>
+          <label className="block text-white font-medium mb-2">Or upload a file:</label>
+          <input
+            type="file"
+            accept=".txt"
+            onChange={handleFileUpload}
+            className="block w-full text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-slate-700 file:text-white hover:file:bg-slate-600"
+          />
+        </div>
+
+        {error && (
+          <div className="p-4 bg-red-900/20 border border-red-500/50 rounded-lg text-red-400">
+            {error}
+          </div>
+        )}
+
+        <div className="bg-slate-800 rounded-lg p-4 text-sm text-slate-400">
+          <p className="font-medium text-white mb-2">Format:</p>
+          <ul className="list-disc list-inside space-y-1">
+            <li>Each line: 3 digits (Row, Column, Value)</li>
+            <li>Example: "131" = Row 1, Column 3, Value 1</li>
+            <li>All values must be 1-9</li>
+          </ul>
+        </div>
+
+        <button
+          onClick={handleLoad}
+          disabled={!text.trim()}
+          className="w-full px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+        >
+          Load Puzzle
+        </button>
+      </div>
+    );
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
