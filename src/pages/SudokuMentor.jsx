@@ -151,7 +151,7 @@ export default function SudokuMentor() {
     setCurrentStep(null);
   };
 
-  const handleNextStep = useCallback(() => {
+  const handleNextStep = useCallback(async () => {
     const step = findNextLogicStep(grid, null);
     if (step) {
       setCurrentStep(step);
@@ -187,6 +187,57 @@ export default function SudokuMentor() {
         
         return newGrid;
       });
+    } else {
+      // No regular techniques found - search for forcing chains automatically
+      setIsLoading(true);
+      setLoadingStage(0);
+      
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const { findForcingChain, findHypothesis } = await import('./components/sudoku/forcingChainEngine');
+      
+      let result = findForcingChain(grid, 100);
+      if (!result) {
+        result = findHypothesis(grid, 100);
+      }
+      
+      setIsLoading(false);
+      
+      if (result) {
+        setCurrentStep(result);
+        
+        setGrid(prev => {
+          const newGrid = prev.map(cell => ({
+            ...cell,
+            isHighlighted: false,
+            highlightColor: null,
+            isBaseCell: false,
+            isTargetCell: false
+          }));
+          
+          // Highlight base cells
+          result.baseCells?.forEach(idx => {
+            newGrid[idx] = {
+              ...newGrid[idx],
+              isHighlighted: true,
+              isBaseCell: true,
+              highlightColor: 'blue'
+            };
+          });
+          
+          // Highlight target cells
+          result.targetCells?.forEach(idx => {
+            newGrid[idx] = {
+              ...newGrid[idx],
+              isHighlighted: true,
+              isTargetCell: true,
+              highlightColor: 'red'
+            };
+          });
+          
+          return newGrid;
+        });
+      }
     }
   }, [grid, focusedDigit]);
 
