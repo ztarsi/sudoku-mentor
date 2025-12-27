@@ -221,23 +221,38 @@ export default function ChainVisualization({ chains, strongLinks, weakLinks, als
                   <g key={`step-${idx}`}>
                     {/* Marker with pulsing animation for current step */}
                     {step.action === 'place' ? (
-                      <motion.circle
-                        initial={{ r: 0, opacity: 0 }}
-                        animate={{ 
-                          r: cellSize * 0.08, 
-                          opacity: idx === currentAnimStep && isAnimating ? [0.95, 1, 0.95] : 0.95,
-                          scale: idx === currentAnimStep && isAnimating ? [1, 1.3, 1] : 1
-                        }}
-                        transition={{ 
-                          duration: 0.3, 
-                          scale: { duration: 0.6, repeat: Infinity }
-                        }}
-                        cx={candPos.x}
-                        cy={candPos.y}
-                        fill="#10b981"
-                        stroke="#059669"
-                        strokeWidth="1.5"
-                      />
+                      (() => {
+                        // Color progression: purple (initial) -> violet -> blue -> cyan -> green
+                        const colors = [
+                          { fill: '#a855f7', stroke: '#7e22ce' }, // purple - initial assumption
+                          { fill: '#8b5cf6', stroke: '#6d28d9' }, // violet
+                          { fill: '#3b82f6', stroke: '#1d4ed8' }, // blue
+                          { fill: '#06b6d4', stroke: '#0891b2' }, // cyan
+                          { fill: '#10b981', stroke: '#059669' }, // green
+                        ];
+                        const colorIndex = Math.min(idx, colors.length - 1);
+                        const color = colors[colorIndex];
+
+                        return (
+                          <motion.circle
+                            initial={{ r: 0, opacity: 0 }}
+                            animate={{ 
+                              r: cellSize * 0.08, 
+                              opacity: idx === currentAnimStep && isAnimating ? [0.95, 1, 0.95] : 0.95,
+                              scale: idx === currentAnimStep && isAnimating ? [1, 1.3, 1] : 1
+                            }}
+                            transition={{ 
+                              duration: 0.3, 
+                              scale: { duration: 0.6, repeat: Infinity }
+                            }}
+                            cx={candPos.x}
+                            cy={candPos.y}
+                            fill={color.fill}
+                            stroke={color.stroke}
+                            strokeWidth="1.5"
+                          />
+                        );
+                      })()
                     ) : (
                       <motion.g
                         initial={{ opacity: 0, scale: 0 }}
@@ -337,6 +352,7 @@ export default function ChainVisualization({ chains, strongLinks, weakLinks, als
 
         {currentStep?.contradictionCell !== undefined && currentStep.contradictionCell !== null && !isAnimating && (
           <motion.g>
+            {/* Blinking contradiction cell */}
             <motion.rect
               x={getCellCenter(currentStep.contradictionCell).x - cellSize * 0.4}
               y={getCellCenter(currentStep.contradictionCell).y - cellSize * 0.4}
@@ -348,14 +364,38 @@ export default function ChainVisualization({ chains, strongLinks, weakLinks, als
               strokeWidth="4"
               initial={{ opacity: 0, scale: 0.5 }}
               animate={{ 
-                opacity: [1, 0.5, 1], 
+                opacity: [1, 0.3, 1], 
                 scale: 1 
               }}
               transition={{ 
-                opacity: { duration: 1, repeat: Infinity },
+                opacity: { duration: 0.8, repeat: Infinity },
                 scale: { duration: 0.3 }
               }}
             />
+
+            {/* Blinking initial assumption cell (baseCells[0]) */}
+            {currentStep.baseCells && currentStep.baseCells[0] !== undefined && (
+              <motion.rect
+                x={getCellCenter(currentStep.baseCells[0]).x - cellSize * 0.4}
+                y={getCellCenter(currentStep.baseCells[0]).y - cellSize * 0.4}
+                width={cellSize * 0.8}
+                height={cellSize * 0.8}
+                rx={cellSize * 0.1}
+                fill="none"
+                stroke="#a855f7"
+                strokeWidth="4"
+                initial={{ opacity: 0, scale: 0.5 }}
+                animate={{ 
+                  opacity: [1, 0.3, 1], 
+                  scale: 1 
+                }}
+                transition={{ 
+                  opacity: { duration: 0.8, repeat: Infinity },
+                  scale: { duration: 0.3 }
+                }}
+              />
+            )}
+
             <motion.text
               x={getCellCenter(currentStep.contradictionCell).x}
               y={getCellCenter(currentStep.contradictionCell).y + cellSize * 0.6}
