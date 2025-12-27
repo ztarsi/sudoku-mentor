@@ -157,25 +157,34 @@ export default function ChainVisualization({ chains, strongLinks, weakLinks, als
                 
                 const margin = cellSize * 0.3;
                 const length = Math.sqrt(dx * dx + dy * dy);
-                const shortenedLength = length - 2 * margin;
                 
                 const startX = from.x + Math.cos(angle) * margin;
                 const startY = from.y + Math.sin(angle) * margin;
-                const endX = startX + Math.cos(angle) * shortenedLength;
-                const endY = startY + Math.sin(angle) * shortenedLength;
+                const endX = to.x - Math.cos(angle) * margin;
+                const endY = to.y - Math.sin(angle) * margin;
+                
+                // Calculate control points for curved path
+                const midX = (startX + endX) / 2;
+                const midY = (startY + endY) / 2;
+                
+                // Perpendicular offset for curve
+                const perpAngle = angle + Math.PI / 2;
+                const curveAmount = length * 0.15;
+                const controlX = midX + Math.cos(perpAngle) * curveAmount;
+                const controlY = midY + Math.sin(perpAngle) * curveAmount;
+                
+                const pathD = `M ${startX} ${startY} Q ${controlX} ${controlY}, ${endX} ${endY}`;
                 
                 return (
-                  <motion.line
+                  <motion.path
                     key={`line-${idx}`}
                     initial={{ pathLength: 0, opacity: 0 }}
                     animate={{ pathLength: 1, opacity: 0.8 }}
                     transition={{ duration: 0.4, delay: idx * 0.1 }}
-                    x1={startX}
-                    y1={startY}
-                    x2={endX}
-                    y2={endY}
+                    d={pathD}
                     stroke={color}
                     strokeWidth="3"
+                    fill="none"
                     markerEnd={`url(#arrow-forcing-${markerColor})`}
                   />
                 );
