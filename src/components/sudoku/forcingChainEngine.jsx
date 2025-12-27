@@ -187,7 +187,15 @@ export const findForcingChain = (grid, maxDepth = 8) => {
 
 // Explore a branch of the forcing chain
 const exploreBranch = (grid, cellIndex, value, maxDepth, chain) => {
-  const newChain = [...chain, { cell: cellIndex, value, depth: chain.length }];
+  // Track initial state before applying value
+  const initialCandidates = {};
+  grid.forEach((cell, idx) => {
+    if (cell.value === null) {
+      initialCandidates[idx] = [...cell.candidates];
+    }
+  });
+  
+  const newChain = [...chain, { cell: cellIndex, value, action: 'place' }];
   
   if (chain.length >= maxDepth) {
     return { grid, contradiction: false, chain: newChain };
@@ -199,8 +207,20 @@ const exploreBranch = (grid, cellIndex, value, maxDepth, chain) => {
     return { grid: result.grid, contradiction: true, chain: newChain, contradictionCell: result.cell };
   }
   
-  // Continue exploring if we made progress
+  // Track eliminations
   const newGrid = result.grid;
+  const eliminationSteps = [];
+  
+  newGrid.forEach((cell, idx) => {
+    if (cell.value === null && initialCandidates[idx]) {
+      const eliminated = initialCandidates[idx].filter(c => !cell.candidates.includes(c));
+      eliminated.forEach(digit => {
+        eliminationSteps.push({ cell: idx, value: digit, action: 'eliminate' });
+      });
+    }
+  });
+  
+  const chainWithEliminations = [...newChain, ...eliminationSteps];
   
   // Look for next bi-value cell
   for (let i = 0; i < 81; i++) {
@@ -208,12 +228,12 @@ const exploreBranch = (grid, cellIndex, value, maxDepth, chain) => {
       const [v1, v2] = newGrid[i].candidates;
       
       // Try first value
-      const subBranch1 = exploreBranch(newGrid, i, v1, maxDepth, newChain);
+      const subBranch1 = exploreBranch(newGrid, i, v1, maxDepth, chainWithEliminations);
       if (subBranch1.contradiction) {
         // If first value leads to contradiction, second must be true
         const subBranch2 = applyValueAndPropagate(newGrid, i, v2, 0);
         if (!subBranch2.contradiction) {
-          return exploreBranch(subBranch2.grid, i, v2, maxDepth, newChain);
+          return exploreBranch(subBranch2.grid, i, v2, maxDepth, chainWithEliminations);
         }
       }
       
@@ -221,7 +241,7 @@ const exploreBranch = (grid, cellIndex, value, maxDepth, chain) => {
     }
   }
   
-  return { grid: newGrid, contradiction: false, chain: newChain };
+  return { grid: newGrid, contradiction: false, chain: chainWithEliminations };
 };
 
 // Find common eliminations between two branches
