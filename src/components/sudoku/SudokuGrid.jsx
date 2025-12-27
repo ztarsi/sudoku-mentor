@@ -164,7 +164,7 @@ export default function SudokuGrid({
           >
             {/* What-If Overlay Grid - shown on top during animation */}
             {overlayGrid && (
-              <div className="absolute inset-0 z-40 pointer-events-none grid grid-cols-9 gap-0">
+              <div className="absolute inset-0 z-50 pointer-events-none grid grid-cols-9 gap-0">
                 {overlayGrid.map((cell, index) => {
                   const row = Math.floor(index / 9);
                   const col = index % 9;
@@ -195,15 +195,15 @@ export default function SudokuGrid({
               </div>
             )}
 
-            {/* Chain Visualization Overlay - positioned on top with higher z-index */}
+            {/* Chain Visualization Overlay - hide arrows during what-if animation */}
             {currentStep && (currentStep.chains || currentStep.chain || currentStep.strongLinks || currentStep.weakLinks || alsLinks.length > 0 || forcingChains) && (
-              <div className="absolute inset-0 z-50 pointer-events-none">
+              <div className="absolute inset-0 z-40 pointer-events-none">
                 <ChainVisualization
                   chains={currentStep.chains}
                   strongLinks={currentStep.strongLinks}
                   weakLinks={currentStep.weakLinks}
                   alsLinks={alsLinks}
-                  forcingChains={forcingChains}
+                  forcingChains={overlayGrid ? null : forcingChains}
                   cellSize={cellSize}
                   gridSize={gridSize}
                   currentStep={currentStep}
