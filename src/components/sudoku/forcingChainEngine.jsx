@@ -95,10 +95,27 @@ export const findForcingChain = (grid, maxDepth = 8) => {
     
     // Check for contradictions
     if (branch1.contradiction && !branch2.contradiction) {
+      const placements = branch1.chain.filter(c => c.action === 'place');
+      const eliminations = branch1.chain.filter(c => c.action === 'eliminate');
+      
+      let explanation = `If R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} = ${value1}, the following chain occurs:\n\n`;
+      explanation += 'Forced Placements (Green):\n';
+      placements.forEach(p => {
+        explanation += `• R${getRow(p.cell) + 1}C${getCol(p.cell) + 1} = ${p.value}\n`;
+      });
+      explanation += '\nEliminations (Orange):\n';
+      eliminations.slice(0, 10).forEach(e => {
+        explanation += `• R${getRow(e.cell) + 1}C${getCol(e.cell) + 1} removes ${e.value}\n`;
+      });
+      if (eliminations.length > 10) {
+        explanation += `• ...and ${eliminations.length - 10} more eliminations\n`;
+      }
+      explanation += `\nThis leads to a contradiction at R${getRow(branch1.contradictionCell) + 1}C${getCol(branch1.contradictionCell) + 1}. Therefore, it must be ${value2}.`;
+      
       return {
         technique: 'Deep Forcing Chain',
-        explanation: `If R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} = ${value1}, it creates this chain leading to a contradiction at R${getRow(branch1.contradictionCell) + 1}C${getCol(branch1.contradictionCell) + 1}.`,
-        baseCells: branch1.chain.map(c => c.cell),
+        explanation,
+        baseCells: [cellIndex],
         targetCells: [branch1.contradictionCell],
         placement: { cell: cellIndex, digit: value2 },
         eliminations: [],
@@ -111,10 +128,27 @@ export const findForcingChain = (grid, maxDepth = 8) => {
     }
     
     if (branch2.contradiction && !branch1.contradiction) {
+      const placements = branch2.chain.filter(c => c.action === 'place');
+      const eliminations = branch2.chain.filter(c => c.action === 'eliminate');
+      
+      let explanation = `If R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} = ${value2}, the following chain occurs:\n\n`;
+      explanation += 'Forced Placements (Green):\n';
+      placements.forEach(p => {
+        explanation += `• R${getRow(p.cell) + 1}C${getCol(p.cell) + 1} = ${p.value}\n`;
+      });
+      explanation += '\nEliminations (Orange):\n';
+      eliminations.slice(0, 10).forEach(e => {
+        explanation += `• R${getRow(e.cell) + 1}C${getCol(e.cell) + 1} removes ${e.value}\n`;
+      });
+      if (eliminations.length > 10) {
+        explanation += `• ...and ${eliminations.length - 10} more eliminations\n`;
+      }
+      explanation += `\nThis leads to a contradiction at R${getRow(branch2.contradictionCell) + 1}C${getCol(branch2.contradictionCell) + 1}. Therefore, it must be ${value1}.`;
+      
       return {
         technique: 'Deep Forcing Chain',
-        explanation: `If R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} = ${value2}, it creates this chain leading to a contradiction at R${getRow(branch2.contradictionCell) + 1}C${getCol(branch2.contradictionCell) + 1}.`,
-        baseCells: branch2.chain.map(c => c.cell),
+        explanation,
+        baseCells: [cellIndex],
         targetCells: [branch2.contradictionCell],
         placement: { cell: cellIndex, digit: value1 },
         eliminations: [],

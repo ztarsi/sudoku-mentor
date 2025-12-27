@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Lightbulb, 
@@ -9,11 +9,15 @@ import {
   Info,
   ChevronDown,
   ChevronUp,
-  Search
+  Search,
+  Play,
+  Pause,
+  SkipForward
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import TechniqueModal from './TechniqueModal';
 import UltimateTechniqueScanModal from './UltimateTechniqueScanModal';
-import { findAllTechniqueInstances } from './logicEngine';
+import { findAllTechniqueInstances, findNextLogicStep } from './logicEngine';
 import { findForcingChain } from './forcingChainEngine';
 
 const TECHNIQUE_INFO = {
@@ -115,7 +119,7 @@ const TECHNIQUE_INFO = {
   }
 };
 
-export default function LogicPanel({ currentStep, focusedDigit, grid, onHighlightTechnique }) {
+export default function LogicPanel({ currentStep, focusedDigit, grid, onHighlightTechnique, onApplyStep, onNextStep }) {
   const [selectedTechnique, setSelectedTechnique] = useState(null);
   const [shortcutsExpanded, setShortcutsExpanded] = useState(true);
   const [techniqueIndices, setTechniqueIndices] = useState({});
@@ -123,6 +127,9 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
   const [scanningTechnique, setScanningTechnique] = useState(null);
   const [scanResults, setScanResults] = useState({});
   const [searchingForcingChain, setSearchingForcingChain] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playSpeed, setPlaySpeed] = useState(2000); // milliseconds per step
+  const playIntervalRef = useRef(null);
   
   const techniqueInfo = currentStep ? TECHNIQUE_INFO[currentStep.technique] : null;
   const LevelIcon = techniqueInfo?.icon || Info;
@@ -196,6 +203,62 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
       alert('No forcing chains found at this depth. The puzzle may require trial and error beyond logical deduction.');
     }
   };
+
+  const handlePlayPause = () => {
+    if (isPlaying) {
+      setIsPlaying(false);
+      if (playIntervalRef.current) {
+        clearInterval(playIntervalRef.current);
+        playIntervalRef.current = null;
+      }
+    } else {
+      setIsPlaying(true);
+      autoPlayNextStep();
+    }
+  };
+
+  const autoPlayNextStep = () => {
+    if (playIntervalRef.current) {
+      clearInterval(playIntervalRef.current);
+    }
+
+    playIntervalRef.current = setInterval(() => {
+      if (currentStep) {
+        onApplyStep?.();
+        setTimeout(() => {
+          const nextStep = findNextLogicStep(grid);
+          if (!nextStep) {
+            setIsPlaying(false);
+            clearInterval(playIntervalRef.current);
+            playIntervalRef.current = null;
+          }
+        }, 100);
+      } else {
+        onNextStep?.();
+      }
+    }, playSpeed);
+  };
+
+  const handleSkipStep = () => {
+    if (currentStep) {
+      onApplyStep?.();
+    }
+    onNextStep?.();
+  };
+
+  useEffect(() => {
+    return () => {
+      if (playIntervalRef.current) {
+        clearInterval(playIntervalRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isPlaying && currentStep) {
+      autoPlayNextStep();
+    }
+  }, [playSpeed, isPlaying]);
   
   const handleTechniqueClick = (techniqueName) => {
     const instances = findAllTechniqueInstances(grid, techniqueName);
@@ -286,7 +349,7 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
               
               {/* Explanation */}
               <div className="bg-slate-800 rounded-xl p-4">
-                <p className="text-slate-200 leading-relaxed text-base">
+                <p className="text-slate-200 leading-relaxed text-base whitespace-pre-line">
                   {currentStep.explanation}
                 </p>
               </div>
@@ -344,6 +407,59 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
         </AnimatePresence>
       </motion.div>
       
+      {/* Auto-Play Controls */}
+      <div className="bg-slate-900 rounded-2xl shadow-lg shadow-black/50 p-5 border border-slate-700">
+        <h4 className="text-lg font-semibold text-white mb-4">Auto-Solve</h4>
+        <div className="flex gap-3 mb-4">
+          <Button
+            onClick={handlePlayPause}
+            className={`flex-1 ${isPlaying ? 'bg-red-600 hover:bg-red-500' : 'bg-green-600 hover:bg-green-500'}`}
+          >
+            {isPlaying ? (
+              <>
+                <Pause className="w-4 h-4 mr-2" />
+                Pause
+              </>
+            ) : (
+              <>
+                <Play className="w-4 h-4 mr-2" />
+                Play
+              </>
+            )}
+          </Button>
+          <Button
+            onClick={handleSkipStep}
+            variant="outline"
+            className="border-slate-600"
+          >
+            <SkipForward className="w-4 h-4" />
+          </Button>
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm text-slate-300">Speed</label>
+          <div className="flex gap-2">
+            {[
+              { label: '0.5x', value: 4000 },
+              { label: '1x', value: 2000 },
+              { label: '2x', value: 1000 },
+              { label: '4x', value: 500 }
+            ].map(({ label, value }) => (
+              <button
+                key={value}
+                onClick={() => setPlaySpeed(value)}
+                className={`flex-1 px-2 py-1 rounded text-sm transition-colors ${
+                  playSpeed === value
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Technique Reference */}
       <div className="bg-slate-900 rounded-2xl shadow-lg shadow-black/50 p-5 border border-slate-700">
         <h4 className="text-lg font-semibold text-white mb-4">Technique Hierarchy</h4>

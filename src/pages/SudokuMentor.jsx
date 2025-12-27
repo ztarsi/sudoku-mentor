@@ -561,6 +561,8 @@ export default function SudokuMentor() {
               currentStep={currentStep}
               focusedDigit={focusedDigit}
               grid={grid}
+              onApplyStep={handleApplyStep}
+              onNextStep={handleNextStep}
               onHighlightTechnique={(instances, total, current) => {
                 // Set the first instance as the current step so it can be applied
                 if (instances.length > 0) {
@@ -617,6 +619,8 @@ export default function SudokuMentor() {
           currentStep={currentStep}
           focusedDigit={focusedDigit}
           grid={grid}
+          onApplyStep={handleApplyStep}
+          onNextStep={handleNextStep}
           onHighlightTechnique={(instances, total, current) => {
             setGrid(prev => {
               const newGrid = prev.map(cell => ({

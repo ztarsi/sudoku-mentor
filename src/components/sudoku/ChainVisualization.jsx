@@ -132,78 +132,98 @@ export default function ChainVisualization({ chains, strongLinks, weakLinks, als
         
         {forcingChains && forcingChains.map((chainData, chainIdx) => {
           const { cells, color, label } = chainData;
-          if (!cells || cells.length < 2) return null;
-          
-          const markerColor = color === '#ef4444' ? 'red' : (color === '#10b981' ? 'green' : 'blue');
-          
+          if (!cells || cells.length < 1) return null;
+
+          // Group steps by action type
+          const placements = cells.filter(c => c.action === 'place');
+          const eliminations = cells.filter(c => c.action === 'eliminate');
+
           return (
             <g key={`forcing-chain-${chainIdx}`}>
-              {cells.map((cellData, idx) => {
-                const cellPos = getCellCenter(cellData.cell);
-                
+              {/* Placement markers (green) */}
+              {placements.map((step, idx) => {
+                const cellPos = getCellCenter(step.cell);
                 return (
                   <motion.circle
-                    key={`cell-${idx}`}
+                    key={`place-${idx}`}
                     initial={{ r: 0, opacity: 0 }}
-                    animate={{ r: cellSize * 0.15, opacity: 0.8 }}
-                    transition={{ duration: 0.3, delay: idx * 0.1 }}
+                    animate={{ r: cellSize * 0.15, opacity: 0.9 }}
+                    transition={{ duration: 0.3, delay: idx * 0.08 }}
                     cx={cellPos.x}
                     cy={cellPos.y}
-                    fill={color}
+                    fill="#10b981"
+                    stroke="#059669"
+                    strokeWidth="2"
                   />
                 );
               })}
-              
-              {cells.map((cellData, idx) => {
-                if (idx === cells.length - 1) return null;
-                
-                const from = getCellCenter(cellData.cell);
-                const to = getCellCenter(cells[idx + 1].cell);
-                
+
+              {/* Elimination markers (orange) */}
+              {eliminations.map((step, idx) => {
+                const cellPos = getCellCenter(step.cell);
+                return (
+                  <motion.rect
+                    key={`elim-${idx}`}
+                    initial={{ width: 0, height: 0, opacity: 0 }}
+                    animate={{ width: cellSize * 0.2, height: cellSize * 0.2, opacity: 0.7 }}
+                    transition={{ duration: 0.2, delay: idx * 0.05 }}
+                    x={cellPos.x - cellSize * 0.1}
+                    y={cellPos.y - cellSize * 0.1}
+                    fill="#f97316"
+                    stroke="#ea580c"
+                    strokeWidth="1"
+                    rx={2}
+                  />
+                );
+              })}
+
+              {/* Arrows between placements */}
+              {placements.map((step, idx) => {
+                if (idx === placements.length - 1) return null;
+
+                const from = getCellCenter(step.cell);
+                const to = getCellCenter(placements[idx + 1].cell);
+
                 const dx = to.x - from.x;
                 const dy = to.y - from.y;
                 const angle = Math.atan2(dy, dx);
-                
-                const margin = cellSize * 0.3;
-                
+
+                const margin = cellSize * 0.25;
                 const startX = from.x + Math.cos(angle) * margin;
                 const startY = from.y + Math.sin(angle) * margin;
                 const endX = to.x - Math.cos(angle) * margin;
                 const endY = to.y - Math.sin(angle) * margin;
-                
-                // Calculate midpoint for curved path
+
                 const midX = (startX + endX) / 2;
                 const midY = (startY + endY) / 2;
-                
-                // Perpendicular offset for curve
                 const perpAngle = angle + Math.PI / 2;
-                const curveAmount = cellSize * 0.3;
+                const curveAmount = cellSize * 0.2;
                 const controlX = midX + Math.cos(perpAngle) * curveAmount;
                 const controlY = midY + Math.sin(perpAngle) * curveAmount;
-                
+
                 const pathD = `M ${startX} ${startY} Q ${controlX} ${controlY}, ${endX} ${endY}`;
-                
+
                 return (
                   <motion.path
-                    key={`line-${idx}`}
+                    key={`arrow-${idx}`}
                     initial={{ pathLength: 0, opacity: 0 }}
                     animate={{ pathLength: 1, opacity: 0.8 }}
-                    transition={{ duration: 0.4, delay: idx * 0.1 }}
+                    transition={{ duration: 0.4, delay: idx * 0.08 }}
                     d={pathD}
-                    stroke={color}
+                    stroke="#10b981"
                     strokeWidth="3"
                     fill="none"
-                    markerEnd={`url(#arrow-forcing-${markerColor})`}
+                    markerEnd="url(#arrow-forcing-green)"
                   />
                 );
               })}
-              
-              {label && cells.length > 0 && (
+
+              {label && placements.length > 0 && (
                 <text
-                  x={getCellCenter(cells[0].cell).x}
-                  y={getCellCenter(cells[0].cell).y - cellSize * 0.4}
+                  x={getCellCenter(placements[0].cell).x}
+                  y={getCellCenter(placements[0].cell).y - cellSize * 0.4}
                   textAnchor="middle"
-                  fill={color}
+                  fill="#ef4444"
                   fontSize={cellSize * 0.22}
                   fontWeight="bold"
                 >
