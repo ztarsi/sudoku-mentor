@@ -57,6 +57,31 @@ const TECHNIQUE_DETAILS = {
     description: 'Three cells form a chain: pivot cell with candidates {X,Y}, one wing with {X,Z}, another wing with {Y,Z}. Any cell that sees both wings cannot be Z.',
     example: 'Pivot: {2,5}, Wing 1: {2,8}, Wing 2: {5,8}. Eliminate 8 from cells seeing both wings.',
     strategy: '1. Find a bi-value cell (pivot) with {X,Y}\n2. Find two wings: {X,Z} and {Y,Z}\n3. Eliminate Z from cells seeing both wings'
+  },
+  'X-Cycle': {
+    description: 'Chain-based coloring technique using strong links (conjugate pairs). Creates two color groups where if one is true, the other is false.',
+    example: 'Build a chain where positions alternate colors. Any candidate seeing both color groups can be eliminated.',
+    strategy: '1. Find conjugate pairs (digit appears exactly twice in a unit)\n2. Build a chain alternating colors\n3. Eliminate candidates seeing both colors'
+  },
+  'Finned X-Wing': {
+    description: 'An X-Wing pattern with extra "fin" candidates that break the perfect rectangle, but still allow limited eliminations.',
+    example: 'Standard X-Wing in R1,R5 / C2,C8 with a fin at R1C4. Only cells seeing the fin can be eliminated.',
+    strategy: '1. Find an X-Wing pattern with 1-2 extra candidates\n2. Eliminations only apply to cells that see all fins'
+  },
+  'ALS-XZ': {
+    description: 'Almost Locked Sets: two groups of N cells with N+1 candidates. They share a restricted common digit (X) and an eliminating digit (Z).',
+    example: 'ALS1={2,3,5} in 2 cells, ALS2={3,5,7} in 2 cells. If X=3, Z=5 can be eliminated from cells seeing both.',
+    strategy: '1. Find two ALS in different units\n2. Identify restricted common (X) and eliminating digit (Z)\n3. Eliminate Z from cells seeing both ALS'
+  },
+  'Unique Rectangle Type 1': {
+    description: 'Prevents deadly patterns where four cells would have only two possible arrangements, violating uniqueness.',
+    example: 'Three corners are {1,2}, fourth corner is {1,2,6}. Eliminate 6 to avoid multiple solutions.',
+    strategy: '1. Find 4 cells forming a rectangle with same 2 candidates\n2. If 3 corners bi-value, 1 has extras\n3. Eliminate the extras'
+  },
+  'BUG+1': {
+    description: 'Bivalue Universal Grave: all cells except one have exactly 2 candidates, each digit appears exactly twice per unit.',
+    example: 'All cells bi-value except R5C5={4,7,9}. If 7 appears 3 times in row/col/box, R5C5 must be 7.',
+    strategy: '1. Check if all cells are bi-value except one\n2. Find the digit appearing 3 times (not 2) in units\n3. Place that digit'
   }
 };
 
