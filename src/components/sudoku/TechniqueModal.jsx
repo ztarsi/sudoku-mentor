@@ -82,6 +82,16 @@ const TECHNIQUE_DETAILS = {
     description: 'Bivalue Universal Grave: all cells except one have exactly 2 candidates, each digit appears exactly twice per unit.',
     example: 'All cells bi-value except R5C5={4,7,9}. If 7 appears 3 times in row/col/box, R5C5 must be 7.',
     strategy: '1. Check if all cells are bi-value except one\n2. Find the digit appearing 3 times (not 2) in units\n3. Place that digit'
+  },
+  'Cell Forcing Chain': {
+    description: 'A rigorous logical technique where ALL possible values of a cell lead to the same conclusion. This is proof by convergence, not trial-and-error.',
+    example: 'Cell R3C4 has candidates {2,7}. Path A (if 2): forces R8C6=5. Path B (if 7): also forces R8C6=5. Therefore R8C6 must be 5!',
+    strategy: '1. Find a bi-value or tri-value cell\n2. Explore each candidate path (up to 10 steps deep)\n3. Look for convergence: common placements or eliminations\n4. The convergence is logically proven!'
+  },
+  'Hypothesis Mode': {
+    description: 'Contradiction-based search (not pure logic). Assumes a value and checks if it leads to an impossible state. Use only when all logical techniques fail.',
+    example: 'Assume R1C1=3. This forces a chain of placements that leaves R5C5 with no valid candidates. Therefore R1C1 cannot be 3.',
+    strategy: '1. Select a bi-value cell\n2. Assume one value and propagate\n3. If contradiction found, the other value must be correct\n4. This is trial-and-error, not deductive logic'
   }
 };
 
