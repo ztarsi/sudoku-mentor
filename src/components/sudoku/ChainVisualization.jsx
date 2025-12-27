@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 
-export default function ChainVisualization({ chains, strongLinks, weakLinks, alsLinks, forcingChains, cellSize = 50, gridSize = 450 }) {
+export default function ChainVisualization({ chains, strongLinks, weakLinks, alsLinks, forcingChains, cellSize = 50, gridSize = 450, currentStep }) {
   if (!chains && (!strongLinks || strongLinks.length === 0) && (!alsLinks || alsLinks.length === 0) && (!forcingChains || forcingChains.length === 0)) return null;
 
   const getCellCenter = (cellIndex) => {
@@ -90,6 +90,17 @@ export default function ChainVisualization({ chains, strongLinks, weakLinks, als
             <path d="M0,0 L0,6 L9,3 z" fill="#3b82f6" />
           </marker>
           <marker
+            id="arrow-forcing-red"
+            markerWidth="10"
+            markerHeight="10"
+            refX="9"
+            refY="3"
+            orient="auto"
+            markerUnits="strokeWidth"
+          >
+            <path d="M0,0 L0,6 L9,3 z" fill="#ef4444" />
+          </marker>
+          <marker
             id="arrow-forcing-green"
             markerWidth="10"
             markerHeight="10"
@@ -124,14 +135,13 @@ export default function ChainVisualization({ chains, strongLinks, weakLinks, als
           const { cells, color, label } = chainData;
           if (!cells || cells.length < 2) return null;
           
-          const markerColor = color === '#3b82f6' ? 'blue' : 'green';
+          const markerColor = color === '#ef4444' ? 'red' : (color === '#10b981' ? 'green' : 'blue');
           
           return (
             <g key={`forcing-chain-${chainIdx}`}>
               {cells.map((cellData, idx) => {
                 const cellPos = getCellCenter(cellData.cell);
                 
-                // Draw circle at each cell
                 return (
                   <motion.circle
                     key={`cell-${idx}`}
@@ -156,20 +166,19 @@ export default function ChainVisualization({ chains, strongLinks, weakLinks, als
                 const angle = Math.atan2(dy, dx);
                 
                 const margin = cellSize * 0.3;
-                const length = Math.sqrt(dx * dx + dy * dy);
                 
                 const startX = from.x + Math.cos(angle) * margin;
                 const startY = from.y + Math.sin(angle) * margin;
                 const endX = to.x - Math.cos(angle) * margin;
                 const endY = to.y - Math.sin(angle) * margin;
                 
-                // Calculate control points for curved path
+                // Calculate midpoint for curved path
                 const midX = (startX + endX) / 2;
                 const midY = (startY + endY) / 2;
                 
                 // Perpendicular offset for curve
                 const perpAngle = angle + Math.PI / 2;
-                const curveAmount = length * 0.15;
+                const curveAmount = cellSize * 0.3;
                 const controlX = midX + Math.cos(perpAngle) * curveAmount;
                 const controlY = midY + Math.sin(perpAngle) * curveAmount;
                 
@@ -205,6 +214,22 @@ export default function ChainVisualization({ chains, strongLinks, weakLinks, als
             </g>
           );
         })}
+
+        {currentStep?.contradictionCell !== undefined && currentStep.contradictionCell !== null && (
+          <motion.rect
+            x={getCellCenter(currentStep.contradictionCell).x - cellSize * 0.4}
+            y={getCellCenter(currentStep.contradictionCell).y - cellSize * 0.4}
+            width={cellSize * 0.8}
+            height={cellSize * 0.8}
+            rx={cellSize * 0.1}
+            fill="none"
+            stroke="#ef4444"
+            strokeWidth="4"
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.5, duration: 0.3 }}
+          />
+        )}
       </svg>
     </div>
   );

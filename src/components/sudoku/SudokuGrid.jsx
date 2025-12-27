@@ -111,8 +111,13 @@ export default function SudokuGrid({
   }, [currentStep, grid, cellSize]);
 
   const forcingChains = useMemo(() => {
-    if (currentStep?.technique === 'Deep Forcing Chain' && currentStep.chains) {
-      return currentStep.chains;
+    if (currentStep?.technique === 'Deep Forcing Chain') {
+      if (currentStep.chains) {
+        return currentStep.chains;
+      } else if (currentStep.chain) {
+        const color = currentStep.contradiction ? '#ef4444' : '#3b82f6';
+        return [{ cells: currentStep.chain, color, label: 'Contradiction' }];
+      }
     }
     return null;
   }, [currentStep]);
@@ -134,7 +139,7 @@ export default function SudokuGrid({
             }}
           >
             {/* Chain Visualization Overlay */}
-            {currentStep && (currentStep.chains || currentStep.strongLinks || currentStep.weakLinks || alsLinks.length > 0 || forcingChains) && (
+            {currentStep && (currentStep.chains || currentStep.chain || currentStep.strongLinks || currentStep.weakLinks || alsLinks.length > 0 || forcingChains) && (
               <ChainVisualization
                 chains={currentStep.chains}
                 strongLinks={currentStep.strongLinks}
@@ -143,6 +148,7 @@ export default function SudokuGrid({
                 forcingChains={forcingChains}
                 cellSize={cellSize}
                 gridSize={gridSize}
+                currentStep={currentStep}
               />
             )}
             {grid.map((cell, index) => {

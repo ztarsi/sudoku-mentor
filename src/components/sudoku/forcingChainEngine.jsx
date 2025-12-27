@@ -104,6 +104,7 @@ export const findForcingChain = (grid, maxDepth = 8) => {
         eliminations: [],
         chain: branch1.chain,
         contradiction: true,
+        contradictionCell: branch1.contradictionCell,
         digit: value2
       };
     }
@@ -118,6 +119,7 @@ export const findForcingChain = (grid, maxDepth = 8) => {
         eliminations: [],
         chain: branch2.chain,
         contradiction: true,
+        contradictionCell: branch2.contradictionCell,
         digit: value1
       };
     }
