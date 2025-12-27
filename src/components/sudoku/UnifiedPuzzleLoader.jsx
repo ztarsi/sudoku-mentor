@@ -4,9 +4,43 @@ import { X, BookOpen, Camera, FileText } from 'lucide-react';
 import PuzzleLibrary from './PuzzleLibrary';
 import OCRUpload from './OCRUpload';
 import TextPuzzleUpload from './TextPuzzleUpload';
+import { analyzeDifficulty } from './difficultyAnalyzer';
+import { base44 } from '@/api/base44Client';
 
 export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded }) {
   const [activeTab, setActiveTab] = useState('library');
+  const [savingPuzzle, setSavingPuzzle] = useState(false);
+
+  const handlePuzzleLoad = async (puzzle, source = 'library') => {
+    // If from library, just load it
+    if (source === 'library') {
+      onPuzzleLoaded(puzzle);
+      return;
+    }
+
+    // For OCR/text uploads, analyze and save
+    setSavingPuzzle(true);
+    try {
+      const difficulty = analyzeDifficulty(puzzle);
+      const clueCount = puzzle.filter(v => v !== 0).length;
+      const timestamp = new Date().toLocaleString();
+      
+      await base44.entities.SudokuPuzzle.create({
+        name: `${source === 'ocr' ? 'OCR' : 'Custom'} Puzzle (${clueCount} clues) - ${timestamp}`,
+        difficulty,
+        puzzle,
+        source
+      });
+      
+      onPuzzleLoaded(puzzle);
+    } catch (error) {
+      console.error('Error saving puzzle:', error);
+      // Still load the puzzle even if save fails
+      onPuzzleLoaded(puzzle);
+    } finally {
+      setSavingPuzzle(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -81,7 +115,7 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
                 <PuzzleLibrary
                   isOpen={true}
                   onClose={onClose}
-                  onSelectPuzzle={onPuzzleLoaded}
+                  onSelectPuzzle={(puzzle) => handlePuzzleLoad(puzzle, 'library')}
                   embedded={true}
                 />
               </div>
@@ -91,7 +125,7 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
                 <OCRUpload
                   isOpen={true}
                   onClose={onClose}
-                  onPuzzleExtracted={onPuzzleLoaded}
+                  onPuzzleExtracted={(puzzle) => handlePuzzleLoad(puzzle, 'ocr')}
                   embedded={true}
                 />
               </div>
@@ -101,9 +135,20 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
                 <TextPuzzleUpload
                   isOpen={true}
                   onClose={onClose}
-                  onPuzzleLoaded={onPuzzleLoaded}
+                  onPuzzleLoaded={(puzzle) => handlePuzzleLoad(puzzle, 'text')}
                   embedded={true}
                 />
+              </div>
+            )}
+            
+            {savingPuzzle && (
+              <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center">
+                <div className="bg-slate-800 rounded-xl p-6 shadow-xl">
+                  <div className="flex items-center gap-3">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                    <p className="text-white font-medium">Analyzing & saving puzzle...</p>
+                  </div>
+                </div>
               </div>
             )}
           </div>

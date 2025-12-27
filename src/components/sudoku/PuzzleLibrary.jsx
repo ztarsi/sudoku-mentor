@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Sparkles, Flame, Zap, Crown, Skull, Brain } from 'lucide-react';
+import { base44 } from '@/api/base44Client';
+import { useQuery } from '@tanstack/react-query';
 
 const PUZZLES = {
   easy: [
@@ -197,8 +199,23 @@ const DIFFICULTY_CONFIG = {
 export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = false }) {
   const [selectedDifficulty, setSelectedDifficulty] = useState('easy');
 
+  // Fetch user-added puzzles
+  const { data: userPuzzles = [] } = useQuery({
+    queryKey: ['sudoku-puzzles'],
+    queryFn: () => base44.entities.SudokuPuzzle.list('-created_date'),
+    initialData: []
+  });
+
   const config = DIFFICULTY_CONFIG[selectedDifficulty];
   const DifficultyIcon = config.icon;
+
+  // Combine built-in and user puzzles for selected difficulty
+  const allPuzzles = [
+    ...PUZZLES[selectedDifficulty],
+    ...userPuzzles
+      .filter(p => p.difficulty === selectedDifficulty)
+      .map(p => ({ name: p.name, puzzle: p.puzzle, isCustom: true }))
+  ];
 
   const colorClasses = {
     emerald: 'from-emerald-400 to-green-500',
@@ -241,7 +258,7 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
       {/* Puzzle List */}
       <div className="grid gap-4">
         <AnimatePresence mode="wait">
-          {PUZZLES[selectedDifficulty].map((puzzle, index) => (
+          {allPuzzles.map((puzzle, index) => (
             <motion.button
               key={`${selectedDifficulty}-${index}`}
               initial={{ opacity: 0, y: 10 }}
@@ -267,8 +284,11 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
               </div>
               
               <div className="flex-1">
-                <h3 className="font-semibold text-slate-800 group-hover:text-slate-900">
+                <h3 className="font-semibold text-slate-800 group-hover:text-slate-900 flex items-center gap-2">
                   {puzzle.name}
+                  {puzzle.isCustom && (
+                    <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">Custom</span>
+                  )}
                 </h3>
                 <p className="text-sm text-slate-500">
                   {puzzle.puzzle.filter(v => v !== 0).length} clues given
