@@ -175,10 +175,30 @@ export const findAllTechniqueInstances = (grid, techniqueName) => {
     case 'XY-Wing':
       findAll(findXYWing);
       break;
-  }
-  
-  return instances;
-};
+    case 'X-Cycle':
+      const { findXCycle } = require('./chainEngine');
+      findAll(findXCycle);
+      break;
+    case 'Finned X-Wing':
+      const { findFinnedXWing } = require('./chainEngine');
+      findAll(findFinnedXWing);
+      break;
+    case 'ALS-XZ':
+      const { findALSXZ } = require('./chainEngine');
+      findAll(findALSXZ);
+      break;
+    case 'Unique Rectangle Type 1':
+      const { findUniqueRectangle } = require('./chainEngine');
+      findAll(findUniqueRectangle);
+      break;
+    case 'BUG+1':
+      const { findBUGPlus1 } = require('./chainEngine');
+      findAll(findBUGPlus1);
+      break;
+    }
+
+    return instances;
+    };
 
 // Naked Single: Cell with only one candidate
 const findNakedSingle = (grid, focusedDigit) => {

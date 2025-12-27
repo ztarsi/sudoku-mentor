@@ -127,14 +127,16 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
       'Naked Single', 'Hidden Single',
       'Pointing Pair', 'Pointing Triple', 'Claiming',
       'Naked Pair', 'Hidden Pair', 'Naked Triple',
-      'X-Wing', 'Swordfish', 'XY-Wing'
+      'X-Wing', 'Swordfish', 'XY-Wing',
+      'X-Cycle', 'Finned X-Wing', 'ALS-XZ', 
+      'Unique Rectangle Type 1', 'BUG+1'
     ];
-    
+
     techniques.forEach(tech => {
       const instances = findAllTechniqueInstances(grid, tech);
       counts[tech] = instances.length;
     });
-    
+
     return counts;
   }, [grid]);
   
