@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, X, Loader2, CheckCircle, AlertCircle, Camera } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 
-export default function OCRUpload({ onClose, onPuzzleExtracted }) {
+export default function OCRUpload({ onClose, onPuzzleExtracted, embedded = false }) {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);

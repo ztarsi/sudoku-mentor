@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { X, Upload, FileText } from 'lucide-react';
 
-export default function TextPuzzleUpload({ onClose, onPuzzleLoaded }) {
+export default function TextPuzzleUpload({ onClose, onPuzzleLoaded, embedded = false }) {
   const [text, setText] = useState('');
   const [error, setError] = useState('');
 

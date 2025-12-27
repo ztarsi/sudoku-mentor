@@ -194,7 +194,7 @@ const DIFFICULTY_CONFIG = {
   ultimate: { icon: Brain, color: 'violet', label: 'Ultimate' }
 };
 
-export default function PuzzleLibrary({ onClose, onSelectPuzzle }) {
+export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = false }) {
   const [selectedDifficulty, setSelectedDifficulty] = useState('easy');
 
   const config = DIFFICULTY_CONFIG[selectedDifficulty];
