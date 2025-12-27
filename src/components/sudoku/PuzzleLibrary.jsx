@@ -209,6 +209,90 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
     violet: 'from-indigo-600 to-violet-800'
   };
 
+  const content = (
+    <>
+      {/* Difficulty Tabs */}
+      <div className="mb-4">
+        <div className="flex flex-wrap gap-2">
+          {Object.entries(DIFFICULTY_CONFIG).map(([key, cfg]) => {
+            const Icon = cfg.icon;
+            const isActive = selectedDifficulty === key;
+            
+            return (
+              <button
+                key={key}
+                onClick={() => setSelectedDifficulty(key)}
+                className={`
+                  flex items-center gap-2 px-3 py-2 rounded-xl font-medium transition-all duration-300
+                  ${isActive 
+                    ? `bg-gradient-to-r ${colorClasses[cfg.color]} text-white shadow-lg` 
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }
+                `}
+              >
+                <Icon className="w-4 h-4" />
+                <span className="text-sm">{cfg.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      
+      {/* Puzzle List */}
+      <div className="grid gap-4">
+        <AnimatePresence mode="wait">
+          {PUZZLES[selectedDifficulty].map((puzzle, index) => (
+            <motion.button
+              key={`${selectedDifficulty}-${index}`}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ delay: index * 0.05 }}
+              onClick={() => onSelectPuzzle(puzzle.puzzle)}
+              className="flex items-center gap-4 p-4 bg-slate-50 hover:bg-slate-100 rounded-2xl transition-all duration-300 group text-left"
+            >
+              {/* Mini Preview */}
+              <div className="w-16 h-16 bg-white rounded-xl shadow-inner grid grid-cols-9 gap-0 p-1 flex-shrink-0">
+                {puzzle.puzzle.map((val, i) => (
+                  <div
+                    key={i}
+                    className={`
+                      flex items-center justify-center text-[4px]
+                      ${val ? 'text-slate-700' : 'text-transparent'}
+                    `}
+                  >
+                    {val || '·'}
+                  </div>
+                ))}
+              </div>
+              
+              <div className="flex-1">
+                <h3 className="font-semibold text-slate-800 group-hover:text-slate-900">
+                  {puzzle.name}
+                </h3>
+                <p className="text-sm text-slate-500">
+                  {puzzle.puzzle.filter(v => v !== 0).length} clues given
+                </p>
+              </div>
+              
+              <div className={`
+                px-3 py-1 rounded-full text-sm font-medium
+                bg-gradient-to-r ${colorClasses[config.color]} text-white
+                opacity-0 group-hover:opacity-100 transition-opacity
+              `}>
+                Play
+              </div>
+            </motion.button>
+          ))}
+        </AnimatePresence>
+      </div>
+    </>
+  );
+
+  if (embedded) {
+    return content;
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -240,82 +324,8 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
           </div>
         </div>
         
-        {/* Difficulty Tabs */}
-        <div className="p-4 border-b border-slate-100 overflow-x-auto">
-          <div className="flex flex-wrap gap-2">
-            {Object.entries(DIFFICULTY_CONFIG).map(([key, cfg]) => {
-              const Icon = cfg.icon;
-              const isActive = selectedDifficulty === key;
-              
-              return (
-                <button
-                  key={key}
-                  onClick={() => setSelectedDifficulty(key)}
-                  className={`
-                    flex items-center gap-2 px-3 py-2 rounded-xl font-medium transition-all duration-300
-                    ${isActive 
-                      ? `bg-gradient-to-r ${colorClasses[cfg.color]} text-white shadow-lg` 
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }
-                  `}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span className="text-sm">{cfg.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-        
-        {/* Puzzle List */}
         <div className="p-6 overflow-y-auto max-h-[50vh]">
-          <div className="grid gap-4">
-            <AnimatePresence mode="wait">
-              {PUZZLES[selectedDifficulty].map((puzzle, index) => (
-                <motion.button
-                  key={`${selectedDifficulty}-${index}`}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ delay: index * 0.05 }}
-                  onClick={() => onSelectPuzzle(puzzle.puzzle)}
-                  className="flex items-center gap-4 p-4 bg-slate-50 hover:bg-slate-100 rounded-2xl transition-all duration-300 group text-left"
-                >
-                  {/* Mini Preview */}
-                  <div className="w-16 h-16 bg-white rounded-xl shadow-inner grid grid-cols-9 gap-0 p-1 flex-shrink-0">
-                    {puzzle.puzzle.map((val, i) => (
-                      <div
-                        key={i}
-                        className={`
-                          flex items-center justify-center text-[4px]
-                          ${val ? 'text-slate-700' : 'text-transparent'}
-                        `}
-                      >
-                        {val || '·'}
-                      </div>
-                    ))}
-                  </div>
-                  
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-slate-800 group-hover:text-slate-900">
-                      {puzzle.name}
-                    </h3>
-                    <p className="text-sm text-slate-500">
-                      {puzzle.puzzle.filter(v => v !== 0).length} clues given
-                    </p>
-                  </div>
-                  
-                  <div className={`
-                    px-3 py-1 rounded-full text-sm font-medium
-                    bg-gradient-to-r ${colorClasses[config.color]} text-white
-                    opacity-0 group-hover:opacity-100 transition-opacity
-                  `}>
-                    Play
-                  </div>
-                </motion.button>
-              ))}
-            </AnimatePresence>
-          </div>
+          {content}
         </div>
         
         {/* Footer */}
