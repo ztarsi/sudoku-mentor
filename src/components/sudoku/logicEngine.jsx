@@ -33,7 +33,7 @@ const getPeers = (index) => {
   return Array.from(peers);
 };
 
-// Generate candidates for all empty cells
+// Generate candidates for all empty cells (initial load only)
 export const generateCandidates = (grid) => {
   return grid.map((cell, index) => {
     if (cell.value !== null) {
@@ -45,6 +45,28 @@ export const generateCandidates = (grid) => {
     const candidates = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter(d => !usedDigits.has(d));
     
     return { ...cell, candidates };
+  });
+};
+
+// Eliminate candidates from peers after a placement (preserves existing eliminations)
+export const eliminateCandidatesFromPeers = (grid, placedCell, placedDigit) => {
+  const peers = getPeers(placedCell);
+  
+  return grid.map((cell, index) => {
+    // Skip the placed cell itself
+    if (index === placedCell) {
+      return cell;
+    }
+    
+    // Only eliminate from peers
+    if (peers.includes(index) && cell.value === null && cell.candidates.includes(placedDigit)) {
+      return {
+        ...cell,
+        candidates: cell.candidates.filter(c => c !== placedDigit)
+      };
+    }
+    
+    return cell;
   });
 };
 

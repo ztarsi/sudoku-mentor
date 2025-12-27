@@ -8,7 +8,7 @@ import ColorSettings from '@/components/sudoku/ColorSettings';
 import CompletionModal from '@/components/sudoku/CompletionModal';
 import MobileDrawer from '@/components/sudoku/MobileDrawer';
 import LoadingModal from '@/components/sudoku/LoadingModal';
-import { generateCandidates, findNextLogicStep, applyLogicStep } from '@/components/sudoku/logicEngine';
+import { generateCandidates, findNextLogicStep, applyLogicStep, eliminateCandidatesFromPeers } from '@/components/sudoku/logicEngine';
 import { solveSudoku } from '@/components/sudoku/solver';
 
 const createEmptyGrid = () => {
@@ -88,19 +88,23 @@ export default function SudokuMentor() {
     setGrid(prev => {
       const newGrid = [...prev];
       const cell = { ...newGrid[cellIndex] };
-      
+
       if (!cell.isFixed) {
         cell.value = value;
         cell.candidates = value ? [] : cell.candidates;
         newGrid[cellIndex] = cell;
-        
+
         // Save to history
         setStepHistory(h => [...h.slice(0, historyIndex + 1), { grid: prev, action: 'input' }]);
         setHistoryIndex(i => i + 1);
+
+        // If placing a value, eliminate it from peers
+        if (value) {
+          return eliminateCandidatesFromPeers(newGrid, cellIndex, value);
+        }
       }
-      
-      // Regenerate candidates after setting a value
-      return generateCandidates(newGrid);
+
+      return newGrid;
     });
     validateGrid();
   }, [historyIndex, solution]);
@@ -248,9 +252,10 @@ export default function SudokuMentor() {
       
       const newGrid = applyLogicStep(grid, currentStep);
       
-      // Only regenerate candidates if a value was placed (affects peers)
-      // Don't regenerate for pure eliminations - it would undo them!
-      const finalGrid = currentStep.placement ? generateCandidates(newGrid) : newGrid;
+      // If a value was placed, eliminate it from peers (preserves existing eliminations)
+      const finalGrid = currentStep.placement 
+        ? eliminateCandidatesFromPeers(newGrid, currentStep.placement.cell, currentStep.placement.digit)
+        : newGrid;
       setGrid(finalGrid);
       
       setCurrentStep(null);
