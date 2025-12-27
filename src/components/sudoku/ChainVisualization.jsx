@@ -53,8 +53,7 @@ export default function ChainVisualization({ chains, strongLinks, weakLinks, als
   };
 
   return (
-    <div className="absolute inset-0 pointer-events-none">
-      <svg width={gridSize} height={gridSize} className="absolute top-0 left-0">
+    <svg width={gridSize} height={gridSize} className="w-full h-full">
         <defs>
           <marker
             id="arrow-strong"
@@ -231,6 +230,5 @@ export default function ChainVisualization({ chains, strongLinks, weakLinks, als
           />
         )}
       </svg>
-    </div>
   );
 }

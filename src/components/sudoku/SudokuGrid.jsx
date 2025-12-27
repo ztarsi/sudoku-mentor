@@ -138,18 +138,20 @@ export default function SudokuGrid({
               height: 'min(90vw, 600px)' 
             }}
           >
-            {/* Chain Visualization Overlay */}
+            {/* Chain Visualization Overlay - positioned on top with higher z-index */}
             {currentStep && (currentStep.chains || currentStep.chain || currentStep.strongLinks || currentStep.weakLinks || alsLinks.length > 0 || forcingChains) && (
-              <ChainVisualization
-                chains={currentStep.chains}
-                strongLinks={currentStep.strongLinks}
-                weakLinks={currentStep.weakLinks}
-                alsLinks={alsLinks}
-                forcingChains={forcingChains}
-                cellSize={cellSize}
-                gridSize={gridSize}
-                currentStep={currentStep}
-              />
+              <div className="absolute inset-0 z-50 pointer-events-none">
+                <ChainVisualization
+                  chains={currentStep.chains}
+                  strongLinks={currentStep.strongLinks}
+                  weakLinks={currentStep.weakLinks}
+                  alsLinks={alsLinks}
+                  forcingChains={forcingChains}
+                  cellSize={cellSize}
+                  gridSize={gridSize}
+                  currentStep={currentStep}
+                />
+              </div>
             )}
             {grid.map((cell, index) => {
               const row = Math.floor(index / 9);
