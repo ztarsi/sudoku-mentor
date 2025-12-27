@@ -216,7 +216,7 @@ export const findALSXZ = (grid, focusedDigit) => {
       }
       
       // ALS: n cells with n+1 candidates
-      if (cells.length > 0 && candidates.size === cells.length + 1) {
+      if (cells.length > 1 && cells.length <= 4 && candidates.size === cells.length + 1) {
         als.push({ cells, candidates: Array.from(candidates) });
       }
     }
@@ -235,30 +235,46 @@ export const findALSXZ = (grid, focusedDigit) => {
     allALS.push(...findALS(unit));
   }
   
-  // Find ALS-XZ: Two ALS sharing one digit (X), and another digit (Z) common to both
+  // Find ALS-XZ: Two ALS with restricted common X and eliminating digit Z
   for (let i = 0; i < allALS.length; i++) {
     for (let j = i + 1; j < allALS.length; j++) {
       const als1 = allALS[i];
       const als2 = allALS[j];
       
+      // ALS must not share cells
+      const sharedCells = als1.cells.filter(c => als2.cells.includes(c));
+      if (sharedCells.length > 0) continue;
+      
       const common = als1.candidates.filter(c => als2.candidates.includes(c));
       
       if (common.length >= 2) {
         for (const x of common) {
+          // X must be restricted: all X cells from ALS1 see all X cells from ALS2
+          const xCells1 = als1.cells.filter(c => grid[c].candidates.includes(x));
+          const xCells2 = als2.cells.filter(c => grid[c].candidates.includes(x));
+          
+          if (xCells1.length === 0 || xCells2.length === 0) continue;
+          
+          const xIsRestricted = xCells1.every(c1 => xCells2.every(c2 => arePeers(c1, c2)));
+          if (!xIsRestricted) continue;
+          
           for (const z of common) {
             if (x === z) continue;
             if (focusedDigit && z !== focusedDigit) continue;
             
-            // Find cells that see all Z candidates from both ALS
+            // Find Z cells in each ALS
             const zCells1 = als1.cells.filter(c => grid[c].candidates.includes(z));
             const zCells2 = als2.cells.filter(c => grid[c].candidates.includes(z));
             
+            if (zCells1.length === 0 || zCells2.length === 0) continue;
+            
+            // Eliminations: cells that see ALL Z cells from BOTH ALS
             const eliminations = [];
             for (let k = 0; k < 81; k++) {
-              if (grid[k].candidates.includes(z)) {
-                const seesALS1 = zCells1.some(c => arePeers(k, c));
-                const seesALS2 = zCells2.some(c => arePeers(k, c));
-                if (seesALS1 && seesALS2 && ![...als1.cells, ...als2.cells].includes(k)) {
+              if (grid[k].candidates.includes(z) && ![...als1.cells, ...als2.cells].includes(k)) {
+                const seesAllZ1 = zCells1.every(c => arePeers(k, c));
+                const seesAllZ2 = zCells2.every(c => arePeers(k, c));
+                if (seesAllZ1 && seesAllZ2) {
                   eliminations.push({ cell: k, digit: z });
                 }
               }
@@ -275,7 +291,7 @@ export const findALSXZ = (grid, focusedDigit) => {
                 als2,
                 xDigit: x,
                 zDigit: z,
-                explanation: `Two Almost Locked Sets with restricted common ${x} and eliminating digit ${z}.`
+                explanation: `Two Almost Locked Sets with restricted common ${x} and eliminating digit ${z}. Since ${x} is locked between the two sets, ${z} can be eliminated from cells seeing all ${z} candidates in both sets.`
               };
             }
           }
