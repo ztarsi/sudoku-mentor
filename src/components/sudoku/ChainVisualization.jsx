@@ -1,8 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 
-export default function ChainVisualization({ chains, strongLinks, weakLinks, alsLinks, cellSize = 50, gridSize = 450 }) {
-  if (!chains && (!strongLinks || strongLinks.length === 0) && (!alsLinks || alsLinks.length === 0)) return null;
+export default function ChainVisualization({ chains, strongLinks, weakLinks, alsLinks, forcingChains, cellSize = 50, gridSize = 450 }) {
+  if (!chains && (!strongLinks || strongLinks.length === 0) && (!alsLinks || alsLinks.length === 0) && (!forcingChains || forcingChains.length === 0)) return null;
 
   const getCellCenter = (cellIndex) => {
     const row = Math.floor(cellIndex / 9);
@@ -78,6 +78,28 @@ export default function ChainVisualization({ chains, strongLinks, weakLinks, als
           >
             <path d="M0,0 L0,6 L9,3 z" fill="#ef4444" />
           </marker>
+          <marker
+            id="arrow-forcing-blue"
+            markerWidth="10"
+            markerHeight="10"
+            refX="9"
+            refY="3"
+            orient="auto"
+            markerUnits="strokeWidth"
+          >
+            <path d="M0,0 L0,6 L9,3 z" fill="#3b82f6" />
+          </marker>
+          <marker
+            id="arrow-forcing-green"
+            markerWidth="10"
+            markerHeight="10"
+            refX="9"
+            refY="3"
+            orient="auto"
+            markerUnits="strokeWidth"
+          >
+            <path d="M0,0 L0,6 L9,3 z" fill="#10b981" />
+          </marker>
         </defs>
         
         {strongLinks && strongLinks.map((link, idx) => 
@@ -97,6 +119,83 @@ export default function ChainVisualization({ chains, strongLinks, weakLinks, als
         {alsLinks && alsLinks.map((link, idx) => 
           renderArrow(link.from, link.to, link.type, `als-${idx}`, true)
         )}
+        
+        {forcingChains && forcingChains.map((chainData, chainIdx) => {
+          const { cells, color, label } = chainData;
+          if (!cells || cells.length < 2) return null;
+          
+          const markerColor = color === '#3b82f6' ? 'blue' : 'green';
+          
+          return (
+            <g key={`forcing-chain-${chainIdx}`}>
+              {cells.map((cellData, idx) => {
+                const cellPos = getCellCenter(cellData.cell);
+                
+                // Draw circle at each cell
+                return (
+                  <motion.circle
+                    key={`cell-${idx}`}
+                    initial={{ r: 0, opacity: 0 }}
+                    animate={{ r: cellSize * 0.15, opacity: 0.8 }}
+                    transition={{ duration: 0.3, delay: idx * 0.1 }}
+                    cx={cellPos.x}
+                    cy={cellPos.y}
+                    fill={color}
+                  />
+                );
+              })}
+              
+              {cells.map((cellData, idx) => {
+                if (idx === cells.length - 1) return null;
+                
+                const from = getCellCenter(cellData.cell);
+                const to = getCellCenter(cells[idx + 1].cell);
+                
+                const dx = to.x - from.x;
+                const dy = to.y - from.y;
+                const angle = Math.atan2(dy, dx);
+                
+                const margin = cellSize * 0.3;
+                const length = Math.sqrt(dx * dx + dy * dy);
+                const shortenedLength = length - 2 * margin;
+                
+                const startX = from.x + Math.cos(angle) * margin;
+                const startY = from.y + Math.sin(angle) * margin;
+                const endX = startX + Math.cos(angle) * shortenedLength;
+                const endY = startY + Math.sin(angle) * shortenedLength;
+                
+                return (
+                  <motion.line
+                    key={`line-${idx}`}
+                    initial={{ pathLength: 0, opacity: 0 }}
+                    animate={{ pathLength: 1, opacity: 0.8 }}
+                    transition={{ duration: 0.4, delay: idx * 0.1 }}
+                    x1={startX}
+                    y1={startY}
+                    x2={endX}
+                    y2={endY}
+                    stroke={color}
+                    strokeWidth="3"
+                    markerEnd={`url(#arrow-forcing-${markerColor})`}
+                  />
+                );
+              })}
+              
+              {label && cells.length > 0 && (
+                <text
+                  x={getCellCenter(cells[0].cell).x}
+                  y={getCellCenter(cells[0].cell).y - cellSize * 0.4}
+                  textAnchor="middle"
+                  fill={color}
+                  fontSize={cellSize * 0.22}
+                  fontWeight="bold"
+                >
+                  {label}
+                </text>
+              )}
+            </g>
+          );
+        })}
       </svg>
     </div>
   );
