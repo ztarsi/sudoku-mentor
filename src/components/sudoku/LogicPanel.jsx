@@ -17,6 +17,7 @@ import {
 import { Button } from '@/components/ui/button';
 import TechniqueModal from './TechniqueModal';
 import UltimateTechniqueScanModal from './UltimateTechniqueScanModal';
+import DeepSearchModal from './DeepSearchModal';
 import { findAllTechniqueInstances, findNextLogicStep } from './logicEngine';
 import { findForcingChain, findHypothesis } from './forcingChainEngine';
 
@@ -127,6 +128,8 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
   const [scanningTechnique, setScanningTechnique] = useState(null);
   const [scanResults, setScanResults] = useState({});
   const [searchingForcingChain, setSearchingForcingChain] = useState(false);
+  const [showDeepSearchModal, setShowDeepSearchModal] = useState(false);
+  const [currentSearchDepth, setCurrentSearchDepth] = useState(10);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playSpeed, setPlaySpeed] = useState(1000); // milliseconds per step
   const playIntervalRef = useRef(null);
@@ -187,26 +190,54 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
     setScanningTechnique(null);
   };
 
+  const performDeepSearch = async (depth) => {
+    // Try logical forcing chains first (convergence-based)
+    let result = findForcingChain(grid, depth);
+
+    // Fallback to hypothesis mode (contradiction-based)
+    if (!result) {
+      result = findHypothesis(grid, depth);
+    }
+
+    return result;
+  };
+
   const handleWhatIfSearch = async () => {
     setSearchingForcingChain(true);
+    setCurrentSearchDepth(10);
 
     // Small delay for UI responsiveness
     await new Promise(resolve => setTimeout(resolve, 100));
 
-    // Try logical forcing chains first (convergence-based)
-    let result = findForcingChain(grid, 10);
-
-    // Fallback to hypothesis mode (contradiction-based)
-    if (!result) {
-      result = findHypothesis(grid, 8);
-    }
+    const result = await performDeepSearch(10);
 
     setSearchingForcingChain(false);
 
     if (result) {
       onHighlightTechnique([result], 1, 1);
     } else {
-      alert('No forcing chains or valid hypotheses found. The puzzle may require advanced techniques or trial and error.');
+      // Show modal to ask user if they want to go deeper
+      setShowDeepSearchModal(true);
+    }
+  };
+
+  const handleGoDeeper = async () => {
+    const newDepth = currentSearchDepth + 10;
+    setCurrentSearchDepth(newDepth);
+    setSearchingForcingChain(true);
+
+    // Small delay for UI responsiveness
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    const result = await performDeepSearch(newDepth);
+
+    setSearchingForcingChain(false);
+
+    if (result) {
+      setShowDeepSearchModal(false);
+      onHighlightTechnique([result], 1, 1);
+    } else {
+      // Keep modal open, user can try going even deeper
     }
   };
 
@@ -671,6 +702,18 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
         currentTechnique={scanningTechnique}
         results={scanResults}
         onClose={() => setShowUltimateScan(false)}
+      />
+
+      {/* Deep Search Modal */}
+      <DeepSearchModal
+        isOpen={showDeepSearchModal}
+        onClose={() => {
+          setShowDeepSearchModal(false);
+          setCurrentSearchDepth(10);
+        }}
+        onGoDeeper={handleGoDeeper}
+        currentDepth={currentSearchDepth}
+        isSearching={searchingForcingChain}
       />
     </div>
   );
