@@ -12,8 +12,6 @@ export default function SudokuGrid({
   candidateMode,
   colors,
   currentStep,
-  whatIfOverlay,
-  whatIfAnimStep,
   onCellClick, 
   onCellInput,
   onToggleCandidate
@@ -64,28 +62,7 @@ export default function SudokuGrid({
   const gridSize = typeof window !== 'undefined' ? Math.min(window.innerWidth * 0.9, 600) : 600;
   const cellSize = gridSize / 9;
 
-  // Compute overlay grid if we're animating a what-if scenario
-  const overlayGrid = useMemo(() => {
-    if (!whatIfOverlay || !whatIfOverlay.chain) return null;
 
-    const { chain, baseGrid } = whatIfOverlay;
-    const visibleSteps = chain.slice(0, whatIfAnimStep + 1);
-
-    // Clone the base grid
-    const tempGrid = baseGrid.map(cell => ({ ...cell, candidates: [...cell.candidates] }));
-
-    // Apply visible steps
-    visibleSteps.forEach(step => {
-      if (step.action === 'place') {
-        tempGrid[step.cell].value = step.value;
-        tempGrid[step.cell].candidates = [];
-      } else if (step.action === 'eliminate') {
-        tempGrid[step.cell].candidates = tempGrid[step.cell].candidates.filter(c => c !== step.value);
-      }
-    });
-
-    return tempGrid;
-  }, [whatIfOverlay, whatIfAnimStep]);
 
   const getCellCenter = (index) => {
     const row = Math.floor(index / 9);
@@ -162,46 +139,7 @@ export default function SudokuGrid({
               height: 'min(90vw, 600px)' 
             }}
           >
-            {/* What-If Overlay Grid - shown on top during animation */}
-            {overlayGrid && (
-              <div className="absolute inset-0 z-50 pointer-events-none">
-                <div className="w-full h-full grid grid-cols-9 gap-0">
-                  {overlayGrid.map((cell, index) => {
-                    const row = Math.floor(index / 9);
-                    const col = index % 9;
-                    const borderRight = (col + 1) % 3 === 0 && col !== 8 ? 'border-r-2' : 'border-r';
-                    const borderBottom = (row + 1) % 3 === 0 && row !== 8 ? 'border-b-2' : 'border-b';
-                    
-                    return (
-                      <div
-                        key={`overlay-${index}`}
-                        className={`flex items-center justify-center ${borderRight} ${borderBottom} border-slate-600 bg-slate-800`}
-                        style={{
-                          width: `${cellSize}px`,
-                          height: `${cellSize}px`
-                        }}
-                      >
-                        {cell.value !== null ? (
-                          <span className="text-2xl font-bold text-emerald-400">
-                            {cell.value}
-                          </span>
-                        ) : cell.candidates.length > 0 && (
-                          <div className="grid grid-cols-3 gap-0 w-full h-full p-1">
-                            {[1,2,3,4,5,6,7,8,9].map(num => (
-                              <div key={num} className="flex items-center justify-center text-[8px] text-slate-300">
-                                {cell.candidates.includes(num) ? num : ''}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Chain Visualization Overlay - hide arrows during what-if animation */}
+            {/* Chain Visualization Overlay */}
             {currentStep && (currentStep.chains || currentStep.chain || currentStep.strongLinks || currentStep.weakLinks || alsLinks.length > 0 || forcingChains) && (
               <div className="absolute inset-0 z-40 pointer-events-none">
                 <ChainVisualization
@@ -209,11 +147,10 @@ export default function SudokuGrid({
                   strongLinks={currentStep.strongLinks}
                   weakLinks={currentStep.weakLinks}
                   alsLinks={alsLinks}
-                  forcingChains={overlayGrid ? null : forcingChains}
+                  forcingChains={forcingChains}
                   cellSize={cellSize}
                   gridSize={gridSize}
                   currentStep={currentStep}
-                  whatIfOverlay={whatIfOverlay}
                 />
               </div>
             )}

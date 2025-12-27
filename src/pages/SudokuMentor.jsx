@@ -50,9 +50,7 @@ export default function SudokuMentor() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStage, setLoadingStage] = useState(0);
-  const [whatIfOverlay, setWhatIfOverlay] = useState(null);
-  const [whatIfAnimStep, setWhatIfAnimStep] = useState(0);
-  const whatIfTimerRef = useRef(null);
+
   const errorAudioRef = useRef(null);
 
   const loadingStages = [
@@ -196,17 +194,6 @@ export default function SudokuMentor() {
     if (step) {
       setCurrentStep(step);
       
-      // If it's a forcing chain, start the animation immediately
-      if (step.technique === 'Deep Forcing Chain') {
-        // Extract chain - can be either 'chain' or first element of 'chains'
-        const chain = step.chain || (step.chains && step.chains[0]?.cells);
-        
-        if (chain) {
-          setWhatIfAnimStep(0);
-          setWhatIfOverlay({ chain, baseGrid: grid, initialCell: step.baseCells?.[0] });
-        }
-      }
-      
       setGrid(prev => {
         const newGrid = prev.map(cell => ({
           ...cell,
@@ -258,8 +245,6 @@ export default function SudokuMentor() {
       
       setCurrentStep(null);
       setFocusedDigit(null);
-      setWhatIfOverlay(null);
-      setWhatIfAnimStep(0);
       clearHighlights();
     }
   }, [currentStep, grid, historyIndex]);
@@ -599,8 +584,6 @@ export default function SudokuMentor() {
                 candidateMode={candidateMode}
                 colors={colors}
                 currentStep={currentStep}
-                whatIfOverlay={whatIfOverlay}
-                whatIfAnimStep={whatIfAnimStep}
                 onCellClick={handleCellClick}
                 onCellInput={handleCellInput}
                 onToggleCandidate={handleToggleCandidate}
@@ -616,21 +599,10 @@ export default function SudokuMentor() {
               grid={grid}
               onApplyStep={handleApplyStep}
               onNextStep={handleNextStep}
-              onReplayAnimation={handleReplayAnimation}
               onHighlightTechnique={(instances, total, current) => {
                 // Set the first instance as the current step so it can be applied
                 if (instances.length > 0) {
-                  const newStep = instances[0];
-                  setCurrentStep(newStep);
-
-                  // If it's a forcing chain, start the animation immediately
-                  if (newStep.technique === 'Deep Forcing Chain') {
-                    const chain = newStep.chain || (newStep.chains && newStep.chains[0]?.cells);
-                    if (chain) {
-                      setWhatIfAnimStep(0);
-                      setWhatIfOverlay({ chain, baseGrid: grid, initialCell: newStep.baseCells?.[0] });
-                    }
-                  }
+                  setCurrentStep(instances[0]);
                 }
 
                 // Highlight cells from the current instance
@@ -685,7 +657,6 @@ export default function SudokuMentor() {
           grid={grid}
           onApplyStep={handleApplyStep}
           onNextStep={handleNextStep}
-          onReplayAnimation={handleReplayAnimation}
           onHighlightTechnique={(instances, total, current) => {
             setGrid(prev => {
               const newGrid = prev.map(cell => ({

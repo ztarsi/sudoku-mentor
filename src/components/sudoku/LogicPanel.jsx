@@ -119,7 +119,7 @@ const TECHNIQUE_INFO = {
   }
 };
 
-export default function LogicPanel({ currentStep, focusedDigit, grid, onHighlightTechnique, onApplyStep, onNextStep, onReplayAnimation }) {
+export default function LogicPanel({ currentStep, focusedDigit, grid, onHighlightTechnique, onApplyStep, onNextStep }) {
   const [selectedTechnique, setSelectedTechnique] = useState(null);
   const [shortcutsExpanded, setShortcutsExpanded] = useState(true);
   const [techniqueIndices, setTechniqueIndices] = useState({});
@@ -350,18 +350,35 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
                   {currentStep.explanation}
                 </p>
               </div>
-              
-              {/* Replay button for Deep Forcing Chains */}
-              {currentStep.technique === 'Deep Forcing Chain' && onReplayAnimation && (
-                <button
-                  onClick={onReplayAnimation}
-                  className="w-full px-4 py-2 bg-fuchsia-600 hover:bg-fuchsia-500 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  Replay Animation
-                </button>
+
+              {/* Step-by-step breakdown for Deep Forcing Chains */}
+              {currentStep.technique === 'Deep Forcing Chain' && currentStep.chain && (
+                <div className="space-y-2">
+                  <p className="text-base font-medium text-slate-300">Chain Steps:</p>
+                  <div className="bg-slate-800 rounded-xl p-4 max-h-64 overflow-y-auto space-y-2">
+                    {currentStep.chain.filter(s => s.action === 'place').map((step, idx) => {
+                      const getRow = (i) => Math.floor(i / 9);
+                      const getCol = (i) => i % 9;
+                      const cellRef = `R${getRow(step.cell) + 1}C${getCol(step.cell) + 1}`;
+
+                      return (
+                        <div key={idx} className="flex items-start gap-2 text-sm">
+                          <span className={`font-bold ${idx === 0 ? 'text-purple-400' : 'text-blue-400'}`}>
+                            {idx + 1}.
+                          </span>
+                          <div>
+                            <span className="text-slate-200">
+                              {cellRef} = {step.value}
+                            </span>
+                            {step.reason && (
+                              <p className="text-slate-400 text-xs mt-1">{step.reason}</p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
 
               {/* Action Summary */}
