@@ -496,7 +496,7 @@ export default function SudokuMentor() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 lg:pb-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 lg:pb-8 pt-20 lg:pt-8">
         <div className="grid lg:grid-cols-[1fr,380px] gap-8">
           {/* Left Column - Grid & Controls */}
           <div className="space-y-6">
@@ -509,8 +509,8 @@ export default function SudokuMentor() {
 
             {/* Control Bar */}
             <ControlBar
-              onHint={handleNextStep}
-              onApply={handleApplyStep}
+              onNextStep={handleNextStep}
+              onApplyStep={handleApplyStep}
               onUndo={handleUndo}
               onRedo={handleRedo}
               onClear={handleClearGrid}
@@ -521,7 +521,7 @@ export default function SudokuMentor() {
             />
 
             {/* Sudoku Grid */}
-            <div className="flex justify-center mt-20 lg:mt-0">
+            <div className="flex justify-center">
               <SudokuGrid
                 grid={grid}
                 selectedCell={selectedCell}
