@@ -98,39 +98,45 @@ export const findForcingChain = (grid, maxDepth = 8) => {
       const placements = branch1.chain.filter(c => c.action === 'place');
       const eliminations = branch1.chain.filter(c => c.action === 'eliminate');
       
-      let explanation = `If R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} = ${value1}, the following chain of forced moves occurs:\n\n`;
-      
-      // Build a detailed narrative
-      let placementCount = 0;
-      branch1.chain.forEach((step, idx) => {
-        if (step.action === 'place') {
-          placementCount++;
-          const cellRef = `R${getRow(step.cell) + 1}C${getCol(step.cell) + 1}`;
-          explanation += `Step ${placementCount}: ${cellRef} must be ${step.value}\n`;
-          
-          // Find eliminations that follow this placement
-          const nextElims = [];
-          for (let i = idx + 1; i < branch1.chain.length; i++) {
-            if (branch1.chain[i].action === 'eliminate') {
-              nextElims.push(branch1.chain[i]);
-            } else {
-              break;
-            }
-          }
-          
-          if (nextElims.length > 0) {
-            explanation += `  ↳ This forces the elimination of ${nextElims.map(e => `${e.value} from R${getRow(e.cell) + 1}C${getCol(e.cell) + 1}`).slice(0, 3).join(', ')}`;
-            if (nextElims.length > 3) {
-              explanation += ` and ${nextElims.length - 3} more`;
-            }
-            explanation += '\n';
-          }
-          explanation += '\n';
+      let explanation = `🔍 Let's explore: What if R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} = ${value1}?\n\n`;
+
+      // Build a detailed narrative with natural language
+      const placements = branch1.chain.filter(s => s.action === 'place');
+
+      placements.forEach((step, idx) => {
+        const cellRef = `R${getRow(step.cell) + 1}C${getCol(step.cell) + 1}`;
+        const boxNum = getBox(step.cell) + 1;
+
+        if (idx === 0) {
+          explanation += `📍 Starting assumption: Place ${step.value} at ${cellRef}\n\n`;
+        } else {
+          explanation += `➜ Step ${idx}: ${cellRef} must be ${step.value}\n`;
+          explanation += `   Why? ${step.reason}\n`;
         }
+
+        // Find and explain immediate eliminations
+        const nextElims = [];
+        const chainIdx = branch1.chain.findIndex(s => s === step);
+        for (let i = chainIdx + 1; i < branch1.chain.length; i++) {
+          if (branch1.chain[i].action === 'eliminate') {
+            nextElims.push(branch1.chain[i]);
+          } else {
+            break;
+          }
+        }
+
+        if (nextElims.length > 0) {
+          const peerElims = nextElims.filter(e => e.reason.includes('Sees'));
+          if (peerElims.length > 0) {
+            explanation += `   This eliminates ${step.value} from ${peerElims.length} peer cell${peerElims.length > 1 ? 's' : ''}\n`;
+          }
+        }
+        explanation += '\n';
       });
-      
-      explanation += `❌ Contradiction: This chain eliminates all candidates from R${getRow(branch1.contradictionCell) + 1}C${getCol(branch1.contradictionCell) + 1}, making it impossible to solve.\n\n`;
-      explanation += `✓ Conclusion: R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} must be ${value2}.`;
+
+      const contradCell = `R${getRow(branch1.contradictionCell) + 1}C${getCol(branch1.contradictionCell) + 1}`;
+      explanation += `❌ CONTRADICTION: After ${placements.length} forced placement${placements.length > 1 ? 's' : ''}, ${contradCell} has no valid candidates left!\n\n`;
+      explanation += `✅ Conclusion: The assumption was wrong. R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} must be ${value2}.`;
       
       return {
         technique: 'Deep Forcing Chain',
@@ -151,39 +157,45 @@ export const findForcingChain = (grid, maxDepth = 8) => {
       const placements = branch2.chain.filter(c => c.action === 'place');
       const eliminations = branch2.chain.filter(c => c.action === 'eliminate');
       
-      let explanation = `If R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} = ${value2}, the following chain of forced moves occurs:\n\n`;
-      
-      // Build a detailed narrative
-      let placementCount = 0;
-      branch2.chain.forEach((step, idx) => {
-        if (step.action === 'place') {
-          placementCount++;
-          const cellRef = `R${getRow(step.cell) + 1}C${getCol(step.cell) + 1}`;
-          explanation += `Step ${placementCount}: ${cellRef} must be ${step.value}\n`;
-          
-          // Find eliminations that follow this placement
-          const nextElims = [];
-          for (let i = idx + 1; i < branch2.chain.length; i++) {
-            if (branch2.chain[i].action === 'eliminate') {
-              nextElims.push(branch2.chain[i]);
-            } else {
-              break;
-            }
-          }
-          
-          if (nextElims.length > 0) {
-            explanation += `  ↳ This forces the elimination of ${nextElims.map(e => `${e.value} from R${getRow(e.cell) + 1}C${getCol(e.cell) + 1}`).slice(0, 3).join(', ')}`;
-            if (nextElims.length > 3) {
-              explanation += ` and ${nextElims.length - 3} more`;
-            }
-            explanation += '\n';
-          }
-          explanation += '\n';
+      let explanation = `🔍 Let's explore: What if R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} = ${value2}?\n\n`;
+
+      // Build a detailed narrative with natural language
+      const placements = branch2.chain.filter(s => s.action === 'place');
+
+      placements.forEach((step, idx) => {
+        const cellRef = `R${getRow(step.cell) + 1}C${getCol(step.cell) + 1}`;
+        const boxNum = getBox(step.cell) + 1;
+
+        if (idx === 0) {
+          explanation += `📍 Starting assumption: Place ${step.value} at ${cellRef}\n\n`;
+        } else {
+          explanation += `➜ Step ${idx}: ${cellRef} must be ${step.value}\n`;
+          explanation += `   Why? ${step.reason}\n`;
         }
+
+        // Find and explain immediate eliminations
+        const nextElims = [];
+        const chainIdx = branch2.chain.findIndex(s => s === step);
+        for (let i = chainIdx + 1; i < branch2.chain.length; i++) {
+          if (branch2.chain[i].action === 'eliminate') {
+            nextElims.push(branch2.chain[i]);
+          } else {
+            break;
+          }
+        }
+
+        if (nextElims.length > 0) {
+          const peerElims = nextElims.filter(e => e.reason.includes('Sees'));
+          if (peerElims.length > 0) {
+            explanation += `   This eliminates ${step.value} from ${peerElims.length} peer cell${peerElims.length > 1 ? 's' : ''}\n`;
+          }
+        }
+        explanation += '\n';
       });
-      
-      explanation += `❌ Contradiction: This chain eliminates all candidates from R${getRow(branch2.contradictionCell) + 1}C${getCol(branch2.contradictionCell) + 1}, making it impossible to solve.\n\n`;
-      explanation += `✓ Conclusion: R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} must be ${value1}.`;
+
+      const contradCell = `R${getRow(branch2.contradictionCell) + 1}C${getCol(branch2.contradictionCell) + 1}`;
+      explanation += `❌ CONTRADICTION: After ${placements.length} forced placement${placements.length > 1 ? 's' : ''}, ${contradCell} has no valid candidates left!\n\n`;
+      explanation += `✅ Conclusion: The assumption was wrong. R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} must be ${value1}.`;
       
       return {
         technique: 'Deep Forcing Chain',
@@ -235,7 +247,12 @@ const exploreBranch = (grid, cellIndex, value, maxDepth, chain) => {
     }
   });
   
-  const newChain = [...chain, { cell: cellIndex, value, action: 'place' }];
+  const newChain = [...chain, { 
+    cell: cellIndex, 
+    value, 
+    action: 'place',
+    reason: chain.length === 0 ? 'Initial assumption' : 'Forced by previous eliminations'
+  }];
   
   if (chain.length >= maxDepth) {
     return { grid, contradiction: false, chain: newChain };
@@ -255,7 +272,10 @@ const exploreBranch = (grid, cellIndex, value, maxDepth, chain) => {
     if (cell.value === null && initialCandidates[idx]) {
       const eliminated = initialCandidates[idx].filter(c => !cell.candidates.includes(c));
       eliminated.forEach(digit => {
-        eliminationSteps.push({ cell: idx, value: digit, action: 'eliminate' });
+        const reason = getPeers(cellIndex).includes(idx) && digit === value 
+          ? `Sees ${value} at R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1}`
+          : 'Constraint propagation';
+        eliminationSteps.push({ cell: idx, value: digit, action: 'eliminate', reason });
       });
     }
   });

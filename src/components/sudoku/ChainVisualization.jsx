@@ -1,7 +1,32 @@
-import React from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function ChainVisualization({ chains, strongLinks, weakLinks, alsLinks, forcingChains, cellSize = 50, gridSize = 450, currentStep }) {
+  const [currentAnimStep, setCurrentAnimStep] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  // Reset animation when forcingChains changes
+  useEffect(() => {
+    if (forcingChains && forcingChains.length > 0) {
+      setCurrentAnimStep(0);
+      setIsAnimating(true);
+    }
+  }, [forcingChains]);
+
+  // Animate through the chain steps
+  useEffect(() => {
+    if (!isAnimating || !forcingChains || forcingChains.length === 0) return;
+
+    const allSteps = forcingChains[0].cells || [];
+    if (currentAnimStep < allSteps.length) {
+      const timer = setTimeout(() => {
+        setCurrentAnimStep(prev => prev + 1);
+      }, 600); // Delay between steps
+      return () => clearTimeout(timer);
+    } else {
+      setIsAnimating(false);
+    }
+  }, [currentAnimStep, isAnimating, forcingChains]);
   if (!chains && (!strongLinks || strongLinks.length === 0) && (!alsLinks || alsLinks.length === 0) && (!forcingChains || forcingChains.length === 0)) return null;
 
   const getCellCenter = (cellIndex) => {
@@ -160,25 +185,53 @@ export default function ChainVisualization({ chains, strongLinks, weakLinks, als
 
           // All steps in sequence
           const allSteps = cells;
+          const visibleSteps = allSteps.slice(0, currentAnimStep + 1);
 
           return (
             <g key={`forcing-chain-${chainIdx}`}>
-              {/* Sequential markers and arrows */}
-              {allSteps.map((step, idx) => {
-                const candPos = getCandidatePosition(step.cell, step.value);
-                const baseDelay = idx * 0.3;
+              {/* Current step explanation */}
+              {isAnimating && currentAnimStep < allSteps.length && (
+                <motion.text
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  x={gridSize / 2}
+                  y={20}
+                  textAnchor="middle"
+                  fill="#fff"
+                  fontSize={cellSize * 0.22}
+                  fontWeight="bold"
+                  style={{ textShadow: '0 0 4px rgba(0,0,0,0.8)' }}
+                >
+                  {allSteps[currentAnimStep].action === 'place' 
+                    ? `Step ${currentAnimStep + 1}: Place ${allSteps[currentAnimStep].value}` 
+                    : `Eliminate ${allSteps[currentAnimStep].value}`}
+                </motion.text>
+              )}
 
-                // Find next step for arrow (any action)
-                const nextStep = idx < allSteps.length - 1 ? allSteps[idx + 1] : null;
+              {/* Sequential markers and arrows */}
+              {visibleSteps.map((step, idx) => {
+                const candPos = getCandidatePosition(step.cell, step.value);
+                const baseDelay = 0; // No delay, controlled by state
+
+                // Find next step for arrow (any action) - only if it's visible
+                const nextStep = idx < visibleSteps.length - 1 ? visibleSteps[idx + 1] : null;
 
                 return (
                   <g key={`step-${idx}`}>
-                    {/* Marker */}
+                    {/* Marker with pulsing animation for current step */}
                     {step.action === 'place' ? (
                       <motion.circle
                         initial={{ r: 0, opacity: 0 }}
-                        animate={{ r: cellSize * 0.08, opacity: 0.95 }}
-                        transition={{ duration: 0.3, delay: baseDelay }}
+                        animate={{ 
+                          r: cellSize * 0.08, 
+                          opacity: idx === currentAnimStep && isAnimating ? [0.95, 1, 0.95] : 0.95,
+                          scale: idx === currentAnimStep && isAnimating ? [1, 1.3, 1] : 1
+                        }}
+                        transition={{ 
+                          duration: 0.3, 
+                          scale: { duration: 0.6, repeat: Infinity }
+                        }}
                         cx={candPos.x}
                         cy={candPos.y}
                         fill="#10b981"
@@ -187,9 +240,15 @@ export default function ChainVisualization({ chains, strongLinks, weakLinks, als
                       />
                     ) : (
                       <motion.g
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 0.7 }}
-                        transition={{ duration: 0.2, delay: baseDelay }}
+                        initial={{ opacity: 0, scale: 0 }}
+                        animate={{ 
+                          opacity: 0.7, 
+                          scale: idx === currentAnimStep && isAnimating ? [1, 1.3, 1] : 1
+                        }}
+                        transition={{ 
+                          duration: 0.2,
+                          scale: { duration: 0.6, repeat: Infinity }
+                        }}
                       >
                         <line
                           x1={candPos.x - cellSize * 0.06}
@@ -240,9 +299,10 @@ export default function ChainVisualization({ chains, strongLinks, weakLinks, als
 
                         return (
                           <motion.path
+                            key={`arrow-${idx}`}
                             initial={{ pathLength: 0, opacity: 0 }}
                             animate={{ pathLength: 1, opacity: 0.7 }}
-                            transition={{ duration: 0.5, delay: baseDelay + 0.15 }}
+                            transition={{ duration: 0.4 }}
                             d={pathD}
                             stroke={arrowColor}
                             strokeWidth="2"
@@ -256,36 +316,61 @@ export default function ChainVisualization({ chains, strongLinks, weakLinks, als
                 );
               })}
 
-              {label && allSteps.length > 0 && (
-                <text
-                  x={getCandidatePosition(allSteps[0].cell, allSteps[0].value).x}
-                  y={getCandidatePosition(allSteps[0].cell, allSteps[0].value).y - cellSize * 0.25}
+              {label && visibleSteps.length > 0 && (
+                <motion.text
+                  initial={{ opacity: 0, scale: 0.5 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  x={getCandidatePosition(visibleSteps[0].cell, visibleSteps[0].value).x}
+                  y={getCandidatePosition(visibleSteps[0].cell, visibleSteps[0].value).y - cellSize * 0.25}
                   textAnchor="middle"
                   fill="#ef4444"
                   fontSize={cellSize * 0.18}
                   fontWeight="bold"
+                  style={{ textShadow: '0 0 4px rgba(0,0,0,0.8)' }}
                 >
                   {label}
-                </text>
+                </motion.text>
               )}
             </g>
           );
         })}
 
-        {currentStep?.contradictionCell !== undefined && currentStep.contradictionCell !== null && (
-          <motion.rect
-            x={getCellCenter(currentStep.contradictionCell).x - cellSize * 0.4}
-            y={getCellCenter(currentStep.contradictionCell).y - cellSize * 0.4}
-            width={cellSize * 0.8}
-            height={cellSize * 0.8}
-            rx={cellSize * 0.1}
-            fill="none"
-            stroke="#ef4444"
-            strokeWidth="4"
-            initial={{ opacity: 0, scale: 0.5 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.5, duration: 0.3 }}
-          />
+        {currentStep?.contradictionCell !== undefined && currentStep.contradictionCell !== null && !isAnimating && (
+          <motion.g>
+            <motion.rect
+              x={getCellCenter(currentStep.contradictionCell).x - cellSize * 0.4}
+              y={getCellCenter(currentStep.contradictionCell).y - cellSize * 0.4}
+              width={cellSize * 0.8}
+              height={cellSize * 0.8}
+              rx={cellSize * 0.1}
+              fill="none"
+              stroke="#ef4444"
+              strokeWidth="4"
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={{ 
+                opacity: [1, 0.5, 1], 
+                scale: 1 
+              }}
+              transition={{ 
+                opacity: { duration: 1, repeat: Infinity },
+                scale: { duration: 0.3 }
+              }}
+            />
+            <motion.text
+              x={getCellCenter(currentStep.contradictionCell).x}
+              y={getCellCenter(currentStep.contradictionCell).y + cellSize * 0.6}
+              textAnchor="middle"
+              fill="#ef4444"
+              fontSize={cellSize * 0.2}
+              fontWeight="bold"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              style={{ textShadow: '0 0 4px rgba(0,0,0,0.8)' }}
+            >
+              Contradiction!
+            </motion.text>
+          </motion.g>
         )}
       </svg>
   );
