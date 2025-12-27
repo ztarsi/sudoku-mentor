@@ -240,6 +240,12 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
         onApplyStep?.();
         setTimeout(() => {
           onNextStep?.();
+          // Check after state updates if no more steps found
+          setTimeout(() => {
+            if (!currentStep) {
+              setIsPlaying(false);
+            }
+          }, 200);
         }, 100);
       }, playSpeed);
     }
@@ -250,13 +256,6 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
       }
     };
   }, [isPlaying, currentStep, playSpeed]);
-
-  // Auto-pause when no more steps are found
-  useEffect(() => {
-    if (isPlaying && !currentStep) {
-      setIsPlaying(false);
-    }
-  }, [isPlaying, currentStep]);
   
   const handleTechniqueClick = (techniqueName) => {
     const instances = findAllTechniqueInstances(grid, techniqueName);
