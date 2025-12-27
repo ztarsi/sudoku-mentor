@@ -354,11 +354,38 @@ const findConvergence = (grid, branch1, branch2, cellIndex, value1, value2) => {
   
   if (commonPlacements.length > 0) {
     const placement = commonPlacements[0];
+    const originCell = `R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1}`;
+    const targetCell = `R${getRow(placement.cell) + 1}C${getCol(placement.cell) + 1}`;
     
-    let explanation = `🎯 Cell Forcing Chain: R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} has candidates {${value1}, ${value2}}.\n\n`;
-    explanation += `✅ Path A (if ${value1}): Forces R${getRow(placement.cell) + 1}C${getCol(placement.cell) + 1} = ${placement.digit}\n`;
-    explanation += `✅ Path B (if ${value2}): Also forces R${getRow(placement.cell) + 1}C${getCol(placement.cell) + 1} = ${placement.digit}\n\n`;
-    explanation += `💡 Convergence: No matter which value we choose, R${getRow(placement.cell) + 1}C${getCol(placement.cell) + 1} must be ${placement.digit}!`;
+    let explanation = `🎯 Cell Forcing Chain (Convergence Proof)\n\n`;
+    explanation += `📍 Origin: ${originCell} can only be ${value1} or ${value2}.\n\n`;
+    
+    // Build chain narrative for Path A
+    explanation += `✅ Path A: If ${originCell} = ${value1}\n`;
+    const pathASteps = branch1.chain.filter(s => s.action === 'place').slice(1, 4); // Show first few steps
+    pathASteps.forEach((step, idx) => {
+      const cellRef = `R${getRow(step.cell) + 1}C${getCol(step.cell) + 1}`;
+      explanation += `   ${idx + 1}. ${cellRef} must be ${step.value}\n`;
+    });
+    if (branch1.chain.filter(s => s.action === 'place').length > 4) {
+      explanation += `   ... (${branch1.chain.filter(s => s.action === 'place').length - 4} more steps)\n`;
+    }
+    explanation += `   ➜ Result: ${targetCell} = ${placement.digit}\n\n`;
+    
+    // Build chain narrative for Path B
+    explanation += `✅ Path B: If ${originCell} = ${value2}\n`;
+    const pathBSteps = branch2.chain.filter(s => s.action === 'place').slice(1, 4);
+    pathBSteps.forEach((step, idx) => {
+      const cellRef = `R${getRow(step.cell) + 1}C${getCol(step.cell) + 1}`;
+      explanation += `   ${idx + 1}. ${cellRef} must be ${step.value}\n`;
+    });
+    if (branch2.chain.filter(s => s.action === 'place').length > 4) {
+      explanation += `   ... (${branch2.chain.filter(s => s.action === 'place').length - 4} more steps)\n`;
+    }
+    explanation += `   ➜ Result: ${targetCell} = ${placement.digit}\n\n`;
+    
+    explanation += `💡 Proven Conclusion: Both paths converge on ${targetCell} = ${placement.digit}\n`;
+    explanation += `This is logically certain, regardless of which candidate is correct!`;
     
     return {
       technique: 'Cell Forcing Chain',
@@ -368,8 +395,8 @@ const findConvergence = (grid, branch1, branch2, cellIndex, value1, value2) => {
       placement,
       eliminations: [],
       chains: [
-        { cells: branch1.chain, color: '#10b981', label: `Path A: ${value1}` },
-        { cells: branch2.chain, color: '#a855f7', label: `Path B: ${value2}` }
+        { cells: branch1.chain, color: '#10b981', label: `If ${value1}` },
+        { cells: branch2.chain, color: '#a855f7', label: `If ${value2}` }
       ],
       convergenceCell: placement.cell,
       digit: null
@@ -377,12 +404,25 @@ const findConvergence = (grid, branch1, branch2, cellIndex, value1, value2) => {
   }
   
   if (commonEliminations.length > 0) {
-    let explanation = `🎯 Cell Forcing Chain: R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} has candidates {${value1}, ${value2}}.\n\n`;
-    explanation += `Both paths lead to the same eliminations:\n`;
-    commonEliminations.forEach(e => {
-      explanation += `• R${getRow(e.cell) + 1}C${getCol(e.cell) + 1} cannot be ${e.digit}\n`;
+    const originCell = `R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1}`;
+    
+    let explanation = `🎯 Cell Forcing Chain (Convergence Proof)\n\n`;
+    explanation += `📍 Origin: ${originCell} can only be ${value1} or ${value2}.\n\n`;
+    
+    explanation += `✅ Path A: If ${originCell} = ${value1}\n`;
+    explanation += `   Leads to these eliminations...\n\n`;
+    
+    explanation += `✅ Path B: If ${originCell} = ${value2}\n`;
+    explanation += `   Also leads to the same eliminations!\n\n`;
+    
+    explanation += `💡 Proven Eliminations (both paths agree):\n`;
+    commonEliminations.slice(0, 5).forEach(e => {
+      explanation += `   • R${getRow(e.cell) + 1}C${getCol(e.cell) + 1} cannot be ${e.digit}\n`;
     });
-    explanation += `\n💡 Convergence: These eliminations are certain regardless of which path is correct!`;
+    if (commonEliminations.length > 5) {
+      explanation += `   ... and ${commonEliminations.length - 5} more\n`;
+    }
+    explanation += `\nThese eliminations are logically certain!`;
     
     return {
       technique: 'Cell Forcing Chain',
@@ -392,8 +432,8 @@ const findConvergence = (grid, branch1, branch2, cellIndex, value1, value2) => {
       placement: null,
       eliminations: commonEliminations,
       chains: [
-        { cells: branch1.chain, color: '#10b981', label: `Path A: ${value1}` },
-        { cells: branch2.chain, color: '#a855f7', label: `Path B: ${value2}` }
+        { cells: branch1.chain, color: '#10b981', label: `If ${value1}` },
+        { cells: branch2.chain, color: '#a855f7', label: `If ${value2}` }
       ],
       digit: null
     };
@@ -432,10 +472,18 @@ const findTripleConvergence = (grid, branch1, branch2, branch3, cellIndex, value
   
   if (commonPlacements.length > 0) {
     const placement = commonPlacements[0];
+    const originCell = `R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1}`;
+    const targetCell = `R${getRow(placement.cell) + 1}C${getCol(placement.cell) + 1}`;
     
-    let explanation = `🎯 Cell Forcing Chain: R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} has candidates {${value1}, ${value2}, ${value3}}.\n\n`;
-    explanation += `All three paths converge on: R${getRow(placement.cell) + 1}C${getCol(placement.cell) + 1} = ${placement.digit}\n\n`;
-    explanation += `💡 This placement is logically certain!`;
+    let explanation = `🎯 Cell Forcing Chain (Triple Convergence)\n\n`;
+    explanation += `📍 Origin: ${originCell} has three candidates {${value1}, ${value2}, ${value3}}.\n\n`;
+    
+    explanation += `✅ Path A: If ${originCell} = ${value1} ➜ ${targetCell} = ${placement.digit}\n`;
+    explanation += `✅ Path B: If ${originCell} = ${value2} ➜ ${targetCell} = ${placement.digit}\n`;
+    explanation += `✅ Path C: If ${originCell} = ${value3} ➜ ${targetCell} = ${placement.digit}\n\n`;
+    
+    explanation += `💡 Proven Conclusion: All three paths converge!\n`;
+    explanation += `${targetCell} must be ${placement.digit} (logically certain)`;
     
     return {
       technique: 'Cell Forcing Chain',
@@ -445,9 +493,9 @@ const findTripleConvergence = (grid, branch1, branch2, branch3, cellIndex, value
       placement,
       eliminations: [],
       chains: [
-        { cells: branch1.chain, color: '#10b981', label: `Path A: ${value1}` },
-        { cells: branch2.chain, color: '#a855f7', label: `Path B: ${value2}` },
-        { cells: branch3.chain, color: '#3b82f6', label: `Path C: ${value3}` }
+        { cells: branch1.chain, color: '#10b981', label: `If ${value1}` },
+        { cells: branch2.chain, color: '#a855f7', label: `If ${value2}` },
+        { cells: branch3.chain, color: '#3b82f6', label: `If ${value3}` }
       ],
       convergenceCell: placement.cell,
       digit: null
@@ -455,11 +503,19 @@ const findTripleConvergence = (grid, branch1, branch2, branch3, cellIndex, value
   }
   
   if (commonEliminations.length > 0) {
-    let explanation = `🎯 Cell Forcing Chain: R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} has candidates {${value1}, ${value2}, ${value3}}.\n\n`;
-    explanation += `All three paths lead to these eliminations:\n`;
-    commonEliminations.forEach(e => {
-      explanation += `• R${getRow(e.cell) + 1}C${getCol(e.cell) + 1} cannot be ${e.digit}\n`;
+    const originCell = `R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1}`;
+    
+    let explanation = `🎯 Cell Forcing Chain (Triple Convergence)\n\n`;
+    explanation += `📍 Origin: ${originCell} has three candidates {${value1}, ${value2}, ${value3}}.\n\n`;
+    
+    explanation += `All three paths agree on these eliminations:\n`;
+    commonEliminations.slice(0, 5).forEach(e => {
+      explanation += `   • R${getRow(e.cell) + 1}C${getCol(e.cell) + 1} cannot be ${e.digit}\n`;
     });
+    if (commonEliminations.length > 5) {
+      explanation += `   ... and ${commonEliminations.length - 5} more\n`;
+    }
+    explanation += `\n💡 These eliminations are proven by triple convergence!`;
     
     return {
       technique: 'Cell Forcing Chain',
@@ -469,9 +525,9 @@ const findTripleConvergence = (grid, branch1, branch2, branch3, cellIndex, value
       placement: null,
       eliminations: commonEliminations,
       chains: [
-        { cells: branch1.chain, color: '#10b981', label: `Path A: ${value1}` },
-        { cells: branch2.chain, color: '#a855f7', label: `Path B: ${value2}` },
-        { cells: branch3.chain, color: '#3b82f6', label: `Path C: ${value3}` }
+        { cells: branch1.chain, color: '#10b981', label: `If ${value1}` },
+        { cells: branch2.chain, color: '#a855f7', label: `If ${value2}` },
+        { cells: branch3.chain, color: '#3b82f6', label: `If ${value3}` }
       ],
       digit: null
     };
