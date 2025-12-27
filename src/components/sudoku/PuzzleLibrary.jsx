@@ -242,7 +242,7 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
         
         {/* Difficulty Tabs */}
         <div className="p-4 border-b border-slate-100 overflow-x-auto">
-          <div className="flex gap-2 min-w-max">
+          <div className="flex flex-wrap gap-2">
             {Object.entries(DIFFICULTY_CONFIG).map(([key, cfg]) => {
               const Icon = cfg.icon;
               const isActive = selectedDifficulty === key;
@@ -252,7 +252,7 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
                   key={key}
                   onClick={() => setSelectedDifficulty(key)}
                   className={`
-                    flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all duration-300
+                    flex items-center gap-2 px-3 py-2 rounded-xl font-medium transition-all duration-300
                     ${isActive 
                       ? `bg-gradient-to-r ${colorClasses[cfg.color]} text-white shadow-lg` 
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -260,7 +260,7 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
                   `}
                 >
                   <Icon className="w-4 h-4" />
-                  {cfg.label}
+                  <span className="text-sm">{cfg.label}</span>
                 </button>
               );
             })}

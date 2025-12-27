@@ -500,13 +500,12 @@ export default function SudokuMentor() {
               </button>
               <button
                 onClick={() => setShowPuzzleLoader(true)}
-                className="p-2 lg:px-4 lg:py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg lg:rounded-xl transition-all duration-200"
+                className="p-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg lg:rounded-xl transition-all duration-200"
                 title="Load Puzzle"
               >
                 <svg className="w-4 h-4 lg:w-5 lg:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                 </svg>
-                <span className="hidden lg:inline text-sm font-medium">Load Puzzle</span>
               </button>
             </div>
           </div>
