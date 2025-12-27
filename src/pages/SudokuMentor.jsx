@@ -149,45 +149,7 @@ export default function SudokuMentor() {
       isTargetCell: false
     })));
     setCurrentStep(null);
-    setWhatIfOverlay(null);
-    setWhatIfAnimStep(0);
   };
-
-  const handleReplayAnimation = useCallback(() => {
-    if (currentStep && currentStep.technique === 'Deep Forcing Chain') {
-      // Extract chain - can be either 'chain' or first element of 'chains'
-      const chain = currentStep.chain || (currentStep.chains && currentStep.chains[0]?.cells);
-      
-      if (chain) {
-        // Reset and start the what-if overlay animation
-        setWhatIfAnimStep(0);
-        setWhatIfOverlay({ chain, baseGrid: grid, initialCell: currentStep.baseCells?.[0] });
-        
-        // Clear any existing timer
-        if (whatIfTimerRef.current) {
-          clearTimeout(whatIfTimerRef.current);
-        }
-      }
-    }
-  }, [currentStep, grid]);
-
-  // Handle what-if overlay animation
-  useEffect(() => {
-    if (!whatIfOverlay || !whatIfOverlay.chain) return;
-
-    const chain = whatIfOverlay.chain;
-    if (whatIfAnimStep < chain.length) {
-      whatIfTimerRef.current = setTimeout(() => {
-        setWhatIfAnimStep(prev => prev + 1);
-      }, 600);
-    }
-
-    return () => {
-      if (whatIfTimerRef.current) {
-        clearTimeout(whatIfTimerRef.current);
-      }
-    };
-  }, [whatIfOverlay, whatIfAnimStep]);
 
   const handleNextStep = useCallback(() => {
     const step = findNextLogicStep(grid, null);
