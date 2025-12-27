@@ -14,6 +14,7 @@ import {
 import TechniqueModal from './TechniqueModal';
 import UltimateTechniqueScanModal from './UltimateTechniqueScanModal';
 import { findAllTechniqueInstances } from './logicEngine';
+import { findForcingChain } from './forcingChainEngine';
 
 const TECHNIQUE_INFO = {
   'Naked Single': {
@@ -121,6 +122,7 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
   const [showUltimateScan, setShowUltimateScan] = useState(false);
   const [scanningTechnique, setScanningTechnique] = useState(null);
   const [scanResults, setScanResults] = useState({});
+  const [searchingForcingChain, setSearchingForcingChain] = useState(false);
   
   const techniqueInfo = currentStep ? TECHNIQUE_INFO[currentStep.technique] : null;
   const LevelIcon = techniqueInfo?.icon || Info;
@@ -155,7 +157,7 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
   const handleUltimateScan = async () => {
     setShowUltimateScan(true);
     setScanResults({});
-    
+
     const ultimateTechniques = [
       'X-Cycle',
       'Finned X-Wing',
@@ -163,19 +165,36 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
       'Unique Rectangle Type 1',
       'BUG+1'
     ];
-    
+
     const results = {};
-    
+
     for (const tech of ultimateTechniques) {
       setScanningTechnique(tech);
       await new Promise(resolve => setTimeout(resolve, 100)); // Small delay for UI update
-      
+
       const instances = findAllTechniqueInstances(grid, tech);
       results[tech] = instances.length;
       setScanResults({...results});
     }
-    
+
     setScanningTechnique(null);
+  };
+
+  const handleWhatIfSearch = async () => {
+    setSearchingForcingChain(true);
+
+    // Small delay for UI responsiveness
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    const result = findForcingChain(grid, 8);
+
+    setSearchingForcingChain(false);
+
+    if (result) {
+      onHighlightTechnique([result], 1, 1);
+    } else {
+      alert('No forcing chains found at this depth. The puzzle may require trial and error beyond logical deduction.');
+    }
   };
   
   const handleTechniqueClick = (techniqueName) => {
@@ -324,6 +343,41 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
         </AnimatePresence>
       </motion.div>
       
+      {/* What If Button */}
+      <div className="bg-gradient-to-br from-purple-900/50 to-pink-900/50 rounded-2xl shadow-lg shadow-purple-500/20 p-5 border border-purple-700">
+        <div className="flex items-start gap-3 mb-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg">
+            <Zap className="w-6 h-6 text-white" />
+          </div>
+          <div className="flex-1">
+            <h4 className="text-lg font-semibold text-white mb-1">Beyond Ultimate</h4>
+            <p className="text-sm text-purple-200">Explore deep "What-If" scenarios</p>
+          </div>
+        </div>
+
+        <button
+          onClick={handleWhatIfSearch}
+          disabled={searchingForcingChain}
+          className="w-full px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:from-slate-600 disabled:to-slate-600 text-white font-medium rounded-xl transition-all shadow-lg disabled:shadow-none flex items-center justify-center gap-2"
+        >
+          {searchingForcingChain ? (
+            <>
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+              <span>Exploring chains...</span>
+            </>
+          ) : (
+            <>
+              <Search className="w-5 h-5" />
+              <span>Deep Forcing Chain Search</span>
+            </>
+          )}
+        </button>
+
+        <p className="text-xs text-purple-300 mt-3 leading-relaxed">
+          Explores "What-If" scenarios up to 8 levels deep, testing hypothetical values and their logical consequences to find contradictions or forced moves.
+        </p>
+      </div>
+
       {/* Technique Reference */}
       <div className="bg-slate-900 rounded-2xl shadow-lg shadow-black/50 p-5 border border-slate-700">
         <h4 className="text-lg font-semibold text-white mb-4">Technique Hierarchy</h4>

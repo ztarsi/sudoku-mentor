@@ -110,6 +110,13 @@ export default function SudokuGrid({
     return links;
   }, [currentStep, grid, cellSize]);
 
+  const forcingChains = useMemo(() => {
+    if (currentStep?.technique === 'Deep Forcing Chain' && currentStep.chains) {
+      return currentStep.chains;
+    }
+    return null;
+  }, [currentStep]);
+
   return (
     <>
       <div className="relative">
@@ -127,12 +134,13 @@ export default function SudokuGrid({
             }}
           >
             {/* Chain Visualization Overlay */}
-            {currentStep && (currentStep.chains || currentStep.strongLinks || currentStep.weakLinks || alsLinks.length > 0) && (
+            {currentStep && (currentStep.chains || currentStep.strongLinks || currentStep.weakLinks || alsLinks.length > 0 || forcingChains) && (
               <ChainVisualization
                 chains={currentStep.chains}
                 strongLinks={currentStep.strongLinks}
                 weakLinks={currentStep.weakLinks}
                 alsLinks={alsLinks}
+                forcingChains={forcingChains}
                 cellSize={cellSize}
                 gridSize={gridSize}
               />
