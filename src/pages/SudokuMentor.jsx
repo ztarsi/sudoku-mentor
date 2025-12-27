@@ -156,14 +156,19 @@ export default function SudokuMentor() {
   };
 
   const handleReplayAnimation = useCallback(() => {
-    if (currentStep && currentStep.technique === 'Deep Forcing Chain' && currentStep.chain) {
-      // Reset and start the what-if overlay animation
-      setWhatIfAnimStep(0);
-      setWhatIfOverlay({ chain: currentStep.chain, baseGrid: grid });
+    if (currentStep && currentStep.technique === 'Deep Forcing Chain') {
+      // Extract chain - can be either 'chain' or first element of 'chains'
+      const chain = currentStep.chain || (currentStep.chains && currentStep.chains[0]?.cells);
       
-      // Clear any existing timer
-      if (whatIfTimerRef.current) {
-        clearTimeout(whatIfTimerRef.current);
+      if (chain) {
+        // Reset and start the what-if overlay animation
+        setWhatIfAnimStep(0);
+        setWhatIfOverlay({ chain, baseGrid: grid });
+        
+        // Clear any existing timer
+        if (whatIfTimerRef.current) {
+          clearTimeout(whatIfTimerRef.current);
+        }
       }
     }
   }, [currentStep, grid]);
@@ -192,9 +197,14 @@ export default function SudokuMentor() {
       setCurrentStep(step);
       
       // If it's a forcing chain, start the animation immediately
-      if (step.technique === 'Deep Forcing Chain' && step.chain) {
-        setWhatIfAnimStep(0);
-        setWhatIfOverlay({ chain: step.chain, baseGrid: grid });
+      if (step.technique === 'Deep Forcing Chain') {
+        // Extract chain - can be either 'chain' or first element of 'chains'
+        const chain = step.chain || (step.chains && step.chains[0]?.cells);
+        
+        if (chain) {
+          setWhatIfAnimStep(0);
+          setWhatIfOverlay({ chain, baseGrid: grid });
+        }
       }
       
       setGrid(prev => {
