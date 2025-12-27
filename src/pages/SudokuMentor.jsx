@@ -194,7 +194,7 @@ export default function SudokuMentor() {
       
       await new Promise(resolve => setTimeout(resolve, 100));
       
-      const { findForcingChain, findHypothesis } = await import('./components/sudoku/forcingChainEngine');
+      const { findForcingChain, findHypothesis } = await import('@/components/sudoku/forcingChainEngine');
       
       let result = findForcingChain(grid, 100);
       if (!result) {
