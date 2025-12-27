@@ -151,13 +151,9 @@ export default function SudokuMentor() {
   };
 
   const handleNextStep = useCallback(() => {
-    const step = findNextLogicStep(grid, focusedDigit);
+    const step = findNextLogicStep(grid, null);
     if (step) {
       setCurrentStep(step);
-      // Highlight the digit from the hint
-      if (step.digit) {
-        setFocusedDigit(step.digit);
-      }
       setGrid(prev => {
         const newGrid = prev.map(cell => ({
           ...cell,
@@ -208,7 +204,7 @@ export default function SudokuMentor() {
       }
       
       setCurrentStep(null);
-      setFocusedDigit(null); // Exit focus mode after applying
+      setFocusedDigit(null);
       clearHighlights();
     }
   }, [currentStep, grid, historyIndex]);
