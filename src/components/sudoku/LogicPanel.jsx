@@ -250,6 +250,13 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
       }
     };
   }, [isPlaying, currentStep, playSpeed]);
+
+  // Auto-pause when no more steps are found
+  useEffect(() => {
+    if (isPlaying && !currentStep) {
+      setIsPlaying(false);
+    }
+  }, [isPlaying, currentStep]);
   
   const handleTechniqueClick = (techniqueName) => {
     const instances = findAllTechniqueInstances(grid, techniqueName);
