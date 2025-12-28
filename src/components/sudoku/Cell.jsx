@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 
 export default function Cell({ 
+  cellId,
   cell, 
   isSelected, 
   isFocusedDigit,
@@ -49,6 +50,7 @@ export default function Cell({
   return (
     <div className="relative">
     <motion.div
+      id={cellId}
       className={`
         relative aspect-square flex items-center justify-center cursor-pointer
         ${!useCustomBg ? bgColor : ''} ${borderClasses}

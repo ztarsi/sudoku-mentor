@@ -20,6 +20,7 @@ export default function SudokuGrid({
   const [contextMenu, setContextMenu] = useState({ isOpen: false, cellIndex: null, position: { x: 0, y: 0 } });
   const longPressTimerRef = useRef(null);
   const touchStartPosRef = useRef({ x: 0, y: 0 });
+  const gridContainerRef = useRef(null);
 
   const handleTouchStart = (e, cellIndex) => {
     const touch = e.touches[0];
@@ -133,6 +134,7 @@ export default function SudokuGrid({
         {/* Grid container */}
         <div className="relative bg-slate-900 rounded-2xl shadow-2xl shadow-black/50 p-3 sm:p-4 border border-slate-700">
           <div 
+            ref={gridContainerRef}
             className="grid grid-cols-9 gap-0 rounded-lg overflow-hidden relative"
             style={{ 
               border: `2px solid ${colors?.gridLines || '#475569'}`,
@@ -156,6 +158,7 @@ export default function SudokuGrid({
                   onTouchMove={handleTouchMove}
                 >
                   <Cell
+                    cellId={`sudoku-cell-${index}`}
                     cell={cell}
                     isSelected={selectedCell === index}
                     isFocusedDigit={focusedDigit !== null && cell.value === focusedDigit}
@@ -184,8 +187,7 @@ export default function SudokuGrid({
                   weakLinks={currentStep.weakLinks}
                   alsLinks={alsLinks}
                   forcingChains={forcingChains}
-                  cellSize={cellSize}
-                  gridSize={gridSize}
+                  gridContainerRef={gridContainerRef}
                   currentStep={currentStep}
                   playbackIndex={playbackIndex}
                 />
