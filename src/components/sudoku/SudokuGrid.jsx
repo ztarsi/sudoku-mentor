@@ -114,7 +114,7 @@ export default function SudokuGrid({
   }, [currentStep, grid, cellSize]);
 
   const forcingChains = useMemo(() => {
-    if (currentStep?.technique === 'Deep Forcing Chain') {
+    if (currentStep?.technique === 'Deep Forcing Chain' || currentStep?.technique === 'Hypothesis Mode') {
       if (currentStep.chains) {
         return currentStep.chains;
       } else if (currentStep.chain && currentStep.contradiction) {
