@@ -142,7 +142,7 @@ export default function SudokuGrid({
           >
             {/* Chain Visualization Overlay */}
             {currentStep && (currentStep.chains || currentStep.chain || currentStep.strongLinks || currentStep.weakLinks || alsLinks.length > 0 || forcingChains) && (
-              <div className="absolute inset-0 z-40 pointer-events-none">
+              <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 9999 }}>
                 <ChainVisualization
                   chains={currentStep.chains}
                   strongLinks={currentStep.strongLinks}
