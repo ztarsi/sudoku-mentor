@@ -133,6 +133,8 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
   const [isPlaying, setIsPlaying] = useState(false);
   const [playSpeed, setPlaySpeed] = useState(1000); // milliseconds per step
   const playIntervalRef = useRef(null);
+  const [chainPlaybackIndex, setChainPlaybackIndex] = useState(0);
+  const [isPlayingChain, setIsPlayingChain] = useState(false);
   
   const techniqueInfo = currentStep ? TECHNIQUE_INFO[currentStep.technique] : null;
   const LevelIcon = techniqueInfo?.icon || Info;
@@ -271,6 +273,27 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
     };
   }, []);
 
+  // Chain playback animation
+  useEffect(() => {
+    if (isPlayingChain && currentStep?.chain) {
+      const maxSteps = currentStep.chain.filter(s => s.action === 'place').length;
+      if (chainPlaybackIndex < maxSteps - 1) {
+        const timer = setTimeout(() => {
+          setChainPlaybackIndex(prev => prev + 1);
+        }, 800);
+        return () => clearTimeout(timer);
+      } else {
+        setIsPlayingChain(false);
+      }
+    }
+  }, [isPlayingChain, chainPlaybackIndex, currentStep]);
+
+  // Reset playback when currentStep changes
+  useEffect(() => {
+    setChainPlaybackIndex(0);
+    setIsPlayingChain(false);
+  }, [currentStep]);
+
   useEffect(() => {
     if (isPlaying && currentStep) {
       playIntervalRef.current = setTimeout(() => {
@@ -388,32 +411,119 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
                 </p>
               </div>
 
-              {/* Step-by-step breakdown for Deep Forcing Chains */}
-              {currentStep.technique === 'Deep Forcing Chain' && currentStep.chain && (
-                <div className="space-y-2">
-                  <p className="text-base font-medium text-slate-300">Chain Steps:</p>
-                  <div className="bg-slate-800 rounded-xl p-4 max-h-64 overflow-y-auto space-y-2">
-                    {currentStep.chain.filter(s => s.action === 'place').map((step, idx) => {
+              {/* Step-by-step breakdown for Deep Forcing Chains and Hypothesis Mode */}
+              {(currentStep.technique === 'Deep Forcing Chain' || currentStep.technique === 'Hypothesis Mode') && currentStep.chain && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-base font-medium text-slate-300">Logical Chain Trace:</p>
+                    {currentStep.chain.length > 1 && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setChainPlaybackIndex(Math.max(0, chainPlaybackIndex - 1))}
+                          disabled={chainPlaybackIndex === 0}
+                          className="p-1.5 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-600 rounded transition-colors"
+                          title="Previous Step"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (!isPlayingChain) {
+                              setIsPlayingChain(true);
+                              setChainPlaybackIndex(0);
+                            } else {
+                              setIsPlayingChain(false);
+                            }
+                          }}
+                          className={`p-1.5 ${isPlayingChain ? 'bg-red-600 hover:bg-red-500' : 'bg-blue-600 hover:bg-blue-500'} rounded transition-colors`}
+                          title={isPlayingChain ? "Pause" : "Play Chain"}
+                        >
+                          {isPlayingChain ? (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6" />
+                            </svg>
+                          ) : (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                            </svg>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => setChainPlaybackIndex(Math.min(currentStep.chain.length - 1, chainPlaybackIndex + 1))}
+                          disabled={chainPlaybackIndex >= currentStep.chain.length - 1}
+                          className="p-1.5 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-600 rounded transition-colors"
+                          title="Next Step"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="bg-slate-800 rounded-xl p-4 max-h-72 overflow-y-auto space-y-2">
+                    {currentStep.chain.filter(s => s.action === 'place').slice(0, chainPlaybackIndex + 1).map((step, idx) => {
                       const getRow = (i) => Math.floor(i / 9);
                       const getCol = (i) => i % 9;
                       const cellRef = `R${getRow(step.cell) + 1}C${getCol(step.cell) + 1}`;
+                      const isCurrentStep = idx === chainPlaybackIndex;
 
                       return (
-                        <div key={idx} className="flex items-start gap-2 text-sm">
-                          <span className={`font-bold ${idx === 0 ? 'text-purple-400' : 'text-blue-400'}`}>
+                        <motion.div 
+                          key={idx} 
+                          className={`flex items-start gap-2 text-sm p-2 rounded ${isCurrentStep ? 'bg-blue-900/30 border border-blue-600' : ''}`}
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ duration: 0.3 }}
+                        >
+                          <span className={`font-bold ${idx === 0 ? 'text-purple-400' : isCurrentStep ? 'text-blue-300' : 'text-slate-400'}`}>
                             {idx + 1}.
                           </span>
-                          <div>
-                            <span className="text-slate-200">
+                          <div className="flex-1">
+                            <span className={isCurrentStep ? 'text-white font-medium' : 'text-slate-300'}>
                               {cellRef} = {step.value}
                             </span>
                             {step.reason && (
                               <p className="text-slate-400 text-xs mt-1">{step.reason}</p>
                             )}
                           </div>
-                        </div>
+                          {isCurrentStep && (
+                            <motion.div
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              className="w-2 h-2 bg-blue-500 rounded-full"
+                            />
+                          )}
+                        </motion.div>
                       );
                     })}
+                    {currentStep.contradiction && chainPlaybackIndex >= currentStep.chain.filter(s => s.action === 'place').length - 1 && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="mt-3 p-3 bg-red-950/50 border border-red-600 rounded-lg"
+                      >
+                        <div className="flex items-center gap-2 text-red-400 font-medium mb-2">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                          </svg>
+                          CONTRADICTION REACHED
+                        </div>
+                        <p className="text-sm text-red-300">
+                          R{Math.floor(currentStep.contradictionCell / 9) + 1}C{(currentStep.contradictionCell % 9) + 1} has no valid candidates left!
+                        </p>
+                        {currentStep.placement && (
+                          <p className="text-sm text-emerald-400 mt-2">
+                            ✓ Therefore: R{Math.floor(currentStep.placement.cell / 9) + 1}C{(currentStep.placement.cell % 9) + 1} must be {currentStep.placement.digit}
+                          </p>
+                        )}
+                      </motion.div>
+                    )}
+                  </div>
+                  <div className="text-xs text-slate-500 text-center">
+                    Step {Math.min(chainPlaybackIndex + 1, currentStep.chain.filter(s => s.action === 'place').length)} of {currentStep.chain.filter(s => s.action === 'place').length}
                   </div>
                 </div>
               )}

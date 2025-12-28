@@ -50,6 +50,7 @@ export default function SudokuMentor() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStage, setLoadingStage] = useState(0);
+  const [chainPlaybackIndex, setChainPlaybackIndex] = useState(0);
 
   const errorAudioRef = useRef(null);
 
@@ -592,6 +593,7 @@ export default function SudokuMentor() {
                 candidateMode={candidateMode}
                 colors={colors}
                 currentStep={currentStep}
+                playbackIndex={chainPlaybackIndex}
                 onCellClick={handleCellClick}
                 onCellInput={handleCellInput}
                 onToggleCandidate={handleToggleCandidate}
@@ -607,6 +609,7 @@ export default function SudokuMentor() {
               grid={grid}
               onApplyStep={handleApplyStep}
               onNextStep={handleNextStep}
+              onChainPlaybackChange={setChainPlaybackIndex}
               onHighlightTechnique={(instances, total, current) => {
                 // Set the first instance as the current step so it can be applied
                 if (instances.length > 0) {
@@ -665,6 +668,7 @@ export default function SudokuMentor() {
           grid={grid}
           onApplyStep={handleApplyStep}
           onNextStep={handleNextStep}
+          onChainPlaybackChange={setChainPlaybackIndex}
           onHighlightTechnique={(instances, total, current) => {
             setGrid(prev => {
               const newGrid = prev.map(cell => ({

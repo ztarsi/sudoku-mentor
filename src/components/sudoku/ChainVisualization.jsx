@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export default function ChainVisualization({ chains, strongLinks, weakLinks, alsLinks, forcingChains, cellSize = 50, gridSize = 450, currentStep }) {
+export default function ChainVisualization({ chains, strongLinks, weakLinks, alsLinks, forcingChains, cellSize = 50, gridSize = 450, currentStep, playbackIndex = 0 }) {
   const [currentAnimStep, setCurrentAnimStep] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
+  
+  // Use external playback control if provided
+  const effectivePlaybackIndex = playbackIndex !== undefined ? playbackIndex : currentAnimStep;
 
   // Reset animation when forcingChains changes
   useEffect(() => {
@@ -218,13 +221,14 @@ export default function ChainVisualization({ chains, strongLinks, weakLinks, als
 
           // All steps in sequence
           const allSteps = cells;
-          const visibleSteps = allSteps.slice(0, currentAnimStep + 1);
+          const visibleSteps = allSteps.slice(0, effectivePlaybackIndex + 1);
 
           return (
             <g key={`forcing-chain-${chainIdx}`}>
               {/* Current step explanation */}
-              {isAnimating && currentAnimStep < allSteps.length && (
+              {effectivePlaybackIndex < allSteps.length && (
                 <motion.text
+                  key={`step-label-${effectivePlaybackIndex}`}
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
@@ -236,9 +240,9 @@ export default function ChainVisualization({ chains, strongLinks, weakLinks, als
                   fontWeight="bold"
                   style={{ textShadow: '0 0 4px rgba(0,0,0,0.8)' }}
                 >
-                  {allSteps[currentAnimStep].action === 'place' 
-                    ? `Step ${currentAnimStep + 1}: Place ${allSteps[currentAnimStep].value}` 
-                    : `Eliminate ${allSteps[currentAnimStep].value}`}
+                  {allSteps[effectivePlaybackIndex].action === 'place' 
+                    ? `Step ${effectivePlaybackIndex + 1}: Place ${allSteps[effectivePlaybackIndex].value}` 
+                    : `Eliminate ${allSteps[effectivePlaybackIndex].value}`}
                 </motion.text>
               )}
 
@@ -258,15 +262,16 @@ export default function ChainVisualization({ chains, strongLinks, weakLinks, als
                     {/* Marker with pulsing animation for current step */}
                     {step.action === 'place' ? (
                       <motion.circle
+                        key={`marker-${idx}`}
                         initial={{ r: 0, opacity: 0 }}
                         animate={{ 
                           r: cellSize * 0.08, 
-                          opacity: idx === currentAnimStep && isAnimating ? [0.95, 1, 0.95] : 0.95,
-                          scale: idx === currentAnimStep && isAnimating ? [1, 1.3, 1] : 1
+                          opacity: idx === effectivePlaybackIndex ? [0.95, 1, 0.95] : 0.95,
+                          scale: idx === effectivePlaybackIndex ? [1, 1.3, 1] : 1
                         }}
                         transition={{ 
                           duration: 0.3, 
-                          scale: { duration: 0.6, repeat: Infinity }
+                          scale: { duration: 0.6, repeat: idx === effectivePlaybackIndex ? Infinity : 0 }
                         }}
                         cx={candPos.x}
                         cy={candPos.y}
@@ -276,14 +281,15 @@ export default function ChainVisualization({ chains, strongLinks, weakLinks, als
                       />
                     ) : (
                       <motion.g
+                        key={`marker-${idx}`}
                         initial={{ opacity: 0, scale: 0 }}
                         animate={{ 
                           opacity: 0.7, 
-                          scale: idx === currentAnimStep && isAnimating ? [1, 1.3, 1] : 1
+                          scale: idx === effectivePlaybackIndex ? [1, 1.3, 1] : 1
                         }}
                         transition={{ 
                           duration: 0.2,
-                          scale: { duration: 0.6, repeat: Infinity }
+                          scale: { duration: 0.6, repeat: idx === effectivePlaybackIndex ? Infinity : 0 }
                         }}
                       >
                         <line

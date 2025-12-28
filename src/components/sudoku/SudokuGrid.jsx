@@ -12,6 +12,7 @@ export default function SudokuGrid({
   candidateMode,
   colors,
   currentStep,
+  playbackIndex,
   onCellClick, 
   onCellInput,
   onToggleCandidate
@@ -151,6 +152,7 @@ export default function SudokuGrid({
                   cellSize={cellSize}
                   gridSize={gridSize}
                   currentStep={currentStep}
+                  playbackIndex={playbackIndex}
                 />
               </div>
             )}
