@@ -77,6 +77,9 @@ export default function ChainVisualization({
     const start = isALS ? from : getRelativeCenter(from);
     const end = isALS ? to : getRelativeCenter(to);
     
+    // Debug logging
+    console.log(`Arrow ${key}: from (${start.x}, ${start.y}) to (${end.x}, ${end.y})`);
+    
     const dx = end.x - start.x;
     const dy = end.y - start.y;
     const angle = Math.atan2(dy, dx);
@@ -92,14 +95,14 @@ export default function ChainVisualization({
     const endX = startX + Math.cos(angle) * shortenedLength;
     const endY = startY + Math.sin(angle) * shortenedLength;
     
-    const color = type === 'strong' ? '#3b82f6' : '#ef4444';
+    const color = type === 'strong' ? '#60a5fa' : '#f87171';
     const strokeDasharray = type === 'strong' ? 'none' : '5,5';
     
     return (
       <g key={key}>
         <motion.line
           initial={{ pathLength: 0, opacity: 0 }}
-          animate={{ pathLength: 1, opacity: 0.8 }}
+          animate={{ pathLength: 1, opacity: 1 }}
           transition={{ duration: 0.5, delay: key * 0.1 }}
           x1={startX}
           y1={startY}
@@ -109,6 +112,7 @@ export default function ChainVisualization({
           strokeWidth="3"
           strokeDasharray={strokeDasharray}
           markerEnd={`url(#arrow-${type})`}
+          filter="drop-shadow(0px 0px 2px rgba(0,0,0,0.5))"
         />
       </g>
     );
@@ -122,30 +126,37 @@ export default function ChainVisualization({
       height={dimensions.height} 
       viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
       className="w-full h-full"
-      style={{ position: 'absolute', top: 0, left: 0 }}
+      style={{ 
+        position: 'absolute', 
+        top: 0, 
+        left: 0, 
+        zIndex: 50,
+        pointerEvents: 'none',
+        overflow: 'visible'
+      }}
     >
       <defs>
         <marker
           id="arrow-strong"
           markerWidth="10"
-          markerHeight="10"
+          markerHeight="7"
           refX="9"
-          refY="3"
+          refY="3.5"
           orient="auto"
           markerUnits="strokeWidth"
         >
-          <path d="M0,0 L0,6 L9,3 z" fill="#3b82f6" />
+          <polygon points="0 0, 10 3.5, 0 7" fill="#60a5fa" />
         </marker>
         <marker
           id="arrow-weak"
           markerWidth="10"
-          markerHeight="10"
+          markerHeight="7"
           refX="9"
-          refY="3"
+          refY="3.5"
           orient="auto"
           markerUnits="strokeWidth"
         >
-          <path d="M0,0 L0,6 L9,3 z" fill="#ef4444" />
+          <polygon points="0 0, 10 3.5, 0 7" fill="#f87171" />
         </marker>
         <marker
           id="arrow-forcing-0"
