@@ -140,22 +140,6 @@ export default function SudokuGrid({
               height: 'min(90vw, 600px)' 
             }}
           >
-            {/* Chain Visualization Overlay */}
-            {currentStep && (currentStep.chains || currentStep.chain || currentStep.strongLinks || currentStep.weakLinks || alsLinks.length > 0 || forcingChains) && (
-              <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 9999 }}>
-                <ChainVisualization
-                  chains={currentStep.chains}
-                  strongLinks={currentStep.strongLinks}
-                  weakLinks={currentStep.weakLinks}
-                  alsLinks={alsLinks}
-                  forcingChains={forcingChains}
-                  cellSize={cellSize}
-                  gridSize={gridSize}
-                  currentStep={currentStep}
-                  playbackIndex={playbackIndex}
-                />
-              </div>
-            )}
             {grid.map((cell, index) => {
               const row = Math.floor(index / 9);
               const col = index % 9;
@@ -190,6 +174,23 @@ export default function SudokuGrid({
                 </div>
               );
             })}
+            
+            {/* Chain Visualization Overlay - after cells so it renders on top */}
+            {currentStep && (currentStep.chains || currentStep.chain || currentStep.strongLinks || currentStep.weakLinks || alsLinks.length > 0 || forcingChains) && (
+              <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 50 }}>
+                <ChainVisualization
+                  chains={currentStep.chains}
+                  strongLinks={currentStep.strongLinks}
+                  weakLinks={currentStep.weakLinks}
+                  alsLinks={alsLinks}
+                  forcingChains={forcingChains}
+                  cellSize={cellSize}
+                  gridSize={gridSize}
+                  currentStep={currentStep}
+                  playbackIndex={playbackIndex}
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>
