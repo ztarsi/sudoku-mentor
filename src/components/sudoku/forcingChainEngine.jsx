@@ -651,11 +651,43 @@ const exploreBranch = (grid, cellIndex, value, maxDepth, chain) => {
     }
   });
   
+  // Determine reason for this placement
+  let reason = 'Initial assumption';
+  if (chain.length > 0) {
+    const cell = grid[cellIndex];
+    if (cell.candidates.length === 1) {
+      reason = 'Only candidate remaining (Naked Single)';
+    } else {
+      // Check if it's a hidden single
+      const row = getRow(cellIndex);
+      const col = getCol(cellIndex);
+      const box = getBox(cellIndex);
+      
+      const rowCells = getRowIndices(row).filter(i => i !== cellIndex && grid[i].value === null);
+      const colCells = getColIndices(col).filter(i => i !== cellIndex && grid[i].value === null);
+      const boxCells = getBoxIndices(box).filter(i => i !== cellIndex && grid[i].value === null);
+      
+      const isHiddenInRow = !rowCells.some(i => grid[i].candidates.includes(value));
+      const isHiddenInCol = !colCells.some(i => grid[i].candidates.includes(value));
+      const isHiddenInBox = !boxCells.some(i => grid[i].candidates.includes(value));
+      
+      if (isHiddenInRow) {
+        reason = `Only place for ${value} in row ${row + 1}`;
+      } else if (isHiddenInCol) {
+        reason = `Only place for ${value} in column ${col + 1}`;
+      } else if (isHiddenInBox) {
+        reason = `Only place for ${value} in box ${box + 1}`;
+      } else {
+        reason = 'Forced by constraint propagation';
+      }
+    }
+  }
+  
   const newChain = [...chain, { 
     cell: cellIndex, 
     value, 
     action: 'place',
-    reason: chain.length === 0 ? 'Initial assumption' : 'Forced by previous eliminations'
+    reason
   }];
   
   if (chain.length >= maxDepth) {
