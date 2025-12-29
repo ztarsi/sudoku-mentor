@@ -19,8 +19,8 @@ export default function ChainVisualization({
     if (!gridContainerRef?.current) return;
 
     const updateDimensions = () => {
-      const width = gridContainerRef.current.offsetWidth;
-      const height = gridContainerRef.current.offsetHeight;
+      const width = gridContainerRef.current.clientWidth;
+      const height = gridContainerRef.current.clientHeight;
       setDimensions({ width, height });
     };
 
@@ -115,13 +115,13 @@ export default function ChainVisualization({
 
   return (
     <svg 
-      width={dimensions.width} 
-      height={dimensions.height} 
       viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
       style={{ 
         position: 'absolute', 
         top: 0, 
         left: 0, 
+        width: '100%',
+        height: '100%',
         zIndex: 50,
         pointerEvents: 'none',
         overflow: 'visible'
