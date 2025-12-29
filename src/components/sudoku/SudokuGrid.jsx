@@ -179,11 +179,8 @@ export default function SudokuGrid({
               );
             })}
             
-          </div>
-          
-          {/* Chain Visualization Overlay - positioned absolutely over the grid */}
-          {currentStep && (currentStep.chains || currentStep.chain || currentStep.strongLinks || currentStep.weakLinks || alsLinks.length > 0 || forcingChains) && (
-            <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 50, top: 0, left: 0 }}>
+            {/* Chain Visualization Overlay - inside grid for coordinate alignment */}
+            {currentStep && (currentStep.chains || currentStep.chain || currentStep.strongLinks || currentStep.weakLinks || alsLinks.length > 0 || forcingChains) && (
               <ChainVisualization
                 chains={Array.isArray(currentStep.chains) && typeof currentStep.chains[0] === 'number' ? currentStep.chains : null}
                 strongLinks={currentStep.strongLinks}
@@ -194,8 +191,8 @@ export default function SudokuGrid({
                 currentStep={currentStep}
                 playbackIndex={playbackIndex}
               />
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
