@@ -191,6 +191,17 @@ export default function ChainVisualization({
         >
           <path d="M0,0 L0,6 L9,3 z" fill="#3b82f6" />
         </marker>
+        <marker
+          id="arrow-forcing-contradiction"
+          markerWidth="10"
+          markerHeight="10"
+          refX="9"
+          refY="3"
+          orient="auto"
+          markerUnits="strokeWidth"
+        >
+          <path d="M0,0 L0,6 L9,3 z" fill="#ef4444" />
+        </marker>
       </defs>
 
       {/* Debug mode: Show dots at calculated centers */}
@@ -263,6 +274,10 @@ export default function ChainVisualization({
               const nextStep = idx < placementSteps.length - 1 ? placementSteps[idx + 1] : null;
               const shouldShowArrow = idx < visibleSteps.length - 1; // Only show arrow if next step is visible
               const chainColor = color || '#a855f7';
+              
+              // Find this step's original index in the full chain to check if it's currently active
+              const originalStepIndex = placementSteps.findIndex(s => s.cell === step.cell && s.value === step.value);
+              const isCurrentStep = originalStepIndex === playbackIndex;
 
               return (
                 <g key={`step-${idx}`}>
@@ -271,12 +286,12 @@ export default function ChainVisualization({
                     initial={{ r: 0, opacity: 0 }}
                     animate={{ 
                       r: cellSize * 0.08, 
-                      opacity: idx === playbackIndex ? [0.95, 1, 0.95] : 0.95,
-                      scale: idx === playbackIndex ? [1, 1.3, 1] : 1
+                      opacity: isCurrentStep ? [0.95, 1, 0.95] : 0.95,
+                      scale: isCurrentStep ? [1, 1.3, 1] : 1
                     }}
                     transition={{ 
                       duration: 0.3, 
-                      scale: { duration: 0.6, repeat: idx === playbackIndex ? Infinity : 0 }
+                      scale: { duration: 0.6, repeat: isCurrentStep ? Infinity : 0 }
                     }}
                     cx={candPos.x}
                     cy={candPos.y}
@@ -309,6 +324,10 @@ export default function ChainVisualization({
                       const controlY = midY + Math.sin(perpAngle) * curveAmount;
 
                       const pathD = `M ${startX} ${startY} Q ${controlX} ${controlY}, ${endX} ${endY}`;
+                      
+                      // Use contradiction marker if this is Hypothesis Mode with red color
+                      const isContradiction = currentStep?.technique === 'Hypothesis Mode' && chainColor === '#ef4444';
+                      const markerId = isContradiction ? 'forcing-contradiction' : `forcing-${chainIdx}`;
 
                       return (
                         <motion.path
@@ -320,7 +339,7 @@ export default function ChainVisualization({
                           stroke={chainColor}
                           strokeWidth="2.5"
                           fill="none"
-                          markerEnd={`url(#arrow-forcing-${chainIdx})`}
+                          markerEnd={`url(#arrow-${markerId})`}
                         />
                       );
                     })()

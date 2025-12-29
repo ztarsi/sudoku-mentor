@@ -157,6 +157,7 @@ export default function SudokuMentor() {
   };
 
   const handleNextStep = useCallback(async () => {
+    setChainPlaybackIndex(0); // Reset playback for new hint
     const step = findNextLogicStep(grid, null);
     if (step) {
       setCurrentStep(step);
