@@ -19,8 +19,9 @@ export default function ChainVisualization({
     if (!gridContainerRef?.current) return;
 
     const updateDimensions = () => {
-      const rect = gridContainerRef.current.getBoundingClientRect();
-      setDimensions({ width: rect.width, height: rect.height });
+      const width = gridContainerRef.current.offsetWidth;
+      const height = gridContainerRef.current.offsetHeight;
+      setDimensions({ width, height });
     };
 
     updateDimensions();
@@ -35,50 +36,33 @@ export default function ChainVisualization({
 
   const getRelativeCenter = (cellIndex) => {
     const cellElement = document.getElementById(`sudoku-cell-${cellIndex}`);
-    const gridElement = gridContainerRef?.current;
 
-    if (!cellElement || !gridElement) {
-      console.warn(`Could not find elements for cell ${cellIndex}`);
-      return { x: 0, y: 0 };
-    }
-
-    const cellRect = cellElement.getBoundingClientRect();
-    const gridRect = gridElement.getBoundingClientRect();
-
-    // Ensure valid dimensions
-    if (!cellRect.width || !cellRect.height || !gridRect.width || !gridRect.height) {
-      console.warn(`Invalid dimensions for cell ${cellIndex}`);
+    if (!cellElement) {
+      console.warn(`Could not find element for cell ${cellIndex}`);
       return { x: 0, y: 0 };
     }
 
     return {
-      x: (cellRect.left - gridRect.left) + (cellRect.width / 2),
-      y: (cellRect.top - gridRect.top) + (cellRect.height / 2)
+      x: cellElement.offsetLeft + (cellElement.offsetWidth / 2),
+      y: cellElement.offsetTop + (cellElement.offsetHeight / 2)
     };
   };
 
   const getCandidatePosition = (cellIndex, candidateValue) => {
     const cellElement = document.getElementById(`sudoku-cell-${cellIndex}`);
-    const gridElement = gridContainerRef?.current;
 
-    if (!cellElement || !gridElement) return { x: 0, y: 0 };
-
-    const cellRect = cellElement.getBoundingClientRect();
-    const gridRect = gridElement.getBoundingClientRect();
+    if (!cellElement) return { x: 0, y: 0 };
 
     // Candidate grid within cell (3x3)
     const candRow = Math.floor((candidateValue - 1) / 3);
     const candCol = (candidateValue - 1) % 3;
     
-    const candWidth = cellRect.width / 3;
-    const candHeight = cellRect.height / 3;
-
-    const cellRelativeX = cellRect.left - gridRect.left;
-    const cellRelativeY = cellRect.top - gridRect.top;
+    const candWidth = cellElement.offsetWidth / 3;
+    const candHeight = cellElement.offsetHeight / 3;
 
     return {
-      x: cellRelativeX + (candCol + 0.5) * candWidth,
-      y: cellRelativeY + (candRow + 0.5) * candHeight
+      x: cellElement.offsetLeft + (candCol + 0.5) * candWidth,
+      y: cellElement.offsetTop + (candRow + 0.5) * candHeight
     };
   };
 
@@ -134,7 +118,6 @@ export default function ChainVisualization({
       width={dimensions.width} 
       height={dimensions.height} 
       viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
-      className="w-full h-full"
       style={{ 
         position: 'absolute', 
         top: 0, 

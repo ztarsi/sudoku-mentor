@@ -136,7 +136,7 @@ export default function SudokuGrid({
         <div className="relative bg-slate-900 rounded-2xl shadow-2xl shadow-black/50 p-3 sm:p-4 border border-slate-700">
           <div 
             ref={gridContainerRef}
-            className="grid grid-cols-9 gap-0 rounded-lg overflow-hidden relative"
+            className="grid grid-cols-9 gap-0 rounded-lg overflow-visible relative"
             style={{ 
               border: `2px solid ${colors?.gridLines || '#475569'}`,
               width: 'min(90vw, 600px)', 
