@@ -29,7 +29,7 @@ export default function ChainVisualization({
     resizeObserver.observe(gridContainerRef.current);
 
     return () => resizeObserver.disconnect();
-  }, [gridContainerRef]);
+  }, [gridContainerRef, currentStep, playbackIndex]);
 
   if (!chains && (!strongLinks || strongLinks.length === 0) && (!alsLinks || alsLinks.length === 0) && (!forcingChains || forcingChains.length === 0)) return null;
 
@@ -37,10 +37,19 @@ export default function ChainVisualization({
     const cellElement = document.getElementById(`sudoku-cell-${cellIndex}`);
     const gridElement = gridContainerRef?.current;
 
-    if (!cellElement || !gridElement) return { x: 0, y: 0 };
+    if (!cellElement || !gridElement) {
+      console.warn(`Could not find elements for cell ${cellIndex}`);
+      return { x: 0, y: 0 };
+    }
 
     const cellRect = cellElement.getBoundingClientRect();
     const gridRect = gridElement.getBoundingClientRect();
+
+    // Ensure valid dimensions
+    if (!cellRect.width || !cellRect.height || !gridRect.width || !gridRect.height) {
+      console.warn(`Invalid dimensions for cell ${cellIndex}`);
+      return { x: 0, y: 0 };
+    }
 
     return {
       x: (cellRect.left - gridRect.left) + (cellRect.width / 2),

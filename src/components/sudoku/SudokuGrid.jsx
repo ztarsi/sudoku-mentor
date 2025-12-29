@@ -179,22 +179,23 @@ export default function SudokuGrid({
               );
             })}
             
-            {/* Chain Visualization Overlay - after cells so it renders on top */}
-            {currentStep && (currentStep.chains || currentStep.chain || currentStep.strongLinks || currentStep.weakLinks || alsLinks.length > 0 || forcingChains) && (
-              <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 50 }}>
-                <ChainVisualization
-                  chains={Array.isArray(currentStep.chains) && typeof currentStep.chains[0] === 'number' ? currentStep.chains : null}
-                  strongLinks={currentStep.strongLinks}
-                  weakLinks={currentStep.weakLinks}
-                  alsLinks={alsLinks}
-                  forcingChains={forcingChains}
-                  gridContainerRef={gridContainerRef}
-                  currentStep={currentStep}
-                  playbackIndex={playbackIndex}
-                />
-              </div>
-            )}
           </div>
+          
+          {/* Chain Visualization Overlay - positioned absolutely over the grid */}
+          {currentStep && (currentStep.chains || currentStep.chain || currentStep.strongLinks || currentStep.weakLinks || alsLinks.length > 0 || forcingChains) && (
+            <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 50, top: 0, left: 0 }}>
+              <ChainVisualization
+                chains={Array.isArray(currentStep.chains) && typeof currentStep.chains[0] === 'number' ? currentStep.chains : null}
+                strongLinks={currentStep.strongLinks}
+                weakLinks={currentStep.weakLinks}
+                alsLinks={alsLinks}
+                forcingChains={forcingChains}
+                gridContainerRef={gridContainerRef}
+                currentStep={currentStep}
+                playbackIndex={playbackIndex}
+              />
+            </div>
+          )}
         </div>
       </div>
 
