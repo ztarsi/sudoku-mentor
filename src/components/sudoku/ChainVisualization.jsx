@@ -259,7 +259,9 @@ export default function ChainVisualization({
 
             {visibleSteps.map((step, idx) => {
               const candPos = getCandidatePosition(step.cell, step.value);
-              const nextStep = idx < visibleSteps.length - 1 ? visibleSteps[idx + 1] : null;
+              // Get next step from original placementSteps array, not sliced visibleSteps
+              const nextStep = idx < placementSteps.length - 1 ? placementSteps[idx + 1] : null;
+              const shouldShowArrow = idx < visibleSteps.length - 1; // Only show arrow if next step is visible
               const chainColor = color || '#a855f7';
 
               return (
@@ -284,7 +286,7 @@ export default function ChainVisualization({
                   />
 
                   {/* Arrow to next step */}
-                  {nextStep && (
+                  {nextStep && shouldShowArrow && (
                     (() => {
                       const from = candPos;
                       const to = getCandidatePosition(nextStep.cell, nextStep.value);
