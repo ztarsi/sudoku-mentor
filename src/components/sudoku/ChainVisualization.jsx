@@ -14,7 +14,7 @@ export default function ChainVisualization({
   const [dimensions, setDimensions] = useState({ width: 600, height: 600 });
   const [debugMode, setDebugMode] = useState(false);
 
-  // Update dimensions when grid resizes
+  // Update dimensions when grid resizes or playback changes
   useEffect(() => {
     if (!gridContainerRef?.current) return;
 
@@ -29,7 +29,7 @@ export default function ChainVisualization({
     resizeObserver.observe(gridContainerRef.current);
 
     return () => resizeObserver.disconnect();
-  }, [gridContainerRef]);
+  }, [gridContainerRef, currentStep, playbackIndex]);
 
   if (!chains && (!strongLinks || strongLinks.length === 0) && (!alsLinks || alsLinks.length === 0) && (!forcingChains || forcingChains.length === 0)) return null;
 
@@ -37,10 +37,19 @@ export default function ChainVisualization({
     const cellElement = document.getElementById(`sudoku-cell-${cellIndex}`);
     const gridElement = gridContainerRef?.current;
 
-    if (!cellElement || !gridElement) return { x: 0, y: 0 };
+    if (!cellElement || !gridElement) {
+      console.warn(`Cell element ${cellIndex} or grid not found`);
+      return { x: 0, y: 0 };
+    }
 
     const cellRect = cellElement.getBoundingClientRect();
     const gridRect = gridElement.getBoundingClientRect();
+    
+    // Fallback check for valid dimensions
+    if (!cellRect.width || !cellRect.height) {
+      console.warn(`Invalid cell dimensions for cell ${cellIndex}`);
+      return { x: 0, y: 0 };
+    }
 
     return {
       x: (cellRect.left - gridRect.left) + (cellRect.width / 2),
@@ -52,10 +61,17 @@ export default function ChainVisualization({
     const cellElement = document.getElementById(`sudoku-cell-${cellIndex}`);
     const gridElement = gridContainerRef?.current;
 
-    if (!cellElement || !gridElement) return { x: 0, y: 0 };
+    if (!cellElement || !gridElement) {
+      console.warn(`Cell element ${cellIndex} or grid not found for candidate`);
+      return { x: 0, y: 0 };
+    }
 
     const cellRect = cellElement.getBoundingClientRect();
     const gridRect = gridElement.getBoundingClientRect();
+    
+    if (!cellRect.width || !cellRect.height) {
+      return { x: 0, y: 0 };
+    }
 
     // Candidate grid within cell (3x3)
     const candRow = Math.floor((candidateValue - 1) / 3);
