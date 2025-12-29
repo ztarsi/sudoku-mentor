@@ -120,7 +120,7 @@ const TECHNIQUE_INFO = {
   }
 };
 
-export default function LogicPanel({ currentStep, focusedDigit, grid, onHighlightTechnique, onApplyStep, onNextStep, onChainPlaybackChange }) {
+export default function LogicPanel({ currentStep, focusedDigit, grid, onHighlightTechnique, onApplyStep, onNextStep, onChainPlaybackChange, chainPlaybackIndex }) {
   const [selectedTechnique, setSelectedTechnique] = useState(null);
   const [shortcutsExpanded, setShortcutsExpanded] = useState(true);
   const [techniqueIndices, setTechniqueIndices] = useState({});
@@ -133,7 +133,6 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
   const [isPlaying, setIsPlaying] = useState(false);
   const [playSpeed, setPlaySpeed] = useState(1000); // milliseconds per step
   const playIntervalRef = useRef(null);
-  const [chainPlaybackIndex, setChainPlaybackIndex] = useState(0);
   const [isPlayingChain, setIsPlayingChain] = useState(false);
   
   const techniqueInfo = currentStep ? TECHNIQUE_INFO[currentStep.technique] : null;
@@ -279,20 +278,20 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
       const maxSteps = currentStep.chain.filter(s => s.action === 'place').length;
       if (chainPlaybackIndex < maxSteps - 1) {
         const timer = setTimeout(() => {
-          setChainPlaybackIndex(prev => prev + 1);
+          onChainPlaybackChange?.(chainPlaybackIndex + 1);
         }, 800);
         return () => clearTimeout(timer);
       } else {
         setIsPlayingChain(false);
       }
     }
-  }, [isPlayingChain, chainPlaybackIndex, currentStep]);
+  }, [isPlayingChain, chainPlaybackIndex, currentStep, onChainPlaybackChange]);
 
   // Reset playback when currentStep changes
   useEffect(() => {
-    setChainPlaybackIndex(0);
+    onChainPlaybackChange?.(0);
     setIsPlayingChain(false);
-  }, [currentStep]);
+  }, [currentStep, onChainPlaybackChange]);
 
   useEffect(() => {
     if (isPlaying && currentStep) {
@@ -419,7 +418,7 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
                     {currentStep.chain.length > 1 && (
                       <div className="flex gap-2">
                         <button
-                          onClick={() => setChainPlaybackIndex(Math.max(0, chainPlaybackIndex - 1))}
+                          onClick={() => onChainPlaybackChange?.(Math.max(0, chainPlaybackIndex - 1))}
                           disabled={chainPlaybackIndex === 0}
                           className="p-1.5 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-600 rounded transition-colors"
                           title="Previous Step"
@@ -432,7 +431,7 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
                           onClick={() => {
                             if (!isPlayingChain) {
                               setIsPlayingChain(true);
-                              setChainPlaybackIndex(0);
+                              onChainPlaybackChange?.(0);
                             } else {
                               setIsPlayingChain(false);
                             }
@@ -451,8 +450,8 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
                           )}
                         </button>
                         <button
-                          onClick={() => setChainPlaybackIndex(Math.min(currentStep.chain.length - 1, chainPlaybackIndex + 1))}
-                          disabled={chainPlaybackIndex >= currentStep.chain.length - 1}
+                          onClick={() => onChainPlaybackChange?.(Math.min(currentStep.chain.filter(s => s.action === 'place').length - 1, chainPlaybackIndex + 1))}
+                          disabled={chainPlaybackIndex >= currentStep.chain.filter(s => s.action === 'place').length - 1}
                           className="p-1.5 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-600 rounded transition-colors"
                           title="Next Step"
                         >
