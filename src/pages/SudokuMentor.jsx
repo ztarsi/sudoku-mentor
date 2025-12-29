@@ -503,6 +503,24 @@ export default function SudokuMentor() {
   const solvedCount = grid.filter(c => c.value !== null).length;
   const progress = Math.round((solvedCount / 81) * 100);
 
+  // Calculate ghost grid for chain visualization
+  const ghostGrid = useMemo(() => {
+    if (!currentStep?.chain || !Array.isArray(currentStep.chain)) {
+      return grid;
+    }
+
+    const placementSteps = currentStep.chain.filter(s => s.action === 'place');
+    const visibleSteps = placementSteps.slice(0, chainPlaybackIndex + 1);
+
+    return grid.map((cell, idx) => {
+      const ghostStep = visibleSteps.find(s => s.cell === idx);
+      if (ghostStep) {
+        return { ...cell, ghostValue: ghostStep.value };
+      }
+      return cell;
+    });
+  }, [grid, currentStep, chainPlaybackIndex]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
       {/* Error sound */}
@@ -586,7 +604,7 @@ export default function SudokuMentor() {
             {/* Sudoku Grid */}
             <div className="flex justify-center">
               <SudokuGrid
-                grid={grid}
+                grid={ghostGrid}
                 selectedCell={selectedCell}
                 focusedDigit={focusedDigit}
                 highlightedDigit={highlightedDigit}

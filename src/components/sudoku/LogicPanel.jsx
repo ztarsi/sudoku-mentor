@@ -473,7 +473,8 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
                       return (
                         <motion.div 
                           key={idx} 
-                          className={`flex items-start gap-2 text-sm p-2 rounded ${isCurrentStep ? 'bg-blue-900/30 border border-blue-600' : ''}`}
+                          onClick={() => onChainPlaybackChange(idx)}
+                          className={`flex items-start gap-2 text-sm p-2 rounded cursor-pointer hover:bg-slate-700/50 transition-colors ${isCurrentStep ? 'bg-blue-900/30 border border-blue-600' : ''}`}
                           initial={{ opacity: 0, x: -10 }}
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ duration: 0.3 }}

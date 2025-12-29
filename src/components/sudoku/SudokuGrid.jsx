@@ -1,7 +1,6 @@
 import React, { useState, useRef, useMemo } from 'react';
 import Cell from './Cell';
 import CellContextMenu from './CellContextMenu';
-import ChainVisualization from './ChainVisualization';
 
 export default function SudokuGrid({ 
   grid, 
@@ -178,20 +177,6 @@ export default function SudokuGrid({
                 </div>
               );
             })}
-            
-            {/* Chain Visualization Overlay - inside grid for coordinate alignment */}
-            {currentStep && (currentStep.chains || currentStep.chain || currentStep.strongLinks || currentStep.weakLinks || alsLinks.length > 0 || forcingChains) && (
-              <ChainVisualization
-                chains={Array.isArray(currentStep.chains) && typeof currentStep.chains[0] === 'number' ? currentStep.chains : null}
-                strongLinks={currentStep.strongLinks}
-                weakLinks={currentStep.weakLinks}
-                alsLinks={alsLinks}
-                forcingChains={forcingChains}
-                gridContainerRef={gridContainerRef}
-                currentStep={currentStep}
-                playbackIndex={playbackIndex}
-              />
-            )}
           </div>
         </div>
       </div>

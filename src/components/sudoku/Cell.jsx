@@ -18,14 +18,20 @@ export default function Cell({
   onInput,
   onToggleCandidate
 }) {
-  const { value, isFixed, candidates, isBaseCell, isTargetCell, highlightColor } = cell;
+  const { value, isFixed, candidates, isBaseCell, isTargetCell, highlightColor, ghostValue } = cell;
 
+  // Detect ghost conflicts
+  const hasGhostConflict = ghostValue && value && value !== ghostValue;
+  
   // Determine background color based on state
   let bgColor = colors?.cellBg || '#020617';
   let textColor = isFixed ? 'text-slate-100' : 'text-blue-400';
   let useCustomBg = false;
   
-  if (hasError) {
+  if (hasGhostConflict) {
+    bgColor = 'bg-red-900/60';
+    textColor = 'text-red-400';
+  } else if (hasError) {
     bgColor = 'bg-red-900/40';
     textColor = 'text-red-400';
   } else if (isBaseCell) {
@@ -38,6 +44,9 @@ export default function Cell({
     bgColor = 'bg-emerald-900/40';
   } else if (isHighlightedNumber) {
     bgColor = 'bg-amber-900/40';
+  } else if (ghostValue) {
+    bgColor = 'bg-orange-900/20';
+    useCustomBg = true;
   } else {
     useCustomBg = true;
   }
@@ -86,12 +95,22 @@ export default function Cell({
             className={`
               text-2xl sm:text-4xl font-semibold ${isFixed ? 'text-slate-100' : ''}
               ${isFixed ? '' : 'font-medium'}
-              ${hasError ? 'animate-pulse' : ''}
+              ${hasError || hasGhostConflict ? 'animate-pulse' : ''}
               ${isDimmed ? 'opacity-20' : 'opacity-100'}
             `}
             style={!isFixed && !hasError ? { color: cellNumberColor } : {}}
           >
             {value}
+          </span>
+        </motion.div>
+      ) : ghostValue ? (
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="flex items-center justify-center"
+        >
+          <span className="text-xl sm:text-3xl font-medium italic text-orange-400 opacity-75">
+            {ghostValue}
           </span>
         </motion.div>
       ) : (
