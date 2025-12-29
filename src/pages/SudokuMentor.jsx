@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import SudokuGrid from '@/components/sudoku/SudokuGrid';
 import DigitFilter from '@/components/sudoku/DigitFilter';
 import LogicPanel from '@/components/sudoku/LogicPanel';
