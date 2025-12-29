@@ -120,7 +120,7 @@ const TECHNIQUE_INFO = {
   }
 };
 
-export default function LogicPanel({ currentStep, focusedDigit, grid, onHighlightTechnique, onApplyStep, onNextStep }) {
+export default function LogicPanel({ currentStep, focusedDigit, grid, onHighlightTechnique, onApplyStep, onNextStep, onChainPlaybackChange }) {
   const [selectedTechnique, setSelectedTechnique] = useState(null);
   const [shortcutsExpanded, setShortcutsExpanded] = useState(true);
   const [techniqueIndices, setTechniqueIndices] = useState({});
@@ -464,20 +464,21 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
                     )}
                   </div>
                   <div className="bg-slate-800 rounded-xl p-4 max-h-72 overflow-y-auto space-y-2">
-                    {currentStep.chain.filter(s => s.action === 'place').slice(0, chainPlaybackIndex + 1).map((step, idx) => {
+                    {currentStep.chain.filter(s => s.action === 'place').map((step, idx) => {
                       const getRow = (i) => Math.floor(i / 9);
                       const getCol = (i) => i % 9;
                       const cellRef = `R${getRow(step.cell) + 1}C${getCol(step.cell) + 1}`;
+                      const isActive = idx <= chainPlaybackIndex;
                       const isCurrentStep = idx === chainPlaybackIndex;
 
                       return (
                         <motion.div 
-                          key={idx} 
-                          onClick={() => onChainPlaybackChange(idx)}
-                          className={`flex items-start gap-2 text-sm p-2 rounded cursor-pointer hover:bg-slate-700/50 transition-colors ${isCurrentStep ? 'bg-blue-900/30 border border-blue-600' : ''}`}
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ duration: 0.3 }}
+                        key={idx} 
+                        onClick={() => onChainPlaybackChange?.(idx)}
+                        className={`flex items-start gap-2 text-sm p-2 rounded cursor-pointer hover:bg-slate-700/50 transition-colors ${isCurrentStep ? 'bg-blue-900/30 border border-blue-600' : ''} ${!isActive ? 'opacity-40' : ''}`}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.3 }}
                         >
                           <span className={`font-bold ${idx === 0 ? 'text-purple-400' : isCurrentStep ? 'text-blue-300' : 'text-slate-400'}`}>
                             {idx + 1}.

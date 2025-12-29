@@ -629,6 +629,7 @@ export default function SudokuMentor() {
               onApplyStep={handleApplyStep}
               onNextStep={handleNextStep}
               onChainPlaybackChange={setChainPlaybackIndex}
+              chainPlaybackIndex={chainPlaybackIndex}
               onHighlightTechnique={(instances, total, current) => {
                 // Set the first instance as the current step so it can be applied
                 if (instances.length > 0) {
@@ -688,6 +689,7 @@ export default function SudokuMentor() {
           onApplyStep={handleApplyStep}
           onNextStep={handleNextStep}
           onChainPlaybackChange={setChainPlaybackIndex}
+          chainPlaybackIndex={chainPlaybackIndex}
           onHighlightTechnique={(instances, total, current) => {
             setGrid(prev => {
               const newGrid = prev.map(cell => ({
