@@ -227,6 +227,37 @@ export const testSuites = {
             message: step ? `Found ${step.technique}` : 'No technique found'
           };
         }
+      },
+      {
+        name: 'Naked pair eliminates both digits',
+        run: () => {
+          const grid = createEmptyGrid();
+          // Row 0: cells 0 and 1 both have only [5, 6]
+          grid[0].candidates = [5, 6];
+          grid[1].candidates = [5, 6];
+          // Cell 2 has both 5 and 6 that should be eliminated
+          grid[2].candidates = [5, 6, 7];
+          // Cell 3 has only 5
+          grid[3].candidates = [5, 8];
+          
+          for (let i = 4; i < 81; i++) {
+            if (grid[i].candidates.length === 0) {
+              grid[i].candidates = [1, 2, 3, 4];
+            }
+          }
+          
+          const step = findNextLogicStep(grid);
+          
+          // Should eliminate both 5 and 6 from cells 2 and 3
+          const has5Elim = step?.eliminations?.some(e => e.cell === 2 && e.digit === 5);
+          const has6Elim = step?.eliminations?.some(e => e.cell === 2 && e.digit === 6);
+          const has5ElimCell3 = step?.eliminations?.some(e => e.cell === 3 && e.digit === 5);
+          
+          return {
+            pass: step?.technique === 'Naked Pair' && has5Elim && has6Elim && has5ElimCell3,
+            message: step ? `Found eliminations for digits: ${step.eliminations.map(e => `${e.digit} from cell ${e.cell}`).join(', ')}` : 'No naked pair found'
+          };
+        }
       }
     ]
   },
