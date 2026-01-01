@@ -606,43 +606,8 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
               transition={{ duration: 0.2 }}
               className="overflow-hidden"
             >
-              <div className="px-5 pb-5 space-y-3 border-t border-slate-800"
-        <div className="flex gap-2">
-          <Button
-            onClick={handlePlayPause}
-            className={`${isPlaying ? 'bg-red-600 hover:bg-red-500' : 'bg-green-600 hover:bg-green-500'}`}
-          >
-            {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-          </Button>
-          <Button
-            onClick={handleSkipStep}
-            variant="outline"
-            className="border-slate-600"
-          >
-            <SkipForward className="w-4 h-4" />
-          </Button>
-          {[
-            { label: '0.5×', value: 2000 },
-            { label: '1×', value: 1000 },
-            { label: '2×', value: 500 },
-            { label: '16×', value: 63 }
-          ].map(({ label, value }) => (
-            <button
-              key={value}
-              onClick={() => setPlaySpeed(value)}
-              className={`px-3 py-2 rounded text-sm transition-colors ${
-                playSpeed === value
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      >
+              <div className="px-5 pb-5 space-y-3 border-t border-slate-800 pt-3">
+          
           {[
             { level: 'Basic', techniques: [
               { name: 'Naked Single', full: 'Naked Single' },
@@ -742,49 +707,50 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
               </div>
             </div>
           ))}
-          </div>
-          </motion.div>
+                </div>
+              </div>
+            </motion.div>
           )}
-          </AnimatePresence>
-          </div>
+        </AnimatePresence>
+      </div>
 
-          {/* Auto-Play Controls */}
-          <div className="bg-slate-900 rounded-2xl shadow-lg shadow-black/50 p-5 border border-slate-700">
-          <h4 className="text-lg font-semibold text-white mb-3">Auto-Solve</h4>
-          <div className="flex gap-2">
+      {/* Auto-Play Controls */}
+      <div className="bg-slate-900 rounded-2xl shadow-lg shadow-black/50 p-5 border border-slate-700">
+        <h4 className="text-lg font-semibold text-white mb-3">Auto-Solve</h4>
+        <div className="flex gap-2">
           <Button
-          onClick={handlePlayPause}
-          className={`${isPlaying ? 'bg-red-600 hover:bg-red-500' : 'bg-green-600 hover:bg-green-500'}`}
+            onClick={handlePlayPause}
+            className={`${isPlaying ? 'bg-red-600 hover:bg-red-500' : 'bg-green-600 hover:bg-green-500'}`}
           >
-          {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+            {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
           </Button>
           <Button
-          onClick={handleSkipStep}
-          variant="outline"
-          className="border-slate-600"
+            onClick={handleSkipStep}
+            variant="outline"
+            className="border-slate-600"
           >
-          <SkipForward className="w-4 h-4" />
+            <SkipForward className="w-4 h-4" />
           </Button>
           {[
-          { label: '0.5×', value: 2000 },
-          { label: '1×', value: 1000 },
-          { label: '2×', value: 500 },
-          { label: '16×', value: 63 }
+            { label: '0.5×', value: 2000 },
+            { label: '1×', value: 1000 },
+            { label: '2×', value: 500 },
+            { label: '16×', value: 63 }
           ].map(({ label, value }) => (
-          <button
-          key={value}
-          onClick={() => setPlaySpeed(value)}
-          className={`px-3 py-2 rounded text-sm transition-colors ${
-            playSpeed === value
-              ? 'bg-blue-600 text-white'
-              : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-          }`}
-          >
-          {label}
-          </button>
+            <button
+              key={value}
+              onClick={() => setPlaySpeed(value)}
+              className={`px-3 py-2 rounded text-sm transition-colors ${
+                playSpeed === value
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+              }`}
+            >
+              {label}
+            </button>
           ))}
-          </div>
-          </div>
+        </div>
+      </div>
 
           {/* Keyboard Shortcuts */}
       <div className="bg-slate-900 rounded-2xl text-white border border-slate-700 overflow-hidden">
