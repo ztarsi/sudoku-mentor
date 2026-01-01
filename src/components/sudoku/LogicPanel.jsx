@@ -708,11 +708,10 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
             </div>
           ))}
                 </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
       {/* Auto-Play Controls */}
       <div className="bg-slate-900 rounded-2xl shadow-lg shadow-black/50 p-5 border border-slate-700">
