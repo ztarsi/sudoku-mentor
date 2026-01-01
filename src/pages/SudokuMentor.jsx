@@ -255,6 +255,7 @@ export default function SudokuMentor() {
       
       setCurrentStep(null);
       setFocusedDigit(null);
+      setHighlightedDigit(null);
       clearHighlights();
     }
   }, [currentStep, grid, historyIndex]);
