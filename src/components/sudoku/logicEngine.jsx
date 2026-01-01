@@ -99,35 +99,39 @@ export const findNextLogicStep = (grid, focusedDigit = null) => {
   step = findHiddenPair(grid, focusedDigit);
   if (step) return step;
   
-  // 7. X-Wing
+  // 7. Naked Triples
+  step = findNakedTriple(grid, focusedDigit);
+  if (step) return step;
+  
+  // 8. X-Wing
   step = findXWing(grid, focusedDigit);
   if (step) return step;
   
-  // 8. Swordfish
+  // 9. Swordfish
   step = findSwordfish(grid, focusedDigit);
   if (step) return step;
 
-  // 9. XY-Wing
+  // 10. XY-Wing
   step = findXYWing(grid, focusedDigit);
   if (step) return step;
   
-  // 10. X-Cycles
+  // 11. X-Cycles
   step = findXCycle(grid, focusedDigit);
   if (step) return step;
   
-  // 11. Finned X-Wing
+  // 12. Finned X-Wing
   step = findFinnedXWing(grid, focusedDigit);
   if (step) return step;
   
-  // 12. ALS-XZ
+  // 13. ALS-XZ
   step = findALSXZ(grid, focusedDigit);
   if (step) return step;
   
-  // 13. Unique Rectangle
+  // 14. Unique Rectangle
   step = findUniqueRectangle(grid);
   if (step) return step;
   
-  // 14. BUG+1
+  // 15. BUG+1
   step = findBUGPlus1(grid);
   if (step) return step;
   
@@ -184,7 +188,7 @@ export const findAllTechniqueInstances = (grid, techniqueName) => {
       findAll(findHiddenPair);
       break;
     case 'Naked Triple':
-      // Not implemented yet
+      findAll(findNakedTriple);
       break;
     case 'X-Wing':
       findAll(findXWing);
@@ -403,6 +407,70 @@ const findClaiming = (grid, focusedDigit) => {
     }
   }
   
+  return null;
+};
+
+// Naked Triple
+const findNakedTriple = (grid, focusedDigit) => {
+  const units = [
+    ...Array.from({ length: 9 }, (_, i) => ({ type: 'row', indices: getRowIndices(i), name: `Row ${i + 1}` })),
+    ...Array.from({ length: 9 }, (_, i) => ({ type: 'col', indices: getColIndices(i), name: `Column ${i + 1}` })),
+    ...Array.from({ length: 9 }, (_, i) => ({ type: 'box', indices: getBoxIndices(i), name: `Box ${i + 1}` }))
+  ];
+  
+  for (const unit of units) {
+    const emptyCells = unit.indices.filter(i => grid[i].value === null);
+    const tripleCells = emptyCells.filter(i => grid[i].candidates.length >= 2 && grid[i].candidates.length <= 3);
+    
+    // Try all combinations of 3 cells
+    for (let i = 0; i < tripleCells.length; i++) {
+      for (let j = i + 1; j < tripleCells.length; j++) {
+        for (let k = j + 1; k < tripleCells.length; k++) {
+          const cell1 = tripleCells[i];
+          const cell2 = tripleCells[j];
+          const cell3 = tripleCells[k];
+          
+          // Combine all candidates from the three cells
+          const allCands = new Set([
+            ...grid[cell1].candidates,
+            ...grid[cell2].candidates,
+            ...grid[cell3].candidates
+          ]);
+          
+          // If exactly 3 digits appear across the three cells, it's a naked triple
+          if (allCands.size === 3) {
+            const tripleDigits = Array.from(allCands);
+            
+            if (focusedDigit && !tripleDigits.includes(focusedDigit)) continue;
+            
+            const eliminations = [];
+            
+            for (const idx of emptyCells) {
+              if (idx !== cell1 && idx !== cell2 && idx !== cell3) {
+                for (const digit of tripleDigits) {
+                  if (grid[idx].candidates.includes(digit)) {
+                    eliminations.push({ cell: idx, digit });
+                  }
+                }
+              }
+            }
+            
+            if (eliminations.length > 0) {
+              return {
+                technique: 'Naked Triple',
+                digit: focusedDigit || tripleDigits[0],
+                baseCells: [cell1, cell2, cell3],
+                targetCells: [...new Set(eliminations.map(e => e.cell))],
+                placement: null,
+                eliminations,
+                explanation: `Cells R${getRow(cell1) + 1}C${getCol(cell1) + 1}, R${getRow(cell2) + 1}C${getCol(cell2) + 1}, and R${getRow(cell3) + 1}C${getCol(cell3) + 1} in ${unit.name} form a Naked Triple with candidates {${tripleDigits.join(', ')}}. These three digits must occupy these three cells, so they can be eliminated from other cells in the ${unit.type}.`
+              };
+            }
+          }
+        }
+      }
+    }
+  }
   return null;
 };
 
