@@ -581,44 +581,44 @@ export default function SudokuMentor() {
         <div className="grid lg:grid-cols-[1fr,380px] gap-8">
           {/* Left Column - Grid & Controls */}
           <div className="space-y-6">
-            {/* Digit Filter - Desktop Only */}
-            <DigitFilter 
-              focusedDigit={focusedDigit} 
-              onDigitClick={handleDigitFilter}
-              grid={grid}
-            />
+              {/* Control Bar */}
+              <ControlBar
+                onNextStep={handleNextStep}
+                onApplyStep={handleApplyStep}
+                onUndo={handleUndo}
+                onRedo={handleRedo}
+                onClear={handleClearGrid}
+                onOpenDrawer={() => setDrawerOpen(true)}
+                hasStep={currentStep !== null}
+                canUndo={historyIndex >= 0}
+                canRedo={historyIndex < stepHistory.length - 1}
+              />
 
-            {/* Control Bar */}
-            <ControlBar
-              onNextStep={handleNextStep}
-              onApplyStep={handleApplyStep}
-              onUndo={handleUndo}
-              onRedo={handleRedo}
-              onClear={handleClearGrid}
-              onOpenDrawer={() => setDrawerOpen(true)}
-              hasStep={currentStep !== null}
-              canUndo={historyIndex >= 0}
-              canRedo={historyIndex < stepHistory.length - 1}
-            />
+              {/* Sudoku Grid */}
+              <div className="flex justify-center">
+                <SudokuGrid
+                  grid={ghostGrid}
+                  selectedCell={selectedCell}
+                  focusedDigit={focusedDigit}
+                  highlightedDigit={highlightedDigit}
+                  validationErrors={validationErrors}
+                  candidateMode={candidateMode}
+                  colors={colors}
+                  currentStep={currentStep}
+                  playbackIndex={chainPlaybackIndex}
+                  onCellClick={handleCellClick}
+                  onCellInput={handleCellInput}
+                  onToggleCandidate={handleToggleCandidate}
+                />
+              </div>
 
-            {/* Sudoku Grid */}
-            <div className="flex justify-center">
-              <SudokuGrid
-                grid={ghostGrid}
-                selectedCell={selectedCell}
-                focusedDigit={focusedDigit}
-                highlightedDigit={highlightedDigit}
-                validationErrors={validationErrors}
-                candidateMode={candidateMode}
-                colors={colors}
-                currentStep={currentStep}
-                playbackIndex={chainPlaybackIndex}
-                onCellClick={handleCellClick}
-                onCellInput={handleCellInput}
-                onToggleCandidate={handleToggleCandidate}
+              {/* Digit Filter - Desktop Only */}
+              <DigitFilter 
+                focusedDigit={focusedDigit} 
+                onDigitClick={handleDigitFilter}
+                grid={grid}
               />
             </div>
-          </div>
 
           {/* Right Column - Logic Panel (Desktop only) */}
           <div className="hidden lg:block">
