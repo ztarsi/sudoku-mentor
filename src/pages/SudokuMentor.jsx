@@ -41,7 +41,7 @@ export default function SudokuMentor() {
     focusDigit: '#10b981',
     candidate: '#ffffff',
     cellNumber: '#3b82f6',
-    gridLines: '#475569',
+    gridLines: '#ffffff',
     cellBg: '#020617',
   });
   const [startTime, setStartTime] = useState(null);
