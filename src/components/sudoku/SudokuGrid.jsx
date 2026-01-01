@@ -137,7 +137,7 @@ export default function SudokuGrid({
             ref={gridContainerRef}
             className="grid grid-cols-9 gap-0 rounded-lg overflow-visible relative"
             style={{ 
-              border: `2px solid ${colors?.gridLines || '#475569'}`,
+              border: `3px solid ${colors?.gridLines || '#475569'}`,
               width: 'min(90vw, 600px)', 
               height: 'min(90vw, 600px)' 
             }}
@@ -147,8 +147,8 @@ export default function SudokuGrid({
               const col = index % 9;
               
               // Determine border styling for 3x3 boxes
-              const borderRight = (col + 1) % 3 === 0 && col !== 8 ? 'border-r-2' : 'border-r';
-              const borderBottom = (row + 1) % 3 === 0 && row !== 8 ? 'border-b-2' : 'border-b';
+              const borderRight = (col + 1) % 3 === 0 && col !== 8 ? 'border-r-4' : 'border-r';
+              const borderBottom = (row + 1) % 3 === 0 && row !== 8 ? 'border-b-4' : 'border-b';
               
               return (
                 <div
