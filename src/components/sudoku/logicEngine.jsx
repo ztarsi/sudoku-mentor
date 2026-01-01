@@ -259,6 +259,12 @@ const findHiddenSingle = (grid, focusedDigit) => {
       
       if (cellsWithDigit.length === 1) {
         const cellIndex = cellsWithDigit[0];
+        
+        // Skip if this is actually a naked single (cell has only one candidate)
+        if (grid[cellIndex].candidates.length === 1) {
+          continue;
+        }
+        
         return {
           technique: 'Hidden Single',
           digit,
