@@ -253,18 +253,9 @@ const findHiddenSingle = (grid, focusedDigit) => {
     const digitsToCheck = focusedDigit ? [focusedDigit] : [1, 2, 3, 4, 5, 6, 7, 8, 9];
     
     for (const digit of digitsToCheck) {
-      const cellsWithDigit = unit.indices.filter(i => {
-        // Cell must be empty and have this candidate
-        if (grid[i].value !== null || !grid[i].candidates.includes(digit)) {
-          return false;
-        }
-        
-        // Verify the candidate is actually valid (not conflicting with any peers)
-        const peers = getPeers(i);
-        const hasConflict = peers.some(peerIdx => grid[peerIdx].value === digit);
-        
-        return !hasConflict;
-      });
+      const cellsWithDigit = unit.indices.filter(i => 
+        grid[i].value === null && grid[i].candidates.includes(digit)
+      );
       
       if (cellsWithDigit.length === 1) {
         const cellIndex = cellsWithDigit[0];
