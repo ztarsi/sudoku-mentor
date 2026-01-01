@@ -38,9 +38,9 @@ export default function SudokuMentor() {
   const [candidateMode, setCandidateMode] = useState(false);
   const [showColorSettings, setShowColorSettings] = useState(false);
   const [colors, setColors] = useState({
-    focusDigit: '#10b981',
+    focusDigit: '#fbbf24',
     candidate: '#ffffff',
-    cellNumber: '#3b82f6',
+    cellNumber: '#9ca3af',
     gridLines: '#ffffff',
     cellBg: '#020617',
   });
