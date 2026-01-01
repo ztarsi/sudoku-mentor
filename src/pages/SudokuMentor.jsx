@@ -40,7 +40,7 @@ export default function SudokuMentor() {
   const [colors, setColors] = useState({
     focusDigit: '#fbbf24',
     candidate: '#ffffff',
-    cellNumber: '#9ca3af',
+    cellNumber: '#60a5fa',
     gridLines: '#ffffff',
     cellBg: '#020617',
   });
