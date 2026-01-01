@@ -417,6 +417,104 @@ export default function TestSuite() {
             </div>
           </div>
         </div>
+
+        {/* Failure Modal */}
+        <AnimatePresence>
+          {failureModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+              onClick={() => setFailureModal(null)}
+            >
+              <motion.div
+                initial={{ scale: 0.9, y: 20 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.9, y: 20 }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-gradient-to-br from-red-950 to-slate-900 rounded-xl border-2 border-red-800 max-w-2xl w-full max-h-[80vh] overflow-hidden shadow-2xl"
+              >
+                {/* Header */}
+                <div className="bg-red-900/50 px-6 py-4 border-b border-red-800 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <XCircle className="w-6 h-6 text-red-400" />
+                    <div>
+                      <h3 className="text-lg font-bold text-white">Test Failed</h3>
+                      <p className="text-sm text-red-300">{failureModal.timestamp}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setFailureModal(null)}
+                    className="text-slate-400 hover:text-white transition-colors"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Content */}
+                <div className="p-6 overflow-y-auto max-h-[calc(80vh-120px)]">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium text-red-300 mb-1 block">Test Suite</label>
+                      <div className="bg-slate-900/50 rounded-lg px-4 py-2 border border-slate-700 text-slate-200">
+                        {failureModal.suiteName}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium text-red-300 mb-1 block">Test Name</label>
+                      <div className="bg-slate-900/50 rounded-lg px-4 py-2 border border-slate-700 text-slate-200">
+                        {failureModal.testName}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium text-red-300 mb-1 block">Failure Reason</label>
+                      <div className="bg-slate-900/50 rounded-lg px-4 py-3 border border-red-800/50 text-red-200">
+                        {failureModal.message}
+                      </div>
+                    </div>
+
+                    {failureModal.stack && (
+                      <div>
+                        <label className="text-sm font-medium text-red-300 mb-1 block">Stack Trace</label>
+                        <pre className="bg-slate-950/80 rounded-lg px-4 py-3 border border-slate-800 text-xs text-slate-400 overflow-x-auto">
+                          {failureModal.stack}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="bg-slate-900/50 px-6 py-4 border-t border-slate-800 flex justify-end gap-3">
+                  <button
+                    onClick={() => setFailureModal(null)}
+                    className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors text-sm font-medium"
+                  >
+                    Dismiss
+                  </button>
+                  <button
+                    onClick={() => {
+                      setFailureModal(null);
+                      // Auto-expand the failed suite
+                      setExpandedSuites(prev => ({
+                        ...prev,
+                        [failureModal.suiteName]: true
+                      }));
+                    }}
+                    className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg transition-colors text-sm font-medium"
+                  >
+                    View in Results
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
