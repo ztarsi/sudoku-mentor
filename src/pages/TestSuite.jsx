@@ -17,26 +17,87 @@ export default function TestSuite() {
   const [results, setResults] = useState(null);
   const [running, setRunning] = useState(false);
   const [expandedSuites, setExpandedSuites] = useState({});
+  const [currentTest, setCurrentTest] = useState(null);
+  const [progress, setProgress] = useState({ current: 0, total: 0 });
 
-  const runTests = () => {
+  const runTests = async () => {
     setRunning(true);
     setResults(null);
     setExpandedSuites({});
+    setCurrentTest(null);
+    
+    const allResults = {};
+    let totalTests = 0;
+    let passedTests = 0;
+    let currentTestNumber = 0;
+    
+    // Count total tests
+    for (const suite of Object.values(testSuites)) {
+      totalTests += suite.tests.length;
+    }
+    
+    setProgress({ current: 0, total: totalTests });
 
-    setTimeout(() => {
-      const testResults = runAllTests();
-      setResults(testResults);
-      setRunning(false);
+    // Run tests one by one
+    for (const [suiteName, suite] of Object.entries(testSuites)) {
+      allResults[suiteName] = {
+        tests: [],
+        passed: 0,
+        total: suite.tests.length
+      };
       
-      // Auto-expand failed suites
-      const failed = {};
-      Object.entries(testResults.suites).forEach(([name, suite]) => {
-        if (suite.passed < suite.total) {
-          failed[name] = true;
+      for (const test of suite.tests) {
+        currentTestNumber++;
+        setCurrentTest({ suiteName, testName: test.name });
+        setProgress({ current: currentTestNumber, total: totalTests });
+        
+        // Small delay to allow UI to update
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
+        try {
+          const result = test.run();
+          if (result.pass) {
+            passedTests++;
+            allResults[suiteName].passed++;
+          }
+          
+          allResults[suiteName].tests.push({
+            name: test.name,
+            ...result
+          });
+        } catch (error) {
+          allResults[suiteName].tests.push({
+            name: test.name,
+            pass: false,
+            message: `Error: ${error.message}`,
+            stack: error.stack
+          });
         }
-      });
-      setExpandedSuites(failed);
-    }, 100);
+        
+        // Update results in real-time
+        setResults({
+          suites: { ...allResults },
+          summary: {
+            total: totalTests,
+            passed: passedTests,
+            failed: currentTestNumber - passedTests,
+            percentage: ((passedTests / currentTestNumber) * 100).toFixed(1)
+          }
+        });
+      }
+    }
+    
+    setRunning(false);
+    setCurrentTest(null);
+    
+    // Auto-expand failed suites
+    const failed = {};
+    Object.entries(allResults).forEach(([name, suite]) => {
+      if (suite.passed < suite.total) {
+        failed[name] = true;
+      }
+    });
+    setExpandedSuites(failed);
   };
 
   const toggleSuite = (suiteName) => {
@@ -127,11 +188,56 @@ export default function TestSuite() {
         )}
 
         {running && (
-          <div className="text-center py-20">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-500 mx-auto mb-4"></div>
-            <p className="text-xl text-slate-300">Running tests...</p>
-            <p className="text-slate-500 mt-2">Testing all Sudoku logic techniques</p>
-          </div>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-slate-900 rounded-xl border border-slate-800 p-8"
+          >
+            <div className="text-center mb-6">
+              <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-500 mx-auto mb-4"></div>
+              <p className="text-xl text-slate-300 font-semibold">Running Tests...</p>
+            </div>
+            
+            {/* Progress Bar */}
+            <div className="mb-6">
+              <div className="flex justify-between text-sm text-slate-400 mb-2">
+                <span>Progress</span>
+                <span>{progress.current} / {progress.total}</span>
+              </div>
+              <div className="w-full bg-slate-800 rounded-full h-3 overflow-hidden">
+                <motion.div
+                  className="h-full bg-gradient-to-r from-blue-500 to-indigo-500"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${(progress.current / progress.total) * 100}%` }}
+                  transition={{ duration: 0.3 }}
+                />
+              </div>
+              <div className="text-center mt-2 text-sm text-slate-500">
+                {((progress.current / progress.total) * 100).toFixed(0)}% complete
+              </div>
+            </div>
+            
+            {/* Current Test */}
+            {currentTest && (
+              <motion.div
+                key={`${currentTest.suiteName}-${currentTest.testName}`}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-slate-800/50 rounded-lg p-4 border border-slate-700"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex-shrink-0">
+                    <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-sm text-slate-400 mb-1">Currently Testing:</div>
+                    <div className="font-semibold text-slate-200">{currentTest.suiteName}</div>
+                    <div className="text-sm text-blue-400">{currentTest.testName}</div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </motion.div>
         )}
 
         {results && (
@@ -185,8 +291,11 @@ export default function TestSuite() {
                     >
                       <div className="p-6 space-y-3">
                         {suite.tests.map((test, idx) => (
-                          <div
+                          <motion.div
                             key={idx}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: idx * 0.05 }}
                             className={`
                               p-4 rounded-lg border
                               ${test.pass 
@@ -210,9 +319,19 @@ export default function TestSuite() {
                                 `}>
                                   {test.message}
                                 </div>
+                                {test.stack && (
+                                  <details className="mt-2">
+                                    <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-300">
+                                      Show stack trace
+                                    </summary>
+                                    <pre className="mt-2 text-xs text-slate-400 bg-slate-950/50 p-2 rounded overflow-x-auto">
+                                      {test.stack}
+                                    </pre>
+                                  </details>
+                                )}
                               </div>
                             </div>
-                          </div>
+                          </motion.div>
                         ))}
                       </div>
                     </motion.div>
