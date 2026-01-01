@@ -19,6 +19,7 @@ export default function TestSuite() {
   const [expandedSuites, setExpandedSuites] = useState({});
   const [currentTest, setCurrentTest] = useState(null);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
+  const [failureModal, setFailureModal] = useState(null);
 
   const runTests = async () => {
     setRunning(true);
@@ -48,17 +49,32 @@ export default function TestSuite() {
       
       for (const test of suite.tests) {
         currentTestNumber++;
-        setCurrentTest({ suiteName, testName: test.name });
+        setCurrentTest({ suiteName, testName: test.name, stage: 'Initializing...' });
         setProgress({ current: currentTestNumber, total: totalTests });
         
-        // Small delay to allow UI to update
-        await new Promise(resolve => setTimeout(resolve, 50));
+        // Delay to prevent browser hang
+        await new Promise(resolve => setTimeout(resolve, 100));
         
         try {
+          setCurrentTest({ suiteName, testName: test.name, stage: 'Running test logic...' });
+          await new Promise(resolve => setTimeout(resolve, 50));
+          
           const result = test.run();
+          
+          setCurrentTest({ suiteName, testName: test.name, stage: 'Analyzing results...' });
+          await new Promise(resolve => setTimeout(resolve, 50));
+          
           if (result.pass) {
             passedTests++;
             allResults[suiteName].passed++;
+          } else {
+            // Show failure modal in real-time
+            setFailureModal({
+              suiteName,
+              testName: test.name,
+              message: result.message,
+              timestamp: new Date().toLocaleTimeString()
+            });
           }
           
           allResults[suiteName].tests.push({
@@ -66,11 +82,22 @@ export default function TestSuite() {
             ...result
           });
         } catch (error) {
-          allResults[suiteName].tests.push({
+          const failureData = {
             name: test.name,
             pass: false,
             message: `Error: ${error.message}`,
             stack: error.stack
+          };
+          
+          allResults[suiteName].tests.push(failureData);
+          
+          // Show failure modal for exceptions
+          setFailureModal({
+            suiteName,
+            testName: test.name,
+            message: `Exception: ${error.message}`,
+            stack: error.stack,
+            timestamp: new Date().toLocaleTimeString()
           });
         }
         
@@ -220,7 +247,7 @@ export default function TestSuite() {
             {/* Current Test */}
             {currentTest && (
               <motion.div
-                key={`${currentTest.suiteName}-${currentTest.testName}`}
+                key={`${currentTest.suiteName}-${currentTest.testName}-${currentTest.stage}`}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="bg-slate-800/50 rounded-lg p-4 border border-slate-700"
@@ -233,6 +260,12 @@ export default function TestSuite() {
                     <div className="text-sm text-slate-400 mb-1">Currently Testing:</div>
                     <div className="font-semibold text-slate-200">{currentTest.suiteName}</div>
                     <div className="text-sm text-blue-400">{currentTest.testName}</div>
+                    {currentTest.stage && (
+                      <div className="text-xs text-slate-500 mt-1 flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse"></div>
+                        {currentTest.stage}
+                      </div>
+                    )}
                   </div>
                 </div>
               </motion.div>
