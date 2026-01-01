@@ -149,8 +149,8 @@ export default function Cell({
                   )}
                 `}
                 style={isHighlightedCandidate ? {
-                  backgroundColor: `${candidateColor}E6`,
-                  boxShadow: `0 0 0 2px ${candidateColor}`,
+                  backgroundColor: `${focusDigitColor}E6`,
+                  boxShadow: `0 0 0 2px ${focusDigitColor}`,
                   color: '#000'
                 } : {}}
               >
