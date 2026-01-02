@@ -144,42 +144,42 @@ export const findAllTechniqueInstances = (grid, techniqueName) => {
   const foundCells = new Set(); // Track cells we've already found techniques for
   
   const findAll = (findFunc) => {
-    // Deep clone - create completely new objects with no shared references
-    const gridClone = grid.map(c => ({
-      cellIndex: c.cellIndex,
-      value: c.value,
-      isFixed: c.isFixed,
-      candidates: c.candidates ? [...c.candidates] : [],
-      isHighlighted: false,
-      highlightColor: null,
-      isBaseCell: false,
-      isTargetCell: false
-    }));
-    
     let attempts = 0;
-    const maxAttempts = 50; // Safety limit
+    const maxAttempts = 100; // Safety limit
     
     while (attempts < maxAttempts) {
+      // Always search on a fresh clone of the ORIGINAL grid
+      const gridClone = grid.map(c => ({
+        cellIndex: c.cellIndex,
+        value: c.value,
+        isFixed: c.isFixed,
+        candidates: c.candidates ? [...c.candidates] : [],
+        isHighlighted: false,
+        highlightColor: null,
+        isBaseCell: false,
+        isTargetCell: false
+      }));
+      
+      // Hide cells we've already found by removing their candidates
+      foundCells.forEach(cellIdx => {
+        if (gridClone[cellIdx]) {
+          gridClone[cellIdx].candidates = [];
+        }
+      });
+      
       const step = findFunc(gridClone, null);
       if (!step) break;
       
       // Check if we've already found a technique for this cell
       const primaryCell = step.baseCells?.[0] ?? step.placement?.cell;
-      if (primaryCell !== undefined && foundCells.has(primaryCell)) {
-        break; // Stop if we're finding the same cell again
-      }
-      
-      instances.push(step);
       if (primaryCell !== undefined) {
+        if (foundCells.has(primaryCell)) {
+          break; // Stop if we're finding the same cell again
+        }
         foundCells.add(primaryCell);
       }
       
-      // DON'T simulate applying - only find instances in the CURRENT state
-      // Mark the cell as "used" so we don't find it again
-      if (step.placement) {
-        gridClone[step.placement.cell].candidates = []; // Hide this cell from future searches
-      }
-      
+      instances.push(step);
       attempts++;
     }
   };
