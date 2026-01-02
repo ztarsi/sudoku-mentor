@@ -39,17 +39,19 @@ export const testSuites = {
           const grid = createEmptyGrid();
           grid[0].value = 1;
           grid[1].value = 2;
-          
+
           const result = generateCandidates(grid);
-          
+
           // Cell 2 should not have candidates 1 or 2
           const cell2Candidates = result[2].candidates;
-          
+          const has1 = cell2Candidates.includes(1);
+          const has2 = cell2Candidates.includes(2);
+
           return {
-            pass: !cell2Candidates.includes(1) && !cell2Candidates.includes(2),
-            message: cell2Candidates.includes(1) || cell2Candidates.includes(2)
-              ? `Cell 2 incorrectly has candidates ${cell2Candidates.join(',')}`
-              : 'Candidates generated correctly'
+            pass: !has1 && !has2,
+            message: has1 || has2
+              ? `FAIL: Cell 2 should not have 1 or 2 as candidates. Got: [${cell2Candidates.join(',')}]. Has 1: ${has1}, Has 2: ${has2}`
+              : `PASS: Cell 2 candidates correctly generated: [${cell2Candidates.join(',')}]`
           };
         }
       },
