@@ -197,15 +197,18 @@ export const testSuites = {
           // Box 0, Row 0: digit 5 only in cells 0 and 1
           grid[0].candidates = [5, 6];
           grid[1].candidates = [5, 7];
-          grid[2].candidates = [6, 7];
-          // Rest of row 0
-          grid[3].candidates = [5, 8];
-          grid[4].candidates = [5, 9];
+          grid[2].candidates = [6, 7, 8]; // No naked singles
+          // Rest of row 0 - has 5 but can be eliminated
+          grid[3].candidates = [5, 8, 9];
+          grid[4].candidates = [5, 8, 9];
+          grid[5].candidates = [8, 9];
+          grid[6].candidates = [8, 9];
+          grid[7].candidates = [8, 9];
+          grid[8].candidates = [8, 9];
           
+          // Fill rest with no naked singles
           for (let i = 9; i < 81; i++) {
-            if (grid[i].candidates.length === 0) {
-              grid[i].candidates = [1, 2, 3, 4, 6, 7, 8, 9];
-            }
+            grid[i].candidates = [1, 2, 3, 4, 6, 7, 8, 9];
           }
           
           const step = findNextLogicStep(grid, 5);
@@ -228,13 +231,16 @@ export const testSuites = {
           // Row 0: cells 0 and 1 both have only [5, 6]
           grid[0].candidates = [5, 6];
           grid[1].candidates = [5, 6];
-          grid[2].candidates = [5, 6, 7];
-          grid[3].candidates = [1, 2];
+          grid[2].candidates = [5, 6, 7, 8]; // Can eliminate 5,6
+          grid[3].candidates = [1, 2, 3]; // No naked singles
+          grid[4].candidates = [1, 2, 3];
+          grid[5].candidates = [1, 2, 3];
+          grid[6].candidates = [1, 2, 3];
+          grid[7].candidates = [1, 2, 3];
+          grid[8].candidates = [1, 2, 3];
           
-          for (let i = 4; i < 81; i++) {
-            if (grid[i].candidates.length === 0) {
-              grid[i].candidates = [1, 2, 3, 4];
-            }
+          for (let i = 9; i < 81; i++) {
+            grid[i].candidates = [1, 2, 3, 4, 7, 8, 9];
           }
           
           const step = findNextLogicStep(grid);
@@ -253,14 +259,17 @@ export const testSuites = {
           grid[0].candidates = [5, 6];
           grid[1].candidates = [5, 6];
           // Cell 2 has both 5 and 6 that should be eliminated
-          grid[2].candidates = [5, 6, 7];
+          grid[2].candidates = [5, 6, 7, 8];
           // Cell 3 has only 5
-          grid[3].candidates = [5, 8];
+          grid[3].candidates = [5, 8, 9];
+          grid[4].candidates = [1, 2, 3];
+          grid[5].candidates = [1, 2, 3];
+          grid[6].candidates = [1, 2, 3];
+          grid[7].candidates = [1, 2, 3];
+          grid[8].candidates = [1, 2, 3];
           
-          for (let i = 4; i < 81; i++) {
-            if (grid[i].candidates.length === 0) {
-              grid[i].candidates = [1, 2, 3, 4];
-            }
+          for (let i = 9; i < 81; i++) {
+            grid[i].candidates = [1, 2, 3, 4, 7, 8, 9];
           }
           
           const step = findNextLogicStep(grid);
@@ -324,14 +333,19 @@ export const testSuites = {
           const grid = createEmptyGrid();
           // Row 0: digits 5 and 6 only appear in cells 0 and 1
           grid[0].candidates = [5, 6, 7, 8];
-          grid[1].candidates = [5, 6, 9];
-          grid[2].candidates = [1, 2, 3];
-          grid[3].candidates = [1, 2, 3];
-          grid[4].candidates = [1, 2, 4];
-          grid[5].candidates = [1, 2, 4];
-          grid[6].candidates = [1, 2, 4];
-          grid[7].candidates = [1, 2, 4];
-          grid[8].candidates = [1, 2, 4];
+          grid[1].candidates = [5, 6, 7, 9];
+          grid[2].candidates = [1, 2, 3, 4];
+          grid[3].candidates = [1, 2, 3, 4];
+          grid[4].candidates = [1, 2, 3, 4];
+          grid[5].candidates = [1, 2, 3, 4];
+          grid[6].candidates = [1, 2, 3, 4];
+          grid[7].candidates = [1, 2, 3, 4];
+          grid[8].candidates = [1, 2, 3, 4];
+          
+          // Fill rest with no naked singles
+          for (let i = 9; i < 81; i++) {
+            grid[i].candidates = [1, 2, 3, 4, 7, 8, 9];
+          }
           
           const step = findNextLogicStep(grid);
           
@@ -353,19 +367,22 @@ export const testSuites = {
           
           // Create X-Wing for digit 5 in rows 0 and 2, columns 0 and 2
           // Row 0
-          grid[0].candidates = [5, 6];
-          grid[2].candidates = [5, 7];
+          grid[0].candidates = [5, 6, 7];
+          grid[2].candidates = [5, 6, 8];
+          grid[1].candidates = [6, 7, 8, 9];
           // Row 2
-          grid[18].candidates = [5, 8];
-          grid[20].candidates = [5, 9];
+          grid[18].candidates = [5, 6, 8];
+          grid[20].candidates = [5, 6, 9];
+          grid[19].candidates = [6, 8, 9];
           
           // Add 5 in columns 0 and 2 that should be eliminated
-          grid[27].candidates = [5, 1];
-          grid[29].candidates = [5, 2];
+          grid[27].candidates = [5, 1, 2];
+          grid[29].candidates = [5, 1, 2];
           
+          // Fill other rows with no simpler techniques
           for (let i = 0; i < 81; i++) {
             if (grid[i].candidates.length === 0) {
-              grid[i].candidates = [1, 2, 3, 4];
+              grid[i].candidates = [1, 2, 3, 4, 6, 7, 8, 9];
             }
           }
           
@@ -394,8 +411,12 @@ export const testSuites = {
           // Wing 2 at cell 9 with [2, 3]
           grid[9].candidates = [2, 3];
           // Cell 10 sees both wings and has 3
-          grid[10].candidates = [3, 4, 5];
+          grid[10].candidates = [3, 4, 5, 6];
           
+          // Fill rest ensuring no simpler techniques
+          for (let i = 2; i < 9; i++) {
+            grid[i].candidates = [4, 5, 6, 7, 8, 9];
+          }
           for (let i = 11; i < 81; i++) {
             if (grid[i].candidates.length === 0) {
               grid[i].candidates = [4, 5, 6, 7, 8, 9];
