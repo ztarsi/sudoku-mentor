@@ -364,11 +364,12 @@ export default function TestSuite() {
                             initial={{ opacity: 0, x: -10 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: idx * 0.05 }}
+                            onClick={() => !test.pass && setFailureModal({ ...test, suiteName, timestamp: 'From Results' })}
                             className={`
                               p-4 rounded-lg border
                               ${test.pass 
                                 ? 'bg-emerald-950/20 border-emerald-900/50' 
-                                : 'bg-red-950/20 border-red-900/50'
+                                : 'bg-red-950/20 border-red-900/50 cursor-pointer hover:bg-red-950/40'
                               }
                             `}
                           >
