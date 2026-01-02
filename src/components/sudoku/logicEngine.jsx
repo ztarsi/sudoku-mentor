@@ -241,93 +241,83 @@ const findNakedSingle = (grid, focusedDigit) => {
   return null;
 };
 
-// Hidden Single: Candidate appears only once in a unit
+/**
+ * Hidden Single: Finds a digit that can only appear in one cell within a unit (row, column, or box)
+ * 
+ * Optimization: Instead of checking each digit separately for each unit, this function:
+ * 1. For each unit (row/col/box), builds a frequency map of all digits in one pass
+ * 2. Identifies any digit that appears exactly once in that unit
+ * 
+ * This reduces complexity from O(27 units × 9 digits × 9 cells) to O(27 units × 9 cells)
+ * 
+ * @param {Array} grid - The Sudoku grid
+ * @param {number|null} focusedDigit - Optional digit to focus on (1-9)
+ * @returns {Object|null} - Step object if hidden single found, null otherwise
+ */
 const findHiddenSingle = (grid, focusedDigit) => {
-  // Check all 9 rows
-  for (let row = 0; row < 9; row++) {
-    const rowCells = getRowIndices(row);
-    const digits = focusedDigit ? [focusedDigit] : [1, 2, 3, 4, 5, 6, 7, 8, 9];
+  // Helper function to check a single unit for hidden singles
+  const checkUnit = (unitCells, unitType, unitNumber) => {
+    // Map: digit -> array of cell indices where it appears as a candidate
+    const digitLocations = {};
     
-    for (const digit of digits) {
-      const cellsContainingDigit = [];
+    // Single pass through all cells in the unit to build the digit location map
+    for (const cellIndex of unitCells) {
+      const cell = grid[cellIndex];
       
-      for (const cellIndex of rowCells) {
-        if (grid[cellIndex].value === null && grid[cellIndex].candidates.includes(digit)) {
-          cellsContainingDigit.push(cellIndex);
+      // Skip cells that already have a value
+      if (cell.value !== null) continue;
+      
+      // For each candidate in this cell, record its location
+      for (const candidate of cell.candidates) {
+        // Skip if we're focusing on a specific digit and this isn't it
+        if (focusedDigit && candidate !== focusedDigit) continue;
+        
+        if (!digitLocations[candidate]) {
+          digitLocations[candidate] = [];
         }
+        digitLocations[candidate].push(cellIndex);
       }
+    }
+    
+    // Check each digit to see if it appears exactly once (hidden single)
+    for (const digit in digitLocations) {
+      const locations = digitLocations[digit];
       
-      if (cellsContainingDigit.length === 1) {
-        const targetCell = cellsContainingDigit[0];
+      if (locations.length === 1) {
+        const targetCell = locations[0];
+        const digitNum = parseInt(digit);
+        
         return {
           technique: 'Hidden Single',
-          digit,
+          digit: digitNum,
           baseCells: [targetCell],
           targetCells: [],
-          placement: { cell: targetCell, digit },
+          placement: { cell: targetCell, digit: digitNum },
           eliminations: [],
-          explanation: `In Row ${row + 1}, the digit ${digit} can only go in cell R${getRow(targetCell) + 1}C${getCol(targetCell) + 1}. This is the only cell in this row where ${digit} is possible.`
+          explanation: `In ${unitType} ${unitNumber}, the digit ${digitNum} can only go in cell R${getRow(targetCell) + 1}C${getCol(targetCell) + 1}. This is the only cell in this ${unitType.toLowerCase()} where ${digitNum} is possible.`
         };
       }
     }
+    
+    return null;
+  };
+  
+  // Check all 9 rows
+  for (let row = 0; row < 9; row++) {
+    const result = checkUnit(getRowIndices(row), 'Row', row + 1);
+    if (result) return result;
   }
   
   // Check all 9 columns
   for (let col = 0; col < 9; col++) {
-    const colCells = getColIndices(col);
-    const digits = focusedDigit ? [focusedDigit] : [1, 2, 3, 4, 5, 6, 7, 8, 9];
-    
-    for (const digit of digits) {
-      const cellsContainingDigit = [];
-      
-      for (const cellIndex of colCells) {
-        if (grid[cellIndex].value === null && grid[cellIndex].candidates.includes(digit)) {
-          cellsContainingDigit.push(cellIndex);
-        }
-      }
-      
-      if (cellsContainingDigit.length === 1) {
-        const targetCell = cellsContainingDigit[0];
-        return {
-          technique: 'Hidden Single',
-          digit,
-          baseCells: [targetCell],
-          targetCells: [],
-          placement: { cell: targetCell, digit },
-          eliminations: [],
-          explanation: `In Column ${col + 1}, the digit ${digit} can only go in cell R${getRow(targetCell) + 1}C${getCol(targetCell) + 1}. This is the only cell in this column where ${digit} is possible.`
-        };
-      }
-    }
+    const result = checkUnit(getColIndices(col), 'Column', col + 1);
+    if (result) return result;
   }
   
   // Check all 9 boxes
   for (let box = 0; box < 9; box++) {
-    const boxCells = getBoxIndices(box);
-    const digits = focusedDigit ? [focusedDigit] : [1, 2, 3, 4, 5, 6, 7, 8, 9];
-    
-    for (const digit of digits) {
-      const cellsContainingDigit = [];
-      
-      for (const cellIndex of boxCells) {
-        if (grid[cellIndex].value === null && grid[cellIndex].candidates.includes(digit)) {
-          cellsContainingDigit.push(cellIndex);
-        }
-      }
-      
-      if (cellsContainingDigit.length === 1) {
-        const targetCell = cellsContainingDigit[0];
-        return {
-          technique: 'Hidden Single',
-          digit,
-          baseCells: [targetCell],
-          targetCells: [],
-          placement: { cell: targetCell, digit },
-          eliminations: [],
-          explanation: `In Box ${box + 1}, the digit ${digit} can only go in cell R${getRow(targetCell) + 1}C${getCol(targetCell) + 1}. This is the only cell in this box where ${digit} is possible.`
-        };
-      }
-    }
+    const result = checkUnit(getBoxIndices(box), 'Box', box + 1);
+    if (result) return result;
   }
   
   return null;
