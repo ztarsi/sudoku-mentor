@@ -60,14 +60,17 @@ export const testSuites = {
           grid[0].candidates = [1, 2, 3];
           grid[1].candidates = [1, 2, 3];
           grid[9].candidates = [1, 2, 3];
-          
+
           const result = eliminateCandidatesFromPeers(grid, 0, 1);
-          
+
+          const cell1HasOne = result[1].candidates.includes(1);
+          const cell9HasOne = result[9].candidates.includes(1);
+
           return {
-            pass: !result[1].candidates.includes(1) && !result[9].candidates.includes(1),
-            message: result[1].candidates.includes(1) || result[9].candidates.includes(1)
-              ? 'Failed to eliminate from peers'
-              : 'Eliminated from peers correctly'
+            pass: !cell1HasOne && !cell9HasOne,
+            message: cell1HasOne || cell9HasOne
+              ? `FAIL: Expected digit 1 to be eliminated from peers. Cell 1 candidates: [${result[1].candidates.join(',')}] (has 1: ${cell1HasOne}), Cell 9 candidates: [${result[9].candidates.join(',')}] (has 1: ${cell9HasOne})`
+              : 'PASS: Eliminated digit 1 from peer cells correctly'
           };
         }
       }
