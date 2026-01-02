@@ -265,14 +265,51 @@ export const testSuites = {
           
           const step = findNextLogicStep(grid);
           
+          if (!step) {
+            return {
+              pass: false,
+              message: 'FAIL: No technique found. Expected Naked Pair with eliminations for digits 5 and 6'
+            };
+          }
+          
+          if (step.technique !== 'Naked Pair') {
+            return {
+              pass: false,
+              message: `FAIL: Expected Naked Pair, got ${step.technique}`
+            };
+          }
+          
           // Should eliminate both 5 and 6 from cells 2 and 3
-          const has5Elim = step?.eliminations?.some(e => e.cell === 2 && e.digit === 5);
-          const has6Elim = step?.eliminations?.some(e => e.cell === 2 && e.digit === 6);
-          const has5ElimCell3 = step?.eliminations?.some(e => e.cell === 3 && e.digit === 5);
+          const has5Elim = step.eliminations?.some(e => e.cell === 2 && e.digit === 5);
+          const has6Elim = step.eliminations?.some(e => e.cell === 2 && e.digit === 6);
+          const has5ElimCell3 = step.eliminations?.some(e => e.cell === 3 && e.digit === 5);
+          
+          const allElims = step.eliminations.map(e => `${e.digit} from cell ${e.cell}`).join(', ');
+          
+          if (!has5Elim) {
+            return {
+              pass: false,
+              message: `FAIL: Expected elimination of digit 5 from cell 2. Got eliminations: [${allElims}]`
+            };
+          }
+          
+          if (!has6Elim) {
+            return {
+              pass: false,
+              message: `FAIL: Expected elimination of digit 6 from cell 2. Got eliminations: [${allElims}]`
+            };
+          }
+          
+          if (!has5ElimCell3) {
+            return {
+              pass: false,
+              message: `FAIL: Expected elimination of digit 5 from cell 3. Got eliminations: [${allElims}]`
+            };
+          }
           
           return {
-            pass: step?.technique === 'Naked Pair' && has5Elim && has6Elim && has5ElimCell3,
-            message: step ? `Found eliminations for digits: ${step.eliminations.map(e => `${e.digit} from cell ${e.cell}`).join(', ')}` : 'No naked pair found'
+            pass: true,
+            message: `PASS: Naked Pair correctly eliminates both digits. Eliminations: [${allElims}]`
           };
         }
       }
