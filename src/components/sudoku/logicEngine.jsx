@@ -141,10 +141,11 @@ export const findNextLogicStep = (grid, focusedDigit = null) => {
 // Find all instances of a specific technique
 export const findAllTechniqueInstances = (grid, techniqueName) => {
   const instances = [];
+  const foundCells = new Set(); // Track cells we've already found techniques for
   
   const findAll = (findFunc) => {
     // Deep clone - create completely new objects with no shared references
-    const tempGrid = grid.map(c => ({
+    const gridClone = grid.map(c => ({
       cellIndex: c.cellIndex,
       value: c.value,
       isFixed: c.isFixed,
@@ -154,25 +155,31 @@ export const findAllTechniqueInstances = (grid, techniqueName) => {
       isBaseCell: false,
       isTargetCell: false
     }));
-    let step;
+    
     let attempts = 0;
     const maxAttempts = 50; // Safety limit
     
     while (attempts < maxAttempts) {
-      step = findFunc(tempGrid, null);
+      const step = findFunc(gridClone, null);
       if (!step) break;
-      instances.push(step);
       
-      // Simulate applying the step to find the next one
+      // Check if we've already found a technique for this cell
+      const primaryCell = step.baseCells?.[0] ?? step.placement?.cell;
+      if (primaryCell !== undefined && foundCells.has(primaryCell)) {
+        break; // Stop if we're finding the same cell again
+      }
+      
+      instances.push(step);
+      if (primaryCell !== undefined) {
+        foundCells.add(primaryCell);
+      }
+      
+      // DON'T simulate applying - only find instances in the CURRENT state
+      // Mark the cell as "used" so we don't find it again
       if (step.placement) {
-        tempGrid[step.placement.cell].value = step.placement.digit;
-        tempGrid[step.placement.cell].candidates = [];
+        gridClone[step.placement.cell].candidates = []; // Hide this cell from future searches
       }
-      if (step.eliminations?.length > 0) {
-        step.eliminations.forEach(elim => {
-          tempGrid[elim.cell].candidates = tempGrid[elim.cell].candidates.filter(c => c !== elim.digit);
-        });
-      }
+      
       attempts++;
     }
   };
