@@ -243,34 +243,93 @@ const findNakedSingle = (grid, focusedDigit) => {
 
 // Hidden Single: Candidate appears only once in a unit
 const findHiddenSingle = (grid, focusedDigit) => {
-  const units = [
-    ...Array.from({ length: 9 }, (_, i) => ({ type: 'row', indices: getRowIndices(i), name: `Row ${i + 1}` })),
-    ...Array.from({ length: 9 }, (_, i) => ({ type: 'col', indices: getColIndices(i), name: `Column ${i + 1}` })),
-    ...Array.from({ length: 9 }, (_, i) => ({ type: 'box', indices: getBoxIndices(i), name: `Box ${i + 1}` }))
-  ];
-  
-  for (const unit of units) {
-    const digitsToCheck = focusedDigit ? [focusedDigit] : [1, 2, 3, 4, 5, 6, 7, 8, 9];
+  // Check all 9 rows
+  for (let row = 0; row < 9; row++) {
+    const rowCells = getRowIndices(row);
+    const digits = focusedDigit ? [focusedDigit] : [1, 2, 3, 4, 5, 6, 7, 8, 9];
     
-    for (const digit of digitsToCheck) {
-      const cellsWithDigit = unit.indices.filter(i => 
-        grid[i].value === null && grid[i].candidates.includes(digit)
-      );
+    for (const digit of digits) {
+      const cellsContainingDigit = [];
       
-      if (cellsWithDigit.length === 1) {
-        const cellIndex = cellsWithDigit[0];
+      for (const cellIndex of rowCells) {
+        if (grid[cellIndex].value === null && grid[cellIndex].candidates.includes(digit)) {
+          cellsContainingDigit.push(cellIndex);
+        }
+      }
+      
+      if (cellsContainingDigit.length === 1) {
+        const targetCell = cellsContainingDigit[0];
         return {
           technique: 'Hidden Single',
           digit,
-          baseCells: [cellIndex],
+          baseCells: [targetCell],
           targetCells: [],
-          placement: { cell: cellIndex, digit },
+          placement: { cell: targetCell, digit },
           eliminations: [],
-          explanation: `In ${unit.name}, the digit ${digit} can only go in cell R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1}. This is the only cell in this ${unit.type} where ${digit} is possible.`
+          explanation: `In Row ${row + 1}, the digit ${digit} can only go in cell R${getRow(targetCell) + 1}C${getCol(targetCell) + 1}. This is the only cell in this row where ${digit} is possible.`
         };
       }
     }
   }
+  
+  // Check all 9 columns
+  for (let col = 0; col < 9; col++) {
+    const colCells = getColIndices(col);
+    const digits = focusedDigit ? [focusedDigit] : [1, 2, 3, 4, 5, 6, 7, 8, 9];
+    
+    for (const digit of digits) {
+      const cellsContainingDigit = [];
+      
+      for (const cellIndex of colCells) {
+        if (grid[cellIndex].value === null && grid[cellIndex].candidates.includes(digit)) {
+          cellsContainingDigit.push(cellIndex);
+        }
+      }
+      
+      if (cellsContainingDigit.length === 1) {
+        const targetCell = cellsContainingDigit[0];
+        return {
+          technique: 'Hidden Single',
+          digit,
+          baseCells: [targetCell],
+          targetCells: [],
+          placement: { cell: targetCell, digit },
+          eliminations: [],
+          explanation: `In Column ${col + 1}, the digit ${digit} can only go in cell R${getRow(targetCell) + 1}C${getCol(targetCell) + 1}. This is the only cell in this column where ${digit} is possible.`
+        };
+      }
+    }
+  }
+  
+  // Check all 9 boxes
+  for (let box = 0; box < 9; box++) {
+    const boxCells = getBoxIndices(box);
+    const digits = focusedDigit ? [focusedDigit] : [1, 2, 3, 4, 5, 6, 7, 8, 9];
+    
+    for (const digit of digits) {
+      const cellsContainingDigit = [];
+      
+      for (const cellIndex of boxCells) {
+        if (grid[cellIndex].value === null && grid[cellIndex].candidates.includes(digit)) {
+          cellsContainingDigit.push(cellIndex);
+        }
+      }
+      
+      if (cellsContainingDigit.length === 1) {
+        const targetCell = cellsContainingDigit[0];
+        return {
+          technique: 'Hidden Single',
+          digit,
+          baseCells: [targetCell],
+          targetCells: [],
+          placement: { cell: targetCell, digit },
+          eliminations: [],
+          explanation: `In Box ${box + 1}, the digit ${digit} can only go in cell R${getRow(targetCell) + 1}C${getCol(targetCell) + 1}. This is the only cell in this box where ${digit} is possible.`
+        };
+      }
+    }
+  }
+  
   return null;
 };
 
