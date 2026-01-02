@@ -294,6 +294,11 @@ const findHiddenSingle = (grid, focusedDigit) => {
           console.log(`  Cell ${loc} (R${getRow(loc) + 1}C${getCol(loc) + 1}) candidates:`, grid[loc].candidates);
         });
         console.log(`All digitLocations for this unit:`, digitLocations);
+        console.log(`--- Full Unit ${unitType} ${unitNumber} Grid State ---`);
+        unitCells.forEach(idx => {
+          console.log(`  Cell ${idx} (R${getRow(idx) + 1}C${getCol(idx) + 1}): Value=${grid[idx].value}, Candidates=[${grid[idx].candidates}]`);
+        });
+        console.log(`-----------------------------------`);
         // ---------------------
         
         const targetCell = locations[0];
