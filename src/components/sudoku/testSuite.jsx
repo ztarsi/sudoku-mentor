@@ -159,27 +159,29 @@ export const testSuites = {
           grid[76].candidates = [2, 3, 8];
           // Row 2, Col 4 (index 12) - also has 2
           grid[12].candidates = [2, 4, 6];
-          
+
           // Fill other cells
           for (let i = 0; i < 81; i++) {
             if (grid[i].candidates.length === 0) {
               grid[i].candidates = [1, 2, 3, 4, 5, 6, 7, 8, 9];
             }
           }
-          
+
           const step = findNextLogicStep(grid, 2);
-          
+
           // Should NOT identify cell 75 as hidden single since 2 appears elsewhere
           if (step?.technique === 'Hidden Single' && step.baseCells[0] === 75) {
             return {
               pass: false,
-              message: 'Incorrectly identified R9C4 as hidden single when digit 2 appears in other cells'
+              message: `FAIL: Incorrectly identified cell 75 (R9C5) as Hidden Single for digit 2. Cell 75 has [${grid[75].candidates.join(',')}], Cell 76 has [${grid[76].candidates.join(',')}], Cell 12 has [${grid[12].candidates.join(',')}]. Digit 2 appears in multiple cells in the same column.`
             };
           }
-          
+
           return {
             pass: true,
-            message: 'Correctly avoided false positive'
+            message: step 
+              ? `PASS: Correctly avoided false positive. Found ${step.technique} instead at cell ${step.baseCells[0]}`
+              : 'PASS: Correctly avoided false positive. No technique found.'
           };
         }
       }
