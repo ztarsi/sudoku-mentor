@@ -143,7 +143,11 @@ export const findAllTechniqueInstances = (grid, techniqueName) => {
   const instances = [];
   
   const findAll = (findFunc) => {
-    const tempGrid = [...grid.map(c => ({...c}))];
+    // Deep clone to prevent any mutations affecting the original grid
+    const tempGrid = grid.map(c => ({
+      ...c,
+      candidates: [...c.candidates]
+    }));
     let step;
     let attempts = 0;
     const maxAttempts = 50; // Safety limit
@@ -284,23 +288,6 @@ const findHiddenSingle = (grid, focusedDigit) => {
       const locations = digitLocations[digit];
       
       if (locations.length === 1) {
-        // --- DEBUG LOGGING ---
-        console.log(`--- Hidden Single Candidate Found ---`);
-        console.log(`Unit Type: ${unitType}, Unit Number: ${unitNumber}`);
-        console.log(`Candidate Digit: ${digit}`);
-        console.log(`Locations for digit ${digit}:`, locations);
-        console.log(`Grid cell candidates at locations:`);
-        locations.forEach(loc => {
-          console.log(`  Cell ${loc} (R${getRow(loc) + 1}C${getCol(loc) + 1}) candidates:`, grid[loc].candidates);
-        });
-        console.log(`All digitLocations for this unit:`, digitLocations);
-        console.log(`--- Full Unit ${unitType} ${unitNumber} Grid State ---`);
-        unitCells.forEach(idx => {
-          console.log(`  Cell ${idx} (R${getRow(idx) + 1}C${getCol(idx) + 1}): Value=${grid[idx].value}, Candidates=[${grid[idx].candidates}]`);
-        });
-        console.log(`-----------------------------------`);
-        // ---------------------
-        
         const targetCell = locations[0];
         const digitNum = parseInt(digit);
         

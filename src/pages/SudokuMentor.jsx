@@ -158,15 +158,6 @@ export default function SudokuMentor() {
 
   const handleNextStep = useCallback(async () => {
     setChainPlaybackIndex(0); // Reset playback for new hint
-    
-    // DEBUG: Log Row 9 state before finding next step
-    console.log('=== GRID STATE WHEN HINT CLICKED ===');
-    console.log('Row 9 cells:');
-    for (let i = 72; i <= 80; i++) {
-      console.log(`  Cell ${i} (R9C${i-71}): Value=${grid[i].value}, Candidates=[${grid[i].candidates}]`);
-    }
-    console.log('====================================');
-    
     const step = findNextLogicStep(grid, null);
     if (step) {
       setCurrentStep(step);
