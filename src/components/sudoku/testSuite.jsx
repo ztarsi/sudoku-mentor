@@ -87,12 +87,22 @@ export const testSuites = {
           const grid = createEmptyGrid();
           grid[0].candidates = [5];
           grid[1].candidates = [1, 2, 3];
-          
+
           const step = findNextLogicStep(grid);
-          
+
+          const pass = step?.technique === 'Naked Single' && step.baseCells[0] === 0 && step.digit === 5;
+
           return {
-            pass: step?.technique === 'Naked Single' && step.baseCells[0] === 0 && step.digit === 5,
-            message: step ? `Found ${step.technique} at cell ${step.baseCells[0]}` : 'No technique found'
+            pass,
+            message: !step 
+              ? 'FAIL: No technique found. Expected Naked Single at cell 0 with digit 5'
+              : step.technique !== 'Naked Single'
+              ? `FAIL: Expected Naked Single, got ${step.technique}`
+              : step.baseCells[0] !== 0
+              ? `FAIL: Expected cell 0, got cell ${step.baseCells[0]}`
+              : step.digit !== 5
+              ? `FAIL: Expected digit 5, got digit ${step.digit}`
+              : `PASS: Found Naked Single at cell ${step.baseCells[0]} with digit ${step.digit}`
           };
         }
       },
