@@ -143,10 +143,16 @@ export const findAllTechniqueInstances = (grid, techniqueName) => {
   const instances = [];
   
   const findAll = (findFunc) => {
-    // Deep clone to prevent any mutations affecting the original grid
+    // Deep clone - create completely new objects with no shared references
     const tempGrid = grid.map(c => ({
-      ...c,
-      candidates: [...c.candidates]
+      cellIndex: c.cellIndex,
+      value: c.value,
+      isFixed: c.isFixed,
+      candidates: c.candidates ? [...c.candidates] : [],
+      isHighlighted: false,
+      highlightColor: null,
+      isBaseCell: false,
+      isTargetCell: false
     }));
     let step;
     let attempts = 0;
