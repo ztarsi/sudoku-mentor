@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
+import FailureDiagnostics from '../components/sudoku/FailureDiagnostics';
 
 export default function TestSuite() {
   const [results, setResults] = useState(null);
@@ -507,20 +508,31 @@ export default function TestSuite() {
                       </div>
                     </div>
 
-                    <div>
-                      <label className="text-sm font-medium text-red-300 mb-1 block">Failure Reason</label>
-                      <div className="bg-slate-900/50 rounded-lg px-4 py-3 border border-red-800/50 text-red-200">
+                    {/* Enhanced Diagnostics */}
+                    <FailureDiagnostics 
+                      failureMessage={failureModal.message} 
+                      suiteName={failureModal.suiteName}
+                    />
+
+                    {/* Raw failure message */}
+                    <details className="bg-slate-900/50 rounded-lg border border-slate-700">
+                      <summary className="px-4 py-2 cursor-pointer hover:bg-slate-800/50 text-sm font-medium text-slate-300">
+                        Show Raw Failure Message
+                      </summary>
+                      <div className="px-4 py-3 border-t border-slate-700 text-sm text-red-200">
                         {failureModal.message}
                       </div>
-                    </div>
+                    </details>
 
                     {failureModal.stack && (
-                      <div>
-                        <label className="text-sm font-medium text-red-300 mb-1 block">Stack Trace</label>
-                        <pre className="bg-slate-950/80 rounded-lg px-4 py-3 border border-slate-800 text-xs text-slate-400 overflow-x-auto">
+                      <details className="bg-slate-900/50 rounded-lg border border-slate-700">
+                        <summary className="px-4 py-2 cursor-pointer hover:bg-slate-800/50 text-sm font-medium text-slate-300">
+                          Show Stack Trace
+                        </summary>
+                        <pre className="px-4 py-3 border-t border-slate-700 text-xs text-slate-400 overflow-x-auto">
                           {failureModal.stack}
                         </pre>
-                      </div>
+                      </details>
                     )}
                   </div>
                 </div>
