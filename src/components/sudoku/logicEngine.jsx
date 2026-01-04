@@ -141,45 +141,44 @@ export const findNextLogicStep = (grid, focusedDigit = null) => {
 // Find all instances of a specific technique
 export const findAllTechniqueInstances = (grid, techniqueName) => {
   const instances = [];
-  const foundCells = new Set(); // Track cells we've already found techniques for
   
   const findAll = (findFunc) => {
+    // Start with a working copy that we'll progressively solve
+    let workingGrid = grid.map(c => ({
+      cellIndex: c.cellIndex,
+      value: c.value,
+      isFixed: c.isFixed,
+      candidates: c.candidates ? [...c.candidates] : [],
+      isHighlighted: false,
+      highlightColor: null,
+      isBaseCell: false,
+      isTargetCell: false
+    }));
+    
     let attempts = 0;
     const maxAttempts = 100; // Safety limit
     
     while (attempts < maxAttempts) {
-      // Always search on a fresh clone of the ORIGINAL grid
-      const gridClone = grid.map(c => ({
-        cellIndex: c.cellIndex,
-        value: c.value,
-        isFixed: c.isFixed,
-        candidates: c.candidates ? [...c.candidates] : [],
-        isHighlighted: false,
-        highlightColor: null,
-        isBaseCell: false,
-        isTargetCell: false
-      }));
-      
-      // Hide cells we've already found by removing their candidates
-      foundCells.forEach(cellIdx => {
-        if (gridClone[cellIdx]) {
-          gridClone[cellIdx].candidates = [];
-        }
-      });
-      
-      const step = findFunc(gridClone, null);
+      const step = findFunc(workingGrid, null);
       if (!step) break;
       
-      // Check if we've already found a technique for this cell
-      const primaryCell = step.baseCells?.[0] ?? step.placement?.cell;
-      if (primaryCell !== undefined) {
-        if (foundCells.has(primaryCell)) {
-          break; // Stop if we're finding the same cell again
-        }
-        foundCells.add(primaryCell);
+      instances.push(step);
+      
+      // Simulate applying the step to find the next instance
+      if (step.placement) {
+        const { cell, digit } = step.placement;
+        workingGrid[cell].value = digit;
+        workingGrid[cell].candidates = [];
+        // Properly eliminate from peers
+        workingGrid = eliminateCandidatesFromPeers(workingGrid, cell, digit);
       }
       
-      instances.push(step);
+      if (step.eliminations?.length > 0) {
+        step.eliminations.forEach(elim => {
+          workingGrid[elim.cell].candidates = workingGrid[elim.cell].candidates.filter(c => c !== elim.digit);
+        });
+      }
+      
       attempts++;
     }
   };
