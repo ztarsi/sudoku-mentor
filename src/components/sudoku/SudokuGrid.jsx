@@ -161,9 +161,9 @@ export default function SudokuGrid({
                     cellId={`sudoku-cell-${index}`}
                     cell={cell}
                     isSelected={selectedCell === index}
-                    isFocusedDigit={false}
+                    isFocusedDigit={focusedDigit !== null && cell.value === focusedDigit}
                     isFocusCandidate={focusedDigit !== null && cell.value === null && cell.candidates.includes(focusedDigit)}
-                    isDimmed={false}
+                    isDimmed={focusedDigit !== null && cell.value !== null && cell.value !== focusedDigit}
                     isHighlightedNumber={highlightedDigit !== null && cell.value === highlightedDigit}
                     hasError={validationErrors.includes(index)}
                     borderClasses={`${borderRight} ${borderBottom}`}
