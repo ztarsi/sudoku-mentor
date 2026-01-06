@@ -521,7 +521,7 @@ export default function SudokuMentor() {
       }
     };
     loadRandomPuzzle();
-  }, []);
+  }, [handleLoadPuzzle]);
 
   // Calculate ghost grid for chain visualization
   const ghostGrid = useMemo(() => {
