@@ -140,100 +140,49 @@ export const findNextLogicStep = (grid, focusedDigit = null) => {
 
 // Find all instances of a specific technique
 export const findAllTechniqueInstances = (grid, techniqueName) => {
-  const instances = [];
-  
-  const findAll = (findFunc) => {
-    // Start with a working copy that we'll progressively solve
-    let workingGrid = grid.map(c => ({
-      cellIndex: c.cellIndex,
-      value: c.value,
-      isFixed: c.isFixed,
-      candidates: c.candidates ? [...c.candidates] : [],
-      isHighlighted: false,
-      highlightColor: null,
-      isBaseCell: false,
-      isTargetCell: false
-    }));
-    
-    let attempts = 0;
-    const maxAttempts = 100; // Safety limit
-    
-    while (attempts < maxAttempts) {
-      const step = findFunc(workingGrid, null);
-      if (!step) break;
-      
-      instances.push(step);
-      
-      // Simulate applying the step to find the next instance
-      if (step.placement) {
-        const { cell, digit } = step.placement;
-        workingGrid[cell].value = digit;
-        workingGrid[cell].candidates = [];
-        // Properly eliminate from peers
-        workingGrid = eliminateCandidatesFromPeers(workingGrid, cell, digit);
-      }
-      
-      if (step.eliminations?.length > 0) {
-        step.eliminations.forEach(elim => {
-          workingGrid[elim.cell].candidates = workingGrid[elim.cell].candidates.filter(c => c !== elim.digit);
-        });
-      }
-      
-      attempts++;
-    }
+  // Mapping of technique names to their detection functions
+  const techniqueMap = {
+    'Naked Single': findNakedSingle,
+    'Hidden Single': findHiddenSingle,
+    'Pointing Pair': findPointing,
+    'Pointing Triple': findPointing,
+    'Claiming': findClaiming,
+    'Naked Pair': findNakedPair,
+    'Hidden Pair': findHiddenPair,
+    'Naked Triple': findNakedTriple,
+    'X-Wing': findXWing,
+    'Swordfish': findSwordfish,
+    'XY-Wing': findXYWing,
+    'X-Cycle': findXCycle,
+    'Finned X-Wing': findFinnedXWing,
+    'ALS-XZ': findALSXZ,
+    'Unique Rectangle Type 1': findUniqueRectangle,
+    'BUG+1': findBUGPlus1,
   };
-  
-  switch(techniqueName) {
-    case 'Naked Single':
-      findAll(findNakedSingle);
-      break;
-    case 'Hidden Single':
-      findAll(findHiddenSingle);
-      break;
-    case 'Pointing Pair':
-    case 'Pointing Triple':
-      findAll(findPointing);
-      break;
-    case 'Claiming':
-      findAll(findClaiming);
-      break;
-    case 'Naked Pair':
-      findAll(findNakedPair);
-      break;
-    case 'Hidden Pair':
-      findAll(findHiddenPair);
-      break;
-    case 'Naked Triple':
-      findAll(findNakedTriple);
-      break;
-    case 'X-Wing':
-      findAll(findXWing);
-      break;
-    case 'Swordfish':
-      findAll(findSwordfish);
-      break;
-    case 'XY-Wing':
-      findAll(findXYWing);
-      break;
-    case 'X-Cycle':
-      findAll(findXCycle);
-      break;
-    case 'Finned X-Wing':
-      findAll(findFinnedXWing);
-      break;
-    case 'ALS-XZ':
-      findAll(findALSXZ);
-      break;
-    case 'Unique Rectangle Type 1':
-      findAll(findUniqueRectangle);
-      break;
-    case 'BUG+1':
-      findAll(findBUGPlus1);
-      break;
-    }
 
-    return instances;
-    };
+  const findFunc = techniqueMap[techniqueName];
+  if (!findFunc) return [];
+
+  // Call the function in 'returnAll' mode to get only currently visible instances
+  const results = findFunc(grid, null, true);
+  
+  // Filter out duplicates (some techniques might find the same cell via different units)
+  const uniqueResults = [];
+  const seenKeys = new Set();
+
+  (Array.isArray(results) ? results : (results ? [results] : [])).forEach(step => {
+    const key = step.placement 
+      ? `p-${step.placement.cell}-${step.placement.digit}` 
+      : `e-${step.eliminations?.map(e => `${e.cell}${e.digit}`).join('-') || ''}`;
+    
+    if (!seenKeys.has(key)) {
+      uniqueResults.push(step);
+      seenKeys.add(key);
+    }
+  });
+
+  return uniqueResults;
+};
 
 // Naked Single: Cell with only one candidate
 const findNakedSingle = (grid, focusedDigit) => {
@@ -268,9 +217,12 @@ const findNakedSingle = (grid, focusedDigit) => {
  * 
  * @param {Array} grid - The Sudoku grid
  * @param {number|null} focusedDigit - Optional digit to focus on (1-9)
- * @returns {Object|null} - Step object if hidden single found, null otherwise
+ * @param {boolean} returnAll - If true, returns all instances; if false, returns first found
+ * @returns {Object|Array|null} - Step object, array of steps, or null
  */
-const findHiddenSingle = (grid, focusedDigit) => {
+const findHiddenSingle = (grid, focusedDigit, returnAll = false) => {
+  const allInstances = [];
+  
   // Helper function to check a single unit for hidden singles
   const checkUnit = (unitCells, unitType, unitNumber) => {
     // Map: digit -> array of cell indices where it appears as a candidate
@@ -303,7 +255,7 @@ const findHiddenSingle = (grid, focusedDigit) => {
         const targetCell = locations[0];
         const digitNum = parseInt(digit);
         
-        return {
+        const step = {
           technique: 'Hidden Single',
           digit: digitNum,
           baseCells: [targetCell],
@@ -312,6 +264,12 @@ const findHiddenSingle = (grid, focusedDigit) => {
           eliminations: [],
           explanation: `In ${unitType} ${unitNumber}, the digit ${digitNum} can only go in cell R${getRow(targetCell) + 1}C${getCol(targetCell) + 1}. This is the only cell in this ${unitType.toLowerCase()} where ${digitNum} is possible.`
         };
+        
+        if (returnAll) {
+          allInstances.push(step);
+        } else {
+          return step;
+        }
       }
     }
     
@@ -321,22 +279,22 @@ const findHiddenSingle = (grid, focusedDigit) => {
   // Check all 9 rows
   for (let row = 0; row < 9; row++) {
     const result = checkUnit(getRowIndices(row), 'Row', row + 1);
-    if (result) return result;
+    if (result && !returnAll) return result;
   }
   
   // Check all 9 columns
   for (let col = 0; col < 9; col++) {
     const result = checkUnit(getColIndices(col), 'Column', col + 1);
-    if (result) return result;
+    if (result && !returnAll) return result;
   }
   
   // Check all 9 boxes
   for (let box = 0; box < 9; box++) {
     const result = checkUnit(getBoxIndices(box), 'Box', box + 1);
-    if (result) return result;
+    if (result && !returnAll) return result;
   }
   
-  return null;
+  return returnAll ? allInstances : null;
 };
 
 // Pointing Pairs/Triples
