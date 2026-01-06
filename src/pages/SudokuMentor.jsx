@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import SudokuGrid from '@/components/sudoku/SudokuGrid';
 import DigitFilter from '@/components/sudoku/DigitFilter';
@@ -32,6 +31,7 @@ export default function SudokuMentor() {
   const [grid, setGrid] = useState(createEmptyGrid());
   const [selectedCell, setSelectedCell] = useState(null);
   const [focusedDigit, setFocusedDigit] = useState(null);
+  const [focusedCandidates, setFocusedCandidates] = useState(null); // { digit: color } map
   const [currentStep, setCurrentStep] = useState(null);
   const [stepHistory, setStepHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
@@ -159,6 +159,7 @@ export default function SudokuMentor() {
       isTargetCell: false
     })));
     setCurrentStep(null);
+    setFocusedCandidates(null);
   };
 
   const handleNextStep = useCallback(async () => {
@@ -166,6 +167,24 @@ export default function SudokuMentor() {
     const step = findNextLogicStep(grid, null);
     if (step) {
       setCurrentStep(step);
+      
+      // For multi-candidate techniques, extract all candidates and assign colors
+      const multiCandidateTechniques = ['Naked Pair', 'Hidden Pair', 'Naked Triple'];
+      if (multiCandidateTechniques.includes(step.technique) && step.baseCells) {
+        const candidatesInvolved = new Set();
+        step.baseCells.forEach(cellIdx => {
+          grid[cellIdx].candidates.forEach(c => candidatesInvolved.add(c));
+        });
+        
+        const colors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
+        const candidateColorMap = {};
+        Array.from(candidatesInvolved).forEach((digit, idx) => {
+          candidateColorMap[digit] = colors[idx % colors.length];
+        });
+        setFocusedCandidates(candidateColorMap);
+      } else {
+        setFocusedCandidates(null);
+      }
       
       setGrid(prev => {
         const newGrid = prev.map(cell => ({
@@ -640,6 +659,7 @@ export default function SudokuMentor() {
                   grid={ghostGrid}
                   selectedCell={selectedCell}
                   focusedDigit={focusedDigit}
+                  focusedCandidates={focusedCandidates}
                   highlightedDigit={highlightedDigit}
                   validationErrors={validationErrors}
                   candidateMode={candidateMode}
