@@ -11,7 +11,7 @@ import LoadingModal from '@/components/sudoku/LoadingModal';
 import { generateCandidates, findNextLogicStep, applyLogicStep, eliminateCandidatesFromPeers } from '@/components/sudoku/logicEngine';
 import { solveSudoku } from '@/components/sudoku/solver';
 import { base44 } from '@/api/base44Client';
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 
 const createEmptyGrid = () => {
   return Array(81).fill(null).map((_, index) => ({
