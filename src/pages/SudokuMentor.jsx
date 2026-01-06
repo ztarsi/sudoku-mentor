@@ -176,10 +176,17 @@ export default function SudokuMentor() {
           grid[cellIdx].candidates.forEach(c => candidatesInvolved.add(c));
         });
         
-        const colors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
+        // Use user's focused digit color for first digit, then other distinct colors
+        const colorPalette = [
+          colors.focusDigit || '#10b981',
+          '#3b82f6',
+          '#f59e0b',
+          '#ef4444',
+          '#8b5cf6'
+        ];
         const candidateColorMap = {};
         Array.from(candidatesInvolved).forEach((digit, idx) => {
-          candidateColorMap[digit] = colors[idx % colors.length];
+          candidateColorMap[digit] = colorPalette[idx % colorPalette.length];
         });
         setFocusedCandidates(candidateColorMap);
       } else {
@@ -704,10 +711,17 @@ export default function SudokuMentor() {
                       grid[cellIdx].candidates.forEach(c => candidatesInvolved.add(c));
                     });
                     
-                    const colors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
+                    // Use user's focused digit color for first digit, then other distinct colors
+                    const colorPalette = [
+                      colors.focusDigit || '#10b981',
+                      '#3b82f6',
+                      '#f59e0b',
+                      '#ef4444',
+                      '#8b5cf6'
+                    ];
                     const candidateColorMap = {};
                     Array.from(candidatesInvolved).forEach((digit, idx) => {
-                      candidateColorMap[digit] = colors[idx % colors.length];
+                      candidateColorMap[digit] = colorPalette[idx % colorPalette.length];
                     });
                     setFocusedCandidates(candidateColorMap);
                   } else {
@@ -773,10 +787,17 @@ export default function SudokuMentor() {
                   grid[cellIdx].candidates.forEach(c => candidatesInvolved.add(c));
                 });
                 
-                const colors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
+                // Use user's focused digit color for first digit, then other distinct colors
+                const colorPalette = [
+                  colors.focusDigit || '#10b981',
+                  '#3b82f6',
+                  '#f59e0b',
+                  '#ef4444',
+                  '#8b5cf6'
+                ];
                 const candidateColorMap = {};
                 Array.from(candidatesInvolved).forEach((digit, idx) => {
-                  candidateColorMap[digit] = colors[idx % colors.length];
+                  candidateColorMap[digit] = colorPalette[idx % colorPalette.length];
                 });
                 setFocusedCandidates(candidateColorMap);
               } else {
