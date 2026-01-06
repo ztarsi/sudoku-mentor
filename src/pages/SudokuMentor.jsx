@@ -694,6 +694,25 @@ export default function SudokuMentor() {
                 // Set the first instance as the current step so it can be applied
                 if (instances.length > 0) {
                   setCurrentStep(instances[0]);
+                  
+                  // For multi-candidate techniques, extract all candidates and assign colors
+                  const multiCandidateTechniques = ['Naked Pair', 'Hidden Pair', 'Naked Triple'];
+                  const firstStep = instances[0];
+                  if (multiCandidateTechniques.includes(firstStep.technique) && firstStep.baseCells) {
+                    const candidatesInvolved = new Set();
+                    firstStep.baseCells.forEach(cellIdx => {
+                      grid[cellIdx].candidates.forEach(c => candidatesInvolved.add(c));
+                    });
+                    
+                    const colors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
+                    const candidateColorMap = {};
+                    Array.from(candidatesInvolved).forEach((digit, idx) => {
+                      candidateColorMap[digit] = colors[idx % colors.length];
+                    });
+                    setFocusedCandidates(candidateColorMap);
+                  } else {
+                    setFocusedCandidates(null);
+                  }
                 }
 
                 // Highlight cells from the current instance
@@ -713,15 +732,6 @@ export default function SudokuMentor() {
                         isHighlighted: true,
                         isBaseCell: true,
                         highlightColor: 'blue'
-                      };
-                    });
-
-                    step.targetCells?.forEach(idx => {
-                      newGrid[idx] = {
-                        ...newGrid[idx],
-                        isHighlighted: true,
-                        isTargetCell: true,
-                        highlightColor: 'red'
                       };
                     });
                   });
@@ -751,6 +761,29 @@ export default function SudokuMentor() {
           onChainPlaybackChange={setChainPlaybackIndex}
           chainPlaybackIndex={chainPlaybackIndex}
           onHighlightTechnique={(instances, total, current) => {
+            if (instances.length > 0) {
+              setCurrentStep(instances[0]);
+              
+              // For multi-candidate techniques, extract all candidates and assign colors
+              const multiCandidateTechniques = ['Naked Pair', 'Hidden Pair', 'Naked Triple'];
+              const firstStep = instances[0];
+              if (multiCandidateTechniques.includes(firstStep.technique) && firstStep.baseCells) {
+                const candidatesInvolved = new Set();
+                firstStep.baseCells.forEach(cellIdx => {
+                  grid[cellIdx].candidates.forEach(c => candidatesInvolved.add(c));
+                });
+                
+                const colors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
+                const candidateColorMap = {};
+                Array.from(candidatesInvolved).forEach((digit, idx) => {
+                  candidateColorMap[digit] = colors[idx % colors.length];
+                });
+                setFocusedCandidates(candidateColorMap);
+              } else {
+                setFocusedCandidates(null);
+              }
+            }
+
             setGrid(prev => {
               const newGrid = prev.map(cell => ({
                 ...cell,
@@ -767,15 +800,6 @@ export default function SudokuMentor() {
                     isHighlighted: true,
                     isBaseCell: true,
                     highlightColor: 'blue'
-                  };
-                });
-
-                step.targetCells?.forEach(idx => {
-                  newGrid[idx] = {
-                    ...newGrid[idx],
-                    isHighlighted: true,
-                    isTargetCell: true,
-                    highlightColor: 'red'
                   };
                 });
               });
