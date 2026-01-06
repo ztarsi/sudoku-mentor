@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import SudokuGrid from '@/components/sudoku/SudokuGrid';
 import DigitFilter from '@/components/sudoku/DigitFilter';
@@ -12,6 +13,7 @@ import { generateCandidates, findNextLogicStep, applyLogicStep, eliminateCandida
 import { solveSudoku } from '@/components/sudoku/solver';
 import { base44 } from '@/api/base44Client';
 import { AnimatePresence, motion } from 'framer-motion';
+import { PUZZLES } from '@/components/sudoku/PuzzleLibrary';
 
 const createEmptyGrid = () => {
   return Array(81).fill(null).map((_, index) => ({
@@ -274,7 +276,8 @@ export default function SudokuMentor() {
   const handleRedo = useCallback(() => {
     if (historyIndex < stepHistory.length - 1) {
       setHistoryIndex(i => i + 1);
-      // Reapply the action
+      // Reapply the action (currently not replaying, just moving index)
+      // TODO: Re-apply the action from history to the grid. For now, it just goes back/forward to saved grid states.
     }
   }, [historyIndex, stepHistory]);
 
@@ -511,10 +514,18 @@ export default function SudokuMentor() {
   useEffect(() => {
     const loadRandomPuzzle = async () => {
       try {
-        const puzzles = await base44.entities.SudokuPuzzle.list();
-        if (puzzles && puzzles.length > 0) {
-          const randomPuzzle = puzzles[Math.floor(Math.random() * puzzles.length)];
-          await handleLoadPuzzle(randomPuzzle.puzzle);
+        const userPuzzles = await base44.entities.SudokuPuzzle.list();
+        
+        // Combine built-in puzzles with user-uploaded ones
+        const allAvailablePuzzles = [];
+        for (const difficulty in PUZZLES) {
+          PUZZLES[difficulty].forEach(p => allAvailablePuzzles.push(p.puzzle));
+        }
+        userPuzzles.forEach(p => allAvailablePuzzles.push(p.puzzle));
+
+        if (allAvailablePuzzles.length > 0) {
+          const randomPuzzle = allAvailablePuzzles[Math.floor(Math.random() * allAvailablePuzzles.length)];
+          await handleLoadPuzzle(randomPuzzle);
         }
       } catch (error) {
         console.error('Failed to load random puzzle:', error);
