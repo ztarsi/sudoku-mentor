@@ -202,13 +202,23 @@ export default function SudokuMentor() {
           isTargetCell: false
         }));
         
-        // Highlight base cells only
+        // Highlight base cells
         step.baseCells?.forEach(idx => {
           newGrid[idx] = {
             ...newGrid[idx],
             isHighlighted: true,
             isBaseCell: true,
             highlightColor: 'blue'
+          };
+        });
+        
+        // Highlight target cells (where eliminations happen)
+        step.targetCells?.forEach(idx => {
+          newGrid[idx] = {
+            ...newGrid[idx],
+            isHighlighted: true,
+            isTargetCell: true,
+            highlightColor: 'red'
           };
         });
         
