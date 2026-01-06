@@ -142,16 +142,13 @@ export default function Cell({
                   flex items-center justify-center text-xs sm:text-sm cursor-pointer
                   transition-all duration-200 rounded hover:bg-slate-700/50
                   ${!hasCandidate ? 'text-transparent' : (
-                    isTargetCell && focusedDigit === num 
-                      ? 'text-red-400 font-bold animate-pulse' 
-                      : isBaseCell && focusedDigit === num
-                        ? 'text-blue-400 font-bold'
-                        : (isHighlightedCandidate || isMultiColorCandidate)
-                          ? 'font-semibold' 
-                          : 'text-white'
+                    // Only highlight candidates in base cells, not target cells
+                    isBaseCell && (isHighlightedCandidate || isMultiColorCandidate)
+                      ? 'font-semibold' 
+                      : 'text-white'
                   )}
                 `}
-                style={(isHighlightedCandidate || isMultiColorCandidate) ? {
+                style={isBaseCell && (isHighlightedCandidate || isMultiColorCandidate) ? {
                   backgroundColor: `${candidateColor}E6`,
                   boxShadow: `0 0 0 2px ${candidateColor}`,
                   color: '#000'
