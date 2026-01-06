@@ -4,7 +4,7 @@ import { X, Sparkles, Flame, Zap, Crown, Skull, Brain, Edit2, Check } from 'luci
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
-export const PUZZLES = {
+const PUZZLES = {
   easy: [
     {
       name: 'Gentle Start',
