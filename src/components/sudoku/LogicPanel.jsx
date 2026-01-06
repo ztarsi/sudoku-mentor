@@ -794,15 +794,17 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
               exit={{ opacity: 0 }}
               className="p-5 text-center"
             >
-              <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-slate-800 flex items-center justify-center">
-                <Info className="w-8 h-8 text-slate-500" />
-              </div>
-              <p className="text-slate-400 text-base">
-                {focusedDigit 
-                  ? `Filtering for digit ${focusedDigit}. Click Hint to find patterns.`
-                  : 'Load a puzzle and click Hint to get started.'
-                }
-              </p>
+              <button
+                onClick={onNextStep}
+                className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 flex items-center justify-center transition-all shadow-lg hover:shadow-xl"
+              >
+                <Lightbulb className="w-8 h-8 text-white" />
+              </button>
+              {focusedDigit && (
+                <p className="text-slate-400 text-base">
+                  Filtering for digit {focusedDigit}. Click above to find patterns.
+                </p>
+              )}
             </motion.div>
           )}
           </AnimatePresence>
