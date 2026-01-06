@@ -12,6 +12,7 @@ export default function Cell({
   hasError,
   borderClasses,
   focusedDigit,
+  focusedCandidates,
   candidateMode,
   colors,
   onClick, 
@@ -118,6 +119,8 @@ export default function Cell({
           {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => {
             const hasCandidate = candidates.includes(num);
             const isHighlightedCandidate = focusedDigit === num && hasCandidate;
+            const isMultiColorCandidate = focusedCandidates && focusedCandidates[num] && hasCandidate;
+            const candidateColor = isMultiColorCandidate ? focusedCandidates[num] : focusDigitColor;
 
             return (
               <div 
@@ -143,14 +146,14 @@ export default function Cell({
                       ? 'text-red-400 font-bold animate-pulse' 
                       : isBaseCell && focusedDigit === num
                         ? 'text-blue-400 font-bold'
-                        : isHighlightedCandidate 
+                        : (isHighlightedCandidate || isMultiColorCandidate)
                           ? 'font-semibold' 
                           : 'text-white'
                   )}
                 `}
-                style={isHighlightedCandidate ? {
-                  backgroundColor: `${focusDigitColor}E6`,
-                  boxShadow: `0 0 0 2px ${focusDigitColor}`,
+                style={(isHighlightedCandidate || isMultiColorCandidate) ? {
+                  backgroundColor: `${candidateColor}E6`,
+                  boxShadow: `0 0 0 2px ${candidateColor}`,
                   color: '#000'
                 } : {}}
               >

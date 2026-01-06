@@ -6,6 +6,7 @@ export default function SudokuGrid({
   grid, 
   selectedCell, 
   focusedDigit,
+  focusedCandidates,
   highlightedDigit,
   validationErrors,
   candidateMode,
@@ -168,6 +169,7 @@ export default function SudokuGrid({
                     hasError={validationErrors.includes(index)}
                     borderClasses={`${borderRight} ${borderBottom}`}
                     focusedDigit={focusedDigit}
+                    focusedCandidates={focusedCandidates}
                     candidateMode={candidateMode}
                     colors={colors}
                     onClick={() => onCellClick(index)}
