@@ -53,6 +53,7 @@ export default function SudokuMentor() {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStage, setLoadingStage] = useState(0);
   const [chainPlaybackIndex, setChainPlaybackIndex] = useState(0);
+  const [showAppInfo, setShowAppInfo] = useState(false);
 
   const errorAudioRef = useRef(null);
 
