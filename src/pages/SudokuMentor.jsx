@@ -202,13 +202,23 @@ export default function SudokuMentor() {
           isTargetCell: false
         }));
         
-        // Highlight base cells only
+        // Highlight base cells
         step.baseCells?.forEach(idx => {
           newGrid[idx] = {
             ...newGrid[idx],
             isHighlighted: true,
             isBaseCell: true,
             highlightColor: 'blue'
+          };
+        });
+        
+        // Highlight target cells (elimination cells)
+        step.targetCells?.forEach(idx => {
+          newGrid[idx] = {
+            ...newGrid[idx],
+            isHighlighted: true,
+            isTargetCell: true,
+            highlightColor: 'red'
           };
         });
         
@@ -738,6 +748,15 @@ export default function SudokuMentor() {
                         highlightColor: 'blue'
                       };
                     });
+                    
+                    step.targetCells?.forEach(idx => {
+                      newGrid[idx] = {
+                        ...newGrid[idx],
+                        isHighlighted: true,
+                        isTargetCell: true,
+                        highlightColor: 'red'
+                      };
+                    });
                   });
 
                   return newGrid;
@@ -811,6 +830,15 @@ export default function SudokuMentor() {
                     isHighlighted: true,
                     isBaseCell: true,
                     highlightColor: 'blue'
+                  };
+                });
+                
+                step.targetCells?.forEach(idx => {
+                  newGrid[idx] = {
+                    ...newGrid[idx],
+                    isHighlighted: true,
+                    isTargetCell: true,
+                    highlightColor: 'red'
                   };
                 });
               });
