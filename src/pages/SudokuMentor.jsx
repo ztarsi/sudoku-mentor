@@ -511,10 +511,18 @@ export default function SudokuMentor() {
   useEffect(() => {
     const loadRandomPuzzle = async () => {
       try {
-        const puzzles = await base44.entities.SudokuPuzzle.list();
-        if (puzzles && puzzles.length > 0) {
-          const randomPuzzle = puzzles[Math.floor(Math.random() * puzzles.length)];
-          await handleLoadPuzzle(randomPuzzle.puzzle);
+        const userPuzzles = await base44.entities.SudokuPuzzle.list();
+        
+        // Combine built-in puzzles with user-uploaded ones
+        const allAvailablePuzzles = [];
+        for (const difficulty in PUZZLES) {
+          PUZZLES[difficulty].forEach(p => allAvailablePuzzles.push(p.puzzle));
+        }
+        userPuzzles.forEach(p => allAvailablePuzzles.push(p.puzzle));
+
+        if (allAvailablePuzzles.length > 0) {
+          const randomPuzzle = allAvailablePuzzles[Math.floor(Math.random() * allAvailablePuzzles.length)];
+          await handleLoadPuzzle(randomPuzzle);
         }
       } catch (error) {
         console.error('Failed to load random puzzle:', error);
