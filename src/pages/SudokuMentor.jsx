@@ -11,6 +11,7 @@ import LoadingModal from '@/components/sudoku/LoadingModal';
 import { generateCandidates, findNextLogicStep, applyLogicStep, eliminateCandidatesFromPeers } from '@/components/sudoku/logicEngine';
 import { solveSudoku } from '@/components/sudoku/solver';
 import { base44 } from '@/api/base44Client';
+import { AnimatePresence } from 'framer-motion';
 
 const createEmptyGrid = () => {
   return Array(81).fill(null).map((_, index) => ({
@@ -573,6 +574,15 @@ export default function SudokuMentor() {
               
               {/* Buttons - icons on mobile, text on desktop */}
               <button
+                onClick={() => setShowAppInfo(true)}
+                className="p-2 bg-slate-800 text-slate-300 rounded-lg lg:rounded-xl hover:bg-slate-700 transition-all duration-200"
+                title="About Sudoku Mentor"
+              >
+                <svg className="w-4 h-4 lg:w-5 lg:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </button>
+              <button
                 onClick={() => setShowColorSettings(true)}
                 className="p-2 bg-slate-800 text-slate-300 rounded-lg lg:rounded-xl hover:bg-slate-700 transition-all duration-200"
                 title="Color Settings"
@@ -782,6 +792,90 @@ export default function SudokuMentor() {
         stages={loadingStages}
         currentStage={loadingStage}
       />
-    </div>
-  );
-}
+
+      {/* App Info Modal */}
+      <AnimatePresence>
+        {showAppInfo && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setShowAppInfo(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 w-full max-w-lg overflow-hidden"
+            >
+              <div className="p-6 border-b border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
+                    <span className="text-white font-bold text-xl">9</span>
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-semibold text-white">Sudoku Mentor</h2>
+                    <p className="text-slate-400">Learn logic-based solving</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 space-y-4 text-slate-300">
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-2">What is this?</h3>
+                  <p className="text-sm leading-relaxed">
+                    Sudoku Mentor is an intelligent solving assistant that teaches you human-style techniques. 
+                    Instead of just giving answers, it shows you the logical reasoning behind each step.
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-2">How to use</h3>
+                  <ul className="text-sm space-y-2">
+                    <li className="flex items-start gap-2">
+                      <span className="text-blue-400 mt-1">•</span>
+                      <span><strong className="text-white">Load a puzzle</strong> from the library, upload an image, or enter manually</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-blue-400 mt-1">•</span>
+                      <span><strong className="text-white">Click Hint</strong> to discover the next logical technique available</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-blue-400 mt-1">•</span>
+                      <span><strong className="text-white">Learn techniques</strong> by reading explanations and seeing highlighted cells</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-blue-400 mt-1">•</span>
+                      <span><strong className="text-white">Apply steps</strong> or solve manually using keyboard shortcuts</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-blue-400 mt-1">•</span>
+                      <span><strong className="text-white">Browse techniques</strong> in the hierarchy panel to see what's possible</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="bg-blue-950/30 border border-blue-800/30 rounded-lg p-3">
+                  <p className="text-sm text-blue-200">
+                    <strong>Pro tip:</strong> Use the keyboard shortcuts panel to speed up your solving!
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-6 pt-0">
+                <button
+                  onClick={() => setShowAppInfo(false)}
+                  className="w-full py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors"
+                >
+                  Got it, let's solve!
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      </div>
+      );
+      }
