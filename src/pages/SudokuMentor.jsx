@@ -10,6 +10,7 @@ import MobileDrawer from '@/components/sudoku/MobileDrawer';
 import LoadingModal from '@/components/sudoku/LoadingModal';
 import { generateCandidates, findNextLogicStep, applyLogicStep, eliminateCandidatesFromPeers } from '@/components/sudoku/logicEngine';
 import { solveSudoku } from '@/components/sudoku/solver';
+import { base44 } from '@/api/base44Client';
 
 const createEmptyGrid = () => {
   return Array(81).fill(null).map((_, index) => ({
@@ -503,6 +504,22 @@ export default function SudokuMentor() {
 
   const solvedCount = grid.filter(c => c.value !== null).length;
   const progress = Math.round((solvedCount / 81) * 100);
+
+  // Load a random puzzle on mount
+  useEffect(() => {
+    const loadRandomPuzzle = async () => {
+      try {
+        const puzzles = await base44.entities.SudokuPuzzle.list();
+        if (puzzles && puzzles.length > 0) {
+          const randomPuzzle = puzzles[Math.floor(Math.random() * puzzles.length)];
+          await handleLoadPuzzle(randomPuzzle.puzzle);
+        }
+      } catch (error) {
+        console.error('Failed to load random puzzle:', error);
+      }
+    };
+    loadRandomPuzzle();
+  }, []);
 
   // Calculate ghost grid for chain visualization
   const ghostGrid = useMemo(() => {
