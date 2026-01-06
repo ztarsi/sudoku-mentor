@@ -122,9 +122,10 @@ const TECHNIQUE_INFO = {
 
 export default function LogicPanel({ currentStep, focusedDigit, grid, onHighlightTechnique, onApplyStep, onNextStep, onChainPlaybackChange, chainPlaybackIndex }) {
   const [selectedTechnique, setSelectedTechnique] = useState(null);
-  const [shortcutsExpanded, setShortcutsExpanded] = useState(true);
-  const [techniqueExpanded, setTechniqueExpanded] = useState(true);
+  const [shortcutsExpanded, setShortcutsExpanded] = useState(false);
+  const [techniqueExpanded, setTechniqueExpanded] = useState(false);
   const [techniqueIndices, setTechniqueIndices] = useState({});
+  const [showInfoModal, setShowInfoModal] = useState(null);
   const [showUltimateScan, setShowUltimateScan] = useState(false);
   const [scanningTechnique, setScanningTechnique] = useState(null);
   const [scanResults, setScanResults] = useState({});
@@ -355,7 +356,19 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
       onClick={() => setTechniqueExpanded(!techniqueExpanded)}
       className="w-full p-5 flex items-center justify-between hover:bg-slate-800/50 transition-colors"
       >
-      <h4 className="text-lg font-semibold">Technique Hierarchy</h4>
+      <div className="flex items-center gap-2">
+        <h4 className="text-lg font-semibold">Technique Hierarchy</h4>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowInfoModal('techniques');
+          }}
+          className="p-1 hover:bg-slate-700 rounded-lg transition-colors"
+          title="Learn more"
+        >
+          <Info className="w-4 h-4 text-slate-400" />
+        </button>
+      </div>
       {techniqueExpanded ? (
         <ChevronUp className="w-5 h-5 text-slate-400" />
       ) : (
@@ -485,10 +498,19 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
           onClick={() => setShortcutsExpanded(!shortcutsExpanded)}
           className="w-full p-5 flex items-center justify-between hover:bg-slate-800/50 transition-colors"
         >
-          <h4 className="text-lg font-semibold flex items-center gap-2">
-            <span className="text-sm px-2 py-0.5 bg-slate-700 rounded">Tips</span>
-            Keyboard Shortcuts
-          </h4>
+          <div className="flex items-center gap-2">
+            <h4 className="text-lg font-semibold">Keyboard Shortcuts</h4>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowInfoModal('shortcuts');
+              }}
+              className="p-1 hover:bg-slate-700 rounded-lg transition-colors"
+              title="Learn more"
+            >
+              <Info className="w-4 h-4 text-slate-400" />
+            </button>
+          </div>
           {shortcutsExpanded ? (
             <ChevronUp className="w-5 h-5 text-slate-400" />
           ) : (
@@ -851,6 +873,49 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
         currentDepth={currentSearchDepth}
         isSearching={searchingForcingChain}
       />
-    </div>
-  );
-}
+
+      {/* Info Modal */}
+      <AnimatePresence>
+        {showInfoModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setShowInfoModal(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 w-full max-w-md p-6"
+            >
+              <div className="flex items-start gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+                  <Info className="w-6 h-6 text-blue-400" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-xl font-semibold text-white mb-2">
+                    {showInfoModal === 'techniques' ? 'Technique Hierarchy' : 'Keyboard Shortcuts'}
+                  </h3>
+                  <p className="text-slate-300 text-sm leading-relaxed">
+                    {showInfoModal === 'techniques' 
+                      ? 'Browse all Sudoku solving techniques organized by difficulty. Click on technique names to learn how they work, or click the counter badges to see live examples in your current puzzle. Use the Scan button to find advanced techniques.'
+                      : 'Speed up your solving with keyboard shortcuts. Navigate the grid with arrow keys, enter numbers directly, and use Shift for candidate mode. Press H for hints and A to apply the current step. All shortcuts work seamlessly together for efficient solving.'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowInfoModal(null)}
+                className="w-full py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors"
+              >
+                Got it
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      </div>
+      );
+      }
