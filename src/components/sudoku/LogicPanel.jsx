@@ -120,7 +120,7 @@ const TECHNIQUE_INFO = {
   }
 };
 
-export default function LogicPanel({ currentStep, focusedDigit, grid, onHighlightTechnique, onApplyStep, onNextStep, onChainPlaybackChange, chainPlaybackIndex }) {
+export default function LogicPanel({ currentStep, focusedDigit, grid, noAssistMode, onHighlightTechnique, onApplyStep, onNextStep, onChainPlaybackChange, chainPlaybackIndex }) {
   const [selectedTechnique, setSelectedTechnique] = useState(null);
   const [shortcutsExpanded, setShortcutsExpanded] = useState(false);
   const [techniqueExpanded, setTechniqueExpanded] = useState(true);
@@ -353,8 +353,9 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
       {/* Technique Hierarchy */}
       <div className="bg-slate-900 rounded-2xl text-white border border-slate-700 overflow-hidden">
         <button
-          onClick={() => setTechniqueExpanded(!techniqueExpanded)}
-          className="w-full p-5 flex items-center justify-between hover:bg-slate-800/50 transition-colors"
+          onClick={() => !noAssistMode && setTechniqueExpanded(!techniqueExpanded)}
+          disabled={noAssistMode}
+          className="w-full p-5 flex items-center justify-between hover:bg-slate-800/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <div className="flex items-center gap-2">
             <h4 className="text-lg font-semibold">Technique Hierarchy</h4>
@@ -377,7 +378,7 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
         </button>
 
         <AnimatePresence>
-          {techniqueExpanded && (
+          {techniqueExpanded && !noAssistMode && (
             <motion.div
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
@@ -711,16 +712,29 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
               exit={{ opacity: 0 }}
               className="p-5 text-center"
             >
-              <button
-                onClick={onNextStep}
-                className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 flex items-center justify-center transition-all shadow-lg hover:shadow-xl"
-              >
-                <Lightbulb className="w-8 h-8 text-white" />
-              </button>
-              {focusedDigit && (
-                <p className="text-slate-400 text-base">
-                  Filtering for digit {focusedDigit}. Click above to find patterns.
-                </p>
+              {noAssistMode ? (
+                <div className="py-8">
+                  <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-slate-800 flex items-center justify-center opacity-50">
+                    <Lightbulb className="w-8 h-8 text-slate-600" />
+                  </div>
+                  <p className="text-slate-500 text-sm">
+                    Hints disabled in No Assist Mode
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <button
+                    onClick={onNextStep}
+                    className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 flex items-center justify-center transition-all shadow-lg hover:shadow-xl"
+                  >
+                    <Lightbulb className="w-8 h-8 text-white" />
+                  </button>
+                  {focusedDigit && (
+                    <p className="text-slate-400 text-base">
+                      Filtering for digit {focusedDigit}. Click above to find patterns.
+                    </p>
+                  )}
+                </>
               )}
             </motion.div>
           )}
@@ -728,19 +742,21 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
       </motion.div>
 
       {/* Auto-Play Controls */}
-      <div className="bg-slate-900 rounded-2xl shadow-lg shadow-black/50 p-5 border border-slate-700">
+      <div className={`bg-slate-900 rounded-2xl shadow-lg shadow-black/50 p-5 border border-slate-700 ${noAssistMode ? 'opacity-50' : ''}`}>
         <h4 className="text-lg font-semibold text-white mb-3">Auto-Solve</h4>
         <div className="flex gap-2">
           <Button
             onClick={handlePlayPause}
-            className={`${isPlaying ? 'bg-red-600 hover:bg-red-500' : 'bg-green-600 hover:bg-green-500'}`}
+            disabled={noAssistMode}
+            className={`${isPlaying ? 'bg-red-600 hover:bg-red-500' : 'bg-green-600 hover:bg-green-500'} disabled:opacity-50 disabled:cursor-not-allowed`}
           >
             {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
           </Button>
           <Button
             onClick={handleSkipStep}
+            disabled={noAssistMode}
             variant="outline"
-            className="border-slate-600"
+            className="border-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <SkipForward className="w-4 h-4" />
           </Button>
@@ -753,7 +769,8 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
             <button
               key={value}
               onClick={() => setPlaySpeed(value)}
-              className={`px-3 py-2 rounded text-sm transition-colors ${
+              disabled={noAssistMode}
+              className={`px-3 py-2 rounded text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                 playSpeed === value
                   ? 'bg-blue-600 text-white'
                   : 'bg-slate-800 text-slate-300 hover:bg-slate-700'

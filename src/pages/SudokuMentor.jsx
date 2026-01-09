@@ -62,6 +62,9 @@ export default function SudokuMentor() {
   const [showCopyConfirmation, setShowCopyConfirmation] = useState(false);
   const [currentPuzzleName, setCurrentPuzzleName] = useState(null);
   const [currentPuzzleDifficulty, setCurrentPuzzleDifficulty] = useState(null);
+  const [noAssistMode, setNoAssistMode] = useState(false);
+  const [showNoAssistModal, setShowNoAssistModal] = useState(false);
+  const [noAssistStartTime, setNoAssistStartTime] = useState(null);
 
   const errorAudioRef = useRef(null);
 
@@ -173,6 +176,7 @@ export default function SudokuMentor() {
   };
 
   const handleNextStep = useCallback(async () => {
+    if (noAssistMode) return; // Block hints in no assist mode
     setChainPlaybackIndex(0); // Reset playback for new hint
     const step = findNextLogicStep(grid, null);
     if (step) {
@@ -350,6 +354,7 @@ export default function SudokuMentor() {
   }, [grid, focusedDigit]);
 
   const handleApplyStep = useCallback(() => {
+    if (noAssistMode) return; // Block apply in no assist mode
     if (currentStep) {
       setStepHistory(h => [...h.slice(0, historyIndex + 1), { grid, action: currentStep.technique }]);
       setHistoryIndex(i => i + 1);
@@ -368,7 +373,7 @@ export default function SudokuMentor() {
       setRemovalCandidates(null);
       clearHighlights();
     }
-  }, [currentStep, grid, historyIndex]);
+  }, [currentStep, grid, historyIndex, noAssistMode]);
 
   const handleUndo = useCallback(() => {
     if (historyIndex >= 0) {
@@ -406,6 +411,11 @@ export default function SudokuMentor() {
     } else {
       setCurrentPuzzleName(null);
       setCurrentPuzzleDifficulty(null);
+    }
+    
+    // Reset no assist timer if in no assist mode
+    if (noAssistMode) {
+      setNoAssistStartTime(Date.now());
     }
     
     // Stage 1: Loading puzzle
@@ -531,15 +541,15 @@ export default function SudokuMentor() {
         return;
       }
       
-      // Hint shortcut (H key)
-      if (e.key.toLowerCase() === 'h' && !e.ctrlKey && !e.metaKey) {
+      // Hint shortcut (H key) - disabled in no assist mode
+      if (e.key.toLowerCase() === 'h' && !e.ctrlKey && !e.metaKey && !noAssistMode) {
         e.preventDefault();
         handleNextStep();
         return;
       }
-      
-      // Apply step (A key)
-      if (e.key.toLowerCase() === 'a' && !e.ctrlKey && !e.metaKey && currentStep) {
+
+      // Apply step (A key) - disabled in no assist mode
+      if (e.key.toLowerCase() === 'a' && !e.ctrlKey && !e.metaKey && currentStep && !noAssistMode) {
         e.preventDefault();
         handleApplyStep();
         return;
@@ -614,7 +624,7 @@ export default function SudokuMentor() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [selectedCell, grid, candidateMode, currentStep, historyIndex, handleCellInput, handleToggleCandidate, handleDigitFilter, handleClearGrid, handleNextStep, handleApplyStep, handleUndo, showPuzzleLoader, showColorSettings, showCompletion, drawerOpen, showAccountMenu, showAppInfo, showCopyConfirmation]);
+    }, [selectedCell, grid, candidateMode, currentStep, historyIndex, handleCellInput, handleToggleCandidate, handleDigitFilter, handleClearGrid, handleNextStep, handleApplyStep, handleUndo, showPuzzleLoader, showColorSettings, showCompletion, drawerOpen, showAccountMenu, showAppInfo, showCopyConfirmation, noAssistMode]);
 
   // Check if puzzle is complete
   useEffect(() => {
@@ -627,8 +637,20 @@ export default function SudokuMentor() {
     if (isSolved && solvedCount === 81) {
       const timeInSeconds = Math.floor((Date.now() - startTime) / 1000);
       setShowCompletion(true);
+      
+      // Save solve record if in no assist mode
+      if (noAssistMode && noAssistStartTime && user && currentPuzzleName && currentPuzzleDifficulty) {
+        const noAssistTime = Math.floor((Date.now() - noAssistStartTime) / 1000);
+        base44.entities.SolveRecord.create({
+          puzzle_name: currentPuzzleName,
+          difficulty: currentPuzzleDifficulty,
+          time_seconds: noAssistTime,
+          no_assist: true,
+          error_count: errorCount
+        }).catch(err => console.error('Failed to save solve record:', err));
+      }
     }
-  }, [grid, solution, startTime]);
+  }, [grid, solution, startTime, noAssistMode, noAssistStartTime, user, currentPuzzleName, currentPuzzleDifficulty, errorCount]);
 
   const handleCopyPuzzle = () => {
     // Extract only the fixed cells (initial puzzle state)
@@ -739,7 +761,10 @@ export default function SudokuMentor() {
                   {currentPuzzleDifficulty && (
                     <span className="px-3 py-1 bg-slate-800 rounded-full text-sm capitalize text-slate-300">{currentPuzzleDifficulty}</span>
                   )}
-                </div>
+                  {noAssistMode && (
+                    <span className="px-3 py-1 bg-red-600 rounded-full text-sm font-medium text-white">No Assist</span>
+                  )}
+                  </div>
               ) : (
                 <p className="text-base text-slate-400">Learn logic-based solving</p>
               )}
@@ -760,6 +785,26 @@ export default function SudokuMentor() {
               >
                 <svg className="w-4 h-4 lg:w-5 lg:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </button>
+              <button
+                onClick={() => {
+                  if (!noAssistMode) {
+                    setShowNoAssistModal(true);
+                  } else {
+                    setNoAssistMode(false);
+                    setNoAssistStartTime(null);
+                  }
+                }}
+                className={`p-2 rounded-lg lg:rounded-xl transition-all duration-200 ${
+                  noAssistMode 
+                    ? 'bg-red-600 text-white hover:bg-red-700' 
+                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                }`}
+                title={noAssistMode ? "Disable No Assist Mode" : "Enable No Assist Mode"}
+              >
+                <svg className="w-4 h-4 lg:w-5 lg:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                 </svg>
               </button>
               <button
@@ -887,6 +932,7 @@ export default function SudokuMentor() {
               currentStep={currentStep}
               focusedDigit={focusedDigit}
               grid={grid}
+              noAssistMode={noAssistMode}
               onApplyStep={handleApplyStep}
               onNextStep={handleNextStep}
               onChainPlaybackChange={setChainPlaybackIndex}
@@ -1029,6 +1075,7 @@ export default function SudokuMentor() {
           currentStep={currentStep}
           focusedDigit={focusedDigit}
           grid={grid}
+          noAssistMode={noAssistMode}
           onApplyStep={handleApplyStep}
           onNextStep={handleNextStep}
           onChainPlaybackChange={setChainPlaybackIndex}
@@ -1303,6 +1350,108 @@ export default function SudokuMentor() {
               </svg>
               <span className="font-medium">Puzzle copied to clipboard!</span>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* No Assist Mode Modal */}
+      <AnimatePresence>
+        {showNoAssistModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setShowNoAssistModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 w-full max-w-lg overflow-hidden"
+            >
+              <div className="p-6 border-b border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-red-500 to-orange-600 flex items-center justify-center shadow-lg shadow-red-500/25">
+                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-semibold text-white">No Assist Mode</h2>
+                    <p className="text-slate-400">Challenge yourself</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 space-y-4 text-slate-300">
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-2">What gets disabled:</h3>
+                  <ul className="text-sm space-y-2">
+                    <li className="flex items-start gap-2">
+                      <span className="text-red-400 mt-1">✕</span>
+                      <span><strong className="text-white">Hints</strong> - No logical step suggestions</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-red-400 mt-1">✕</span>
+                      <span><strong className="text-white">Technique Hierarchy</strong> - Pattern browser hidden</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-red-400 mt-1">✕</span>
+                      <span><strong className="text-white">Auto-Solve</strong> - No automated solving</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-red-400 mt-1">✕</span>
+                      <span><strong className="text-white">Keyboard Shortcuts</strong> - H and A keys disabled</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-2">What you can still use:</h3>
+                  <ul className="text-sm space-y-2">
+                    <li className="flex items-start gap-2">
+                      <span className="text-green-400 mt-1">✓</span>
+                      <span><strong className="text-white">Focus Mode</strong> - Digit highlighting remains available</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-green-400 mt-1">✓</span>
+                      <span><strong className="text-white">Candidate Mode</strong> - Manual pencil marks still work</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-green-400 mt-1">✓</span>
+                      <span><strong className="text-white">Undo/Redo</strong> - Mistake recovery enabled</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="bg-blue-950/30 border border-blue-800/30 rounded-lg p-3">
+                  <p className="text-sm text-blue-200">
+                    <strong>Timer & Records:</strong> Your solve time will be tracked and saved to your account when you complete the puzzle!
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-6 pt-0 flex gap-3">
+                <button
+                  onClick={() => setShowNoAssistModal(false)}
+                  className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-medium transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setNoAssistMode(true);
+                    setNoAssistStartTime(Date.now());
+                    setShowNoAssistModal(false);
+                  }}
+                  className="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+                >
+                  Enable No Assist
+                </button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
