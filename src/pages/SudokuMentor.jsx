@@ -67,6 +67,17 @@ export default function SudokuMentor() {
   const [noAssistStartTime, setNoAssistStartTime] = useState(null);
   const [bestTime, setBestTime] = useState(null);
   const [candidatesVisible, setCandidatesVisible] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect mobile on mount
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const errorAudioRef = useRef(null);
 
@@ -828,8 +839,8 @@ export default function SudokuMentor() {
       <audio ref={errorAudioRef} src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIF2i777edTRALUKXi8LljHAU2jdTwzIUsBS2Ayv=="  preload="auto"></audio>
       
       {/* Header */}
-      <header className="bg-slate-900/90 backdrop-blur-md border-b border-slate-700/60 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-2 lg:px-8 py-1 lg:py-4">
+      <header className="bg-slate-900/90 backdrop-blur-md border-b border-slate-700/60 sticky top-0 z-50 safe-area-inset-top">
+        <div className="max-w-7xl mx-auto px-2 lg:px-8 py-2 lg:py-4">
           <div className="flex items-center justify-between">
             {/* Logo and Puzzle Info - Desktop */}
             <div className="hidden lg:flex items-center gap-6">
@@ -867,24 +878,34 @@ export default function SudokuMentor() {
             </div>
 
             {/* Mobile - just icon */}
-            <div className="lg:hidden w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-              <span className="text-white font-bold text-sm">9</span>
+            <div className="lg:hidden flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                <span className="text-white font-bold text-sm">9</span>
+              </div>
+              {currentPuzzleName && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-medium text-white truncate max-w-[120px]">{currentPuzzleName}</span>
+                  {currentPuzzleDifficulty && (
+                    <span className="px-2 py-0.5 bg-slate-800 rounded-full text-xs capitalize text-slate-300">{currentPuzzleDifficulty}</span>
+                  )}
+                </div>
+              )}
             </div>
-            
+
             <div className="flex items-center gap-2 lg:gap-4">
               {/* Progress - desktop only */}
               <div className="hidden lg:flex items-center gap-2 bg-slate-800 rounded-full px-4 py-2">
                 <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
                 <span className="text-base text-slate-300">{progress}% Complete</span>
               </div>
-              
-              {/* Buttons - icons on mobile, text on desktop */}
+
+              {/* Desktop-only buttons */}
               <button
                 onClick={() => setShowAppInfo(true)}
-                className="p-2 bg-slate-800 text-slate-300 rounded-lg lg:rounded-xl hover:bg-slate-700 transition-all duration-200"
+                className="hidden lg:block p-2 bg-slate-800 text-slate-300 rounded-xl hover:bg-slate-700 transition-all duration-200"
                 title="About Sudoku Mentor"
               >
-                <svg className="w-4 h-4 lg:w-5 lg:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </button>
@@ -897,36 +918,36 @@ export default function SudokuMentor() {
                     setNoAssistStartTime(null);
                   }
                 }}
-                className={`p-2 rounded-lg lg:rounded-xl transition-all duration-200 ${
+                className={`hidden lg:block p-2 rounded-xl transition-all duration-200 ${
                   noAssistMode 
                     ? 'bg-red-600 text-white hover:bg-red-700' 
                     : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
                 }`}
                 title={noAssistMode ? "Disable No Assist Mode" : "Enable No Assist Mode"}
               >
-                <svg className="w-4 h-4 lg:w-5 lg:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                 </svg>
               </button>
               <button
                 onClick={() => setShowColorSettings(true)}
-                className="p-2 bg-slate-800 text-slate-300 rounded-lg lg:rounded-xl hover:bg-slate-700 transition-all duration-200"
+                className="hidden lg:block p-2 bg-slate-800 text-slate-300 rounded-xl hover:bg-slate-700 transition-all duration-200"
                 title="Color Settings"
               >
-                <svg className="w-4 h-4 lg:w-5 lg:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
                 </svg>
               </button>
               <button
                 onClick={() => setCandidatesVisible(!candidatesVisible)}
-                className={`p-2 rounded-lg lg:rounded-xl transition-all duration-200 ${
+                className={`hidden lg:block p-2 rounded-xl transition-all duration-200 ${
                   candidatesVisible 
                     ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
                     : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
                 }`}
                 title={candidatesVisible ? "Hide Candidates" : "Show Candidates"}
               >
-                <svg className="w-4 h-4 lg:w-5 lg:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   {candidatesVisible ? (
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                   ) : (
@@ -936,19 +957,19 @@ export default function SudokuMentor() {
               </button>
               <button
                 onClick={handlePrintPuzzle}
-                className="p-2 bg-slate-800 text-slate-300 rounded-lg lg:rounded-xl hover:bg-slate-700 transition-all duration-200"
+                className="hidden lg:block p-2 bg-slate-800 text-slate-300 rounded-xl hover:bg-slate-700 transition-all duration-200"
                 title="Print Puzzle"
               >
-                <svg className="w-4 h-4 lg:w-5 lg:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                 </svg>
               </button>
               <button
                 onClick={handleCopyPuzzle}
-                className="p-2 bg-slate-800 text-slate-300 rounded-lg lg:rounded-xl hover:bg-slate-700 transition-all duration-200"
+                className="hidden lg:block p-2 bg-slate-800 text-slate-300 rounded-xl hover:bg-slate-700 transition-all duration-200"
                 title="Copy Puzzle"
               >
-                <svg className="w-4 h-4 lg:w-5 lg:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                 </svg>
               </button>
@@ -1193,9 +1214,10 @@ export default function SudokuMentor() {
                   });
                   }}
                   />
-          </div>
-        </div>
-      </main>
+                  </div>
+                  </div>
+                  )}
+                  </main>
 
       {/* Mobile Drawer for Logic Panel */}
       <MobileDrawer isOpen={drawerOpen} onClose={() => setDrawerOpen(false)}>
@@ -1335,8 +1357,9 @@ export default function SudokuMentor() {
 
               setDrawerOpen(false);
               }}
-        />
-      </MobileDrawer>
+              />
+              </MobileDrawer>
+              )}
 
       {/* Unified Puzzle Loader Modal */}
       <UnifiedPuzzleLoader
