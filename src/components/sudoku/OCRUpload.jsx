@@ -9,7 +9,10 @@ export default function OCRUpload({ onClose, onPuzzleExtracted, embedded = false
   const [isProcessing, setIsProcessing] = useState(false);
   const [status, setStatus] = useState(null); // 'success' | 'error'
   const [message, setMessage] = useState('');
-  const [puzzleName, setPuzzleName] = useState('');
+  const [puzzleName, setPuzzleName] = useState(() => {
+    const now = new Date();
+    return `OCR Puzzle ${now.toLocaleDateString()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  });
   const [extractedGrid, setExtractedGrid] = useState(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [selectedCell, setSelectedCell] = useState(null);
@@ -93,7 +96,7 @@ export default function OCRUpload({ onClose, onPuzzleExtracted, embedded = false
   };
 
   const handleConfirmExtraction = () => {
-    onPuzzleExtracted(extractedGrid, puzzleName || null);
+    onPuzzleExtracted(extractedGrid, puzzleName);
     onClose();
   };
 
@@ -193,13 +196,12 @@ export default function OCRUpload({ onClose, onPuzzleExtracted, embedded = false
 
           <div>
             <label className="block text-slate-300 text-sm font-medium mb-2">
-              Puzzle Name (optional)
+              Puzzle Name
             </label>
             <input
               type="text"
               value={puzzleName}
               onChange={(e) => setPuzzleName(e.target.value)}
-              placeholder="e.g., My Favorite Puzzle"
               className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
             />
           </div>

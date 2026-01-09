@@ -5,7 +5,10 @@ import { X, Upload, FileText } from 'lucide-react';
 export default function TextPuzzleUpload({ onClose, onPuzzleLoaded, embedded = false }) {
   const [text, setText] = useState('');
   const [error, setError] = useState('');
-  const [puzzleName, setPuzzleName] = useState('');
+  const [puzzleName, setPuzzleName] = useState(() => {
+    const now = new Date();
+    return `Custom Puzzle ${now.toLocaleDateString()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  });
 
   const parseTextPuzzle = (input) => {
     try {
@@ -53,7 +56,7 @@ export default function TextPuzzleUpload({ onClose, onPuzzleLoaded, embedded = f
     setError('');
     try {
       const grid = parseTextPuzzle(text);
-      onPuzzleLoaded(grid, puzzleName || null);
+      onPuzzleLoaded(grid, puzzleName);
     } catch (e) {
       setError(e.message);
     }
@@ -74,12 +77,11 @@ export default function TextPuzzleUpload({ onClose, onPuzzleLoaded, embedded = f
     return (
       <div className="space-y-4">
         <div>
-          <label className="block text-white font-medium mb-2">Puzzle Name (optional):</label>
+          <label className="block text-white font-medium mb-2">Puzzle Name:</label>
           <input
             type="text"
             value={puzzleName}
             onChange={(e) => setPuzzleName(e.target.value)}
-            placeholder="e.g., Daily Challenge"
             className="w-full px-4 py-2 bg-slate-800 text-white border border-slate-700 rounded-lg focus:border-blue-500 focus:outline-none mb-4"
           />
         </div>
