@@ -28,10 +28,10 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
     }
   }, [isOpen]);
 
-  const handlePuzzleLoad = async (puzzle, source = 'library', customName = null) => {
+  const handlePuzzleLoad = async (puzzle, source = 'library', customName = null, puzzleMeta = null) => {
     // If from library, just load it
     if (source === 'library') {
-      onPuzzleLoaded(puzzle);
+      onPuzzleLoaded(puzzle, puzzleMeta);
       return;
     }
 
@@ -80,7 +80,7 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
         source
       });
       
-      onPuzzleLoaded(puzzle);
+      onPuzzleLoaded(puzzle, { name, difficulty });
     } catch (error) {
       console.error('Error saving puzzle:', error);
       alert('Failed to save puzzle: ' + error.message);
@@ -175,7 +175,7 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
                 <PuzzleLibrary
                   isOpen={true}
                   onClose={onClose}
-                  onSelectPuzzle={(puzzle) => handlePuzzleLoad(puzzle, 'library')}
+                  onSelectPuzzle={(puzzle, meta) => handlePuzzleLoad(puzzle, 'library', null, meta)}
                   embedded={true}
                 />
               </div>

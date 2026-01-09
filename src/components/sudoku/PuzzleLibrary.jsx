@@ -287,9 +287,9 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ delay: index * 0.05 }}
-              onClick={() => onSelectPuzzle(puzzle.puzzle)}
+              onClick={() => onSelectPuzzle(puzzle.puzzle, { name: puzzle.name, difficulty: selectedDifficulty })}
               className="flex items-center gap-4 p-4 bg-slate-50 hover:bg-slate-100 rounded-2xl transition-all duration-300 group text-left"
-            >
+              >
               {/* Mini Preview */}
               <div className="w-16 h-16 bg-white rounded-xl shadow-inner grid grid-cols-9 gap-0 p-1 flex-shrink-0">
                 {puzzle.puzzle.map((val, i) => (

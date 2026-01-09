@@ -60,6 +60,8 @@ export default function SudokuMentor() {
   const [user, setUser] = useState(null);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [showCopyConfirmation, setShowCopyConfirmation] = useState(false);
+  const [currentPuzzleName, setCurrentPuzzleName] = useState(null);
+  const [currentPuzzleDifficulty, setCurrentPuzzleDifficulty] = useState(null);
 
   const errorAudioRef = useRef(null);
 
@@ -390,9 +392,18 @@ export default function SudokuMentor() {
     setValidationErrors([]);
   }, [grid]);
 
-  const handleLoadPuzzle = useCallback(async (puzzle) => {
+  const handleLoadPuzzle = useCallback(async (puzzle, puzzleMeta = null) => {
     setIsLoading(true);
     setLoadingStage(0);
+    
+    // Store puzzle metadata
+    if (puzzleMeta) {
+      setCurrentPuzzleName(puzzleMeta.name);
+      setCurrentPuzzleDifficulty(puzzleMeta.difficulty);
+    } else {
+      setCurrentPuzzleName(null);
+      setCurrentPuzzleDifficulty(null);
+    }
     
     // Stage 1: Loading puzzle
     await new Promise(resolve => setTimeout(resolve, 300));
@@ -698,7 +709,16 @@ export default function SudokuMentor() {
               </div>
               <div>
                 <h1 className="text-2xl font-semibold text-white tracking-tight">Sudoku Mentor</h1>
-                <p className="text-sm text-slate-400">Learn logic-based solving</p>
+                {currentPuzzleName ? (
+                  <p className="text-sm text-slate-400">
+                    {currentPuzzleName}
+                    {currentPuzzleDifficulty && (
+                      <span className="ml-2 px-2 py-0.5 bg-slate-800 rounded text-xs capitalize">{currentPuzzleDifficulty}</span>
+                    )}
+                  </p>
+                ) : (
+                  <p className="text-sm text-slate-400">Learn logic-based solving</p>
+                )}
               </div>
             </div>
             
