@@ -169,15 +169,15 @@ export default function SudokuMentor() {
     const step = findNextLogicStep(grid, null);
     if (step) {
       setCurrentStep(step);
-      
-      // For multi-candidate techniques, extract all candidates and assign colors
+
+      // For multi-candidate techniques (excluding ALS-XZ which has its own highlighting), extract all candidates and assign colors
       const multiCandidateTechniques = ['Naked Pair', 'Hidden Pair', 'Naked Triple'];
       if (multiCandidateTechniques.includes(step.technique) && step.baseCells) {
         const candidatesInvolved = new Set();
         step.baseCells.forEach(cellIdx => {
           grid[cellIdx].candidates.forEach(c => candidatesInvolved.add(c));
         });
-        
+
         // Use user's focused digit color for first digit, then other distinct colors
         const colorPalette = [
           colors.focusDigit || '#10b981',
