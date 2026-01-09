@@ -220,6 +220,14 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
     }
   });
 
+  // Delete puzzle mutation
+  const deletePuzzleMutation = useMutation({
+    mutationFn: (id) => base44.entities.SudokuPuzzle.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sudoku-puzzles'] });
+    }
+  });
+
   const config = DIFFICULTY_CONFIG[selectedDifficulty];
   const DifficultyIcon = config.icon;
 
@@ -344,12 +352,29 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
                         </button>
                       </>
                     )}
-                  </h3>
-                )}
-                <p className="text-sm text-slate-500">
-                  {puzzle.puzzle.filter(v => v !== 0).length} clues given
-                </p>
-              </div>
+                    </h3>
+                    )}
+                    <p className="text-sm text-slate-500">
+                    {puzzle.puzzle.filter(v => v !== 0).length} clues given
+                    </p>
+                    </div>
+
+                    {puzzle.isCustom && (
+                    <button
+                    onClick={(e) => {
+                    e.stopPropagation();
+                    if (confirm('Delete this puzzle? This cannot be undone.')) {
+                      deletePuzzleMutation.mutate(puzzle.id);
+                    }
+                    }}
+                    className="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-100 rounded transition-opacity"
+                    title="Delete puzzle"
+                    >
+                    <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    </button>
+                    )}
               
               <div className={`
                 px-3 py-1 rounded-full text-sm font-medium

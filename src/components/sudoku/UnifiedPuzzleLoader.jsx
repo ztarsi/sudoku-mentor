@@ -11,6 +11,22 @@ import { solveSudoku } from './solver';
 export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded }) {
   const [activeTab, setActiveTab] = useState('library');
   const [savingPuzzle, setSavingPuzzle] = useState(false);
+  const [user, setUser] = useState(null);
+
+  // Load user on mount
+  React.useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const currentUser = await base44.auth.me();
+        setUser(currentUser);
+      } catch (error) {
+        setUser(null);
+      }
+    };
+    if (isOpen) {
+      loadUser();
+    }
+  }, [isOpen]);
 
   const handlePuzzleLoad = async (puzzle, source = 'library', customName = null) => {
     // If from library, just load it
@@ -115,21 +131,32 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
             <div className="flex gap-2 px-6 mt-4">
               {tabs.map(tab => {
                 const Icon = tab.icon;
+                const isUploadTab = tab.id === 'ocr' || tab.id === 'text';
+                const isDisabled = isUploadTab && !user;
+                
                 return (
                   <button
                     key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
+                    onClick={() => !isDisabled && setActiveTab(tab.id)}
+                    disabled={isDisabled}
                     className={`
                       flex items-center gap-2 px-4 py-3 rounded-t-lg font-medium transition-all relative
+                      ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}
                       ${activeTab === tab.id
                         ? 'bg-slate-800 text-white'
                         : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
                       }
                     `}
+                    title={isDisabled ? 'Sign in to upload puzzles' : ''}
                   >
                     <Icon className="w-5 h-5" />
                     <span>{tab.label}</span>
-                    {activeTab === tab.id && (
+                    {isDisabled && (
+                      <svg className="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                    )}
+                    {activeTab === tab.id && !isDisabled && (
                       <motion.div
                         layoutId="activeTab"
                         className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500"
@@ -155,22 +182,52 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
             )}
             {activeTab === 'ocr' && (
               <div className="p-6">
-                <OCRUpload
-                  isOpen={true}
-                  onClose={onClose}
-                  onPuzzleExtracted={(puzzle, name) => handlePuzzleLoad(puzzle, 'ocr', name)}
-                  embedded={true}
-                />
+                {user ? (
+                  <OCRUpload
+                    isOpen={true}
+                    onClose={onClose}
+                    onPuzzleExtracted={(puzzle, name) => handlePuzzleLoad(puzzle, 'ocr', name)}
+                    embedded={true}
+                  />
+                ) : (
+                  <div className="text-center py-12">
+                    <svg className="w-16 h-16 mx-auto text-slate-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    <p className="text-slate-400 mb-4">Sign in to upload puzzles via image</p>
+                    <button
+                      onClick={() => base44.auth.redirectToLogin()}
+                      className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors"
+                    >
+                      Sign In
+                    </button>
+                  </div>
+                )}
               </div>
             )}
             {activeTab === 'text' && (
               <div className="p-6">
-                <TextPuzzleUpload
-                  isOpen={true}
-                  onClose={onClose}
-                  onPuzzleLoaded={(puzzle, name) => handlePuzzleLoad(puzzle, 'text', name)}
-                  embedded={true}
-                />
+                {user ? (
+                  <TextPuzzleUpload
+                    isOpen={true}
+                    onClose={onClose}
+                    onPuzzleLoaded={(puzzle, name) => handlePuzzleLoad(puzzle, 'text', name)}
+                    embedded={true}
+                  />
+                ) : (
+                  <div className="text-center py-12">
+                    <svg className="w-16 h-16 mx-auto text-slate-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    <p className="text-slate-400 mb-4">Sign in to upload puzzles via text</p>
+                    <button
+                      onClick={() => base44.auth.redirectToLogin()}
+                      className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors"
+                    >
+                      Sign In
+                    </button>
+                  </div>
+                )}
               </div>
             )}
             
