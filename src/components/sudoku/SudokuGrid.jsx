@@ -11,6 +11,7 @@ export default function SudokuGrid({
   highlightedDigit,
   validationErrors,
   candidateMode,
+  candidatesVisible,
   colors,
   currentStep,
   playbackIndex,
@@ -235,6 +236,7 @@ export default function SudokuGrid({
                     focusedCandidates={focusedCandidates}
                     removalCandidates={removalCandidates?.[index]}
                     candidateMode={candidateMode}
+                    candidatesVisible={candidatesVisible}
                     colors={colors}
                     alsSet={alsSet}
                     alsUnitHighlight={alsUnitHighlight}

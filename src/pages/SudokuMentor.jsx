@@ -66,6 +66,7 @@ export default function SudokuMentor() {
   const [showNoAssistModal, setShowNoAssistModal] = useState(false);
   const [noAssistStartTime, setNoAssistStartTime] = useState(null);
   const [bestTime, setBestTime] = useState(null);
+  const [candidatesVisible, setCandidatesVisible] = useState(true);
 
   const errorAudioRef = useRef(null);
 
@@ -661,6 +662,68 @@ export default function SudokuMentor() {
     setTimeout(() => setShowCopyConfirmation(false), 2000);
   };
 
+  const handlePrintPuzzle = () => {
+    const printWindow = window.open('', '_blank');
+    const puzzleGrid = grid.map(cell => cell.isFixed ? cell.value : 0);
+    
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${currentPuzzleName || 'Sudoku Puzzle'}</title>
+        <style>
+          body { 
+            font-family: Arial, sans-serif; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh; 
+            margin: 0;
+            padding: 20px;
+          }
+          .container { text-align: center; }
+          h1 { margin-bottom: 10px; }
+          .difficulty { color: #666; margin-bottom: 20px; }
+          .grid { 
+            display: inline-grid;
+            grid-template-columns: repeat(9, 40px);
+            gap: 0;
+            border: 3px solid #000;
+          }
+          .cell {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: bold;
+            border: 1px solid #999;
+          }
+          .cell:nth-child(9n+3), .cell:nth-child(9n+6) { border-right: 2px solid #000; }
+          .cell:nth-child(n+19):nth-child(-n+27), .cell:nth-child(n+46):nth-child(-n+54) { border-bottom: 2px solid #000; }
+          @media print {
+            body { padding: 0; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>${currentPuzzleName || 'Sudoku Puzzle'}</h1>
+          ${currentPuzzleDifficulty ? `<div class="difficulty">Difficulty: ${currentPuzzleDifficulty}</div>` : ''}
+          <div class="grid">
+            ${puzzleGrid.map(val => `<div class="cell">${val || ''}</div>`).join('')}
+          </div>
+        </div>
+      </body>
+      </html>
+    `);
+    
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => printWindow.print(), 250);
+  };
+
   const solvedCount = grid.filter(c => c.value !== null).length;
   const progress = Math.round((solvedCount / 81) * 100);
 
@@ -855,6 +918,32 @@ export default function SudokuMentor() {
                 </svg>
               </button>
               <button
+                onClick={() => setCandidatesVisible(!candidatesVisible)}
+                className={`p-2 rounded-lg lg:rounded-xl transition-all duration-200 ${
+                  candidatesVisible 
+                    ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
+                    : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
+                }`}
+                title={candidatesVisible ? "Hide Candidates" : "Show Candidates"}
+              >
+                <svg className="w-4 h-4 lg:w-5 lg:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  {candidatesVisible ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                  )}
+                </svg>
+              </button>
+              <button
+                onClick={handlePrintPuzzle}
+                className="p-2 bg-slate-800 text-slate-300 rounded-lg lg:rounded-xl hover:bg-slate-700 transition-all duration-200"
+                title="Print Puzzle"
+              >
+                <svg className="w-4 h-4 lg:w-5 lg:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                </svg>
+              </button>
+              <button
                 onClick={handleCopyPuzzle}
                 className="p-2 bg-slate-800 text-slate-300 rounded-lg lg:rounded-xl hover:bg-slate-700 transition-all duration-200"
                 title="Copy Puzzle"
@@ -947,6 +1036,7 @@ export default function SudokuMentor() {
                   highlightedDigit={highlightedDigit}
                   validationErrors={validationErrors}
                   candidateMode={candidateMode}
+                  candidatesVisible={candidatesVisible}
                   colors={colors}
                   currentStep={currentStep}
                   playbackIndex={chainPlaybackIndex}
