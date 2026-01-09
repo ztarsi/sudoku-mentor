@@ -66,7 +66,7 @@ export default function ChainVisualization({
     };
   };
 
-  const renderArrow = (from, to, type = 'strong', key, isALS = false) => {
+  const renderArrow = (from, to, type = 'strong', key, isALS = false, linkData = null) => {
     const start = isALS ? from : getRelativeCenter(from);
     const end = isALS ? to : getRelativeCenter(to);
     
@@ -88,8 +88,10 @@ export default function ChainVisualization({
     const endX = startX + Math.cos(angle) * shortenedLength;
     const endY = startY + Math.sin(angle) * shortenedLength;
     
-    const color = type === 'strong' ? '#60a5fa' : '#f87171';
-    const strokeDasharray = type === 'strong' ? 'none' : '5,5';
+    // Use custom link properties if provided
+    const color = linkData?.color || (type === 'strong' ? '#60a5fa' : '#f87171');
+    const strokeWidth = linkData?.strokeWidth || 3;
+    const strokeDasharray = linkData?.dashArray || (type === 'strong' ? 'none' : '5,5');
     
     return (
       <g key={key}>
@@ -102,9 +104,9 @@ export default function ChainVisualization({
           x2={endX}
           y2={endY}
           stroke={color}
-          strokeWidth="3"
+          strokeWidth={strokeWidth}
           strokeDasharray={strokeDasharray}
-          markerEnd={`url(#arrow-${type})`}
+          markerEnd={linkData?.type === 'bridge' ? undefined : `url(#arrow-${type})`}
           filter="drop-shadow(0px 0px 2px rgba(0,0,0,0.5))"
         />
       </g>
@@ -230,7 +232,7 @@ export default function ChainVisualization({
       })}
       
       {alsLinks && alsLinks.map((link, idx) => 
-        renderArrow(link.from, link.to, link.type, `als-${idx}`, true)
+        renderArrow(link.from, link.to, link.type, `als-${idx}`, true, link)
       )}
       
       {forcingChains && forcingChains.map((chainData, chainIdx) => {
