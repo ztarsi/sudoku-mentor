@@ -160,6 +160,7 @@ export default function Cell({
                       ? 'font-semibold' 
                       : 'text-white'
                   )}
+                  ${currentStep?.technique === 'ALS-XZ' && alsSet && hasCandidate && num !== currentStep.xDigit && num !== currentStep.zDigit ? 'opacity-20' : ''}
                 `}
                 style={(() => {
                   // ALS-XZ special highlighting
