@@ -724,10 +724,130 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
               )}
             </motion.div>
           )}
-          </AnimatePresence>
-          </motion.div>
+        </AnimatePresence>
+      </motion.div>
 
-          {/* Technique Modal */}
+      {/* Auto-Play Controls */}
+      <div className="bg-slate-900 rounded-2xl shadow-lg shadow-black/50 p-5 border border-slate-700">
+        <h4 className="text-lg font-semibold text-white mb-3">Auto-Solve</h4>
+        <div className="flex gap-2">
+          <Button
+            onClick={handlePlayPause}
+            className={`${isPlaying ? 'bg-red-600 hover:bg-red-500' : 'bg-green-600 hover:bg-green-500'}`}
+          >
+            {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+          </Button>
+          <Button
+            onClick={handleSkipStep}
+            variant="outline"
+            className="border-slate-600"
+          >
+            <SkipForward className="w-4 h-4" />
+          </Button>
+          {[
+            { label: '0.5×', value: 2000 },
+            { label: '1×', value: 1000 },
+            { label: '2×', value: 500 },
+            { label: '16×', value: 63 }
+          ].map(({ label, value }) => (
+            <button
+              key={value}
+              onClick={() => setPlaySpeed(value)}
+              className={`px-3 py-2 rounded text-sm transition-colors ${
+                playSpeed === value
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Keyboard Shortcuts */}
+      <div className="bg-slate-900 rounded-2xl text-white border border-slate-700 overflow-hidden">
+        <button
+          onClick={() => setShortcutsExpanded(!shortcutsExpanded)}
+          className="w-full p-5 flex items-center justify-between hover:bg-slate-800/50 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <h4 className="text-lg font-semibold">Keyboard Shortcuts</h4>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowInfoModal('shortcuts');
+              }}
+              className="p-1 hover:bg-slate-700 rounded-lg transition-colors"
+              title="Learn more"
+            >
+              <Info className="w-4 h-4 text-slate-400" />
+            </button>
+          </div>
+          {shortcutsExpanded ? (
+            <ChevronUp className="w-5 h-5 text-slate-400" />
+          ) : (
+            <ChevronDown className="w-5 h-5 text-slate-400" />
+          )}
+        </button>
+
+        <AnimatePresence>
+          {shortcutsExpanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div className="px-5 pb-5 space-y-2 text-base border-t border-slate-800">
+                <div className="flex justify-between pt-3">
+                  <span className="text-slate-300">Navigate cells</span>
+                  <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">Arrow Keys</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-300">Enter number</span>
+                  <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">1-9</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-300">Toggle candidate</span>
+                  <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">Shift + 1-9</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-300">Focus digit</span>
+                  <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">Ctrl/Cmd + 1-9</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-300">Hint</span>
+                  <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">H</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-300">Apply step</span>
+                  <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">A</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-300">Undo</span>
+                  <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">Z</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-300">Clear cell</span>
+                  <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">Delete / Backspace</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-300">Clear grid</span>
+                  <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">C</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-300">Clear focus</span>
+                  <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">Esc</span>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Technique Modal */}
       {selectedTechnique && (
         <TechniqueModal
           technique={selectedTechnique}
