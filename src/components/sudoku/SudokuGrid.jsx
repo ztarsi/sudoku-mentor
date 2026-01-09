@@ -63,6 +63,7 @@ export default function SudokuGrid({
     }
   };
 
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 1024;
   const gridSize = typeof window !== 'undefined' ? Math.min(window.innerWidth * 0.9, 600) : 600;
   const cellSize = gridSize / 9;
 
@@ -149,19 +150,20 @@ export default function SudokuGrid({
 
   return (
     <>
-      <div className="relative">
-        {/* Outer glow effect */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/30 to-indigo-500/30 rounded-2xl blur-xl"></div>
+      <div className="relative w-full">
+        {/* Outer glow effect - desktop only */}
+        {!isMobile && <div className="absolute inset-0 bg-gradient-to-br from-blue-500/30 to-indigo-500/30 rounded-2xl blur-xl"></div>}
         
         {/* Grid container */}
-        <div className="relative bg-slate-900 rounded-2xl shadow-2xl shadow-black/50 p-3 sm:p-4 border border-slate-700">
+        <div className={`relative ${isMobile ? '' : 'bg-slate-900 rounded-2xl shadow-2xl shadow-black/50 p-3 sm:p-4 border border-slate-700'}`}>
           <div 
             ref={gridContainerRef}
-            className="grid grid-cols-9 gap-0 rounded-lg overflow-visible relative"
+            className={`grid grid-cols-9 gap-0 overflow-visible relative ${isMobile ? '' : 'rounded-lg'}`}
             style={{ 
-              border: `3px solid ${colors?.gridLines || '#475569'}`,
-              width: 'min(90vw, 600px)', 
-              height: 'min(90vw, 600px)' 
+              border: isMobile ? 'none' : `3px solid ${colors?.gridLines || '#475569'}`,
+              width: isMobile ? '100vw' : 'min(90vw, 600px)', 
+              height: isMobile ? '100vw' : 'min(90vw, 600px)',
+              aspectRatio: '1/1'
             }}
           >
             {grid.map((cell, index) => {
