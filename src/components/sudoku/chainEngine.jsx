@@ -291,7 +291,7 @@ export const findALSXZ = (grid, focusedDigit) => {
                 als2,
                 xDigit: x,
                 zDigit: z,
-                explanation: `Two Almost Locked Sets with restricted common ${x} and eliminating digit ${z}. Since ${x} is locked between the two sets, ${z} can be eliminated from cells seeing all ${z} candidates in both sets.`
+                explanation: `🎯 The Two-House Trap (ALS-XZ)\n\nLook at the two highlighted groups of cells (Set A and Set B). Each is "Almost Locked"—it has one more candidate than it has cells.\n\n🔗 The Bridge: These groups are linked by digit ${x}. Because of how they see each other, if Set A doesn't contain ${x}, Set B is forced to take it.\n\n⚡ The Result: This "Bridge" forces digit ${z} to stay inside these two groups. Since one of them must claim ${z}, any cell outside that sees all instances of ${z} in both sets can safely have ${z} eliminated.`
               };
             }
           }

@@ -81,9 +81,9 @@ export default function SudokuGrid({
     }
 
     const links = [];
-    const { als1, als2, zDigit } = currentStep;
+    const { als1, als2, zDigit, xDigit } = currentStep;
 
-    // Create links for z digit cells within each ALS
+    // Internal links - thin blue lines for z-digit cells within each set
     const als1ZCells = als1.cells.filter(c => grid[c].candidates.includes(zDigit));
     const als2ZCells = als2.cells.filter(c => grid[c].candidates.includes(zDigit));
 
@@ -94,7 +94,8 @@ export default function SudokuGrid({
           from: getCellCenter(als1ZCells[i]),
           to: getCellCenter(als1ZCells[j]),
           color: '#3b82f6',
-          type: 'strong'
+          type: 'internal',
+          strokeWidth: 2
         });
       }
     }
@@ -106,7 +107,25 @@ export default function SudokuGrid({
           from: getCellCenter(als2ZCells[i]),
           to: getCellCenter(als2ZCells[j]),
           color: '#3b82f6',
-          type: 'strong'
+          type: 'internal',
+          strokeWidth: 2
+        });
+      }
+    }
+
+    // Bridge links - thick dashed amber lines for x-digit connections between sets
+    const als1XCells = als1.cells.filter(c => grid[c].candidates.includes(xDigit));
+    const als2XCells = als2.cells.filter(c => grid[c].candidates.includes(xDigit));
+
+    for (const xCell1 of als1XCells) {
+      for (const xCell2 of als2XCells) {
+        links.push({
+          from: getCellCenter(xCell1),
+          to: getCellCenter(xCell2),
+          color: '#f59e0b',
+          type: 'bridge',
+          strokeWidth: 4,
+          dashArray: '8,4'
         });
       }
     }
@@ -146,11 +165,21 @@ export default function SudokuGrid({
             {grid.map((cell, index) => {
               const row = Math.floor(index / 9);
               const col = index % 9;
-              
+
               // Determine border styling for 3x3 boxes
               const borderRight = (col + 1) % 3 === 0 && col !== 8 ? 'border-r-4' : 'border-r';
               const borderBottom = (row + 1) % 3 === 0 && row !== 8 ? 'border-b-4' : 'border-b';
-              
+
+              // Determine ALS set membership
+              let alsSet = null;
+              if (currentStep?.technique === 'ALS-XZ') {
+                if (currentStep.als1?.cells.includes(index)) {
+                  alsSet = 1;
+                } else if (currentStep.als2?.cells.includes(index)) {
+                  alsSet = 2;
+                }
+              }
+
               return (
                 <div
                   key={index}
@@ -172,6 +201,8 @@ export default function SudokuGrid({
                     focusedCandidates={focusedCandidates}
                     candidateMode={candidateMode}
                     colors={colors}
+                    alsSet={alsSet}
+                    currentStep={currentStep}
                     onClick={() => onCellClick(index)}
                     onInput={(value) => onCellInput(index, value)}
                     onToggleCandidate={(candidate) => onToggleCandidate(index, candidate)}

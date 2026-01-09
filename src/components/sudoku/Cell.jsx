@@ -17,7 +17,9 @@ export default function Cell({
   colors,
   onClick, 
   onInput,
-  onToggleCandidate
+  onToggleCandidate,
+  alsSet,
+  currentStep
 }) {
   const { value, isFixed, candidates, isBaseCell, isTargetCell, highlightColor, ghostValue } = cell;
 
@@ -28,6 +30,7 @@ export default function Cell({
   let bgColor = colors?.cellBg || '#020617';
   let textColor = isFixed ? 'text-slate-100' : 'text-blue-400';
   let useCustomBg = false;
+  let borderStyle = '';
   
   if (hasGhostConflict) {
     bgColor = 'bg-red-900/60';
@@ -35,6 +38,15 @@ export default function Cell({
   } else if (hasError) {
     bgColor = 'bg-red-900/40';
     textColor = 'text-red-400';
+  } else if (currentStep?.technique === 'ALS-XZ' && alsSet) {
+    // ALS-XZ set distinction
+    if (alsSet === 1) {
+      bgColor = 'bg-blue-500/20';
+      borderStyle = 'ring-2 ring-blue-500 ring-inset';
+    } else if (alsSet === 2) {
+      bgColor = 'bg-indigo-500/20';
+      borderStyle = 'ring-2 ring-indigo-500 ring-inset ring-dashed';
+    }
   } else if (isBaseCell) {
     bgColor = 'bg-blue-900/40';
   } else if (isTargetCell) {
@@ -67,8 +79,9 @@ export default function Cell({
         transition-all duration-200 ease-out
         hover:bg-slate-800/50
         ${isSelected ? 'ring-2 ring-blue-500 ring-inset z-10' : ''}
-        ${isFocusedDigit ? 'ring-2 ring-emerald-500 ring-inset' : ''}
-        ${isHighlightedNumber ? 'ring-2 ring-amber-400 ring-inset' : ''}
+        ${isFocusedDigit && !borderStyle ? 'ring-2 ring-emerald-500 ring-inset' : ''}
+        ${isHighlightedNumber && !borderStyle ? 'ring-2 ring-amber-400 ring-inset' : ''}
+        ${borderStyle}
       `}
       style={useCustomBg ? { 
         backgroundColor: bgColor,
@@ -148,11 +161,26 @@ export default function Cell({
                       : 'text-white'
                   )}
                 `}
-                style={(isHighlightedCandidate || (isBaseCell && isMultiColorCandidate)) ? {
-                  backgroundColor: `${candidateColor}E6`,
-                  boxShadow: `0 0 0 2px ${candidateColor}`,
-                  color: '#000'
-                } : {}}
+                style={(() => {
+                  // ALS-XZ special highlighting
+                  if (currentStep?.technique === 'ALS-XZ' && hasCandidate) {
+                    if (num === currentStep.xDigit) {
+                      return { backgroundColor: '#f59e0b80', boxShadow: '0 0 0 2px #f59e0b', color: '#000' };
+                    }
+                    if (num === currentStep.zDigit) {
+                      return { backgroundColor: '#a855f780', boxShadow: '0 0 0 2px #a855f7', color: '#000', animation: 'pulse 2s infinite' };
+                    }
+                  }
+                  // Standard highlighting
+                  if (isHighlightedCandidate || (isBaseCell && isMultiColorCandidate)) {
+                    return {
+                      backgroundColor: `${candidateColor}E6`,
+                      boxShadow: `0 0 0 2px ${candidateColor}`,
+                      color: '#000'
+                    };
+                  }
+                  return {};
+                })()}
               >
                 {num}
               </div>
