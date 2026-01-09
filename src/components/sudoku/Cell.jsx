@@ -169,8 +169,8 @@ export default function Cell({
                   flex items-center justify-center text-xs sm:text-sm cursor-pointer
                   transition-all duration-200 rounded hover:bg-slate-700/50
                   ${!hasCandidate ? 'text-transparent' : (
-                    // Focus mode works globally, technique highlighting only in base cells
-                    (isHighlightedCandidate || (isBaseCell && isMultiColorCandidate))
+                    // Highlight candidates in base cells and target cells
+                    (isHighlightedCandidate || ((isBaseCell || isTargetCell) && isMultiColorCandidate))
                       ? 'font-semibold' 
                       : 'text-white'
                   )}
@@ -187,7 +187,7 @@ export default function Cell({
                     }
                   }
                   // Standard highlighting
-                  if (isHighlightedCandidate || (isBaseCell && isMultiColorCandidate)) {
+                  if (isHighlightedCandidate || ((isBaseCell || isTargetCell) && isMultiColorCandidate)) {
                     return {
                       backgroundColor: `${candidateColor}E6`,
                       boxShadow: `0 0 0 2px ${candidateColor}`,
