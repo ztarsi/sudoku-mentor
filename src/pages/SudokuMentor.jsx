@@ -1029,8 +1029,67 @@ export default function SudokuMentor() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 lg:pb-8 pt-12 lg:pt-8">
-        <div className="grid lg:grid-cols-[1fr,380px] gap-8">
+      <main className={`${isMobile ? '' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 lg:pb-8 pt-12 lg:pt-8'}`}>
+        {isMobile ? (
+          /* Mobile Layout - Simple Grid Only */
+          <div className="flex flex-col h-[calc(100vh-56px)]">
+            {/* Sudoku Grid - Full Width */}
+            <div className="w-full">
+              <SudokuGrid
+                grid={grid}
+                selectedCell={selectedCell}
+                focusedDigit={focusedDigit}
+                focusedCandidates={null}
+                removalCandidates={null}
+                highlightedDigit={highlightedDigit}
+                validationErrors={validationErrors}
+                candidateMode={candidateMode}
+                candidatesVisible={candidatesVisible}
+                colors={colors}
+                currentStep={null}
+                playbackIndex={0}
+                onCellClick={handleCellClick}
+                onCellInput={handleCellInput}
+                onToggleCandidate={handleToggleCandidate}
+              />
+            </div>
+
+            {/* Mobile Controls - Fixed Bottom */}
+            <div className="fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-md border-t border-slate-700 safe-area-inset-bottom z-30">
+              {/* Candidate/Solve Mode Toggle */}
+              <div className="flex items-center justify-center gap-2 px-4 py-2 border-b border-slate-800">
+                <button
+                  onClick={() => setCandidateMode(false)}
+                  className={`flex-1 py-2.5 rounded-lg font-medium transition-all ${
+                    !candidateMode
+                      ? 'bg-blue-600 text-white shadow-lg'
+                      : 'bg-slate-800 text-slate-400'
+                  }`}
+                >
+                  Solve
+                </button>
+                <button
+                  onClick={() => setCandidateMode(true)}
+                  className={`flex-1 py-2.5 rounded-lg font-medium transition-all ${
+                    candidateMode
+                      ? 'bg-purple-600 text-white shadow-lg'
+                      : 'bg-slate-800 text-slate-400'
+                  }`}
+                >
+                  Candidate
+                </button>
+              </div>
+
+              {/* Digit Filter */}
+              <DigitFilter 
+                focusedDigit={focusedDigit} 
+                onDigitClick={handleDigitFilter}
+                grid={grid}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="grid lg:grid-cols-[1fr,380px] gap-8">
           {/* Left Column - Grid & Controls */}
           <div className="space-y-6">
               {/* Control Bar */}
@@ -1219,8 +1278,9 @@ export default function SudokuMentor() {
                   )}
                   </main>
 
-      {/* Mobile Drawer for Logic Panel */}
-      <MobileDrawer isOpen={drawerOpen} onClose={() => setDrawerOpen(false)}>
+                  {/* Mobile Drawer for Logic Panel - Desktop Only */}
+                  {!isMobile && (
+                  <MobileDrawer isOpen={drawerOpen} onClose={() => setDrawerOpen(false)}>
         <LogicPanel 
           currentStep={currentStep}
           focusedDigit={focusedDigit}
@@ -1357,9 +1417,9 @@ export default function SudokuMentor() {
 
               setDrawerOpen(false);
               }}
-              />
-              </MobileDrawer>
-              )}
+            />
+        </MobileDrawer>
+      )}
 
       {/* Unified Puzzle Loader Modal */}
       <UnifiedPuzzleLoader
