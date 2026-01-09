@@ -194,6 +194,11 @@ export default function SudokuMentor() {
       } else {
         setFocusedCandidates(null);
       }
+
+      // Clear focus digit for ALS-XZ to prevent global highlighting interference
+      if (step.technique === 'ALS-XZ') {
+        setFocusedDigit(null);
+      }
       
       setGrid(prev => {
         const newGrid = prev.map(cell => ({
@@ -788,6 +793,11 @@ export default function SudokuMentor() {
                   } else {
                     setFocusedCandidates(null);
                   }
+
+                  // Clear focus digit for ALS-XZ to prevent global highlighting interference
+                  if (firstStep.technique === 'ALS-XZ') {
+                    setFocusedDigit(null);
+                  }
                 }
 
                 // Highlight cells from the current instance
@@ -872,6 +882,11 @@ export default function SudokuMentor() {
                 setFocusedCandidates(candidateColorMap);
               } else {
                 setFocusedCandidates(null);
+              }
+
+              // Clear focus digit for ALS-XZ to prevent global highlighting interference
+              if (firstStep.technique === 'ALS-XZ') {
+                setFocusedDigit(null);
               }
             }
 
