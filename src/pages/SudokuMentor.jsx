@@ -173,15 +173,15 @@ export default function SudokuMentor() {
       // Clear focus digit for all techniques to prevent global highlighting interference
       setFocusedDigit(null);
 
-      // For multi-candidate techniques (excluding ALS-XZ), extract all candidates and assign colors
+      // Highlight relevant candidates based on technique type
       const multiCandidateTechniques = ['Naked Pair', 'Hidden Pair', 'Naked Triple'];
       if (multiCandidateTechniques.includes(step.technique) && step.baseCells) {
+        // Multi-candidate techniques: extract all candidates and assign colors
         const candidatesInvolved = new Set();
         step.baseCells.forEach(cellIdx => {
           grid[cellIdx].candidates.forEach(c => candidatesInvolved.add(c));
         });
 
-        // Use user's focused digit color for first digit, then other distinct colors
         const colorPalette = [
           colors.focusDigit || '#10b981',
           '#3b82f6',
@@ -194,6 +194,17 @@ export default function SudokuMentor() {
           candidateColorMap[digit] = colorPalette[idx % colorPalette.length];
         });
         setFocusedCandidates(candidateColorMap);
+      } else if (step.technique === 'ALS-XZ' && step.xDigit && step.zDigit) {
+        // ALS-XZ: highlight x and z digits
+        setFocusedCandidates({
+          [step.xDigit]: '#f59e0b',
+          [step.zDigit]: '#a855f7'
+        });
+      } else if (step.digit) {
+        // Single-digit techniques: highlight that digit
+        setFocusedCandidates({
+          [step.digit]: colors.focusDigit || '#10b981'
+        });
       } else {
         setFocusedCandidates(null);
       }
@@ -764,21 +775,21 @@ export default function SudokuMentor() {
               onHighlightTechnique={(instances, total, current) => {
                 // Set the first instance as the current step so it can be applied
                 if (instances.length > 0) {
-                  setCurrentStep(instances[0]);
+                  const firstStep = instances[0];
+                  setCurrentStep(firstStep);
 
                   // Clear focus digit for all techniques to prevent global highlighting interference
                   setFocusedDigit(null);
 
-                  // For multi-candidate techniques (excluding ALS-XZ), extract all candidates and assign colors
+                  // Highlight relevant candidates based on technique type
                   const multiCandidateTechniques = ['Naked Pair', 'Hidden Pair', 'Naked Triple'];
-                  const firstStep = instances[0];
                   if (multiCandidateTechniques.includes(firstStep.technique) && firstStep.baseCells) {
+                    // Multi-candidate techniques: extract all candidates and assign colors
                     const candidatesInvolved = new Set();
                     firstStep.baseCells.forEach(cellIdx => {
                       grid[cellIdx].candidates.forEach(c => candidatesInvolved.add(c));
                     });
 
-                    // Use user's focused digit color for first digit, then other distinct colors
                     const colorPalette = [
                       colors.focusDigit || '#10b981',
                       '#3b82f6',
@@ -791,6 +802,17 @@ export default function SudokuMentor() {
                       candidateColorMap[digit] = colorPalette[idx % colorPalette.length];
                     });
                     setFocusedCandidates(candidateColorMap);
+                  } else if (firstStep.technique === 'ALS-XZ' && firstStep.xDigit && firstStep.zDigit) {
+                    // ALS-XZ: highlight x and z digits
+                    setFocusedCandidates({
+                      [firstStep.xDigit]: '#f59e0b',
+                      [firstStep.zDigit]: '#a855f7'
+                    });
+                  } else if (firstStep.digit) {
+                    // Single-digit techniques: highlight that digit
+                    setFocusedCandidates({
+                      [firstStep.digit]: colors.focusDigit || '#10b981'
+                    });
                   } else {
                     setFocusedCandidates(null);
                   }
@@ -846,21 +868,21 @@ export default function SudokuMentor() {
           chainPlaybackIndex={chainPlaybackIndex}
           onHighlightTechnique={(instances, total, current) => {
             if (instances.length > 0) {
-              setCurrentStep(instances[0]);
+              const firstStep = instances[0];
+              setCurrentStep(firstStep);
 
               // Clear focus digit for all techniques to prevent global highlighting interference
               setFocusedDigit(null);
 
-              // For multi-candidate techniques (excluding ALS-XZ), extract all candidates and assign colors
+              // Highlight relevant candidates based on technique type
               const multiCandidateTechniques = ['Naked Pair', 'Hidden Pair', 'Naked Triple'];
-              const firstStep = instances[0];
               if (multiCandidateTechniques.includes(firstStep.technique) && firstStep.baseCells) {
+                // Multi-candidate techniques: extract all candidates and assign colors
                 const candidatesInvolved = new Set();
                 firstStep.baseCells.forEach(cellIdx => {
                   grid[cellIdx].candidates.forEach(c => candidatesInvolved.add(c));
                 });
 
-                // Use user's focused digit color for first digit, then other distinct colors
                 const colorPalette = [
                   colors.focusDigit || '#10b981',
                   '#3b82f6',
@@ -873,6 +895,17 @@ export default function SudokuMentor() {
                   candidateColorMap[digit] = colorPalette[idx % colorPalette.length];
                 });
                 setFocusedCandidates(candidateColorMap);
+              } else if (firstStep.technique === 'ALS-XZ' && firstStep.xDigit && firstStep.zDigit) {
+                // ALS-XZ: highlight x and z digits
+                setFocusedCandidates({
+                  [firstStep.xDigit]: '#f59e0b',
+                  [firstStep.zDigit]: '#a855f7'
+                });
+              } else if (firstStep.digit) {
+                // Single-digit techniques: highlight that digit
+                setFocusedCandidates({
+                  [firstStep.digit]: colors.focusDigit || '#10b981'
+                });
               } else {
                 setFocusedCandidates(null);
               }
