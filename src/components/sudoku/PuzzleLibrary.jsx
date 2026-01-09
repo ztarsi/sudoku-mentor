@@ -210,6 +210,32 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
     initialData: []
   });
 
+  // Fetch solve records for the logged-in user
+  const { data: solveRecords = [] } = useQuery({
+    queryKey: ['solve-records'],
+    queryFn: async () => {
+      try {
+        const user = await base44.auth.me();
+        if (!user) return [];
+        return await base44.entities.SolveRecord.filter({ no_assist: true });
+      } catch {
+        return [];
+      }
+    },
+    initialData: []
+  });
+
+  // Create a map of puzzle names to best times
+  const bestTimesMap = React.useMemo(() => {
+    const map = {};
+    solveRecords.forEach(record => {
+      if (!map[record.puzzle_name] || record.time_seconds < map[record.puzzle_name]) {
+        map[record.puzzle_name] = record.time_seconds;
+      }
+    });
+    return map;
+  }, [solveRecords]);
+
   // Update puzzle name mutation
   const updatePuzzleMutation = useMutation({
     mutationFn: ({ id, name }) => base44.entities.SudokuPuzzle.update(id, { name }),
@@ -354,9 +380,19 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
                     )}
                     </h3>
                     )}
-                    <p className="text-sm text-slate-500">
-                    {puzzle.puzzle.filter(v => v !== 0).length} clues given
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm text-slate-500">
+                        {puzzle.puzzle.filter(v => v !== 0).length} clues given
+                      </p>
+                      {bestTimesMap[puzzle.name] && (
+                        <span className="text-xs px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full flex items-center gap-1" title="Your best no-assist time">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          {Math.floor(bestTimesMap[puzzle.name] / 60)}:{String(bestTimesMap[puzzle.name] % 60).padStart(2, '0')}
+                        </span>
+                      )}
+                    </div>
                     </div>
 
                     {puzzle.isCustom && (
