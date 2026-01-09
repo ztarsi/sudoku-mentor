@@ -7,6 +7,7 @@ export default function SudokuGrid({
   selectedCell, 
   focusedDigit,
   focusedCandidates,
+  removalCandidates,
   highlightedDigit,
   validationErrors,
   candidateMode,
@@ -232,6 +233,7 @@ export default function SudokuGrid({
                     borderClasses={`${borderRight} ${borderBottom}`}
                     focusedDigit={focusedDigit}
                     focusedCandidates={focusedCandidates}
+                    removalCandidates={removalCandidates?.[index]}
                     candidateMode={candidateMode}
                     colors={colors}
                     alsSet={alsSet}

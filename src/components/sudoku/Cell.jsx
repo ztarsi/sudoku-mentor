@@ -13,6 +13,7 @@ export default function Cell({
   borderClasses,
   focusedDigit,
   focusedCandidates,
+  removalCandidates,
   candidateMode,
   colors,
   onClick, 
@@ -149,7 +150,8 @@ export default function Cell({
             const hasCandidate = candidates.includes(num);
             const isHighlightedCandidate = focusedDigit === num && hasCandidate;
             const isMultiColorCandidate = focusedCandidates && focusedCandidates[num] && hasCandidate;
-            const candidateColor = isMultiColorCandidate ? focusedCandidates[num] : focusDigitColor;
+            const isRemovalCandidate = removalCandidates && removalCandidates.has(num);
+            const candidateColor = isRemovalCandidate ? '#ef4444' : (isMultiColorCandidate ? focusedCandidates[num] : focusDigitColor);
 
             return (
               <div 
@@ -172,13 +174,21 @@ export default function Cell({
                   transition-all duration-200 rounded hover:bg-slate-700/50
                   ${!hasCandidate ? 'text-transparent' : (
                     // Highlight candidates in base cells and target cells
-                    (isHighlightedCandidate || ((isBaseCell || isTargetCell) && isMultiColorCandidate))
+                    (isRemovalCandidate || isHighlightedCandidate || ((isBaseCell || isTargetCell) && isMultiColorCandidate))
                       ? 'font-semibold' 
                       : 'text-white'
                   )}
                   ${alsSet && hasCandidate && num !== xDigit && num !== zDigit ? 'opacity-20' : ''}
                   `}
                   style={(() => {
+                  // Removal candidates - always red
+                  if (isRemovalCandidate) {
+                    return {
+                      backgroundColor: '#ef4444E6',
+                      boxShadow: '0 0 0 2px #ef4444',
+                      color: '#000'
+                    };
+                  }
                   // ALS-XZ special highlighting
                   if (alsSet && hasCandidate) {
                     if (num === xDigit) {

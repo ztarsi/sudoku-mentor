@@ -32,6 +32,7 @@ export default function SudokuMentor() {
   const [selectedCell, setSelectedCell] = useState(null);
   const [focusedDigit, setFocusedDigit] = useState(null);
   const [focusedCandidates, setFocusedCandidates] = useState(null); // { digit: color } map
+  const [removalCandidates, setRemovalCandidates] = useState(null); // Map of cellIndex -> Set of digits to remove
   const [currentStep, setCurrentStep] = useState(null);
   const [stepHistory, setStepHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
@@ -163,6 +164,7 @@ export default function SudokuMentor() {
     })));
     setCurrentStep(null);
     setFocusedCandidates(null);
+    setRemovalCandidates(null);
   };
 
   const handleNextStep = useCallback(async () => {
@@ -173,6 +175,20 @@ export default function SudokuMentor() {
 
       // Clear focus digit for all techniques to prevent global highlighting interference
       setFocusedDigit(null);
+
+      // Build removal candidates map
+      if (step.eliminations && step.eliminations.length > 0) {
+        const removalMap = {};
+        step.eliminations.forEach(({ cell, digit }) => {
+          if (!removalMap[cell]) {
+            removalMap[cell] = new Set();
+          }
+          removalMap[cell].add(digit);
+        });
+        setRemovalCandidates(removalMap);
+      } else {
+        setRemovalCandidates(null);
+      }
 
       // Highlight relevant candidates based on technique type
       const multiCandidateTechniques = ['Naked Pair', 'Hidden Pair', 'Naked Triple'];
@@ -344,6 +360,7 @@ export default function SudokuMentor() {
       setCurrentStep(null);
       setFocusedDigit(null);
       setHighlightedDigit(null);
+      setRemovalCandidates(null);
       clearHighlights();
     }
   }, [currentStep, grid, historyIndex]);
@@ -800,6 +817,7 @@ export default function SudokuMentor() {
                   selectedCell={selectedCell}
                   focusedDigit={focusedDigit}
                   focusedCandidates={focusedCandidates}
+                  removalCandidates={removalCandidates}
                   highlightedDigit={highlightedDigit}
                   validationErrors={validationErrors}
                   candidateMode={candidateMode}
