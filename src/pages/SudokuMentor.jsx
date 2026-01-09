@@ -58,6 +58,7 @@ export default function SudokuMentor() {
   const [showAppInfo, setShowAppInfo] = useState(false);
   const [user, setUser] = useState(null);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
+  const [showCopyConfirmation, setShowCopyConfirmation] = useState(false);
 
   const errorAudioRef = useRef(null);
 
@@ -597,6 +598,8 @@ export default function SudokuMentor() {
     // Extract only the fixed cells (initial puzzle state)
     const puzzleString = grid.map(cell => cell.isFixed ? cell.value : 0).join('');
     navigator.clipboard.writeText(puzzleString);
+    setShowCopyConfirmation(true);
+    setTimeout(() => setShowCopyConfirmation(false), 2000);
   };
 
   const solvedCount = grid.filter(c => c.value !== null).length;
@@ -1192,6 +1195,25 @@ export default function SudokuMentor() {
                 </button>
               </div>
             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Copy Confirmation Toast */}
+      <AnimatePresence>
+        {showCopyConfirmation && (
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50 bg-slate-800 text-white px-6 py-3 rounded-lg shadow-xl border border-slate-700"
+          >
+            <div className="flex items-center gap-2">
+              <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              <span className="font-medium">Puzzle copied to clipboard!</span>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
