@@ -185,14 +185,16 @@ export const findAllTechniqueInstances = (grid, techniqueName) => {
 };
 
 // Naked Single: Cell with only one candidate
-const findNakedSingle = (grid, focusedDigit) => {
+const findNakedSingle = (grid, focusedDigit, returnAll = false) => {
+  const allInstances = [];
+  
   for (let i = 0; i < 81; i++) {
     const cell = grid[i];
     if (cell.value === null && cell.candidates.length === 1) {
       const digit = cell.candidates[0];
       if (focusedDigit && digit !== focusedDigit) continue;
       
-      return {
+      const step = {
         technique: 'Naked Single',
         digit,
         baseCells: [i],
@@ -201,9 +203,16 @@ const findNakedSingle = (grid, focusedDigit) => {
         eliminations: [],
         explanation: `Cell R${getRow(i) + 1}C${getCol(i) + 1} has only one possible candidate: ${digit}. This is the only number that can go here.`
       };
+      
+      if (returnAll) {
+        allInstances.push(step);
+      } else {
+        return step;
+      }
     }
   }
-  return null;
+  
+  return returnAll ? allInstances : null;
 };
 
 /**
