@@ -350,11 +350,8 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
 
   return (
     <div className="space-y-4">
-      {/* Current Hint Card */}
-      <motion.div 
-        layout
-        className="bg-slate-900 rounded-2xl shadow-lg shadow-black/50 overflow-hidden border border-slate-700"
-      >
+      {/* Technique Reference */}
+      <div className="bg-slate-900 rounded-2xl text-white border border-slate-700 overflow-hidden">
       <button
       onClick={() => setTechniqueExpanded(!techniqueExpanded)}
       className="w-full p-5 flex items-center justify-between hover:bg-slate-800/50 transition-colors"
@@ -495,9 +492,45 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
       </AnimatePresence>
     </div>
 
-    {/* Technique Reference */}
-    <div className="bg-slate-900 rounded-2xl text-white border border-slate-700 overflow-hidden">
-        <button
+    {/* Current Hint Card */}
+    <motion.div 
+      layout
+      className="bg-slate-900 rounded-2xl shadow-lg shadow-black/50 overflow-hidden border border-slate-700"
+    >
+        <div className="p-5 border-b border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className={`
+              w-10 h-10 rounded-xl flex items-center justify-center
+              ${currentStep 
+                ? `bg-gradient-to-br ${levelColors[techniqueInfo?.color || 'emerald']} shadow-lg` 
+                : 'bg-slate-800'
+              }
+            `}>
+              <Lightbulb className={`w-6 h-6 ${currentStep ? 'text-white' : 'text-slate-500'}`} />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-white">
+                {currentStep ? 'Technique Found!' : 'Ready for a Hint?'}
+              </h3>
+              <p className="text-base text-slate-400">
+                {currentStep ? techniqueInfo?.level : 'Click "Hint" to analyze the board'}
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        <AnimatePresence mode="wait">
+          {currentStep ? (
+            <motion.div
+              key="step"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="p-5 space-y-4"
+            >
+              {/* Technique Name */}
+              <div className="flex items-center gap-2">
+                <button
           onClick={() => setShortcutsExpanded(!shortcutsExpanded)}
           className="w-full p-5 flex items-center justify-between hover:bg-slate-800/50 transition-colors"
         >
@@ -617,40 +650,7 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
 
         {/* Keyboard Shortcuts */}
         <div className="bg-slate-900 rounded-2xl text-white border border-slate-700 overflow-hidden">
-        <div className="p-5 border-b border-slate-800">
-          <div className="flex items-center gap-3">
-            <div className={`
-              w-10 h-10 rounded-xl flex items-center justify-center
-              ${currentStep 
-                ? `bg-gradient-to-br ${levelColors[techniqueInfo?.color || 'emerald']} shadow-lg` 
-                : 'bg-slate-800'
-              }
-            `}>
-              <Lightbulb className={`w-6 h-6 ${currentStep ? 'text-white' : 'text-slate-500'}`} />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-white">
-                {currentStep ? 'Technique Found!' : 'Ready for a Hint?'}
-              </h3>
-              <p className="text-base text-slate-400">
-                {currentStep ? techniqueInfo?.level : 'Click "Hint" to analyze the board'}
-              </p>
-            </div>
-          </div>
-        </div>
-        
-        <AnimatePresence mode="wait">
-          {currentStep ? (
-            <motion.div
-              key="step"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="p-5 space-y-4"
-            >
-              {/* Technique Name */}
-              <div className="flex items-center gap-2">
-                <button
+        <button
                   onClick={() => setSelectedTechnique(currentStep.technique)}
                   className={`
                     px-3 py-1 rounded-full text-base font-medium
@@ -846,7 +846,7 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
             </motion.div>
           )}
           </AnimatePresence>
-          </motion.div>
+          </div>
 
           {/* Technique Modal */}
       {selectedTechnique && (
