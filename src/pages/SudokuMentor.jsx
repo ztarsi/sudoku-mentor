@@ -785,8 +785,8 @@ export default function SudokuMentor() {
             <div className="hidden lg:block absolute left-1/2 transform -translate-x-1/2">
               {currentPuzzleName ? (
                 <div className="flex items-center gap-3">
-                  <p className="text-lg font-medium text-white whitespace-nowrap">
-                    {currentPuzzleName}
+                  <p className="text-lg font-medium text-white whitespace-nowrap" title={currentPuzzleName}>
+                    {currentPuzzleName.length > 20 ? currentPuzzleName.slice(0, 20) + '...' : currentPuzzleName}
                   </p>
                   {currentPuzzleDifficulty && (
                     <span className="px-3 py-1 bg-slate-800 rounded-full text-sm capitalize text-slate-300">{currentPuzzleDifficulty}</span>
