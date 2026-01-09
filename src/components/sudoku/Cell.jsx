@@ -24,7 +24,7 @@ export default function Cell({
   xDigit,
   zDigit
 }) {
-  const { value, isFixed, candidates, isBaseCell, isTargetCell, highlightColor, ghostValue } = cell;
+  const { value, isFixed, candidates, isBaseCell, isTargetCell, highlightColor, ghostValue, isUnitCell } = cell;
 
   // Detect ghost conflicts
   const hasGhostConflict = ghostValue && value && value !== ghostValue;
@@ -71,6 +71,8 @@ export default function Cell({
     bgColor = 'bg-emerald-900/40';
   } else if (isHighlightedNumber) {
     bgColor = 'bg-amber-900/40';
+  } else if (isUnitCell) {
+    bgColor = 'bg-blue-500/10';
   } else if (ghostValue) {
     bgColor = 'bg-orange-900/20';
     useCustomBg = true;
