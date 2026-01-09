@@ -486,6 +486,11 @@ export default function SudokuMentor() {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Disable shortcuts when any modal is open
+      const isModalOpen = showPuzzleLoader || showColorSettings || showCompletion || 
+                          drawerOpen || showAccountMenu || showAppInfo || showCopyConfirmation;
+      if (isModalOpen) return;
+
       // Shift key toggles candidate mode
       if (e.key === 'Shift' && !e.repeat) {
         setCandidateMode(true);
@@ -595,7 +600,7 @@ export default function SudokuMentor() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [selectedCell, grid, candidateMode, currentStep, historyIndex, handleCellInput, handleToggleCandidate, handleDigitFilter, handleClearGrid, handleNextStep, handleApplyStep, handleUndo]);
+  }, [selectedCell, grid, candidateMode, currentStep, historyIndex, handleCellInput, handleToggleCandidate, handleDigitFilter, handleClearGrid, handleNextStep, handleApplyStep, handleUndo, showPuzzleLoader, showColorSettings, showCompletion, drawerOpen, showAccountMenu, showAppInfo, showCopyConfirmation]);
 
   // Check if puzzle is complete
   useEffect(() => {
