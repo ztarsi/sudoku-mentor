@@ -657,16 +657,27 @@ export default function SudokuMentor() {
       try {
         const userPuzzles = await base44.entities.SudokuPuzzle.list();
         
-        // Combine built-in puzzles with user-uploaded ones
+        // Combine built-in puzzles with user-uploaded ones, preserving metadata
         const allAvailablePuzzles = [];
         for (const difficulty in PUZZLES) {
-          PUZZLES[difficulty].forEach(p => allAvailablePuzzles.push(p.puzzle));
+          PUZZLES[difficulty].forEach(p => allAvailablePuzzles.push({ 
+            puzzle: p.puzzle, 
+            name: p.name, 
+            difficulty 
+          }));
         }
-        userPuzzles.forEach(p => allAvailablePuzzles.push(p.puzzle));
+        userPuzzles.forEach(p => allAvailablePuzzles.push({ 
+          puzzle: p.puzzle, 
+          name: p.name, 
+          difficulty: p.difficulty 
+        }));
 
         if (allAvailablePuzzles.length > 0) {
-          const randomPuzzle = allAvailablePuzzles[Math.floor(Math.random() * allAvailablePuzzles.length)];
-          await handleLoadPuzzle(randomPuzzle);
+          const randomPuzzleData = allAvailablePuzzles[Math.floor(Math.random() * allAvailablePuzzles.length)];
+          await handleLoadPuzzle(randomPuzzleData.puzzle, { 
+            name: randomPuzzleData.name, 
+            difficulty: randomPuzzleData.difficulty 
+          });
         }
       } catch (error) {
         console.error('Failed to load random puzzle:', error);
@@ -718,12 +729,12 @@ export default function SudokuMentor() {
             {/* Center - Puzzle Info */}
             <div className="hidden lg:block absolute left-1/2 transform -translate-x-1/2">
               {currentPuzzleName ? (
-                <div className="text-center">
-                  <p className="text-lg font-medium text-white">
+                <div className="flex items-center gap-3">
+                  <p className="text-lg font-medium text-white whitespace-nowrap">
                     {currentPuzzleName}
                   </p>
                   {currentPuzzleDifficulty && (
-                    <span className="inline-block mt-1 px-3 py-1 bg-slate-800 rounded-full text-sm capitalize text-slate-300">{currentPuzzleDifficulty}</span>
+                    <span className="px-3 py-1 bg-slate-800 rounded-full text-sm capitalize text-slate-300">{currentPuzzleDifficulty}</span>
                   )}
                 </div>
               ) : (
