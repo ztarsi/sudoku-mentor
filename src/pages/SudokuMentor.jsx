@@ -149,6 +149,9 @@ export default function SudokuMentor() {
     // Save to history
     setStepHistory(h => [...h.slice(0, historyIndex + 1), { grid, action: 'toggle_candidate' }]);
     setHistoryIndex(i => i + 1);
+    
+    // Clear any highlights
+    clearHighlights();
   }, [grid, historyIndex]);
 
   const handleDigitFilter = useCallback((digit) => {
