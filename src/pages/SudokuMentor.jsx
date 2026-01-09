@@ -857,6 +857,20 @@ export default function SudokuMentor() {
                   // Clear focus digit for all techniques to prevent global highlighting interference
                   setFocusedDigit(null);
 
+                  // Build removal candidates map
+                  if (firstStep.eliminations && firstStep.eliminations.length > 0) {
+                    const removalMap = {};
+                    firstStep.eliminations.forEach(({ cell, digit }) => {
+                      if (!removalMap[cell]) {
+                        removalMap[cell] = new Set();
+                      }
+                      removalMap[cell].add(digit);
+                    });
+                    setRemovalCandidates(removalMap);
+                  } else {
+                    setRemovalCandidates(null);
+                  }
+
                   // Highlight relevant candidates based on technique type
                   const multiCandidateTechniques = ['Naked Pair', 'Hidden Pair', 'Naked Triple'];
                   if (multiCandidateTechniques.includes(firstStep.technique) && firstStep.baseCells) {
@@ -983,6 +997,20 @@ export default function SudokuMentor() {
 
               // Clear focus digit for all techniques to prevent global highlighting interference
               setFocusedDigit(null);
+
+              // Build removal candidates map
+              if (firstStep.eliminations && firstStep.eliminations.length > 0) {
+                const removalMap = {};
+                firstStep.eliminations.forEach(({ cell, digit }) => {
+                  if (!removalMap[cell]) {
+                    removalMap[cell] = new Set();
+                  }
+                  removalMap[cell].add(digit);
+                });
+                setRemovalCandidates(removalMap);
+              } else {
+                setRemovalCandidates(null);
+              }
 
               // Highlight relevant candidates based on technique type
               const multiCandidateTechniques = ['Naked Pair', 'Hidden Pair', 'Naked Triple'];
