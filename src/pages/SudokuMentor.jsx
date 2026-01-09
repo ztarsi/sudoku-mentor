@@ -170,6 +170,9 @@ export default function SudokuMentor() {
     if (step) {
       setCurrentStep(step);
 
+      // Clear focus digit for all techniques to prevent global highlighting interference
+      setFocusedDigit(null);
+
       // For multi-candidate techniques (excluding ALS-XZ), extract all candidates and assign colors
       const multiCandidateTechniques = ['Naked Pair', 'Hidden Pair', 'Naked Triple'];
       if (multiCandidateTechniques.includes(step.technique) && step.baseCells) {
@@ -193,11 +196,6 @@ export default function SudokuMentor() {
         setFocusedCandidates(candidateColorMap);
       } else {
         setFocusedCandidates(null);
-      }
-
-      // Clear focus digit for ALS-XZ to prevent global highlighting interference
-      if (step.technique === 'ALS-XZ') {
-        setFocusedDigit(null);
       }
       
       setGrid(prev => {
@@ -768,6 +766,9 @@ export default function SudokuMentor() {
                 if (instances.length > 0) {
                   setCurrentStep(instances[0]);
 
+                  // Clear focus digit for all techniques to prevent global highlighting interference
+                  setFocusedDigit(null);
+
                   // For multi-candidate techniques (excluding ALS-XZ), extract all candidates and assign colors
                   const multiCandidateTechniques = ['Naked Pair', 'Hidden Pair', 'Naked Triple'];
                   const firstStep = instances[0];
@@ -792,11 +793,6 @@ export default function SudokuMentor() {
                     setFocusedCandidates(candidateColorMap);
                   } else {
                     setFocusedCandidates(null);
-                  }
-
-                  // Clear focus digit for ALS-XZ to prevent global highlighting interference
-                  if (firstStep.technique === 'ALS-XZ') {
-                    setFocusedDigit(null);
                   }
                 }
 
@@ -858,6 +854,9 @@ export default function SudokuMentor() {
             if (instances.length > 0) {
               setCurrentStep(instances[0]);
 
+              // Clear focus digit for all techniques to prevent global highlighting interference
+              setFocusedDigit(null);
+
               // For multi-candidate techniques (excluding ALS-XZ), extract all candidates and assign colors
               const multiCandidateTechniques = ['Naked Pair', 'Hidden Pair', 'Naked Triple'];
               const firstStep = instances[0];
@@ -882,11 +881,6 @@ export default function SudokuMentor() {
                 setFocusedCandidates(candidateColorMap);
               } else {
                 setFocusedCandidates(null);
-              }
-
-              // Clear focus digit for ALS-XZ to prevent global highlighting interference
-              if (firstStep.technique === 'ALS-XZ') {
-                setFocusedDigit(null);
               }
             }
 
