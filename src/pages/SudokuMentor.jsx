@@ -65,6 +65,7 @@ export default function SudokuMentor() {
   const [noAssistMode, setNoAssistMode] = useState(false);
   const [showNoAssistModal, setShowNoAssistModal] = useState(false);
   const [noAssistStartTime, setNoAssistStartTime] = useState(null);
+  const [bestTime, setBestTime] = useState(null);
 
   const errorAudioRef = useRef(null);
 
@@ -676,6 +677,35 @@ export default function SudokuMentor() {
     loadUser();
   }, []);
 
+  // Load best time for current puzzle
+  useEffect(() => {
+    const loadBestTime = async () => {
+      if (!user || !currentPuzzleName) {
+        setBestTime(null);
+        return;
+      }
+
+      try {
+        const records = await base44.entities.SolveRecord.filter(
+          { puzzle_name: currentPuzzleName, no_assist: true },
+          'time_seconds',
+          1
+        );
+        
+        if (records.length > 0) {
+          setBestTime(records[0].time_seconds);
+        } else {
+          setBestTime(null);
+        }
+      } catch (error) {
+        console.error('Failed to load best time:', error);
+        setBestTime(null);
+      }
+    };
+
+    loadBestTime();
+  }, [user, currentPuzzleName]);
+
   // Load a random puzzle on mount
   useEffect(() => {
     const loadRandomPuzzle = async () => {
@@ -760,6 +790,14 @@ export default function SudokuMentor() {
                   </p>
                   {currentPuzzleDifficulty && (
                     <span className="px-3 py-1 bg-slate-800 rounded-full text-sm capitalize text-slate-300">{currentPuzzleDifficulty}</span>
+                  )}
+                  {bestTime && (
+                    <span className="px-3 py-1 bg-emerald-900/50 border border-emerald-600/30 rounded-full text-sm text-emerald-400 flex items-center gap-1.5" title="Your best no-assist time">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      {Math.floor(bestTime / 60)}:{String(bestTime % 60).padStart(2, '0')}
+                    </span>
                   )}
                   {noAssistMode && (
                     <span className="px-3 py-1 bg-red-600 rounded-full text-sm font-medium text-white">No Assist</span>
