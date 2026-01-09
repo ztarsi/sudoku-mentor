@@ -542,16 +542,22 @@ export default function SudokuMentor() {
   // Check if puzzle is complete
   useEffect(() => {
     if (!solution || !startTime) return;
-    
+
     const isSolved = grid.every((cell, idx) => 
       cell.value !== null && cell.value === solution[idx].value
     );
-    
+
     if (isSolved && solvedCount === 81) {
       const timeInSeconds = Math.floor((Date.now() - startTime) / 1000);
       setShowCompletion(true);
     }
   }, [grid, solution, startTime]);
+
+  const handleCopyPuzzle = () => {
+    // Extract only the fixed cells (initial puzzle state)
+    const puzzleString = grid.map(cell => cell.isFixed ? cell.value : 0).join('');
+    navigator.clipboard.writeText(puzzleString);
+  };
 
   const solvedCount = grid.filter(c => c.value !== null).length;
   const progress = Math.round((solvedCount / 81) * 100);
