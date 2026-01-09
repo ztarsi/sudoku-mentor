@@ -831,21 +831,16 @@ export default function SudokuMentor() {
       <header className="bg-slate-900/90 backdrop-blur-md border-b border-slate-700/60 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-2 lg:px-8 py-1 lg:py-4">
           <div className="flex items-center justify-between">
-            {/* Logo - Desktop */}
-            <div className="hidden lg:flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
-                <span className="text-white font-bold text-lg">9</span>
+            {/* Logo and Puzzle Info - Desktop */}
+            <div className="hidden lg:flex items-center gap-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
+                  <span className="text-white font-bold text-lg">9</span>
+                </div>
+                <h1 className="text-xl font-semibold text-white tracking-tight">Sudoku Mentor</h1>
               </div>
-              <h1 className="text-xl font-semibold text-white tracking-tight">Sudoku Mentor</h1>
-            </div>
-            
-            {/* Mobile - just icon */}
-            <div className="lg:hidden w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-              <span className="text-white font-bold text-sm">9</span>
-            </div>
-            
-            {/* Center - Puzzle Info */}
-            <div className="hidden lg:block absolute left-1/2 transform -translate-x-1/2">
+
+              {/* Puzzle Info */}
               {currentPuzzleName ? (
                 <div className="flex items-center gap-3">
                   <p className="text-lg font-medium text-white whitespace-nowrap" title={currentPuzzleName}>
@@ -865,10 +860,15 @@ export default function SudokuMentor() {
                   {noAssistMode && (
                     <span className="px-3 py-1 bg-red-600 rounded-full text-sm font-medium text-white">No Assist</span>
                   )}
-                  </div>
+                </div>
               ) : (
                 <p className="text-base text-slate-400">Learn logic-based solving</p>
               )}
+            </div>
+
+            {/* Mobile - just icon */}
+            <div className="lg:hidden w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+              <span className="text-white font-bold text-sm">9</span>
             </div>
             
             <div className="flex items-center gap-2 lg:gap-4">
