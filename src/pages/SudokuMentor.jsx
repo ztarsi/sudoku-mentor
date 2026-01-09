@@ -827,15 +827,9 @@ export default function SudokuMentor() {
                   });
 
                   return newGrid;
-                });
-
-                // If all instances involve the same digit, highlight it
-                const digits = [...new Set(instances.map(s => s.digit).filter(d => d))];
-                if (digits.length === 1) {
-                  setFocusedDigit(digits[0]);
-                }
-              }}
-            />
+                  });
+                  }}
+                  />
           </div>
         </div>
       </main>
@@ -914,14 +908,10 @@ export default function SudokuMentor() {
               });
 
               return newGrid;
-            });
+              });
 
-            const digits = [...new Set(instances.map(s => s.digit).filter(d => d))];
-            if (digits.length === 1) {
-              setFocusedDigit(digits[0]);
-            }
-            setDrawerOpen(false);
-          }}
+              setDrawerOpen(false);
+              }}
         />
       </MobileDrawer>
 
