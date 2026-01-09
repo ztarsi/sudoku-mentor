@@ -489,6 +489,10 @@ export default function SudokuMentor() {
           handleCellInput(selectedCell, digit);
         }
       } else if (e.key === 'Backspace' || e.key === 'Delete') {
+        // Don't interfere with input fields
+        if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') {
+          return;
+        }
         e.preventDefault();
         if (selectedCell !== null && !grid[selectedCell].isFixed) {
           handleCellInput(selectedCell, null);
