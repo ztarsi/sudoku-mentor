@@ -215,9 +215,48 @@ export default function SudokuMentor() {
           isHighlighted: false,
           highlightColor: null,
           isBaseCell: false,
-          isTargetCell: false
+          isTargetCell: false,
+          isUnitCell: false
         }));
-        
+
+        // For Hidden/Naked Singles, highlight the entire unit
+        if ((step.technique === 'Hidden Single' || step.technique === 'Naked Single') && step.baseCells?.[0] !== undefined) {
+          const cellIdx = step.baseCells[0];
+          const row = Math.floor(cellIdx / 9);
+          const col = cellIdx % 9;
+          const box = Math.floor(row / 3) * 3 + Math.floor(col / 3);
+
+          // Determine which unit to highlight based on the step explanation
+          let unitCells = [];
+          if (step.explanation.includes('row')) {
+            // Highlight the row
+            for (let c = 0; c < 9; c++) {
+              unitCells.push(row * 9 + c);
+            }
+          } else if (step.explanation.includes('column')) {
+            // Highlight the column
+            for (let r = 0; r < 9; r++) {
+              unitCells.push(r * 9 + col);
+            }
+          } else if (step.explanation.includes('box')) {
+            // Highlight the box
+            const boxStartRow = Math.floor(row / 3) * 3;
+            const boxStartCol = Math.floor(col / 3) * 3;
+            for (let r = boxStartRow; r < boxStartRow + 3; r++) {
+              for (let c = boxStartCol; c < boxStartCol + 3; c++) {
+                unitCells.push(r * 9 + c);
+              }
+            }
+          }
+
+          unitCells.forEach(idx => {
+            newGrid[idx] = {
+              ...newGrid[idx],
+              isUnitCell: true
+            };
+          });
+        }
+
         // Highlight base cells
         step.baseCells?.forEach(idx => {
           newGrid[idx] = {
@@ -227,7 +266,7 @@ export default function SudokuMentor() {
             highlightColor: 'blue'
           };
         });
-        
+
         // Highlight target cells (elimination cells)
         step.targetCells?.forEach(idx => {
           newGrid[idx] = {
@@ -237,7 +276,7 @@ export default function SudokuMentor() {
             highlightColor: 'red'
           };
         });
-        
+
         return newGrid;
       });
     } else {
@@ -258,9 +297,10 @@ export default function SudokuMentor() {
             isHighlighted: false,
             highlightColor: null,
             isBaseCell: false,
-            isTargetCell: false
+            isTargetCell: false,
+            isUnitCell: false
           }));
-          
+
           // Highlight base cells
           result.baseCells?.forEach(idx => {
             newGrid[idx] = {
@@ -270,7 +310,7 @@ export default function SudokuMentor() {
               highlightColor: 'blue'
             };
           });
-          
+
           // Highlight target cells
           result.targetCells?.forEach(idx => {
             newGrid[idx] = {
@@ -280,7 +320,7 @@ export default function SudokuMentor() {
               highlightColor: 'red'
             };
           });
-          
+
           return newGrid;
         });
       }
@@ -840,10 +880,44 @@ export default function SudokuMentor() {
                     isHighlighted: false,
                     highlightColor: null,
                     isBaseCell: false,
-                    isTargetCell: false
+                    isTargetCell: false,
+                    isUnitCell: false
                   }));
 
                   instances.forEach(step => {
+                    // For Hidden/Naked Singles, highlight the entire unit
+                    if ((step.technique === 'Hidden Single' || step.technique === 'Naked Single') && step.baseCells?.[0] !== undefined) {
+                      const cellIdx = step.baseCells[0];
+                      const row = Math.floor(cellIdx / 9);
+                      const col = cellIdx % 9;
+
+                      let unitCells = [];
+                      if (step.explanation.includes('row')) {
+                        for (let c = 0; c < 9; c++) {
+                          unitCells.push(row * 9 + c);
+                        }
+                      } else if (step.explanation.includes('column')) {
+                        for (let r = 0; r < 9; r++) {
+                          unitCells.push(r * 9 + col);
+                        }
+                      } else if (step.explanation.includes('box')) {
+                        const boxStartRow = Math.floor(row / 3) * 3;
+                        const boxStartCol = Math.floor(col / 3) * 3;
+                        for (let r = boxStartRow; r < boxStartRow + 3; r++) {
+                          for (let c = boxStartCol; c < boxStartCol + 3; c++) {
+                            unitCells.push(r * 9 + c);
+                          }
+                        }
+                      }
+
+                      unitCells.forEach(idx => {
+                        newGrid[idx] = {
+                          ...newGrid[idx],
+                          isUnitCell: true
+                        };
+                      });
+                    }
+
                     step.baseCells?.forEach(idx => {
                       newGrid[idx] = {
                         ...newGrid[idx],
@@ -852,7 +926,7 @@ export default function SudokuMentor() {
                         highlightColor: 'blue'
                       };
                     });
-                    
+
                     step.targetCells?.forEach(idx => {
                       newGrid[idx] = {
                         ...newGrid[idx],
@@ -932,10 +1006,44 @@ export default function SudokuMentor() {
                 isHighlighted: false,
                 highlightColor: null,
                 isBaseCell: false,
-                isTargetCell: false
+                isTargetCell: false,
+                isUnitCell: false
               }));
 
               instances.forEach(step => {
+                // For Hidden/Naked Singles, highlight the entire unit
+                if ((step.technique === 'Hidden Single' || step.technique === 'Naked Single') && step.baseCells?.[0] !== undefined) {
+                  const cellIdx = step.baseCells[0];
+                  const row = Math.floor(cellIdx / 9);
+                  const col = cellIdx % 9;
+
+                  let unitCells = [];
+                  if (step.explanation.includes('row')) {
+                    for (let c = 0; c < 9; c++) {
+                      unitCells.push(row * 9 + c);
+                    }
+                  } else if (step.explanation.includes('column')) {
+                    for (let r = 0; r < 9; r++) {
+                      unitCells.push(r * 9 + col);
+                    }
+                  } else if (step.explanation.includes('box')) {
+                    const boxStartRow = Math.floor(row / 3) * 3;
+                    const boxStartCol = Math.floor(col / 3) * 3;
+                    for (let r = boxStartRow; r < boxStartRow + 3; r++) {
+                      for (let c = boxStartCol; c < boxStartCol + 3; c++) {
+                        unitCells.push(r * 9 + c);
+                      }
+                    }
+                  }
+
+                  unitCells.forEach(idx => {
+                    newGrid[idx] = {
+                      ...newGrid[idx],
+                      isUnitCell: true
+                    };
+                  });
+                }
+
                 step.baseCells?.forEach(idx => {
                   newGrid[idx] = {
                     ...newGrid[idx],
@@ -944,7 +1052,7 @@ export default function SudokuMentor() {
                     highlightColor: 'blue'
                   };
                 });
-                
+
                 step.targetCells?.forEach(idx => {
                   newGrid[idx] = {
                     ...newGrid[idx],
