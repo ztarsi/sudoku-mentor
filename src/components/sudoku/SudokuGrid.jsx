@@ -165,18 +165,35 @@ export default function SudokuGrid({
             {grid.map((cell, index) => {
               const row = Math.floor(index / 9);
               const col = index % 9;
+              const box = Math.floor(row / 3) * 3 + Math.floor(col / 3);
 
               // Determine border styling for 3x3 boxes
               const borderRight = (col + 1) % 3 === 0 && col !== 8 ? 'border-r-4' : 'border-r';
               const borderBottom = (row + 1) % 3 === 0 && row !== 8 ? 'border-b-4' : 'border-b';
 
-              // Determine ALS set membership
+              // Determine ALS set membership and unit highlighting
               let alsSet = null;
+              let alsUnitHighlight = null;
               if (currentStep?.technique === 'ALS-XZ') {
                 if (currentStep.als1?.cells.includes(index)) {
                   alsSet = 1;
                 } else if (currentStep.als2?.cells.includes(index)) {
                   alsSet = 2;
+                }
+
+                // Check if this cell is in a unit that contains ALS cells
+                const als1Rows = [...new Set(currentStep.als1.cells.map(c => Math.floor(c / 9)))];
+                const als1Cols = [...new Set(currentStep.als1.cells.map(c => c % 9))];
+                const als1Boxes = [...new Set(currentStep.als1.cells.map(c => Math.floor(Math.floor(c / 9) / 3) * 3 + Math.floor((c % 9) / 3)))];
+
+                const als2Rows = [...new Set(currentStep.als2.cells.map(c => Math.floor(c / 9)))];
+                const als2Cols = [...new Set(currentStep.als2.cells.map(c => c % 9))];
+                const als2Boxes = [...new Set(currentStep.als2.cells.map(c => Math.floor(Math.floor(c / 9) / 3) * 3 + Math.floor((c % 9) / 3)))];
+
+                if (als1Rows.includes(row) || als1Cols.includes(col) || als1Boxes.includes(box)) {
+                  alsUnitHighlight = 1;
+                } else if (als2Rows.includes(row) || als2Cols.includes(col) || als2Boxes.includes(box)) {
+                  alsUnitHighlight = 2;
                 }
               }
 
@@ -202,6 +219,7 @@ export default function SudokuGrid({
                     candidateMode={candidateMode}
                     colors={colors}
                     alsSet={alsSet}
+                    alsUnitHighlight={alsUnitHighlight}
                     currentStep={currentStep}
                     xDigit={currentStep?.technique === 'ALS-XZ' ? currentStep.xDigit : null}
                     zDigit={currentStep?.technique === 'ALS-XZ' ? currentStep.zDigit : null}

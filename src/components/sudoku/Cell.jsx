@@ -19,6 +19,7 @@ export default function Cell({
   onInput,
   onToggleCandidate,
   alsSet,
+  alsUnitHighlight,
   currentStep,
   xDigit,
   zDigit
@@ -41,14 +42,25 @@ export default function Cell({
     bgColor = 'bg-red-900/40';
     textColor = 'text-red-400';
   } else if (alsSet) {
-    // ALS-XZ set distinction
+    // ALS-XZ cells - prominent highlighting
     if (alsSet === 1) {
-      bgColor = 'bg-blue-500/20';
-      borderStyle = 'ring-2 ring-blue-500 ring-inset';
+      bgColor = 'bg-blue-600/40';
+      borderStyle = 'ring-2 ring-blue-400 ring-inset';
     } else if (alsSet === 2) {
-      bgColor = 'bg-indigo-500/20';
-      borderStyle = 'ring-2 ring-indigo-500 ring-inset';
+      bgColor = 'bg-indigo-600/40';
+      borderStyle = 'ring-2 ring-indigo-400 ring-inset';
     }
+  } else if (alsUnitHighlight) {
+    // ALS-XZ unit background - subtle highlighting
+    if (alsUnitHighlight === 1) {
+      bgColor = 'bg-blue-500/10';
+    } else if (alsUnitHighlight === 2) {
+      bgColor = 'bg-indigo-500/10';
+    }
+  } else if (isTargetCell && currentStep?.technique === 'ALS-XZ') {
+    // Target cells for elimination - red/orange
+    bgColor = 'bg-orange-600/30';
+    borderStyle = 'ring-2 ring-orange-400 ring-inset';
   } else if (isBaseCell) {
     bgColor = 'bg-blue-900/40';
   } else if (isTargetCell) {
