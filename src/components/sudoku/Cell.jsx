@@ -15,6 +15,7 @@ export default function Cell({
   focusedCandidates,
   removalCandidates,
   candidateMode,
+  candidatesVisible,
   colors,
   onClick, 
   onInput,
@@ -144,7 +145,7 @@ export default function Cell({
             {ghostValue}
           </span>
         </motion.div>
-      ) : (
+      ) : candidatesVisible ? (
         <div className="grid grid-cols-3 gap-0 w-full h-full p-0.5">
           {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => {
             const hasCandidate = candidates.includes(num);
@@ -214,7 +215,7 @@ export default function Cell({
             );
           })}
         </div>
-      )}
+      ) : null}
       
       {/* Highlight overlay for base/target cells */}
       {(isBaseCell || isTargetCell) && (
