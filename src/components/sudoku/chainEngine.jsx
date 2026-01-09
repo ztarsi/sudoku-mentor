@@ -225,14 +225,16 @@ export const findALSXZ = (grid, focusedDigit) => {
   };
   
   const units = [
-    ...Array.from({ length: 9 }, (_, i) => getRowIndices(i)),
-    ...Array.from({ length: 9 }, (_, i) => getColIndices(i)),
-    ...Array.from({ length: 9 }, (_, i) => getBoxIndices(i))
+    ...Array.from({ length: 9 }, (_, i) => ({ type: 'row', indices: getRowIndices(i), name: `row ${i + 1}` })),
+    ...Array.from({ length: 9 }, (_, i) => ({ type: 'col', indices: getColIndices(i), name: `column ${i + 1}` })),
+    ...Array.from({ length: 9 }, (_, i) => ({ type: 'box', indices: getBoxIndices(i), name: `box ${i + 1}` }))
   ];
   
   const allALS = [];
   for (const unit of units) {
-    allALS.push(...findALS(unit));
+    const alsInUnit = findALS(unit.indices);
+    alsInUnit.forEach(als => als.unitName = unit.name);
+    allALS.push(...alsInUnit);
   }
   
   // Find ALS-XZ: Two ALS with restricted common X and eliminating digit Z
@@ -291,7 +293,7 @@ export const findALSXZ = (grid, focusedDigit) => {
                 als2,
                 xDigit: x,
                 zDigit: z,
-                explanation: `🎯 The Two-House Trap (ALS-XZ)\n\nLook at the two highlighted groups of cells (Set A and Set B). Each is "Almost Locked"—it has one more candidate than it has cells.\n\n🔗 The Bridge: These groups are linked by digit ${x}. Because of how they see each other, if Set A doesn't contain ${x}, Set B is forced to take it.\n\n⚡ The Result: This "Bridge" forces digit ${z} to stay inside these two groups. Since one of them must claim ${z}, any cell outside that sees all instances of ${z} in both sets can safely have ${z} eliminated.`
+                explanation: `🎯 The Two-House Trap (ALS-XZ)\n\nLook at the two highlighted groups of cells in ${als1.unitName} and ${als2.unitName}. Each is "Almost Locked"—it has one more candidate than it has cells.\n\n🔗 The Bridge: These groups are linked by digit ${x}. Because of how they see each other, if ${als1.unitName} doesn't contain ${x}, ${als2.unitName} is forced to take it.\n\n⚡ The Result: This "Bridge" forces digit ${z} to stay inside these two groups. Since one of them must claim ${z}, any cell outside that sees all instances of ${z} in both sets can safely have ${z} eliminated.`
               };
             }
           }
