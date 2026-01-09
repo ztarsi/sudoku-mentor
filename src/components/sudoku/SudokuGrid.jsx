@@ -83,7 +83,7 @@ export default function SudokuGrid({
     const links = [];
     const { als1, als2, zDigit, xDigit } = currentStep;
 
-    // Internal links - thin blue lines for z-digit cells within each set
+    // Internal links - purple lines for z-digit cells within each set
     const als1ZCells = als1.cells.filter(c => grid[c].candidates.includes(zDigit));
     const als2ZCells = als2.cells.filter(c => grid[c].candidates.includes(zDigit));
 
@@ -93,7 +93,7 @@ export default function SudokuGrid({
         links.push({
           from: getCellCenter(als1ZCells[i]),
           to: getCellCenter(als1ZCells[j]),
-          color: '#3b82f6',
+          color: '#8b5cf6',
           type: 'internal',
           strokeWidth: 2
         });
@@ -106,7 +106,7 @@ export default function SudokuGrid({
         links.push({
           from: getCellCenter(als2ZCells[i]),
           to: getCellCenter(als2ZCells[j]),
-          color: '#3b82f6',
+          color: '#8b5cf6',
           type: 'internal',
           strokeWidth: 2
         });
@@ -203,6 +203,8 @@ export default function SudokuGrid({
                     colors={colors}
                     alsSet={alsSet}
                     currentStep={currentStep}
+                    xDigit={currentStep?.technique === 'ALS-XZ' ? currentStep.xDigit : null}
+                    zDigit={currentStep?.technique === 'ALS-XZ' ? currentStep.zDigit : null}
                     onClick={() => onCellClick(index)}
                     onInput={(value) => onCellInput(index, value)}
                     onToggleCandidate={(candidate) => onToggleCandidate(index, candidate)}

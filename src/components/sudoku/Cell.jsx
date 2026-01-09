@@ -19,7 +19,9 @@ export default function Cell({
   onInput,
   onToggleCandidate,
   alsSet,
-  currentStep
+  currentStep,
+  xDigit,
+  zDigit
 }) {
   const { value, isFixed, candidates, isBaseCell, isTargetCell, highlightColor, ghostValue } = cell;
 
@@ -38,14 +40,14 @@ export default function Cell({
   } else if (hasError) {
     bgColor = 'bg-red-900/40';
     textColor = 'text-red-400';
-  } else if (currentStep?.technique === 'ALS-XZ' && alsSet) {
+  } else if (alsSet) {
     // ALS-XZ set distinction
     if (alsSet === 1) {
       bgColor = 'bg-blue-500/20';
       borderStyle = 'ring-2 ring-blue-500 ring-inset';
     } else if (alsSet === 2) {
       bgColor = 'bg-indigo-500/20';
-      borderStyle = 'ring-2 ring-indigo-500 ring-inset ring-dashed';
+      borderStyle = 'ring-2 ring-indigo-500 ring-inset';
     }
   } else if (isBaseCell) {
     bgColor = 'bg-blue-900/40';
@@ -160,16 +162,16 @@ export default function Cell({
                       ? 'font-semibold' 
                       : 'text-white'
                   )}
-                  ${currentStep?.technique === 'ALS-XZ' && alsSet && hasCandidate && num !== currentStep.xDigit && num !== currentStep.zDigit ? 'opacity-20' : ''}
-                `}
-                style={(() => {
+                  ${alsSet && hasCandidate && num !== xDigit && num !== zDigit ? 'opacity-20' : ''}
+                  `}
+                  style={(() => {
                   // ALS-XZ special highlighting
-                  if (currentStep?.technique === 'ALS-XZ' && hasCandidate) {
-                    if (num === currentStep.xDigit) {
+                  if (alsSet && hasCandidate) {
+                    if (num === xDigit) {
                       return { backgroundColor: '#f59e0b80', boxShadow: '0 0 0 2px #f59e0b', color: '#000' };
                     }
-                    if (num === currentStep.zDigit) {
-                      return { backgroundColor: '#a855f780', boxShadow: '0 0 0 2px #a855f7', color: '#000', animation: 'pulse 2s infinite' };
+                    if (num === zDigit) {
+                      return { backgroundColor: '#a855f780', boxShadow: '0 0 0 2px #a855f7', color: '#000' };
                     }
                   }
                   // Standard highlighting
