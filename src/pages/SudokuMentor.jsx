@@ -170,7 +170,7 @@ export default function SudokuMentor() {
     if (step) {
       setCurrentStep(step);
 
-      // For multi-candidate techniques (excluding ALS-XZ which has its own highlighting), extract all candidates and assign colors
+      // For multi-candidate techniques (excluding ALS-XZ), extract all candidates and assign colors
       const multiCandidateTechniques = ['Naked Pair', 'Hidden Pair', 'Naked Triple'];
       if (multiCandidateTechniques.includes(step.technique) && step.baseCells) {
         const candidatesInvolved = new Set();
@@ -762,8 +762,8 @@ export default function SudokuMentor() {
                 // Set the first instance as the current step so it can be applied
                 if (instances.length > 0) {
                   setCurrentStep(instances[0]);
-                  
-                  // For multi-candidate techniques, extract all candidates and assign colors
+
+                  // For multi-candidate techniques (excluding ALS-XZ), extract all candidates and assign colors
                   const multiCandidateTechniques = ['Naked Pair', 'Hidden Pair', 'Naked Triple'];
                   const firstStep = instances[0];
                   if (multiCandidateTechniques.includes(firstStep.technique) && firstStep.baseCells) {
@@ -771,7 +771,7 @@ export default function SudokuMentor() {
                     firstStep.baseCells.forEach(cellIdx => {
                       grid[cellIdx].candidates.forEach(c => candidatesInvolved.add(c));
                     });
-                    
+
                     // Use user's focused digit color for first digit, then other distinct colors
                     const colorPalette = [
                       colors.focusDigit || '#10b981',
@@ -847,8 +847,8 @@ export default function SudokuMentor() {
           onHighlightTechnique={(instances, total, current) => {
             if (instances.length > 0) {
               setCurrentStep(instances[0]);
-              
-              // For multi-candidate techniques, extract all candidates and assign colors
+
+              // For multi-candidate techniques (excluding ALS-XZ), extract all candidates and assign colors
               const multiCandidateTechniques = ['Naked Pair', 'Hidden Pair', 'Naked Triple'];
               const firstStep = instances[0];
               if (multiCandidateTechniques.includes(firstStep.technique) && firstStep.baseCells) {
@@ -856,7 +856,7 @@ export default function SudokuMentor() {
                 firstStep.baseCells.forEach(cellIdx => {
                   grid[cellIdx].candidates.forEach(c => candidatesInvolved.add(c));
                 });
-                
+
                 // Use user's focused digit color for first digit, then other distinct colors
                 const colorPalette = [
                   colors.focusDigit || '#10b981',
