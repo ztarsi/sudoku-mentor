@@ -846,7 +846,7 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, onHighligh
             </motion.div>
           )}
           </AnimatePresence>
-          </div>
+          </motion.div>
 
           {/* Technique Modal */}
       {selectedTechnique && (
