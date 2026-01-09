@@ -9,6 +9,19 @@ export default function TextPuzzleUpload({ onClose, onPuzzleLoaded, embedded = f
 
   const parseTextPuzzle = (input) => {
     try {
+      const trimmed = input.trim().replace(/\s+/g, '');
+      
+      // Check if it's compact format (81 consecutive digits)
+      if (/^\d{81}$/.test(trimmed)) {
+        // Compact format: 81 digits, 0 = empty cell
+        const grid = [];
+        for (let i = 0; i < 81; i++) {
+          grid.push(parseInt(trimmed[i]));
+        }
+        return grid;
+      }
+      
+      // Otherwise, parse as line-by-line format
       const lines = input.trim().split('\n').filter(line => line.trim());
       const grid = Array(81).fill(0);
       
@@ -76,7 +89,7 @@ export default function TextPuzzleUpload({ onClose, onPuzzleLoaded, embedded = f
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Format: Each line = 3 digits&#10;1st digit: Row (1-9)&#10;2nd digit: Column (1-9)&#10;3rd digit: Value (1-9)&#10;&#10;Example:&#10;131&#10;155&#10;273..."
+            placeholder="Line format:&#10;131&#10;155&#10;273...&#10;&#10;OR compact format:&#10;100007090030020008009600500..."
             className="w-full h-48 px-4 py-3 bg-slate-800 text-white border border-slate-700 rounded-lg focus:border-blue-500 focus:outline-none resize-none font-mono"
           />
         </div>
@@ -98,11 +111,11 @@ export default function TextPuzzleUpload({ onClose, onPuzzleLoaded, embedded = f
         )}
 
         <div className="bg-slate-800 rounded-lg p-4 text-sm text-slate-400">
-          <p className="font-medium text-white mb-2">Format:</p>
+          <p className="font-medium text-white mb-2">Supported Formats:</p>
           <ul className="list-disc list-inside space-y-1">
-            <li>Each line: 3 digits (Row, Column, Value)</li>
-            <li>Example: "131" = Row 1, Column 3, Value 1</li>
-            <li>All values must be 1-9</li>
+            <li><strong>Line format:</strong> Each line = 3 digits (Row, Column, Value)</li>
+            <li><strong>Compact format:</strong> 81 digits (0 = empty cell)</li>
+            <li>All values must be 0-9</li>
           </ul>
         </div>
 
@@ -157,15 +170,14 @@ export default function TextPuzzleUpload({ onClose, onPuzzleLoaded, embedded = f
           <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
             <h3 className="text-sm font-medium text-slate-300 mb-2">Format Instructions</h3>
             <p className="text-sm text-slate-400 mb-2">
-              Each line represents one pre-filled cell with 3 digits:
+              Two formats supported (auto-detected):
             </p>
             <ul className="text-sm text-slate-400 space-y-1 list-disc list-inside">
-              <li>First digit: Row (1-9)</li>
-              <li>Second digit: Column (1-9)</li>
-              <li>Third digit: Cell value (1-9)</li>
+              <li><strong>Line format:</strong> Each line = Row, Column, Value (e.g., "131")</li>
+              <li><strong>Compact format:</strong> 81 digits, 0 = empty (e.g., "100007090...")</li>
             </ul>
             <div className="mt-3 bg-slate-900 rounded p-2 font-mono text-xs text-slate-300">
-              Example: "131" = Row 1, Column 3, Value 1
+              Examples: "131" = R1C3=1 | "100007090..." = compact grid
             </div>
           </div>
 
@@ -191,7 +203,7 @@ export default function TextPuzzleUpload({ onClose, onPuzzleLoaded, embedded = f
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder="131&#10;155&#10;273&#10;..."
+              placeholder="Line format:&#10;131&#10;155&#10;273&#10;...&#10;&#10;OR compact:&#10;100007090030020008009600500..."
               className="w-full h-48 bg-slate-800 border border-slate-700 rounded-lg p-3 text-white font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
             />
           </div>
