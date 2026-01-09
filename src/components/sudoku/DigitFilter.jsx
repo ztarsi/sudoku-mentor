@@ -68,7 +68,7 @@ export default function DigitFilter({ focusedDigit, onDigitClick, grid }) {
       </div>
 
       {/* Mobile sticky bottom bar */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-md border-t border-slate-700 py-2 px-1 z-30 safe-area-inset-bottom">
+      <div className="lg:hidden py-1.5 px-1">
         <div className="flex gap-1 justify-between">
           {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(digit => {
             const isActive = focusedDigit === digit;
@@ -80,7 +80,7 @@ export default function DigitFilter({ focusedDigit, onDigitClick, grid }) {
                 onClick={() => onDigitClick(digit)}
                 disabled={isComplete}
                 className={`
-                  relative flex-shrink-0 w-10 h-10 rounded-lg font-semibold text-base
+                  relative flex-shrink-0 w-9 h-9 rounded-lg font-semibold text-sm
                   transition-all duration-200
                   ${isComplete 
                     ? 'bg-emerald-900/40 text-emerald-600 cursor-not-allowed' 
@@ -92,7 +92,7 @@ export default function DigitFilter({ focusedDigit, onDigitClick, grid }) {
               >
                 {digit}
                 {isComplete && (
-                  <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-500 rounded-full flex items-center justify-center text-[8px] text-white">
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full flex items-center justify-center text-[7px] text-white">
                     ✓
                   </div>
                 )}

@@ -150,7 +150,7 @@ export default function SudokuGrid({
 
   return (
     <>
-      <div className="relative w-full">
+      <div className={`relative ${isMobile ? 'w-full flex justify-center' : ''}`}>
         {/* Outer glow effect - desktop only */}
         {!isMobile && <div className="absolute inset-0 bg-gradient-to-br from-blue-500/30 to-indigo-500/30 rounded-2xl blur-xl"></div>}
         
@@ -161,9 +161,10 @@ export default function SudokuGrid({
             className={`grid grid-cols-9 gap-0 overflow-visible relative ${isMobile ? '' : 'rounded-lg'}`}
             style={{ 
               border: isMobile ? 'none' : `3px solid ${colors?.gridLines || '#475569'}`,
-              width: isMobile ? '100vw' : 'min(90vw, 600px)', 
-              height: isMobile ? '100vw' : 'min(90vw, 600px)',
-              aspectRatio: '1/1'
+              width: isMobile ? 'calc(100vw - 8px)' : 'min(90vw, 600px)', 
+              height: isMobile ? 'calc(100vw - 8px)' : 'min(90vw, 600px)',
+              aspectRatio: '1/1',
+              marginLeft: isMobile ? '4px' : '0'
             }}
           >
             {grid.map((cell, index) => {

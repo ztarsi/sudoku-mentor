@@ -1034,7 +1034,7 @@ export default function SudokuMentor() {
           /* Mobile Layout - Simple Grid Only */
           <div className="flex flex-col h-[calc(100vh-56px)]">
             {/* Sudoku Grid - Full Width */}
-            <div className="w-full">
+            <div className="w-full flex-shrink-0">
               <SudokuGrid
                 grid={grid}
                 selectedCell={selectedCell}
@@ -1055,12 +1055,12 @@ export default function SudokuMentor() {
             </div>
 
             {/* Mobile Controls - Fixed Bottom */}
-            <div className="fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-md border-t border-slate-700 safe-area-inset-bottom z-30">
+            <div className="fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-md border-t border-slate-700 safe-area-inset-bottom z-40">
               {/* Candidate/Solve Mode Toggle */}
-              <div className="flex items-center justify-center gap-2 px-4 py-2 border-b border-slate-800">
+              <div className="flex items-center gap-2 px-2 py-2 border-b border-slate-800">
                 <button
                   onClick={() => setCandidateMode(false)}
-                  className={`flex-1 py-2.5 rounded-lg font-medium transition-all ${
+                  className={`flex-1 py-2 rounded-lg font-medium text-sm transition-all ${
                     !candidateMode
                       ? 'bg-blue-600 text-white shadow-lg'
                       : 'bg-slate-800 text-slate-400'
@@ -1070,7 +1070,7 @@ export default function SudokuMentor() {
                 </button>
                 <button
                   onClick={() => setCandidateMode(true)}
-                  className={`flex-1 py-2.5 rounded-lg font-medium transition-all ${
+                  className={`flex-1 py-2 rounded-lg font-medium text-sm transition-all ${
                     candidateMode
                       ? 'bg-purple-600 text-white shadow-lg'
                       : 'bg-slate-800 text-slate-400'
