@@ -181,7 +181,7 @@ export default function SudokuGrid({
                   alsSet = 2;
                 }
 
-                // Check if this cell is in a unit that contains ALS cells
+                // Identify the specific unit each ALS belongs to
                 const als1Rows = [...new Set(currentStep.als1.cells.map(c => Math.floor(c / 9)))];
                 const als1Cols = [...new Set(currentStep.als1.cells.map(c => c % 9))];
                 const als1Boxes = [...new Set(currentStep.als1.cells.map(c => Math.floor(Math.floor(c / 9) / 3) * 3 + Math.floor((c % 9) / 3)))];
@@ -190,9 +190,25 @@ export default function SudokuGrid({
                 const als2Cols = [...new Set(currentStep.als2.cells.map(c => c % 9))];
                 const als2Boxes = [...new Set(currentStep.als2.cells.map(c => Math.floor(Math.floor(c / 9) / 3) * 3 + Math.floor((c % 9) / 3)))];
 
-                if (als1Rows.includes(row) || als1Cols.includes(col) || als1Boxes.includes(box)) {
+                // Determine which specific unit each ALS is in (the one where all cells share that unit)
+                const als1Unit = als1Rows.length === 1 ? { type: 'row', value: als1Rows[0] } :
+                                 als1Cols.length === 1 ? { type: 'col', value: als1Cols[0] } :
+                                 als1Boxes.length === 1 ? { type: 'box', value: als1Boxes[0] } : null;
+
+                const als2Unit = als2Rows.length === 1 ? { type: 'row', value: als2Rows[0] } :
+                                 als2Cols.length === 1 ? { type: 'col', value: als2Cols[0] } :
+                                 als2Boxes.length === 1 ? { type: 'box', value: als2Boxes[0] } : null;
+
+                // Only highlight if this cell belongs to one of the two specific units
+                if (als1Unit && 
+                    ((als1Unit.type === 'row' && row === als1Unit.value) ||
+                     (als1Unit.type === 'col' && col === als1Unit.value) ||
+                     (als1Unit.type === 'box' && box === als1Unit.value))) {
                   alsUnitHighlight = 1;
-                } else if (als2Rows.includes(row) || als2Cols.includes(col) || als2Boxes.includes(box)) {
+                } else if (als2Unit && 
+                           ((als2Unit.type === 'row' && row === als2Unit.value) ||
+                            (als2Unit.type === 'col' && col === als2Unit.value) ||
+                            (als2Unit.type === 'box' && box === als2Unit.value))) {
                   alsUnitHighlight = 2;
                 }
               }
