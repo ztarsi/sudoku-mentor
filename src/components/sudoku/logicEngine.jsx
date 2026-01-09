@@ -244,6 +244,9 @@ const findHiddenSingle = (grid, focusedDigit, returnAll = false) => {
       // Skip cells that already have a value
       if (cell.value !== null) continue;
       
+      // Skip Naked Singles (cells with only 1 candidate) - those are handled by findNakedSingle
+      if (cell.candidates.length === 1) continue;
+      
       // For each candidate in this cell, record its location
       for (const candidate of cell.candidates) {
         // Skip if we're focusing on a specific digit and this isn't it
