@@ -171,6 +171,9 @@ export const findAllTechniqueInstances = (grid, techniqueName) => {
   const seenKeys = new Set();
 
   (Array.isArray(results) ? results : (results ? [results] : [])).forEach(step => {
+    // Filter by specific technique name (important for Pointing Pair vs Pointing Triple)
+    if (step.technique !== techniqueName) return;
+    
     const key = step.placement 
       ? `p-${step.placement.cell}-${step.placement.digit}` 
       : `e-${step.eliminations?.map(e => `${e.cell}${e.digit}`).join('-') || ''}`;
