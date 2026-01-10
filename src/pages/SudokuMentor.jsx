@@ -13,7 +13,7 @@ import { solveSudoku } from '@/components/sudoku/solver';
 import { base44 } from '@/api/base44Client';
 import { AnimatePresence, motion } from 'framer-motion';
 import { PUZZLES } from '@/components/sudoku/PuzzleLibrary';
-import { createPageUrl } from './utils';
+import { createPageUrl } from '@/utils';
 
 const createEmptyGrid = () => {
   return Array(81).fill(null).map((_, index) => ({
