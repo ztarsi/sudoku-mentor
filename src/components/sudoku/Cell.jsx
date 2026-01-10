@@ -170,9 +170,7 @@ export default function Cell({
                 onContextMenu={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  if (hasCandidate) {
-                    onToggleCandidate(num);
-                  }
+                  onToggleCandidate(num);
                 }}
                 className={`
                   flex items-center justify-center text-xs sm:text-sm
