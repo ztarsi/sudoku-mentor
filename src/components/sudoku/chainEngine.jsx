@@ -194,7 +194,7 @@ export const findXCycle = (grid, focusedDigit, returnAll = false) => {
     }
   }
   
-  return null;
+  return returnAll ? allInstances : null;
 };
 
 const arePeers = (cell1, cell2) => {
@@ -316,7 +316,7 @@ export const findALSXZ = (grid, focusedDigit, returnAll = false) => {
     }
   }
   
-  return null;
+  return returnAll ? allInstances : null;
 };
 
 // Unique Rectangle Type 1
@@ -389,7 +389,7 @@ export const findUniqueRectangle = (grid, focusedDigit = null, returnAll = false
     }
   }
   
-  return null;
+  return returnAll ? allInstances : null;
 };
 
 // BUG+1 (Bivalue Universal Grave plus 1)
@@ -550,5 +550,5 @@ export const findFinnedXWing = (grid, focusedDigit, returnAll = false) => {
     }
   }
   
-  return null;
+  return returnAll ? allInstances : null;
 };
