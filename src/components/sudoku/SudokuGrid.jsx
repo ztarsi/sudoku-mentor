@@ -221,38 +221,35 @@ export default function SudokuGrid({
               }
 
               return (
-                <div
+                <Cell
                   key={index}
+                  cellId={`sudoku-cell-${index}`}
+                  cell={cell}
+                  isSelected={selectedCell === index}
+                  isFocusedDigit={false}
+                  isFocusCandidate={focusedDigit !== null && cell.value === null && cell.candidates.includes(focusedDigit)}
+                  isDimmed={false}
+                  isHighlightedNumber={highlightedDigit !== null && cell.value === highlightedDigit}
+                  hasError={validationErrors.includes(index)}
+                  borderClasses={`${borderRight} ${borderBottom}`}
+                  focusedDigit={focusedDigit}
+                  focusedCandidates={focusedCandidates}
+                  removalCandidates={removalCandidates?.[index]}
+                  candidateMode={candidateMode}
+                  candidatesVisible={candidatesVisible}
+                  colors={colors}
+                  alsSet={alsSet}
+                  alsUnitHighlight={alsUnitHighlight}
+                  currentStep={currentStep}
+                  xDigit={currentStep?.technique === 'ALS-XZ' ? currentStep.xDigit : null}
+                  zDigit={currentStep?.technique === 'ALS-XZ' ? currentStep.zDigit : null}
+                  onClick={() => onCellClick(index)}
+                  onInput={(value) => onCellInput(index, value)}
+                  onToggleCandidate={(candidate) => onToggleCandidate(index, candidate)}
                   onTouchStart={(e) => handleTouchStart(e, index)}
                   onTouchEnd={handleTouchEnd}
                   onTouchMove={handleTouchMove}
-                >
-                  <Cell
-                    cellId={`sudoku-cell-${index}`}
-                    cell={cell}
-                    isSelected={selectedCell === index}
-                    isFocusedDigit={false}
-                    isFocusCandidate={focusedDigit !== null && cell.value === null && cell.candidates.includes(focusedDigit)}
-                    isDimmed={false}
-                    isHighlightedNumber={highlightedDigit !== null && cell.value === highlightedDigit}
-                    hasError={validationErrors.includes(index)}
-                    borderClasses={`${borderRight} ${borderBottom}`}
-                    focusedDigit={focusedDigit}
-                    focusedCandidates={focusedCandidates}
-                    removalCandidates={removalCandidates?.[index]}
-                    candidateMode={candidateMode}
-                    candidatesVisible={candidatesVisible}
-                    colors={colors}
-                    alsSet={alsSet}
-                    alsUnitHighlight={alsUnitHighlight}
-                    currentStep={currentStep}
-                    xDigit={currentStep?.technique === 'ALS-XZ' ? currentStep.xDigit : null}
-                    zDigit={currentStep?.technique === 'ALS-XZ' ? currentStep.zDigit : null}
-                    onClick={() => onCellClick(index)}
-                    onInput={(value) => onCellInput(index, value)}
-                    onToggleCandidate={(candidate) => onToggleCandidate(index, candidate)}
-                  />
-                </div>
+                />
               );
             })}
           </div>
