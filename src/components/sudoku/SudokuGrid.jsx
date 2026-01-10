@@ -64,7 +64,9 @@ export default function SudokuGrid({
   };
 
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 1024;
-  const gridSize = typeof window !== 'undefined' ? Math.min(window.innerWidth * 0.9, 600) : 600;
+  const rawGridSize = typeof window !== 'undefined' ? Math.min(window.innerWidth - 20, 600) : 600;
+  // Round to nearest number divisible by 9 for perfect cell alignment
+  const gridSize = Math.floor(rawGridSize / 9) * 9;
   const cellSize = gridSize / 9;
 
 
@@ -161,9 +163,9 @@ export default function SudokuGrid({
             className={`grid grid-cols-9 gap-0 overflow-visible relative ${isMobile ? '' : 'rounded-lg'}`}
             style={{ 
               border: isMobile ? `2px solid ${colors?.gridLines || '#475569'}` : `3px solid ${colors?.gridLines || '#475569'}`,
-              width: isMobile ? 'calc(100vw - 20px)' : 'min(90vw, 600px)', 
-              height: isMobile ? 'calc(100vw - 5px)' : 'min(90vw, 600px)',
-              aspectRatio: isMobile ? 'auto' : '1/1'
+              width: isMobile ? `${gridSize}px` : 'min(90vw, 600px)', 
+              height: isMobile ? `${gridSize}px` : 'min(90vw, 600px)',
+              aspectRatio: '1/1'
             }}
           >
             {grid.map((cell, index) => {
