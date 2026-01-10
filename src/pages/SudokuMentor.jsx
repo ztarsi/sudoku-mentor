@@ -743,12 +743,17 @@ export default function SudokuMentor() {
   const solvedCount = grid.filter(c => c.value !== null).length;
   const progress = Math.round((solvedCount / 81) * 100);
 
-  // Load user on mount
+  // Load user on mount and restore color settings
   useEffect(() => {
     const loadUser = async () => {
       try {
         const currentUser = await base44.auth.me();
         setUser(currentUser);
+        
+        // Load saved colors from user account
+        if (currentUser.sudoku_colors) {
+          setColors(currentUser.sudoku_colors);
+        }
       } catch (error) {
         setUser(null);
       }
@@ -909,6 +914,17 @@ export default function SudokuMentor() {
                 <span className="text-base text-slate-300">{progress}% Complete</span>
               </div>
 
+              {/* Color settings - both mobile and desktop */}
+              <button
+                onClick={() => setShowColorSettings(true)}
+                className="p-2 bg-slate-800 text-slate-300 rounded-lg lg:rounded-xl hover:bg-slate-700 transition-all duration-200 flex items-center justify-center"
+                title="Color Settings"
+              >
+                <svg className="w-4 h-4 lg:w-5 lg:h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                </svg>
+              </button>
+
               {/* Desktop-only buttons */}
               <button
                 onClick={() => setShowAppInfo(true)}
@@ -937,15 +953,6 @@ export default function SudokuMentor() {
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                </svg>
-              </button>
-              <button
-                onClick={() => setShowColorSettings(true)}
-                className="hidden lg:block p-2 bg-slate-800 text-slate-300 rounded-xl hover:bg-slate-700 transition-all duration-200"
-                title="Color Settings"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
                 </svg>
               </button>
               <button
@@ -1442,7 +1449,17 @@ export default function SudokuMentor() {
       {showColorSettings && (
         <ColorSettings
           colors={colors}
-          onColorsChange={setColors}
+          onColorsChange={async (newColors) => {
+            setColors(newColors);
+            // Save to user account if logged in
+            if (user) {
+              try {
+                await base44.auth.updateMe({ sudoku_colors: newColors });
+              } catch (error) {
+                console.error('Failed to save colors:', error);
+              }
+            }
+          }}
           onClose={() => setShowColorSettings(false)}
         />
       )}
