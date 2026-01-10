@@ -246,9 +246,11 @@ export default function SudokuGrid({
                   onClick={() => onCellClick(index)}
                   onInput={(value) => onCellInput(index, value)}
                   onToggleCandidate={(candidate) => onToggleCandidate(index, candidate)}
-                  onTouchStart={(e) => handleTouchStart(e, index)}
-                  onTouchEnd={handleTouchEnd}
-                  onTouchMove={handleTouchMove}
+                  {...(isMobile && {
+                    onTouchStart: (e) => handleTouchStart(e, index),
+                    onTouchEnd: handleTouchEnd,
+                    onTouchMove: handleTouchMove
+                  })}
                 />
               );
             })}
