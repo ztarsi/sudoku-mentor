@@ -1,14 +1,14 @@
 import SudokuMentor from './pages/SudokuMentor';
+import SudokuMentorMobile from './pages/SudokuMentorMobile';
 import TestHiddenSingle from './pages/TestHiddenSingle';
 import TestSuite from './pages/TestSuite';
-import SudokuMentorMobile from './pages/SudokuMentorMobile';
 
 
 export const PAGES = {
     "SudokuMentor": SudokuMentor,
+    "SudokuMentorMobile": SudokuMentorMobile,
     "TestHiddenSingle": TestHiddenSingle,
     "TestSuite": TestSuite,
-    "SudokuMentorMobile": SudokuMentorMobile,
 }
 
 export const pagesConfig = {

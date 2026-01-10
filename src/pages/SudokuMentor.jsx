@@ -680,8 +680,8 @@ export default function SudokuMentor() {
   }, [grid, solution, startTime, noAssistMode, noAssistStartTime, user, currentPuzzleName, currentPuzzleDifficulty, errorCount]);
 
   const handleCopyPuzzle = () => {
-    // Extract only the fixed cells (initial puzzle state)
-    const puzzleString = grid.map(cell => cell.isFixed ? cell.value : 0).join('');
+    // Extract all cells with values (current state including solved cells)
+    const puzzleString = grid.map(cell => cell.value || 0).join('');
     navigator.clipboard.writeText(puzzleString);
     setShowCopyConfirmation(true);
     setTimeout(() => setShowCopyConfirmation(false), 2000);
