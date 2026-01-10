@@ -70,10 +70,13 @@ export const analyzeDifficulty = (puzzleArray) => {
     iterations++;
   }
 
-  // Calculate difficulty based on max technique and average
-  const avgScore = techniques.length > 0 ? totalScore / techniques.length : 0;
-  
-  // Determine difficulty level
+  // Check if the puzzle is actually solved
+  const isSolved = grid.every(cell => cell.value !== null);
+
+  // If the solver gave up before finishing, it's automatically Ultimate
+  if (!isSolved) return 'ultimate';
+
+  // Otherwise, use the existing score logic
   if (maxScore <= 1) return 'easy';
   if (maxScore <= 2) return 'medium';
   if (maxScore <= 4) return 'hard';
