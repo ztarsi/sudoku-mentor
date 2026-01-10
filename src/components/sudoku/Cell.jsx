@@ -146,7 +146,7 @@ export default function Cell({
           </span>
         </motion.div>
       ) : candidatesVisible ? (
-        <div className="grid grid-cols-3 gap-0 w-full h-full p-0.5">
+        <div className="grid grid-cols-3 gap-0 w-full h-full p-0.5 pointer-events-none">
           {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => {
             const hasCandidate = candidates.includes(num);
             const isHighlightedCandidate = focusedDigit === num && hasCandidate;
@@ -157,22 +157,9 @@ export default function Cell({
             return (
               <div 
                 key={num}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (!isFixed) {
-                    onInput(num);
-                  }
-                }}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  if (!isFixed) {
-                    onToggleCandidate(num);
-                  }
-                }}
                 className={`
-                  flex items-center justify-center text-xs sm:text-sm cursor-pointer
-                  transition-all duration-200 rounded hover:bg-slate-700/50
+                  flex items-center justify-center text-xs sm:text-sm
+                  transition-all duration-200 rounded
                   ${!hasCandidate ? 'text-transparent' : (
                     // Highlight candidates in base cells and target cells
                     (isRemovalCandidate || isHighlightedCandidate || ((isBaseCell || isTargetCell) && isMultiColorCandidate))
