@@ -160,9 +160,9 @@ export default function SudokuGrid({
             ref={gridContainerRef}
             className={`grid grid-cols-9 gap-0 overflow-visible relative ${isMobile ? '' : 'rounded-lg'}`}
             style={{ 
-              border: isMobile ? 'none' : `3px solid ${colors?.gridLines || '#475569'}`,
-              width: isMobile ? 'calc(100vw - 16px)' : 'min(90vw, 600px)', 
-              height: isMobile ? 'calc(100vw - 16px)' : 'min(90vw, 600px)',
+              border: isMobile ? `2px solid ${colors?.gridLines || '#475569'}` : `3px solid ${colors?.gridLines || '#475569'}`,
+              width: isMobile ? 'calc(100vw - 20px)' : 'min(90vw, 600px)', 
+              height: isMobile ? 'calc(100vw - 20px)' : 'min(90vw, 600px)',
               aspectRatio: '1/1'
             }}
           >
