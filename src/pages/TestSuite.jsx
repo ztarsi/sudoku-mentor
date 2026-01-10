@@ -99,6 +99,7 @@ export default function TestSuite() {
             suiteName,
             testName: test.name,
             message: `Exception: ${error.message}`,
+            gridState: null,
             stack: error.stack,
             timestamp: new Date().toLocaleTimeString()
           }]);

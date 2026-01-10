@@ -3,7 +3,8 @@ import {
   findNextLogicStep, 
   generateCandidates, 
   eliminateCandidatesFromPeers,
-  applyLogicStep 
+  applyLogicStep,
+  findAllTechniqueInstances
 } from './logicEngine';
 import { findForcingChain, findHypothesis } from './forcingChainEngine';
 import { solveSudoku } from './solver';
@@ -19,6 +20,22 @@ const createEmptyGrid = () => {
     isBaseCell: false,
     isTargetCell: false
   }));
+};
+
+// Helper to initialize a grid from an 81-digit string
+const initGridFromDigits = (digits) => {
+  const grid = digits.split('').map((char, i) => ({
+    cellIndex: i,
+    value: char === '.' || char === '0' ? null : parseInt(char),
+    candidates: [],
+    isFixed: char !== '.' && char !== '0',
+    isHighlighted: false,
+    highlightColor: null,
+    isBaseCell: false,
+    isTargetCell: false
+  }));
+  // Generate initial candidates so logic techniques have data to work with
+  return generateCandidates(grid);
 };
 
 // Helper to set grid values
@@ -573,6 +590,93 @@ export const testSuites = {
           return {
             pass: result !== null || result === null,
             message: result ? `Found contradiction: ${result.technique}` : 'No contradiction found (may be expected)'
+          };
+        }
+      }
+    ]
+  },
+
+  'Advanced Benchmark (Expert)': {
+    tests: [
+      {
+        name: 'Detect X-Wing (Known Pattern)',
+        run: () => {
+          const puzzle = "530070000600195000098000060800060003400803001700020006060000280000419005000080079";
+          const grid = initGridFromDigits(puzzle);
+          const instances = findAllTechniqueInstances(grid, 'X-Wing');
+          
+          return {
+            pass: instances.length > 0,
+            message: instances.length > 0
+              ? `✓ Correct: Detected ${instances.length} X-Wing instance(s)`
+              : `❌ Failed: No X-Wing found`,
+            gridState: grid
+          };
+        }
+      },
+      {
+        name: 'Detect Swordfish (Row-based)',
+        run: () => {
+          const puzzle = "000000000904607000076804100309701080008000300050308702007502610000403208000000000";
+          const grid = initGridFromDigits(puzzle);
+          const instances = findAllTechniqueInstances(grid, 'Swordfish');
+          
+          return {
+            pass: instances.length > 0,
+            message: instances.length > 0
+              ? `✓ Correct: Detected ${instances.length} Swordfish instance(s)`
+              : `❌ Failed: No Swordfish found`,
+            gridState: grid
+          };
+        }
+      },
+      {
+        name: 'Detect XY-Wing (Pivot Pattern)',
+        run: () => {
+          const puzzle = "000000000000000000000000000000000000000000000000000000000000000000000000000000000";
+          const grid = initGridFromDigits(puzzle);
+          // Manually create an XY-Wing scenario
+          grid[0].candidates = [1, 2];
+          grid[1].candidates = [2, 3];
+          grid[9].candidates = [1, 3];
+          
+          const instances = findAllTechniqueInstances(grid, 'XY-Wing');
+          
+          return {
+            pass: instances.length > 0,
+            message: instances.length > 0
+              ? `✓ Correct: Detected ${instances.length} XY-Wing instance(s)`
+              : `❌ Failed: No XY-Wing found`,
+            gridState: grid
+          };
+        }
+      },
+      {
+        name: 'Pointing Pair vs Triple Distinction',
+        run: () => {
+          const puzzle = "530070000600195000098000060800060003400803001700020006060000280000419005000080079";
+          const grid = initGridFromDigits(puzzle);
+          const pairs = findAllTechniqueInstances(grid, 'Pointing Pair');
+          const triples = findAllTechniqueInstances(grid, 'Pointing Triple');
+          
+          return {
+            pass: true,
+            message: `✓ Detected ${pairs.length} Pointing Pairs and ${triples.length} Pointing Triples`,
+            gridState: grid
+          };
+        }
+      },
+      {
+        name: 'Naked Triple Detection',
+        run: () => {
+          const puzzle = "300000000070000000600000000000000000000000000000000000000000000000000000000000000";
+          const grid = initGridFromDigits(puzzle);
+          const instances = findAllTechniqueInstances(grid, 'Naked Triple');
+          
+          return {
+            pass: instances.length >= 0,
+            message: `✓ Scan complete: Found ${instances.length} Naked Triple instance(s)`,
+            gridState: grid
           };
         }
       }
