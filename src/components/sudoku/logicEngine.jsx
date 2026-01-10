@@ -311,7 +311,9 @@ const findHiddenSingle = (grid, focusedDigit, returnAll = false) => {
 };
 
 // Pointing Pairs/Triples
-const findPointing = (grid, focusedDigit) => {
+const findPointing = (grid, focusedDigit, returnAll = false) => {
+  const allInstances = [];
+  
   for (let box = 0; box < 9; box++) {
     const boxIndices = getBoxIndices(box);
     const digitsToCheck = focusedDigit ? [focusedDigit] : [1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -332,7 +334,7 @@ const findPointing = (grid, focusedDigit) => {
             .map(i => ({ cell: i, digit }));
           
           if (eliminations.length > 0) {
-            return {
+            const step = {
               technique: cellsWithDigit.length === 2 ? 'Pointing Pair' : 'Pointing Triple',
               digit,
               baseCells: cellsWithDigit,
@@ -341,6 +343,12 @@ const findPointing = (grid, focusedDigit) => {
               eliminations,
               explanation: `In Box ${box + 1}, the digit ${digit} is confined to Row ${row + 1}. This means ${digit} can be eliminated from other cells in Row ${row + 1} outside this box.`
             };
+            
+            if (returnAll) {
+              allInstances.push(step);
+            } else {
+              return step;
+            }
           }
         }
         
@@ -354,7 +362,7 @@ const findPointing = (grid, focusedDigit) => {
             .map(i => ({ cell: i, digit }));
           
           if (eliminations.length > 0) {
-            return {
+            const step = {
               technique: cellsWithDigit.length === 2 ? 'Pointing Pair' : 'Pointing Triple',
               digit,
               baseCells: cellsWithDigit,
@@ -363,16 +371,24 @@ const findPointing = (grid, focusedDigit) => {
               eliminations,
               explanation: `In Box ${box + 1}, the digit ${digit} is confined to Column ${col + 1}. This means ${digit} can be eliminated from other cells in Column ${col + 1} outside this box.`
             };
+            
+            if (returnAll) {
+              allInstances.push(step);
+            } else {
+              return step;
+            }
           }
         }
       }
     }
   }
-  return null;
+  return returnAll ? allInstances : null;
 };
 
 // Claiming (Box-Line Reduction)
-const findClaiming = (grid, focusedDigit) => {
+const findClaiming = (grid, focusedDigit, returnAll = false) => {
+  const allInstances = [];
+  
   // Check rows
   for (let row = 0; row < 9; row++) {
     const rowIndices = getRowIndices(row);
@@ -393,7 +409,7 @@ const findClaiming = (grid, focusedDigit) => {
             .map(i => ({ cell: i, digit }));
           
           if (eliminations.length > 0) {
-            return {
+            const step = {
               technique: 'Claiming',
               digit,
               baseCells: cellsWithDigit,
@@ -402,6 +418,12 @@ const findClaiming = (grid, focusedDigit) => {
               eliminations,
               explanation: `In Row ${row + 1}, the digit ${digit} is confined to Box ${box + 1}. This means ${digit} can be eliminated from other cells in Box ${box + 1} outside this row.`
             };
+            
+            if (returnAll) {
+              allInstances.push(step);
+            } else {
+              return step;
+            }
           }
         }
       }
@@ -428,7 +450,7 @@ const findClaiming = (grid, focusedDigit) => {
             .map(i => ({ cell: i, digit }));
           
           if (eliminations.length > 0) {
-            return {
+            const step = {
               technique: 'Claiming',
               digit,
               baseCells: cellsWithDigit,
@@ -437,17 +459,25 @@ const findClaiming = (grid, focusedDigit) => {
               eliminations,
               explanation: `In Column ${col + 1}, the digit ${digit} is confined to Box ${box + 1}. This means ${digit} can be eliminated from other cells in Box ${box + 1} outside this column.`
             };
+            
+            if (returnAll) {
+              allInstances.push(step);
+            } else {
+              return step;
+            }
           }
         }
       }
     }
   }
   
-  return null;
+  return returnAll ? allInstances : null;
 };
 
 // Naked Triple
-const findNakedTriple = (grid, focusedDigit) => {
+const findNakedTriple = (grid, focusedDigit, returnAll = false) => {
+  const allInstances = [];
+  
   const units = [
     ...Array.from({ length: 9 }, (_, i) => ({ type: 'row', indices: getRowIndices(i), name: `Row ${i + 1}` })),
     ...Array.from({ length: 9 }, (_, i) => ({ type: 'col', indices: getColIndices(i), name: `Column ${i + 1}` })),
@@ -492,7 +522,7 @@ const findNakedTriple = (grid, focusedDigit) => {
             }
             
             if (eliminations.length > 0) {
-              return {
+              const step = {
                 technique: 'Naked Triple',
                 digit: focusedDigit || tripleDigits[0],
                 baseCells: [cell1, cell2, cell3],
@@ -501,17 +531,25 @@ const findNakedTriple = (grid, focusedDigit) => {
                 eliminations,
                 explanation: `Cells R${getRow(cell1) + 1}C${getCol(cell1) + 1}, R${getRow(cell2) + 1}C${getCol(cell2) + 1}, and R${getRow(cell3) + 1}C${getCol(cell3) + 1} in ${unit.name} form a Naked Triple with candidates {${tripleDigits.join(', ')}}. These three digits must occupy these three cells, so they can be eliminated from other cells in the ${unit.type}.`
               };
+              
+              if (returnAll) {
+                allInstances.push(step);
+              } else {
+                return step;
+              }
             }
           }
         }
       }
     }
   }
-  return null;
+  return returnAll ? allInstances : null;
 };
 
 // Naked Pair
-const findNakedPair = (grid, focusedDigit) => {
+const findNakedPair = (grid, focusedDigit, returnAll = false) => {
+  const allInstances = [];
+  
   const units = [
     ...Array.from({ length: 9 }, (_, i) => ({ type: 'row', indices: getRowIndices(i), name: `Row ${i + 1}` })),
     ...Array.from({ length: 9 }, (_, i) => ({ type: 'col', indices: getColIndices(i), name: `Column ${i + 1}` })),
@@ -546,7 +584,7 @@ const findNakedPair = (grid, focusedDigit) => {
           }
           
           if (eliminations.length > 0) {
-            return {
+            const step = {
               technique: 'Naked Pair',
               digit: focusedDigit || pairDigits[0],
               baseCells: [cell1, cell2],
@@ -555,16 +593,24 @@ const findNakedPair = (grid, focusedDigit) => {
               eliminations,
               explanation: `Cells R${getRow(cell1) + 1}C${getCol(cell1) + 1} and R${getRow(cell2) + 1}C${getCol(cell2) + 1} in ${unit.name} both contain only candidates {${pairDigits.join(', ')}}. These two digits must go in these two cells, so they can be eliminated from other cells in the ${unit.type}.`
             };
+            
+            if (returnAll) {
+              allInstances.push(step);
+            } else {
+              return step;
+            }
           }
         }
       }
     }
   }
-  return null;
+  return returnAll ? allInstances : null;
 };
 
 // Hidden Pair
-const findHiddenPair = (grid, focusedDigit) => {
+const findHiddenPair = (grid, focusedDigit, returnAll = false) => {
+  const allInstances = [];
+  
   const units = [
     ...Array.from({ length: 9 }, (_, i) => ({ type: 'row', indices: getRowIndices(i), name: `Row ${i + 1}` })),
     ...Array.from({ length: 9 }, (_, i) => ({ type: 'col', indices: getColIndices(i), name: `Column ${i + 1}` })),
@@ -607,7 +653,7 @@ const findHiddenPair = (grid, focusedDigit) => {
           }
           
           if (eliminations.length > 0) {
-            return {
+            const step = {
               technique: 'Hidden Pair',
               digit: focusedDigit || d1,
               baseCells: [cell1, cell2],
@@ -616,16 +662,24 @@ const findHiddenPair = (grid, focusedDigit) => {
               eliminations,
               explanation: `In ${unit.name}, digits ${d1} and ${d2} can only appear in cells R${getRow(cell1) + 1}C${getCol(cell1) + 1} and R${getRow(cell2) + 1}C${getCol(cell2) + 1}. Other candidates can be eliminated from these cells.`
             };
+            
+            if (returnAll) {
+              allInstances.push(step);
+            } else {
+              return step;
+            }
           }
         }
       }
     }
   }
-  return null;
+  return returnAll ? allInstances : null;
 };
 
 // X-Wing
-const findXWing = (grid, focusedDigit) => {
+const findXWing = (grid, focusedDigit, returnAll = false) => {
+  const allInstances = [];
+  
   const digitsToCheck = focusedDigit ? [focusedDigit] : [1, 2, 3, 4, 5, 6, 7, 8, 9];
   
   for (const digit of digitsToCheck) {
@@ -660,7 +714,7 @@ const findXWing = (grid, focusedDigit) => {
           }
           
           if (eliminations.length > 0) {
-            return {
+            const step = {
               technique: 'X-Wing',
               digit,
               baseCells,
@@ -669,6 +723,12 @@ const findXWing = (grid, focusedDigit) => {
               eliminations,
               explanation: `An X-Wing on digit ${digit} is formed by Rows ${r1.row + 1} and ${r2.row + 1} in Columns ${col1 + 1} and ${col2 + 1}. The digit ${digit} must appear in two of these four cells, forming a pattern that eliminates ${digit} from other cells in these columns.`
             };
+            
+            if (returnAll) {
+              allInstances.push(step);
+            } else {
+              return step;
+            }
           }
         }
       }
@@ -704,7 +764,7 @@ const findXWing = (grid, focusedDigit) => {
           }
           
           if (eliminations.length > 0) {
-            return {
+            const step = {
               technique: 'X-Wing',
               digit,
               baseCells,
@@ -713,17 +773,25 @@ const findXWing = (grid, focusedDigit) => {
               eliminations,
               explanation: `An X-Wing on digit ${digit} is formed by Columns ${c1.col + 1} and ${c2.col + 1} in Rows ${row1 + 1} and ${row2 + 1}. The digit ${digit} must appear in two of these four cells, eliminating ${digit} from other cells in these rows.`
             };
+            
+            if (returnAll) {
+              allInstances.push(step);
+            } else {
+              return step;
+            }
           }
         }
       }
     }
   }
   
-  return null;
+  return returnAll ? allInstances : null;
 };
 
 // Swordfish
-const findSwordfish = (grid, focusedDigit) => {
+const findSwordfish = (grid, focusedDigit, returnAll = false) => {
+  const allInstances = [];
+  
   const digitsToCheck = focusedDigit ? [focusedDigit] : [1, 2, 3, 4, 5, 6, 7, 8, 9];
   
   for (const digit of digitsToCheck) {
@@ -761,7 +829,7 @@ const findSwordfish = (grid, focusedDigit) => {
             }
             
             if (eliminations.length > 0) {
-              return {
+              const step = {
                 technique: 'Swordfish',
                 digit,
                 baseCells,
@@ -770,6 +838,12 @@ const findSwordfish = (grid, focusedDigit) => {
                 eliminations,
                 explanation: `A Swordfish on digit ${digit} is formed by Rows ${r1.row + 1}, ${r2.row + 1}, and ${r3.row + 1} in Columns ${cols.map(c => c + 1).join(', ')}. This pattern eliminates ${digit} from other cells in these columns.`
               };
+              
+              if (returnAll) {
+                allInstances.push(step);
+              } else {
+                return step;
+              }
             }
           }
         }
@@ -810,7 +884,7 @@ const findSwordfish = (grid, focusedDigit) => {
             }
             
             if (eliminations.length > 0) {
-              return {
+              const step = {
                 technique: 'Swordfish',
                 digit,
                 baseCells,
@@ -819,6 +893,12 @@ const findSwordfish = (grid, focusedDigit) => {
                 eliminations,
                 explanation: `A Swordfish on digit ${digit} is formed by Columns ${c1.col + 1}, ${c2.col + 1}, and ${c3.col + 1} in Rows ${rows.map(r => r + 1).join(', ')}. This pattern eliminates ${digit} from other cells in these rows.`
               };
+              
+              if (returnAll) {
+                allInstances.push(step);
+              } else {
+                return step;
+              }
             }
           }
         }
@@ -826,11 +906,13 @@ const findSwordfish = (grid, focusedDigit) => {
     }
   }
   
-  return null;
+  return returnAll ? allInstances : null;
 };
 
 // XY-Wing
-const findXYWing = (grid, focusedDigit) => {
+const findXYWing = (grid, focusedDigit, returnAll = false) => {
+  const allInstances = [];
+  
   // Find all bi-value cells
   const biValueCells = [];
   for (let i = 0; i < 81; i++) {
@@ -883,7 +965,7 @@ const findXYWing = (grid, focusedDigit) => {
           }
           
           if (eliminations.length > 0) {
-            return {
+            const step = {
               technique: 'XY-Wing',
               digit: z,
               baseCells: [pivot, xzCell, yzCell],
@@ -892,13 +974,19 @@ const findXYWing = (grid, focusedDigit) => {
               eliminations,
               explanation: `An XY-Wing is formed with pivot R${getRow(pivot) + 1}C${getCol(pivot) + 1} (${x},${y}), and wings R${getRow(xzCell) + 1}C${getCol(xzCell) + 1} (${x},${z}) and R${getRow(yzCell) + 1}C${getCol(yzCell) + 1} (${y},${z}). Either wing must contain ${z}, so ${z} can be eliminated from cells seeing both wings.`
             };
+            
+            if (returnAll) {
+              allInstances.push(step);
+            } else {
+              return step;
+            }
           }
         }
       }
     }
   }
   
-  return null;
+  return returnAll ? allInstances : null;
 };
 
 // Apply the logic step to the grid
