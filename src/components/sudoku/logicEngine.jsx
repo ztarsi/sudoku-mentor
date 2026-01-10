@@ -775,6 +775,55 @@ const findSwordfish = (grid, focusedDigit) => {
         }
       }
     }
+    
+    // Check columns for Swordfish
+    const colsWithPositions = [];
+    for (let col = 0; col < 9; col++) {
+      const positions = getColIndices(col)
+        .filter(i => grid[i].value === null && grid[i].candidates.includes(digit));
+      if (positions.length >= 2 && positions.length <= 3) {
+        colsWithPositions.push({ col, positions, rows: new Set(positions.map(getRow)) });
+      }
+    }
+    
+    // Look for three columns that share exactly three rows
+    for (let i = 0; i < colsWithPositions.length; i++) {
+      for (let j = i + 1; j < colsWithPositions.length; j++) {
+        for (let k = j + 1; k < colsWithPositions.length; k++) {
+          const c1 = colsWithPositions[i];
+          const c2 = colsWithPositions[j];
+          const c3 = colsWithPositions[k];
+          
+          const allRows = new Set([...c1.rows, ...c2.rows, ...c3.rows]);
+          
+          if (allRows.size === 3) {
+            const rows = Array.from(allRows);
+            const baseCells = [...c1.positions, ...c2.positions, ...c3.positions];
+            
+            const eliminations = [];
+            for (const row of rows) {
+              for (const idx of getRowIndices(row)) {
+                if (!baseCells.includes(idx) && grid[idx].candidates.includes(digit)) {
+                  eliminations.push({ cell: idx, digit });
+                }
+              }
+            }
+            
+            if (eliminations.length > 0) {
+              return {
+                technique: 'Swordfish',
+                digit,
+                baseCells,
+                targetCells: eliminations.map(e => e.cell),
+                placement: null,
+                eliminations,
+                explanation: `A Swordfish on digit ${digit} is formed by Columns ${c1.col + 1}, ${c2.col + 1}, and ${c3.col + 1} in Rows ${rows.map(r => r + 1).join(', ')}. This pattern eliminates ${digit} from other cells in these rows.`
+              };
+            }
+          }
+        }
+      }
+    }
   }
   
   return null;
