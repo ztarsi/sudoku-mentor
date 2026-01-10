@@ -394,6 +394,7 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, noAssistMo
                   ], color: 'emerald' },
                   { level: 'Intermediate', techniques: [
                     { name: 'Pointing Pair', full: 'Pointing Pair' },
+                    { name: 'Pointing Triple', full: 'Pointing Triple' },
                     { name: 'Claiming', full: 'Claiming' }
                   ], color: 'blue' },
                   { level: 'Advanced', techniques: [
