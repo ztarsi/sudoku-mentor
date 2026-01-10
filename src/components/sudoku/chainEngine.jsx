@@ -97,7 +97,8 @@ const buildLinkGraph = (grid) => {
 };
 
 // X-Cycles (Simple Coloring with chains)
-export const findXCycle = (grid, focusedDigit) => {
+export const findXCycle = (grid, focusedDigit, returnAll = false) => {
+  const allInstances = [];
   const digitsToCheck = focusedDigit ? [focusedDigit] : [1, 2, 3, 4, 5, 6, 7, 8, 9];
   
   for (const digit of digitsToCheck) {
@@ -166,7 +167,7 @@ export const findXCycle = (grid, focusedDigit) => {
                   });
                 }
                 
-                return {
+                const step = {
                   technique: 'X-Cycle',
                   digit,
                   baseCells: [...colorA, ...colorB],
@@ -176,6 +177,12 @@ export const findXCycle = (grid, focusedDigit) => {
                   eliminations,
                   explanation: `An X-Cycle on digit ${digit} creates two color groups. Candidates seeing both colors can be eliminated.`
                 };
+                
+                if (returnAll) {
+                  allInstances.push(step);
+                } else {
+                  return step;
+                }
               }
             }
           } else if (path.length < 10) {
@@ -197,7 +204,8 @@ const arePeers = (cell1, cell2) => {
 };
 
 // Almost Locked Set (ALS) - XZ Rule
-export const findALSXZ = (grid, focusedDigit) => {
+export const findALSXZ = (grid, focusedDigit, returnAll = false) => {
+  const allInstances = [];
   const findALS = (indices) => {
     const als = [];
     const n = indices.length;
@@ -283,7 +291,7 @@ export const findALSXZ = (grid, focusedDigit) => {
             }
             
             if (eliminations.length > 0) {
-              return {
+              const step = {
                 technique: 'ALS-XZ',
                 digit: z,
                 baseCells: [...als1.cells, ...als2.cells],
@@ -295,6 +303,12 @@ export const findALSXZ = (grid, focusedDigit) => {
                 zDigit: z,
                 explanation: `🎯 The Two-House Trap (ALS-XZ)\n\nLook at the two highlighted groups of cells in ${als1.unitName} and ${als2.unitName}. Each is "Almost Locked"—it has one more candidate than it has cells.\n\n🔗 The Bridge: These groups are linked by digit ${x}. Because of how they see each other, if ${als1.unitName} doesn't contain ${x}, ${als2.unitName} is forced to take it.\n\n⚡ The Result: This "Bridge" forces digit ${z} to stay inside these two groups. Since one of them must claim ${z}, any cell outside that sees all instances of ${z} in both sets can safely have ${z} eliminated.`
               };
+              
+              if (returnAll) {
+                allInstances.push(step);
+              } else {
+                return step;
+              }
             }
           }
         }
@@ -306,7 +320,8 @@ export const findALSXZ = (grid, focusedDigit) => {
 };
 
 // Unique Rectangle Type 1
-export const findUniqueRectangle = (grid) => {
+export const findUniqueRectangle = (grid, focusedDigit = null, returnAll = false) => {
+  const allInstances = [];
   for (let r1 = 0; r1 < 8; r1++) {
     for (let r2 = r1 + 1; r2 < 9; r2++) {
       for (let c1 = 0; c1 < 8; c1++) {
@@ -352,7 +367,7 @@ export const findUniqueRectangle = (grid) => {
                 .map(digit => ({ cell: extraCorner, digit }));
               
               if (eliminations.length > 0) {
-                return {
+                const step = {
                   technique: 'Unique Rectangle Type 1',
                   digit: null,
                   baseCells: corners,
@@ -360,6 +375,12 @@ export const findUniqueRectangle = (grid) => {
                   eliminations,
                   explanation: `Unique Rectangle on digits ${d1} and ${d2}. Extra candidates in R${getRow(extraCorner)+1}C${getCol(extraCorner)+1} can be eliminated to avoid deadly pattern.`
                 };
+                
+                if (returnAll) {
+                  allInstances.push(step);
+                } else {
+                  return step;
+                }
               }
             }
           }
@@ -372,7 +393,7 @@ export const findUniqueRectangle = (grid) => {
 };
 
 // BUG+1 (Bivalue Universal Grave plus 1)
-export const findBUGPlus1 = (grid) => {
+export const findBUGPlus1 = (grid, focusedDigit = null, returnAll = false) => {
   let extraCell = null;
   let extraDigit = null;
   
@@ -445,7 +466,8 @@ export const findBUGPlus1 = (grid) => {
 };
 
 // Finned X-Wing
-export const findFinnedXWing = (grid, focusedDigit) => {
+export const findFinnedXWing = (grid, focusedDigit, returnAll = false) => {
+  const allInstances = [];
   const digitsToCheck = focusedDigit ? [focusedDigit] : [1, 2, 3, 4, 5, 6, 7, 8, 9];
   
   for (const digit of digitsToCheck) {
@@ -505,7 +527,7 @@ export const findFinnedXWing = (grid, focusedDigit) => {
                 xwingLinks.push({ from: { cell: r2.positions[0], digit }, to: { cell: r2.positions[1], digit } });
               }
               
-              return {
+              const step = {
                 technique: 'Finned X-Wing',
                 digit,
                 baseCells,
@@ -515,6 +537,12 @@ export const findFinnedXWing = (grid, focusedDigit) => {
                 eliminations,
                 explanation: `Finned X-Wing on ${digit} in Rows ${r1.row+1} and ${r2.row+1}. Fin cells create restricted eliminations.`
               };
+              
+              if (returnAll) {
+                allInstances.push(step);
+              } else {
+                return step;
+              }
             }
           }
         }
