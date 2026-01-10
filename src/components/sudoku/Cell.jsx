@@ -146,7 +146,7 @@ export default function Cell({
           </span>
         </motion.div>
       ) : candidatesVisible ? (
-        <div className="grid grid-cols-3 gap-0 w-full h-full p-0.5 pointer-events-none">
+        <div className="grid grid-cols-3 gap-0 w-full h-full p-0.5">
           {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => {
             const hasCandidate = candidates.includes(num);
             const isHighlightedCandidate = focusedDigit === num && hasCandidate;
@@ -157,14 +157,31 @@ export default function Cell({
             return (
               <div 
                 key={num}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (hasCandidate) {
+                    if (candidateMode) {
+                      onToggleCandidate(num);
+                    } else {
+                      onInput(num);
+                    }
+                  }
+                }}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (hasCandidate) {
+                    onToggleCandidate(num);
+                  }
+                }}
                 className={`
                   flex items-center justify-center text-xs sm:text-sm
-                  transition-all duration-200 rounded
-                  ${!hasCandidate ? 'text-transparent' : (
+                  transition-all duration-200 rounded cursor-pointer
+                  ${!hasCandidate ? 'text-transparent pointer-events-none' : (
                     // Highlight candidates in base cells and target cells
                     (isRemovalCandidate || isHighlightedCandidate || ((isBaseCell || isTargetCell) && isMultiColorCandidate))
-                      ? 'font-semibold' 
-                      : 'text-white'
+                      ? 'font-semibold hover:scale-110' 
+                      : 'text-white hover:scale-110'
                   )}
                   ${alsSet && hasCandidate && num !== xDigit && num !== zDigit ? 'opacity-20' : ''}
                   `}
