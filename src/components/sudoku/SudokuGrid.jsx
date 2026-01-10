@@ -162,8 +162,8 @@ export default function SudokuGrid({
             style={{ 
               border: isMobile ? `2px solid ${colors?.gridLines || '#475569'}` : `3px solid ${colors?.gridLines || '#475569'}`,
               width: isMobile ? 'calc(100vw - 20px)' : 'min(90vw, 600px)', 
-              height: isMobile ? 'calc(100vw - 20px)' : 'min(90vw, 600px)',
-              aspectRatio: '1/1'
+              height: isMobile ? 'calc(100vw - 5px)' : 'min(90vw, 600px)',
+              aspectRatio: isMobile ? 'auto' : '1/1'
             }}
           >
             {grid.map((cell, index) => {
