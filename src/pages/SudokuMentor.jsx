@@ -1033,8 +1033,8 @@ export default function SudokuMentor() {
         {isMobile ? (
           /* Mobile Layout - Simple Grid Only */
           <div className="flex flex-col h-[calc(100vh-56px)]">
-            {/* Sudoku Grid - Full Width */}
-            <div className="w-full flex-shrink-0">
+            {/* Sudoku Grid - Centered vertically */}
+            <div className="flex-1 flex items-center justify-center">
               <SudokuGrid
                 grid={grid}
                 selectedCell={selectedCell}
@@ -1054,8 +1054,8 @@ export default function SudokuMentor() {
               />
             </div>
 
-            {/* Mobile Controls - Fixed Bottom */}
-            <div className="fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-md border-t border-slate-700 safe-area-inset-bottom z-40">
+            {/* Mobile Controls - Fixed Bottom with offset */}
+            <div className="fixed left-0 right-0 bg-slate-900/95 backdrop-blur-md border-t border-slate-700 z-40" style={{ bottom: '20px' }}>
               {/* Candidate/Solve Mode Toggle */}
               <div className="flex items-center gap-2 px-2 py-2 border-b border-slate-800">
                 <button

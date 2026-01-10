@@ -173,8 +173,9 @@ export default function SudokuGrid({
               const box = Math.floor(row / 3) * 3 + Math.floor(col / 3);
 
               // Determine border styling for 3x3 boxes
-              const borderRight = (col + 1) % 3 === 0 && col !== 8 ? 'border-r-4' : 'border-r';
-              const borderBottom = (row + 1) % 3 === 0 && row !== 8 ? 'border-b-4' : 'border-b';
+              const isMobileView = typeof window !== 'undefined' && window.innerWidth < 1024;
+              const borderRight = (col + 1) % 3 === 0 && col !== 8 ? (isMobileView ? 'border-r-2' : 'border-r-4') : 'border-r';
+              const borderBottom = (row + 1) % 3 === 0 && row !== 8 ? (isMobileView ? 'border-b-2' : 'border-b-4') : 'border-b';
 
               // Determine ALS set membership and unit highlighting
               let alsSet = null;
