@@ -1033,8 +1033,8 @@ export default function SudokuMentor() {
         {isMobile ? (
           /* Mobile Layout - Simple Grid Only */
           <div className="flex flex-col h-[calc(100vh-56px)]">
-            {/* Sudoku Grid - Centered vertically */}
-            <div className="flex-1 flex items-center justify-center">
+            {/* Sudoku Grid - Positioned with top padding */}
+            <div className="pt-5">
               <SudokuGrid
                 grid={grid}
                 selectedCell={selectedCell}
