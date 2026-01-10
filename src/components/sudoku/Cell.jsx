@@ -175,7 +175,7 @@ export default function Cell({
                 className={`
                   flex items-center justify-center text-xs sm:text-sm
                   transition-all duration-200 rounded cursor-pointer
-                  ${!hasCandidate ? 'text-transparent pointer-events-none' : (
+                  ${!hasCandidate ? 'text-transparent' : (
                     // Highlight candidates in base cells and target cells
                     (isRemovalCandidate || isHighlightedCandidate || ((isBaseCell || isTargetCell) && isMultiColorCandidate))
                       ? 'font-semibold hover:scale-110' 
