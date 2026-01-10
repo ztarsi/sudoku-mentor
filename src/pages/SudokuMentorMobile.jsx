@@ -66,13 +66,20 @@ export default function SudokuMentorMobile() {
   const handleCellClick = useCallback((cellIndex) => {
     setSelectedCell(cellIndex);
     
-    const clickedValue = grid[cellIndex].value;
-    if (clickedValue !== null) {
-      setHighlightedDigit(prev => prev === clickedValue ? null : clickedValue);
-    } else {
-      setHighlightedDigit(null);
+    // If a digit is selected from bottom bar, apply it
+    if (focusedDigit !== null) {
+      const cell = grid[cellIndex];
+      if (!cell.isFixed) {
+        if (candidateMode) {
+          // Toggle candidate
+          handleToggleCandidate(cellIndex, focusedDigit);
+        } else {
+          // Set value
+          handleCellInput(cellIndex, focusedDigit);
+        }
+      }
     }
-  }, [grid]);
+  }, [grid, focusedDigit, candidateMode, handleToggleCandidate, handleCellInput]);
 
   const handleCellInput = useCallback((cellIndex, value) => {
     // If solution exists and value doesn't match, play error sound and reject
@@ -130,24 +137,16 @@ export default function SudokuMentorMobile() {
     setHistoryIndex(i => i + 1);
   }, [grid, historyIndex]);
 
-  const handleDigitFilter = useCallback((digit) => {
-    setFocusedDigit(prev => prev === digit ? null : digit);
-  }, []);
-
-  const handleDigitInput = useCallback((digit) => {
-    if (selectedCell === null) return;
-    
-    const cell = grid[selectedCell];
-    if (cell.isFixed) return;
-
-    if (candidateMode) {
-      // Toggle candidate
-      handleToggleCandidate(selectedCell, digit);
+  const handleDigitSelect = useCallback((digit) => {
+    // Toggle digit selection and highlight
+    if (focusedDigit === digit) {
+      setFocusedDigit(null);
+      setHighlightedDigit(null);
     } else {
-      // Set value
-      handleCellInput(selectedCell, digit);
+      setFocusedDigit(digit);
+      setHighlightedDigit(digit);
     }
-  }, [selectedCell, grid, candidateMode, handleToggleCandidate, handleCellInput]);
+  }, [focusedDigit]);
 
   const handleUndo = useCallback(() => {
     if (historyIndex >= 0) {
@@ -293,16 +292,8 @@ export default function SudokuMentorMobile() {
       if (e.key >= '1' && e.key <= '9') {
         const digit = parseInt(e.key);
         
-        if (e.ctrlKey || e.metaKey) {
-          e.preventDefault();
-          handleDigitFilter(digit);
-          return;
-        }
-        
-        if (selectedCell !== null) {
-          e.preventDefault();
-          handleDigitInput(digit);
-        }
+        e.preventDefault();
+        handleDigitSelect(digit);
       } else if (e.key === 'Backspace' || e.key === 'Delete') {
         if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') {
           return;
@@ -314,8 +305,8 @@ export default function SudokuMentorMobile() {
       } else if (e.key === 'Escape') {
         e.preventDefault();
         setFocusedDigit(null);
-        setSelectedCell(null);
         setHighlightedDigit(null);
+        setSelectedCell(null);
       } else if (e.key.toLowerCase() === 'z' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
         handleUndo();
@@ -337,7 +328,7 @@ export default function SudokuMentorMobile() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [selectedCell, grid, candidateMode, historyIndex, handleCellInput, handleToggleCandidate, handleDigitFilter, handleClearGrid, handleUndo, showPuzzleLoader, showColorSettings, showCompletion, showAccountMenu, showCopyConfirmation, handleDigitInput]);
+  }, [selectedCell, grid, candidateMode, historyIndex, handleCellInput, handleToggleCandidate, handleClearGrid, handleUndo, showPuzzleLoader, showColorSettings, showCompletion, showAccountMenu, showCopyConfirmation, handleDigitSelect]);
 
   // Check if puzzle is complete
   useEffect(() => {
@@ -553,8 +544,8 @@ export default function SudokuMentorMobile() {
           <SudokuGrid
             grid={grid}
             selectedCell={selectedCell}
-            focusedDigit={focusedDigit}
-            focusedCandidates={null}
+            focusedDigit={null}
+            focusedCandidates={focusedDigit ? { [focusedDigit]: colors.focusDigit || '#fbbf24' } : null}
             removalCandidates={null}
             highlightedDigit={highlightedDigit}
             validationErrors={validationErrors}
@@ -601,18 +592,21 @@ export default function SudokuMentorMobile() {
               {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(digit => {
                 const digitCount = grid.filter(cell => cell.value === digit).length;
                 const isComplete = digitCount >= 9;
+                const isSelected = focusedDigit === digit;
                 
                 return (
                   <button
                     key={digit}
-                    onClick={() => handleDigitInput(digit)}
+                    onClick={() => handleDigitSelect(digit)}
                     disabled={isComplete && !candidateMode}
                     className={`
                       relative flex-shrink-0 w-9 h-9 rounded-lg font-semibold text-sm
                       transition-all duration-200
                       ${isComplete && !candidateMode
-                        ? 'bg-emerald-900/40 text-emerald-600 cursor-not-allowed' 
-                        : 'bg-slate-800 text-slate-300 active:bg-slate-700'
+                        ? 'bg-emerald-900/40 text-emerald-600 cursor-not-allowed'
+                        : isSelected
+                          ? 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg'
+                          : 'bg-slate-800 text-slate-300 active:bg-slate-700'
                       }
                     `}
                   >
