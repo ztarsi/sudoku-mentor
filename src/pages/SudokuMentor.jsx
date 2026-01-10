@@ -13,6 +13,7 @@ import { solveSudoku } from '@/components/sudoku/solver';
 import { base44 } from '@/api/base44Client';
 import { AnimatePresence, motion } from 'framer-motion';
 import { PUZZLES } from '@/components/sudoku/PuzzleLibrary';
+import { createPageUrl } from './utils';
 
 const createEmptyGrid = () => {
   return Array(81).fill(null).map((_, index) => ({
@@ -68,6 +69,14 @@ export default function SudokuMentor() {
   const [bestTime, setBestTime] = useState(null);
   const [candidatesVisible, setCandidatesVisible] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+
+  // Redirect mobile users to mobile page
+  useEffect(() => {
+    const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (isMobileDevice) {
+      window.location.href = createPageUrl('SudokuMentorMobile');
+    }
+  }, []);
 
   // Detect mobile on mount and enable no-assist mode for mobile
   useEffect(() => {
