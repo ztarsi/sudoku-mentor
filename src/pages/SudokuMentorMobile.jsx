@@ -63,24 +63,6 @@ export default function SudokuMentorMobile() {
     'Ready to solve!'
   ];
 
-  const handleCellClick = useCallback((cellIndex) => {
-    setSelectedCell(cellIndex);
-    
-    // If a digit is selected from bottom bar, apply it
-    if (focusedDigit !== null) {
-      const cell = grid[cellIndex];
-      if (!cell.isFixed) {
-        if (candidateMode) {
-          // Toggle candidate
-          handleToggleCandidate(cellIndex, focusedDigit);
-        } else {
-          // Set value
-          handleCellInput(cellIndex, focusedDigit);
-        }
-      }
-    }
-  }, [grid, focusedDigit, candidateMode, handleToggleCandidate, handleCellInput]);
-
   const handleCellInput = useCallback((cellIndex, value) => {
     // If solution exists and value doesn't match, play error sound and reject
     if (solution && value !== null && solution[cellIndex].value !== value) {
@@ -136,6 +118,24 @@ export default function SudokuMentorMobile() {
     setStepHistory(h => [...h.slice(0, historyIndex + 1), { grid, action: 'toggle_candidate' }]);
     setHistoryIndex(i => i + 1);
   }, [grid, historyIndex]);
+
+  const handleCellClick = useCallback((cellIndex) => {
+    setSelectedCell(cellIndex);
+    
+    // If a digit is selected from bottom bar, apply it
+    if (focusedDigit !== null) {
+      const cell = grid[cellIndex];
+      if (!cell.isFixed) {
+        if (candidateMode) {
+          // Toggle candidate
+          handleToggleCandidate(cellIndex, focusedDigit);
+        } else {
+          // Set value
+          handleCellInput(cellIndex, focusedDigit);
+        }
+      }
+    }
+  }, [grid, focusedDigit, candidateMode, handleToggleCandidate, handleCellInput]);
 
   const handleDigitSelect = useCallback((digit) => {
     // Toggle digit selection and highlight
