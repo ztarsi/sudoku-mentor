@@ -1020,6 +1020,29 @@ export const applyLogicStep = (grid, step) => {
     }
   }
   
+  // Reapply highlighting based on the step
+  if (step.baseCells) {
+    for (const cellIndex of step.baseCells) {
+      newGrid[cellIndex] = {
+        ...newGrid[cellIndex],
+        isHighlighted: true,
+        isBaseCell: true,
+        highlightColor: 'blue'
+      };
+    }
+  }
+  
+  if (step.targetCells) {
+    for (const cellIndex of step.targetCells) {
+      newGrid[cellIndex] = {
+        ...newGrid[cellIndex],
+        isHighlighted: true,
+        isTargetCell: true,
+        highlightColor: 'red'
+      };
+    }
+  }
+  
   // Don't regenerate all candidates, just return the modified grid
   // This preserves any manual candidate toggles the user made
   return newGrid;
