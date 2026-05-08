@@ -128,11 +128,15 @@ export default function SudokuGrid({
             style={{
               border: isMobile ? `2px solid ${colors?.gridLines || '#475569'}` : `3px solid ${colors?.gridLines || '#475569'}`,
               ...(isMobile && gridSize
-                ? { width: `${gridSize}px`, height: `${gridSize}px` }
+                ? {
+                    width: `${gridSize}px`,
+                    height: `${gridSize}px`,
+                    gridTemplateColumns: `repeat(9, ${gridSize / 9}px)`,
+                    gridTemplateRows: `repeat(9, ${gridSize / 9}px)`,
+                  }
                 : !isMobile
-                ? { width: 'min(90vw, 600px)', height: 'min(90vw, 600px)' }
-                : {}),
-              aspectRatio: '1/1',
+                ? { width: 'min(90vw, 600px)', height: 'min(90vw, 600px)', aspectRatio: '1/1' }
+                : { aspectRatio: '1/1' }),
             }}
           >
             {grid.map((cell, index) => {
@@ -246,3 +250,4 @@ export default function SudokuGrid({
     </>
   );
 }
+
