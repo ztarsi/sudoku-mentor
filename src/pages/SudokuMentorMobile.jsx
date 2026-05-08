@@ -9,6 +9,7 @@ import { solveSudoku } from '@/components/sudoku/solver';
 import { base44 } from '@/api/base44Client';
 import { AnimatePresence, motion } from 'framer-motion';
 import { PUZZLES } from '@/components/sudoku/PuzzleLibrary';
+import CandidateNumpad from '@/components/sudoku/CandidateNumpad';
 
 const createEmptyGrid = () => {
   return Array(81).fill(null).map((_, index) => ({
@@ -623,6 +624,18 @@ export default function SudokuMentorMobile() {
           </div>
         </div>
       </main>
+
+      {/* Candidate Numpad — bottom sheet for mobile candidate entry */}
+      <CandidateNumpad
+        isOpen={candidateMode && selectedCell !== null}
+        selectedCell={selectedCell}
+        grid={grid}
+        onToggleCandidate={(digit) => handleToggleCandidate(selectedCell, digit)}
+        onClose={() => setCandidateMode(false)}
+        colors={colors}
+        focusedDigit={focusedDigit}
+        removalCandidates={null}
+      />
 
       {/* Unified Puzzle Loader Modal */}
       <UnifiedPuzzleLoader
