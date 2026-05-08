@@ -84,11 +84,11 @@ export default function Cell({
   const candidateFontSize = slotSize ? `${Math.max(7, Math.floor(slotSize * 0.72))}px` : undefined;
 
   return (
-    <div className="relative">
+    <div className="relative w-full h-full">
       <motion.div
         id={cellId}
         className={`
-          relative aspect-square flex items-center justify-center cursor-pointer
+          relative w-full h-full flex items-center justify-center cursor-pointer overflow-hidden
           ${!useCustomBg ? bgColor : ''} ${borderClasses}
           transition-all duration-200 ease-out
           hover:bg-slate-800/50
@@ -142,7 +142,7 @@ export default function Cell({
             </span>
           </motion.div>
         ) : candidatesVisible ? (
-          <div className="grid grid-cols-3 gap-0 w-full h-full p-0" style={{ overflow: 'hidden' }}>
+          <div className="grid grid-cols-3 gap-0 absolute inset-0">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => {
               const hasCandidate = candidates.includes(num);
               const isHighlightedCandidate = focusedDigit === num && hasCandidate;
