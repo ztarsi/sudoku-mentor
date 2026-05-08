@@ -135,8 +135,16 @@ export default function SudokuGrid({
                     gridTemplateRows: `repeat(9, ${gridSize / 9}px)`,
                   }
                 : !isMobile
-                ? { width: 'min(90vw, 600px)', height: 'min(90vw, 600px)', aspectRatio: '1/1' }
-                : { aspectRatio: '1/1' }),
+                ? {
+                    width: 'min(90vw, 600px)',
+                    height: 'min(90vw, 600px)',
+                    gridTemplateColumns: 'repeat(9, 1fr)',
+                    gridTemplateRows: 'repeat(9, 1fr)',
+                  }
+                : {
+                    gridTemplateColumns: 'repeat(9, 1fr)',
+                    gridTemplateRows: 'repeat(9, 1fr)',
+                  }),
             }}
           >
             {grid.map((cell, index) => {
@@ -250,4 +258,5 @@ export default function SudokuGrid({
     </>
   );
 }
+
 
