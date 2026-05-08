@@ -78,7 +78,10 @@ export default function Cell({
   const valueFontSize = cellSize ? `${Math.round(cellSize * 0.58)}px` : undefined;
   const ghostFontSize = cellSize ? `${Math.round(cellSize * 0.50)}px` : undefined;
   // Candidate font: at 41px cell → ~10.7px, meets AC ≥10px minimum
-  const candidateFontSize = cellSize ? `${Math.max(10, Math.round(cellSize * 0.26))}px` : undefined;
+  // Candidate font: fit within the sub-cell slot (cellSize/3), no floor —
+  // overflow is worse than a small-but-contained digit.
+  const slotSize = cellSize ? cellSize / 3 : null;
+  const candidateFontSize = slotSize ? `${Math.max(7, Math.floor(slotSize * 0.72))}px` : undefined;
 
   return (
     <div className="relative">
@@ -139,7 +142,7 @@ export default function Cell({
             </span>
           </motion.div>
         ) : candidatesVisible ? (
-          <div className="grid grid-cols-3 gap-0 w-full h-full p-0.5">
+          <div className="grid grid-cols-3 gap-0 w-full h-full p-0" style={{ overflow: 'hidden' }}>
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => {
               const hasCandidate = candidates.includes(num);
               const isHighlightedCandidate = focusedDigit === num && hasCandidate;
@@ -169,8 +172,8 @@ export default function Cell({
                     transition-all duration-200 rounded cursor-pointer
                     ${!hasCandidate ? 'text-transparent' : (
                       (isRemovalCandidate || isHighlightedCandidate || ((isBaseCell || isTargetCell) && isMultiColorCandidate))
-                        ? 'font-semibold hover:scale-110'
-                        : 'text-white hover:scale-110'
+                        ? 'font-semibold '
+                        : 'text-white '
                     )}
                     ${alsSet && hasCandidate && num !== xDigit && num !== zDigit ? 'opacity-20' : ''}
                     ${!candidateFontSize ? 'text-xs sm:text-sm' : ''}
@@ -209,3 +212,4 @@ export default function Cell({
     </div>
   );
 }
+
