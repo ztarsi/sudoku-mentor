@@ -140,8 +140,12 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, noAssistMo
   const techniqueInfo = currentStep ? TECHNIQUE_INFO[currentStep.technique] : null;
   const LevelIcon = techniqueInfo?.icon || Info;
   
-  // Count occurrences of each technique (excluding ultimate for performance)
+  // Count occurrences of each technique (excluding ultimate for performance).
+  // Only scan while the hierarchy section is actually visible - these 11
+  // full-grid scans used to run on every candidate toggle even collapsed,
+  // which was the main source of input lag.
   const techniqueCounts = useMemo(() => {
+    if (!techniqueExpanded || noAssistMode) return {};
     const counts = {};
     const techniques = [
       'Naked Single', 'Hidden Single',
@@ -165,7 +169,7 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, noAssistMo
     }
 
     return counts;
-  }, [grid, scanResults]);
+  }, [grid, scanResults, techniqueExpanded, noAssistMode]);
   
   const handleUltimateScan = async () => {
     setShowUltimateScan(true);
@@ -296,27 +300,37 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, noAssistMo
     setIsPlayingChain(false);
   }, [currentStep, onChainPlaybackChange]);
 
+  // Track the live currentStep so timeouts can check the CURRENT value.
+  // (Checking the closure's `currentStep` inside a timeout always saw the
+  // step captured when the effect ran, so auto-play could never detect
+  // "no more steps" and kept spinning forever.)
+  const currentStepRef = useRef(currentStep);
+  currentStepRef.current = currentStep;
+
   useEffect(() => {
-    if (isPlaying && currentStep) {
+    if (!isPlaying) return undefined;
+
+    if (currentStep) {
       playIntervalRef.current = setTimeout(() => {
         onApplyStep?.();
-        setTimeout(() => {
-          onNextStep?.();
-          // Check after state updates if no more steps found
-          setTimeout(() => {
-            if (!currentStep) {
-              setIsPlaying(false);
-            }
-          }, 200);
-        }, 100);
+        setTimeout(() => onNextStep?.(), 100);
       }, playSpeed);
+    } else {
+      // Playing but no step: give onNextStep a moment to produce one,
+      // then stop if the engine is out of moves.
+      playIntervalRef.current = setTimeout(() => {
+        if (!currentStepRef.current) {
+          setIsPlaying(false);
+        }
+      }, Math.max(playSpeed, 800));
     }
-    
+
     return () => {
       if (playIntervalRef.current) {
         clearTimeout(playIntervalRef.current);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPlaying, currentStep, playSpeed]);
   
   const handleTechniqueClick = (techniqueName) => {

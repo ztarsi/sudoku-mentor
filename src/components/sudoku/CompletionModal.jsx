@@ -5,34 +5,41 @@ import confetti from 'canvas-confetti';
 
 export default function CompletionModal({ isOpen, onClose, stats }) {
   useEffect(() => {
-    if (isOpen) {
-      // Fire confetti
-      const duration = 3000;
-      const end = Date.now() + duration;
+    if (!isOpen) return undefined;
 
-      const colors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
+    // Fire confetti, and stop the loop if the modal closes early
+    const duration = 3000;
+    const end = Date.now() + duration;
+    const colors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
+    let rafId = null;
+    let cancelled = false;
 
-      (function frame() {
-        confetti({
-          particleCount: 7,
-          angle: 60,
-          spread: 55,
-          origin: { x: 0 },
-          colors: colors
-        });
-        confetti({
-          particleCount: 7,
-          angle: 120,
-          spread: 55,
-          origin: { x: 1 },
-          colors: colors
-        });
+    (function frame() {
+      if (cancelled) return;
+      confetti({
+        particleCount: 7,
+        angle: 60,
+        spread: 55,
+        origin: { x: 0 },
+        colors: colors
+      });
+      confetti({
+        particleCount: 7,
+        angle: 120,
+        spread: 55,
+        origin: { x: 1 },
+        colors: colors
+      });
 
-        if (Date.now() < end) {
-          requestAnimationFrame(frame);
-        }
-      }());
-    }
+      if (Date.now() < end) {
+        rafId = requestAnimationFrame(frame);
+      }
+    }());
+
+    return () => {
+      cancelled = true;
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
   }, [isOpen]);
 
   const formatTime = (seconds) => {

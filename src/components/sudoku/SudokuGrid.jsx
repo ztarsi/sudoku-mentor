@@ -156,7 +156,7 @@ export default function SudokuGrid({
 
               let alsSet = null;
               let alsUnitHighlight = null;
-              if (currentStep?.technique === 'ALS-XZ') {
+              if (currentStep?.technique === 'ALS-XZ' && currentStep.als1 && currentStep.als2) {
                 if (currentStep.als1?.cells.includes(index)) alsSet = 1;
                 else if (currentStep.als2?.cells.includes(index)) alsSet = 2;
                 const als1Rows = [...new Set(currentStep.als1.cells.map(c => Math.floor(c / 9)))];
