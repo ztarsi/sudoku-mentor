@@ -1,6 +1,6 @@
 // Analyze Sudoku puzzle difficulty based on solving techniques required
 
-import { generateCandidates, findNextLogicStep } from './logicEngine';
+import { generateCandidates, findNextLogicStep, eliminateCandidatesFromPeers } from './logicEngine';
 
 const TECHNIQUE_SCORES = {
   'Naked Single': 1,
@@ -40,33 +40,38 @@ export const analyzeDifficulty = (puzzleArray) => {
   let maxScore = 0;
   let totalScore = 0;
   let iterations = 0;
-  const maxIterations = 100; // Safety limit
+  // A full solve is at most ~81 placements plus the elimination-only steps
+  // between them; anything past this means the engine stopped progressing.
+  const maxIterations = 500;
 
   // Simulate solving to find required techniques
   while (iterations < maxIterations) {
     const step = findNextLogicStep(grid, null);
-    
+
     if (!step) break;
-    
+
     techniques.push(step.technique);
     const score = TECHNIQUE_SCORES[step.technique] || 0;
     totalScore += score;
     maxScore = Math.max(maxScore, score);
 
-    // Apply the step
+    // Apply the step in place. Do NOT regenerate candidates from scratch
+    // afterwards: that erases the eliminations just applied, so the engine
+    // re-finds the identical elimination step forever and every puzzle
+    // beyond singles gets rated "ultimate".
     if (step.placement) {
       const { cell, digit } = step.placement;
       grid[cell].value = digit;
       grid[cell].candidates = [];
+      grid = eliminateCandidatesFromPeers(grid, cell, digit);
     }
-    
+
     if (step.eliminations) {
       step.eliminations.forEach(elim => {
         grid[elim.cell].candidates = grid[elim.cell].candidates.filter(d => d !== elim.digit);
       });
     }
 
-    grid = generateCandidates(grid);
     iterations++;
   }
 

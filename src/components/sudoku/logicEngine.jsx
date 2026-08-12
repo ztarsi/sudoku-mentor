@@ -128,11 +128,11 @@ export const findNextLogicStep = (grid, focusedDigit = null) => {
   if (step) return step;
   
   // 14. Unique Rectangle
-  step = findUniqueRectangle(grid);
+  step = findUniqueRectangle(grid, focusedDigit);
   if (step) return step;
-  
+
   // 15. BUG+1
-  step = findBUGPlus1(grid);
+  step = findBUGPlus1(grid, focusedDigit);
   if (step) return step;
   
   return null;
