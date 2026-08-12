@@ -252,8 +252,8 @@ export default function SudokuGrid({
         position={contextMenu.position}
         onClose={() => setContextMenu(prev => ({ ...prev, isOpen: false }))}
         onClear={handleContextMenuClear}
-        onToggleCandidate={handleContextMenuToggleCandidates}
-        focusedDigit={focusedDigit}
+        onToggleCandidateMode={handleContextMenuToggleCandidates}
+        cell={contextMenu.cellIndex !== null ? grid[contextMenu.cellIndex] : null}
       />
     </>
   );

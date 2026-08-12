@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button';
 import TechniqueModal from './TechniqueModal';
 import UltimateTechniqueScanModal from './UltimateTechniqueScanModal';
 import DeepSearchModal from './DeepSearchModal';
-import { findAllTechniqueInstances, findNextLogicStep } from './logicEngine';
+import { findAllTechniqueInstances } from './logicEngine';
 import { findForcingChain, findHypothesis } from './forcingChainEngine';
 
 const TECHNIQUE_INFO = {
@@ -195,6 +195,7 @@ export default function LogicPanel({ currentStep, focusedDigit, grid, noAssistMo
 
   const performDeepSearch = async (depth) => {
     // Try logical forcing chains first (convergence-based)
+    /** @type {any} */
     let result = findForcingChain(grid, depth);
 
     // Fallback to hypothesis mode (contradiction-based)

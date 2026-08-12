@@ -241,8 +241,7 @@ export const findALSXZ = (grid, focusedDigit, returnAll = false) => {
   const allALS = [];
   for (const unit of units) {
     const alsInUnit = findALS(unit.indices);
-    alsInUnit.forEach(als => als.unitName = unit.name);
-    allALS.push(...alsInUnit);
+    allALS.push(...alsInUnit.map(als => ({ ...als, unitName: unit.name })));
   }
   
   // Find ALS-XZ: Two ALS with restricted common X and eliminating digit Z

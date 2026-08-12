@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import SudokuGrid from '@/components/sudoku/SudokuGrid';
-import DigitFilter from '@/components/sudoku/DigitFilter';
 import UnifiedPuzzleLoader from '@/components/sudoku/UnifiedPuzzleLoader';
 import ColorSettings from '@/components/sudoku/ColorSettings';
 import CompletionModal from '@/components/sudoku/CompletionModal';
@@ -527,7 +526,7 @@ export default function SudokuMentorMobile() {
                   </>
                 ) : (
                   <button
-                    onClick={() => base44.auth.redirectToLogin()}
+                    onClick={() => base44.auth.redirectToLogin(window.location.href)}
                     className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-all duration-200 font-medium text-sm"
                   >
                     Sign In

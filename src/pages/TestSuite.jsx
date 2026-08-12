@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { runAllTests, testSuites } from '../components/sudoku/testSuite';
+import { testSuites } from '../components/sudoku/testSuite';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Play, 

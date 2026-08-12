@@ -173,7 +173,6 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
             {activeTab === 'library' && (
               <div className="p-6">
                 <PuzzleLibrary
-                  isOpen={true}
                   onClose={onClose}
                   onSelectPuzzle={(puzzle, meta) => handlePuzzleLoad(puzzle, 'library', null, meta)}
                   embedded={true}
@@ -184,7 +183,6 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
               <div className="p-6">
                 {user ? (
                   <OCRUpload
-                    isOpen={true}
                     onClose={onClose}
                     onPuzzleExtracted={(puzzle, name) => handlePuzzleLoad(puzzle, 'ocr', name)}
                     embedded={true}
@@ -196,7 +194,7 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
                     </svg>
                     <p className="text-slate-400 mb-4">Sign in to upload puzzles via image</p>
                     <button
-                      onClick={() => base44.auth.redirectToLogin()}
+                      onClick={() => base44.auth.redirectToLogin(window.location.href)}
                       className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors"
                     >
                       Sign In
@@ -209,7 +207,6 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
               <div className="p-6">
                 {user ? (
                   <TextPuzzleUpload
-                    isOpen={true}
                     onClose={onClose}
                     onPuzzleLoaded={(puzzle, name) => handlePuzzleLoad(puzzle, 'text', name)}
                     embedded={true}
@@ -221,7 +218,7 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
                     </svg>
                     <p className="text-slate-400 mb-4">Sign in to upload puzzles via text</p>
                     <button
-                      onClick={() => base44.auth.redirectToLogin()}
+                      onClick={() => base44.auth.redirectToLogin(window.location.href)}
                       className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors"
                     >
                       Sign In

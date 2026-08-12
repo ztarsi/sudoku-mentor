@@ -335,7 +335,8 @@ export default function SudokuMentor() {
     } else {
       // No regular techniques found - search for forcing chains automatically
       const { findForcingChain, findHypothesis } = await import('@/components/sudoku/forcingChainEngine');
-      
+
+      /** @type {any} */
       let result = findForcingChain(grid, 100);
       if (!result) {
         result = findHypothesis(grid, 100);
@@ -1043,7 +1044,7 @@ export default function SudokuMentor() {
                   </>
                 ) : (
                   <button
-                    onClick={() => base44.auth.redirectToLogin()}
+                    onClick={() => base44.auth.redirectToLogin(window.location.href)}
                     className="px-3 lg:px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg lg:rounded-xl transition-all duration-200 font-medium text-sm"
                   >
                     Sign In

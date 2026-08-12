@@ -1,76 +1,89 @@
-// Sudoku solver using backtracking algorithm
+// Sudoku solver: bitmask backtracking with minimum-remaining-values ordering.
+//
+// Returns a solved copy of the grid, or null when the puzzle has no solution -
+// including when the givens themselves conflict (two equal digits sharing a
+// unit), which the previous implementation never checked and could hang on.
+
+const boxOf = (index) =>
+  Math.floor(index / 27) * 3 + Math.floor((index % 9) / 3);
+
+const popcount = (mask) => {
+  let count = 0;
+  while (mask) {
+    mask &= mask - 1;
+    count++;
+  }
+  return count;
+};
 
 export function solveSudoku(grid) {
-  // Create a copy of the grid to solve
-  const solvedGrid = grid.map(cell => ({ ...cell }));
-  
-  // Helper to check if a number is valid in a position
-  const isValid = (index, num) => {
-    const row = Math.floor(index / 9);
-    const col = index % 9;
-    
-    // Check row
-    for (let c = 0; c < 9; c++) {
-      const checkIdx = row * 9 + c;
-      if (checkIdx !== index && solvedGrid[checkIdx].value === num) {
-        return false;
-      }
+  const values = grid.map((cell) => cell.value ?? 0);
+
+  // Digit d occupies bit d (bits 1..9); bit 0 stays unused.
+  const rowMask = new Array(9).fill(0);
+  const colMask = new Array(9).fill(0);
+  const boxMask = new Array(9).fill(0);
+
+  // Seed masks from the givens, rejecting contradictory ones outright.
+  for (let i = 0; i < 81; i++) {
+    if (!values[i]) continue;
+    const row = Math.floor(i / 9);
+    const col = i % 9;
+    const box = boxOf(i);
+    const bit = 1 << values[i];
+    if ((rowMask[row] & bit) || (colMask[col] & bit) || (boxMask[box] & bit)) {
+      return null; // duplicate given in a row, column, or box
     }
-    
-    // Check column
-    for (let r = 0; r < 9; r++) {
-      const checkIdx = r * 9 + col;
-      if (checkIdx !== index && solvedGrid[checkIdx].value === num) {
-        return false;
-      }
-    }
-    
-    // Check 3x3 box
-    const boxStartRow = Math.floor(row / 3) * 3;
-    const boxStartCol = Math.floor(col / 3) * 3;
-    for (let r = boxStartRow; r < boxStartRow + 3; r++) {
-      for (let c = boxStartCol; c < boxStartCol + 3; c++) {
-        const checkIdx = r * 9 + c;
-        if (checkIdx !== index && solvedGrid[checkIdx].value === num) {
-          return false;
-        }
-      }
-    }
-    
-    return true;
-  };
-  
-  // Backtracking solver
+    rowMask[row] |= bit;
+    colMask[col] |= bit;
+    boxMask[box] |= bit;
+  }
+
+  const ALL_DIGITS = 0b1111111110;
+
   const solve = () => {
-    // Find first empty cell
-    const emptyIndex = solvedGrid.findIndex(cell => cell.value === null);
-    
-    // If no empty cell, puzzle is solved
-    if (emptyIndex === -1) {
-      return true;
-    }
-    
-    // Try numbers 1-9
-    for (let num = 1; num <= 9; num++) {
-      if (isValid(emptyIndex, num)) {
-        solvedGrid[emptyIndex].value = num;
-        
-        if (solve()) {
-          return true;
-        }
-        
-        // Backtrack
-        solvedGrid[emptyIndex].value = null;
+    // Pick the empty cell with the fewest remaining candidates.
+    let best = -1;
+    let bestMask = 0;
+    let bestCount = 10;
+    for (let i = 0; i < 81; i++) {
+      if (values[i]) continue;
+      const row = Math.floor(i / 9);
+      const col = i % 9;
+      const mask =
+        ~(rowMask[row] | colMask[col] | boxMask[boxOf(i)]) & ALL_DIGITS;
+      const count = popcount(mask);
+      if (count === 0) return false; // dead end
+      if (count < bestCount) {
+        best = i;
+        bestMask = mask;
+        bestCount = count;
+        if (count === 1) break;
       }
     }
-    
+
+    if (best === -1) return true; // no empty cells left
+
+    const row = Math.floor(best / 9);
+    const col = best % 9;
+    const box = boxOf(best);
+    for (let digit = 1; digit <= 9; digit++) {
+      const bit = 1 << digit;
+      if (!(bestMask & bit)) continue;
+      values[best] = digit;
+      rowMask[row] |= bit;
+      colMask[col] |= bit;
+      boxMask[box] |= bit;
+      if (solve()) return true;
+      values[best] = 0;
+      rowMask[row] &= ~bit;
+      colMask[col] &= ~bit;
+      boxMask[box] &= ~bit;
+    }
     return false;
   };
-  
-  // Attempt to solve
-  if (solve()) {
-    return solvedGrid;
-  }
-  
-  return null; // No solution found
+
+  if (!solve()) return null;
+
+  return grid.map((cell, i) => ({ ...cell, value: values[i] }));
 }
