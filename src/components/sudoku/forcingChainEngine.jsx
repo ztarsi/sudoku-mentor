@@ -1,35 +1,6 @@
 // Deep Forcing Chain Engine - Explores "What-If" scenarios
 
-const getRow = (index) => Math.floor(index / 9);
-const getCol = (index) => index % 9;
-const getBox = (index) => Math.floor(getRow(index) / 3) * 3 + Math.floor(getCol(index) / 3);
-
-const getRowIndices = (row) => Array.from({ length: 9 }, (_, i) => row * 9 + i);
-const getColIndices = (col) => Array.from({ length: 9 }, (_, i) => i * 9 + col);
-const getBoxIndices = (box) => {
-  const startRow = Math.floor(box / 3) * 3;
-  const startCol = (box % 3) * 3;
-  const indices = [];
-  for (let r = startRow; r < startRow + 3; r++) {
-    for (let c = startCol; c < startCol + 3; c++) {
-      indices.push(r * 9 + c);
-    }
-  }
-  return indices;
-};
-
-const getPeers = (index) => {
-  const row = getRow(index);
-  const col = getCol(index);
-  const box = getBox(index);
-  const peers = new Set([
-    ...getRowIndices(row),
-    ...getColIndices(col),
-    ...getBoxIndices(box)
-  ]);
-  peers.delete(index);
-  return Array.from(peers);
-};
+import { getRow, getCol, getBox, getRowIndices, getColIndices, getBoxIndices, getPeers } from './gridUnits';
 
 // Clone grid for simulation
 const cloneGrid = (grid) => {
@@ -155,9 +126,6 @@ export const findHypothesis = (grid, maxDepth = 8) => {
     
     // Check for contradictions
     if (branch1.contradiction && !branch2.contradiction) {
-      const placements = branch1.chain.filter(c => c.action === 'place');
-      const eliminations = branch1.chain.filter(c => c.action === 'eliminate');
-      
       let explanation = `🔍 Let's explore: What if R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} = ${value1}?\n\n`;
 
       // Build a detailed narrative with natural language
@@ -165,7 +133,6 @@ export const findHypothesis = (grid, maxDepth = 8) => {
 
       placements1.forEach((step, idx) => {
         const cellRef = `R${getRow(step.cell) + 1}C${getCol(step.cell) + 1}`;
-        const boxNum = getBox(step.cell) + 1;
 
         if (idx === 0) {
           explanation += `📍 Starting assumption: Place ${step.value} at ${cellRef}\n\n`;
@@ -215,9 +182,6 @@ export const findHypothesis = (grid, maxDepth = 8) => {
     }
     
     if (branch2.contradiction && !branch1.contradiction) {
-      const placements = branch2.chain.filter(c => c.action === 'place');
-      const eliminations = branch2.chain.filter(c => c.action === 'eliminate');
-      
       let explanation = `🔍 Let's explore: What if R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} = ${value2}?\n\n`;
 
       // Build a detailed narrative with natural language
@@ -225,7 +189,6 @@ export const findHypothesis = (grid, maxDepth = 8) => {
 
       placements2.forEach((step, idx) => {
         const cellRef = `R${getRow(step.cell) + 1}C${getCol(step.cell) + 1}`;
-        const boxNum = getBox(step.cell) + 1;
 
         if (idx === 0) {
           explanation += `📍 Starting assumption: Place ${step.value} at ${cellRef}\n\n`;
@@ -757,22 +720,4 @@ const exploreBranch = (grid, cellIndex, value, maxDepth, chain) => {
   }
   
   return { grid: newGrid, contradiction: false, chain: chainWithEliminations };
-};
-
-// Find common eliminations between two branches
-const findCommonEliminations = (originalGrid, grid1, grid2) => {
-  const eliminations = [];
-  
-  for (let i = 0; i < 81; i++) {
-    if (originalGrid[i].value === null) {
-      for (const candidate of originalGrid[i].candidates) {
-        // If candidate is eliminated in both branches
-        if (!grid1[i].candidates.includes(candidate) && !grid2[i].candidates.includes(candidate)) {
-          eliminations.push({ cell: i, digit: candidate });
-        }
-      }
-    }
-  }
-  
-  return eliminations;
 };

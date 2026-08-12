@@ -7,6 +7,7 @@ import TextPuzzleUpload from './TextPuzzleUpload';
 import { analyzeDifficulty } from './difficultyAnalyzer';
 import { base44 } from '@/api/base44Client';
 import { solveSudoku } from './solver';
+import { toast } from "@/components/ui/use-toast";
 
 export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded }) {
   const [activeTab, setActiveTab] = useState('library');
@@ -48,7 +49,7 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
       
       const solved = solveSudoku(gridForSolving);
       if (!solved) {
-        alert('This puzzle has no valid solution and cannot be saved.');
+        toast({ title: 'Invalid puzzle', description: 'This puzzle has no valid solution and cannot be saved.', variant: 'destructive' });
         setSavingPuzzle(false);
         return;
       }
@@ -60,7 +61,7 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
       );
       
       if (isDuplicate) {
-        alert('This puzzle already exists in your library!');
+        toast({ title: 'Already in your library', description: 'This puzzle already exists in your library.' });
         setSavingPuzzle(false);
         onPuzzleLoaded(puzzle);
         return;
@@ -83,7 +84,7 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
       onPuzzleLoaded(puzzle, { name, difficulty });
     } catch (error) {
       console.error('Error saving puzzle:', error);
-      alert('Failed to save puzzle: ' + error.message);
+      toast({ title: 'Failed to save puzzle', description: error.message, variant: 'destructive' });
       setSavingPuzzle(false);
       return;
     } finally {

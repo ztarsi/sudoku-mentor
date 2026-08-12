@@ -23,6 +23,7 @@ import { useSudokuPlayer } from '@/hooks/useSudokuPlayer';
 import { base44 } from '@/api/base44Client';
 import { AnimatePresence, motion } from 'framer-motion';
 import { createPageUrl } from '@/utils';
+import { toast } from "@/components/ui/use-toast";
 
 export default function SudokuMentor() {
   const [selectedCell, setSelectedCell] = useState(null);
@@ -219,7 +220,7 @@ export default function SudokuMentor() {
     (puzzle, puzzleMeta = null) => {
       const result = game.loadPuzzle(puzzle, puzzleMeta);
       if (!result.ok && result.reason === 'no-solution') {
-        alert('This puzzle has no valid solution!');
+        toast({ title: 'Invalid puzzle', description: 'This puzzle has no valid solution.', variant: 'destructive' });
         return;
       }
       if (noAssistRef.current.noAssistMode) {
@@ -400,7 +401,7 @@ export default function SudokuMentor() {
   const handlePrintPuzzle = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
-      alert('Pop-up blocked - allow pop-ups to print the puzzle.');
+      toast({ title: 'Pop-up blocked', description: 'Allow pop-ups for this site to print the puzzle.' });
       return;
     }
     const puzzleGrid = game.grid.map((cell) => (cell.isFixed ? cell.value : 0));

@@ -1,29 +1,11 @@
 // Advanced Chain-Based Logic Engine for Expert Sudoku Techniques
 
-const getRow = (index) => Math.floor(index / 9);
-const getCol = (index) => index % 9;
-const getBox = (index) => Math.floor(getRow(index) / 3) * 3 + Math.floor(getCol(index) / 3);
-
-const getRowIndices = (row) => Array.from({ length: 9 }, (_, i) => row * 9 + i);
-const getColIndices = (col) => Array.from({ length: 9 }, (_, i) => i * 9 + col);
-const getBoxIndices = (box) => {
-  const startRow = Math.floor(box / 3) * 3;
-  const startCol = (box % 3) * 3;
-  const indices = [];
-  for (let r = startRow; r < startRow + 3; r++) {
-    for (let c = startCol; c < startCol + 3; c++) {
-      indices.push(r * 9 + c);
-    }
-  }
-  return indices;
-};
+import { getRow, getCol, getBox, getRowIndices, getColIndices, getBoxIndices, arePeers } from './gridUnits';
 
 // Strong Link: If one candidate is false, the other must be true
-// Weak Link: If one candidate is true, the other must be false
 const buildLinkGraph = (grid) => {
   const strongLinks = [];
-  const weakLinks = [];
-  
+
   // Build bi-value cell strong links (naked pairs within a cell)
   for (let i = 0; i < 81; i++) {
     const cell = grid[i];
@@ -63,37 +45,7 @@ const buildLinkGraph = (grid) => {
     }
   }
   
-  // Build weak links (same digit in peer cells)
-  for (let i = 0; i < 81; i++) {
-    const cell = grid[i];
-    if (cell.value !== null) continue;
-    
-    for (const digit of cell.candidates) {
-      const row = getRow(i);
-      const col = getCol(i);
-      const box = getBox(i);
-      
-      // Check all peers
-      const peers = new Set([
-        ...getRowIndices(row),
-        ...getColIndices(col),
-        ...getBoxIndices(box)
-      ]);
-      
-      peers.delete(i);
-      
-      for (const peer of peers) {
-        if (grid[peer].candidates.includes(digit)) {
-          weakLinks.push({
-            from: { cell: i, digit },
-            to: { cell: peer, digit }
-          });
-        }
-      }
-    }
-  }
-  
-  return { strongLinks, weakLinks };
+  return { strongLinks };
 };
 
 // X-Cycles (Simple Coloring on conjugate links)
@@ -221,11 +173,6 @@ export const findXCycle = (grid, focusedDigit, returnAll = false) => {
   return returnAll ? allInstances : null;
 };
 
-const arePeers = (cell1, cell2) => {
-  const row1 = getRow(cell1), col1 = getCol(cell1), box1 = getBox(cell1);
-  const row2 = getRow(cell2), col2 = getCol(cell2), box2 = getBox(cell2);
-  return row1 === row2 || col1 === col2 || box1 === box2;
-};
 
 // Almost Locked Set (ALS) - XZ Rule
 export const findALSXZ = (grid, focusedDigit, returnAll = false) => {

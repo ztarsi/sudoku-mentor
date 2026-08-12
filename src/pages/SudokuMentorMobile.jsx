@@ -13,6 +13,7 @@ import { useSudokuPlayer } from '@/hooks/useSudokuPlayer';
 import { base44 } from '@/api/base44Client';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Undo2, Eraser } from 'lucide-react';
+import { toast } from "@/components/ui/use-toast";
 
 export default function SudokuMentorMobile() {
   const [selectedCell, setSelectedCell] = useState(null);
@@ -111,7 +112,7 @@ export default function SudokuMentorMobile() {
       // Mobile starts with a bare grid - players add their own pencil marks
       const result = game.loadPuzzle(puzzle, puzzleMeta, { withCandidates: false });
       if (!result.ok && result.reason === 'no-solution') {
-        alert('This puzzle has no valid solution!');
+        toast({ title: 'Invalid puzzle', description: 'This puzzle has no valid solution.', variant: 'destructive' });
         return;
       }
       setShowPuzzleLoader(false);

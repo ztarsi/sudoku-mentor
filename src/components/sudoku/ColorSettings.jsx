@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Palette, X, Check, Save, Trash2 } from 'lucide-react';
+import { toast } from "@/components/ui/use-toast";
 
 const PRESET_COLORS = [
   { name: 'White', value: '#ffffff' },
@@ -45,7 +46,7 @@ export default function ColorSettings({ colors, onColorsChange, onClose }) {
   const savePreset = () => {
     if (!presetName.trim()) return;
     if (presets.length >= 3) {
-      alert('Maximum 3 presets allowed. Delete one to add a new preset.');
+      toast({ title: 'Preset limit reached', description: 'Maximum 3 presets allowed. Delete one to add a new preset.' });
       return;
     }
 

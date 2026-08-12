@@ -2,38 +2,8 @@
 import { findXCycle, findALSXZ, findUniqueRectangle, findBUGPlus1, findFinnedXWing } from './chainEngine';
 
 // Helper functions
-const getRow = (index) => Math.floor(index / 9);
-const getCol = (index) => index % 9;
-const getBox = (index) => Math.floor(getRow(index) / 3) * 3 + Math.floor(getCol(index) / 3);
+import { getRow, getCol, getBox, getRowIndices, getColIndices, getBoxIndices, getPeers } from './gridUnits';
 
-const getRowIndices = (row) => Array.from({ length: 9 }, (_, i) => row * 9 + i);
-const getColIndices = (col) => Array.from({ length: 9 }, (_, i) => i * 9 + col);
-const getBoxIndices = (box) => {
-  const startRow = Math.floor(box / 3) * 3;
-  const startCol = (box % 3) * 3;
-  const indices = [];
-  for (let r = startRow; r < startRow + 3; r++) {
-    for (let c = startCol; c < startCol + 3; c++) {
-      indices.push(r * 9 + c);
-    }
-  }
-  return indices;
-};
-
-const getPeers = (index) => {
-  const row = getRow(index);
-  const col = getCol(index);
-  const box = getBox(index);
-  const peers = new Set([
-    ...getRowIndices(row),
-    ...getColIndices(col),
-    ...getBoxIndices(box)
-  ]);
-  peers.delete(index);
-  return Array.from(peers);
-};
-
-// Generate candidates for all empty cells (initial load only)
 export const generateCandidates = (grid) => {
   return grid.map((cell, index) => {
     if (cell.value !== null) {
