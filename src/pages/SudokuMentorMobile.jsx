@@ -3,272 +3,136 @@ import SudokuGrid from '@/components/sudoku/SudokuGrid';
 import UnifiedPuzzleLoader from '@/components/sudoku/UnifiedPuzzleLoader';
 import ColorSettings from '@/components/sudoku/ColorSettings';
 import CompletionModal from '@/components/sudoku/CompletionModal';
-import LoadingModal from '@/components/sudoku/LoadingModal';
-import { solveSudoku } from '@/components/sudoku/solver';
+import CandidateNumpad from '@/components/sudoku/CandidateNumpad';
+import {
+  fetchAllPuzzleEntries,
+  pickRandomPuzzleEntry,
+} from '@/components/sudoku/puzzleSources';
+import { useSudokuGame } from '@/hooks/useSudokuGame';
+import { useSudokuPlayer } from '@/hooks/useSudokuPlayer';
 import { base44 } from '@/api/base44Client';
 import { AnimatePresence, motion } from 'framer-motion';
-import { PUZZLES } from '@/components/sudoku/PuzzleLibrary';
-import CandidateNumpad from '@/components/sudoku/CandidateNumpad';
-
-const createEmptyGrid = () => {
-  return Array(81).fill(null).map((_, index) => ({
-    cellIndex: index,
-    value: null,
-    isFixed: false,
-    candidates: [],
-    isHighlighted: false,
-    highlightColor: null,
-    isBaseCell: false,
-    isTargetCell: false
-  }));
-};
+import { Undo2, Eraser } from 'lucide-react';
 
 export default function SudokuMentorMobile() {
-  const [grid, setGrid] = useState(createEmptyGrid());
   const [selectedCell, setSelectedCell] = useState(null);
   const [focusedDigit, setFocusedDigit] = useState(null);
-  const [currentPuzzleName, setCurrentPuzzleName] = useState(null);
-  const [currentPuzzleDifficulty, setCurrentPuzzleDifficulty] = useState(null);
   const [showPuzzleLoader, setShowPuzzleLoader] = useState(false);
-  const [validationErrors, setValidationErrors] = useState([]);
   const [highlightedDigit, setHighlightedDigit] = useState(null);
-  const [solution, setSolution] = useState(null);
   const [candidateMode, setCandidateMode] = useState(false);
   const [showColorSettings, setShowColorSettings] = useState(false);
-  const [colors, setColors] = useState({
-    focusDigit: '#fbbf24',
-    candidate: '#ffffff',
-    cellNumber: '#60a5fa',
-    gridLines: '#ffffff',
-    cellBg: '#020617',
-  });
-  const [startTime, setStartTime] = useState(null);
-  const [errorCount, setErrorCount] = useState(0);
   const [showCompletion, setShowCompletion] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [loadingStage, setLoadingStage] = useState(0);
-  const [user, setUser] = useState(null);
+  const [completionStats, setCompletionStats] = useState({ timeInSeconds: 0, errorCount: 0 });
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [showCopyConfirmation, setShowCopyConfirmation] = useState(false);
-  const [noAssistStartTime, setNoAssistStartTime] = useState(null);
-  const [bestTime, setBestTime] = useState(null);
-  const [stepHistory, setStepHistory] = useState([]);
-  const [historyIndex, setHistoryIndex] = useState(-1);
 
   const errorAudioRef = useRef(null);
+  const playerRef = useRef(null);
 
-  const loadingStages = [
-    'Loading puzzle...',
-    'Validating solution...',
-    'Ready to solve!'
-  ];
-
-  const handleCellInput = useCallback((cellIndex, value) => {
-    // If solution exists and value doesn't match, play error sound and reject
-    if (solution && value !== null && solution[cellIndex].value !== value) {
+  // The mobile page is always no-assist: every solve is recorded.
+  const game = useSudokuGame({
+    onWrongInput: () => {
       if (errorAudioRef.current) {
         errorAudioRef.current.currentTime = 0;
         errorAudioRef.current.play();
       }
-      setErrorCount(prev => prev + 1);
-      return;
-    }
-    
-    setGrid(prev => {
-      const newGrid = [...prev];
-      const cell = { ...newGrid[cellIndex] };
+    },
+    onSolved: ({ timeInSeconds, errorCount, puzzleName, puzzleDifficulty }) => {
+      setCompletionStats({ timeInSeconds, errorCount });
+      setShowCompletion(true);
 
-      if (!cell.isFixed) {
-        cell.value = value;
-        cell.candidates = value ? [] : cell.candidates;
-        newGrid[cellIndex] = cell;
-
-        // Save to history
-        setStepHistory(h => [...h.slice(0, historyIndex + 1), { grid: prev, action: 'input' }]);
-        setHistoryIndex(i => i + 1);
+      const user = playerRef.current?.user;
+      if (user && puzzleName && puzzleDifficulty) {
+        base44.entities.SolveRecord.create({
+          puzzle_name: puzzleName,
+          difficulty: puzzleDifficulty,
+          time_seconds: timeInSeconds,
+          no_assist: true,
+          error_count: errorCount,
+        })
+          .then(() => playerRef.current?.refreshBestTime())
+          .catch((err) => console.error('Failed to save solve record:', err));
       }
+    },
+  });
 
-      return newGrid;
-    });
-    validateGrid();
-  }, [historyIndex, solution]);
+  const player = useSudokuPlayer(game.puzzleName);
+  playerRef.current = player;
+  const { user, colors } = player;
 
-  const handleToggleCandidate = useCallback((cellIndex, candidate) => {
-    const cell = grid[cellIndex];
-    
-    if (cell.isFixed || cell.value !== null) {
-      return;
-    }
-    
-    setGrid(prev => {
-      const newGrid = [...prev];
-      const updatedCell = { ...newGrid[cellIndex] };
-      
-      const candidateIdx = updatedCell.candidates.indexOf(candidate);
-      if (candidateIdx >= 0) {
-        updatedCell.candidates = updatedCell.candidates.filter(c => c !== candidate);
-      } else {
-        updatedCell.candidates = [...updatedCell.candidates, candidate].sort((a, b) => a - b);
-      }
-      
-      newGrid[cellIndex] = updatedCell;
-      return newGrid;
-    });
-    
-    setStepHistory(h => [...h.slice(0, historyIndex + 1), { grid, action: 'toggle_candidate' }]);
-    setHistoryIndex(i => i + 1);
-  }, [grid, historyIndex]);
+  const handleCellClick = useCallback(
+    (cellIndex) => {
+      setSelectedCell(cellIndex);
 
-  const handleCellClick = useCallback((cellIndex) => {
-    setSelectedCell(cellIndex);
-    
-    // If a digit is selected from bottom bar, apply it
-    if (focusedDigit !== null) {
-      const cell = grid[cellIndex];
-      if (!cell.isFixed) {
-        if (candidateMode) {
-          // Toggle candidate
-          handleToggleCandidate(cellIndex, focusedDigit);
-        } else {
-          // Set value
-          handleCellInput(cellIndex, focusedDigit);
+      // Digit-first input: if a digit is selected in the bottom bar, apply it
+      if (focusedDigit !== null) {
+        const cell = game.grid[cellIndex];
+        if (!cell.isFixed) {
+          if (candidateMode) {
+            game.handleToggleCandidate(cellIndex, focusedDigit);
+          } else {
+            game.handleCellInput(cellIndex, focusedDigit);
+          }
         }
       }
-    }
-  }, [grid, focusedDigit, candidateMode, handleToggleCandidate, handleCellInput]);
+    },
+    [game, focusedDigit, candidateMode]
+  );
 
-  const handleDigitSelect = useCallback((digit) => {
-    // Toggle digit selection and highlight
-    if (focusedDigit === digit) {
-      setFocusedDigit(null);
-      setHighlightedDigit(null);
-    } else {
-      setFocusedDigit(digit);
-      setHighlightedDigit(digit);
-    }
-  }, [focusedDigit]);
+  const handleDigitSelect = useCallback(
+    (digit) => {
+      if (focusedDigit === digit) {
+        setFocusedDigit(null);
+        setHighlightedDigit(null);
+      } else {
+        setFocusedDigit(digit);
+        setHighlightedDigit(digit);
+      }
+    },
+    [focusedDigit]
+  );
 
-  const handleUndo = useCallback(() => {
-    if (historyIndex >= 0) {
-      setGrid(stepHistory[historyIndex].grid);
-      setHistoryIndex(i => i - 1);
+  const handleEraseCell = useCallback(() => {
+    if (selectedCell !== null && !game.grid[selectedCell].isFixed) {
+      game.handleCellInput(selectedCell, null);
     }
-  }, [historyIndex, stepHistory]);
+  }, [game, selectedCell]);
 
   const handleClearGrid = useCallback(() => {
-    setStepHistory(h => [...h, { grid, action: 'clear' }]);
-    setHistoryIndex(i => i + 1);
-    setGrid(createEmptyGrid());
-    setSolution(null);
-    setValidationErrors([]);
-  }, [grid]);
-
-  const handleLoadPuzzle = useCallback(async (puzzle, puzzleMeta = null) => {
-    setIsLoading(true);
-    setLoadingStage(0);
-    
-    if (puzzleMeta) {
-      setCurrentPuzzleName(puzzleMeta.name);
-      setCurrentPuzzleDifficulty(puzzleMeta.difficulty);
-    } else {
-      setCurrentPuzzleName(null);
-      setCurrentPuzzleDifficulty(null);
-    }
-    
-    setNoAssistStartTime(Date.now());
-    
-    // Stage 1: Loading puzzle
-    await new Promise(resolve => setTimeout(resolve, 300));
-    const newGrid = createEmptyGrid();
-    puzzle.forEach((value, index) => {
-      if (value !== 0) {
-        newGrid[index] = {
-          ...newGrid[index],
-          value,
-          isFixed: true,
-          candidates: []
-        };
-      }
-    });
-    
-    // Stage 2: Validating solution
-    setLoadingStage(1);
-    await new Promise(resolve => setTimeout(resolve, 400));
-    const solved = solveSudoku(newGrid);
-    if (!solved) {
-      setIsLoading(false);
-      alert('This puzzle has no valid solution!');
-      return;
-    }
-    setSolution(solved);
-    
-    // Stage 3: Ready!
-    setLoadingStage(2);
-    await new Promise(resolve => setTimeout(resolve, 200));
-    
-    setGrid(newGrid);
-    setShowPuzzleLoader(false);
-    setStepHistory([]);
-    setHistoryIndex(-1);
-    setValidationErrors([]);
+    if (game.solvedCount > 0 && !window.confirm('Clear the entire grid?')) return;
+    game.clearGrid();
     setHighlightedDigit(null);
-    setStartTime(Date.now());
-    setErrorCount(0);
-    setIsLoading(false);
-  }, []);
+    setFocusedDigit(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game.solvedCount, game.clearGrid]);
 
-  const validateGrid = useCallback(() => {
-    const errors = [];
-    grid.forEach((cell, index) => {
-      if (cell.value) {
-        const row = Math.floor(index / 9);
-        const col = index % 9;
-        
-        // Check row
-        for (let c = 0; c < 9; c++) {
-          const checkIdx = row * 9 + c;
-          if (checkIdx !== index && grid[checkIdx].value === cell.value) {
-            errors.push(index);
-            break;
-          }
-        }
-        
-        // Check column
-        for (let r = 0; r < 9; r++) {
-          const checkIdx = r * 9 + col;
-          if (checkIdx !== index && grid[checkIdx].value === cell.value) {
-            if (!errors.includes(index)) errors.push(index);
-            break;
-          }
-        }
-        
-        // Check box
-        const boxStartRow = Math.floor(row / 3) * 3;
-        const boxStartCol = Math.floor(col / 3) * 3;
-        for (let r = boxStartRow; r < boxStartRow + 3; r++) {
-          for (let c = boxStartCol; c < boxStartCol + 3; c++) {
-            const checkIdx = r * 9 + c;
-            if (checkIdx !== index && grid[checkIdx].value === cell.value) {
-              if (!errors.includes(index)) errors.push(index);
-              break;
-            }
-          }
-        }
+  const handleLoadPuzzle = useCallback(
+    (puzzle, puzzleMeta = null) => {
+      // Mobile starts with a bare grid - players add their own pencil marks
+      const result = game.loadPuzzle(puzzle, puzzleMeta, { withCandidates: false });
+      if (!result.ok && result.reason === 'no-solution') {
+        alert('This puzzle has no valid solution!');
+        return;
       }
-    });
-    setValidationErrors(errors);
-  }, [grid]);
+      setShowPuzzleLoader(false);
+      setHighlightedDigit(null);
+      setFocusedDigit(null);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    [game.loadPuzzle]
+  );
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts (external keyboards on tablets, dev convenience)
   useEffect(() => {
     const handleKeyDown = (e) => {
-      const isModalOpen = showPuzzleLoader || showColorSettings || showCompletion || showAccountMenu || showCopyConfirmation;
+      const isModalOpen =
+        showPuzzleLoader || showColorSettings || showCompletion || showAccountMenu || showCopyConfirmation;
       if (isModalOpen) return;
 
       if (e.key === 'Shift' && !e.repeat) {
         setCandidateMode(true);
       }
-      
+
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
         e.preventDefault();
         if (selectedCell !== null) {
@@ -276,32 +140,28 @@ export default function SudokuMentorMobile() {
           const col = selectedCell % 9;
           let newRow = row;
           let newCol = col;
-          
+
           if (e.key === 'ArrowUp') newRow = Math.max(0, row - 1);
           if (e.key === 'ArrowDown') newRow = Math.min(8, row + 1);
           if (e.key === 'ArrowLeft') newCol = Math.max(0, col - 1);
           if (e.key === 'ArrowRight') newCol = Math.min(8, col + 1);
-          
+
           setSelectedCell(newRow * 9 + newCol);
         } else {
           setSelectedCell(0);
         }
         return;
       }
-      
+
       if (e.key >= '1' && e.key <= '9') {
-        const digit = parseInt(e.key);
-        
         e.preventDefault();
-        handleDigitSelect(digit);
+        handleDigitSelect(parseInt(e.key));
       } else if (e.key === 'Backspace' || e.key === 'Delete') {
         if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') {
           return;
         }
         e.preventDefault();
-        if (selectedCell !== null && !grid[selectedCell].isFixed) {
-          handleCellInput(selectedCell, null);
-        }
+        handleEraseCell();
       } else if (e.key === 'Escape') {
         e.preventDefault();
         setFocusedDigit(null);
@@ -309,147 +169,70 @@ export default function SudokuMentorMobile() {
         setSelectedCell(null);
       } else if (e.key.toLowerCase() === 'z' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
-        handleUndo();
+        game.undo();
       } else if (e.key.toLowerCase() === 'c' && !e.ctrlKey && !e.metaKey) {
         e.preventDefault();
         handleClearGrid();
       }
     };
-    
+
     const handleKeyUp = (e) => {
       if (e.key === 'Shift') {
         setCandidateMode(false);
       }
     };
-    
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [selectedCell, grid, candidateMode, historyIndex, handleCellInput, handleToggleCandidate, handleClearGrid, handleUndo, showPuzzleLoader, showColorSettings, showCompletion, showAccountMenu, showCopyConfirmation, handleDigitSelect]);
-
-  // Check if puzzle is complete
-  useEffect(() => {
-    if (!solution || !startTime) return;
-
-    const solvedCount = grid.filter(c => c.value !== null).length;
-    const isSolved = solvedCount === 81 && grid.every((cell, idx) => 
-      cell.value !== null && cell.value === solution[idx].value
-    );
-
-    if (isSolved) {
-      const noAssistTime = Math.floor((Date.now() - noAssistStartTime) / 1000);
-      setShowCompletion(true);
-      
-      if (user && currentPuzzleName && currentPuzzleDifficulty) {
-        base44.entities.SolveRecord.create({
-          puzzle_name: currentPuzzleName,
-          difficulty: currentPuzzleDifficulty,
-          time_seconds: noAssistTime,
-          no_assist: true,
-          error_count: errorCount
-        }).catch(err => console.error('Failed to save solve record:', err));
-      }
-    }
-  }, [grid, solution, startTime, noAssistStartTime, user, currentPuzzleName, currentPuzzleDifficulty, errorCount]);
+  }, [
+    selectedCell,
+    game,
+    handleDigitSelect,
+    handleEraseCell,
+    handleClearGrid,
+    showPuzzleLoader,
+    showColorSettings,
+    showCompletion,
+    showAccountMenu,
+    showCopyConfirmation,
+  ]);
 
   const handleCopyPuzzle = () => {
-    const puzzleString = grid.map(cell => cell.isFixed ? cell.value : 0).join('');
+    const puzzleString = game.grid.map((cell) => (cell.isFixed ? cell.value : 0)).join('');
     navigator.clipboard.writeText(puzzleString);
     setShowCopyConfirmation(true);
     setTimeout(() => setShowCopyConfirmation(false), 2000);
   };
 
-  const solvedCount = grid.filter(c => c.value !== null).length;
-  const progress = Math.round((solvedCount / 81) * 100);
-
-  // Load user on mount and restore color settings
-  useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const currentUser = await base44.auth.me();
-        setUser(currentUser);
-        
-        if (currentUser.sudoku_colors) {
-          setColors(currentUser.sudoku_colors);
-        }
-      } catch (error) {
-        setUser(null);
-      }
-    };
-    loadUser();
-  }, []);
-
-  // Load best time for current puzzle
-  useEffect(() => {
-    const loadBestTime = async () => {
-      if (!user || !currentPuzzleName) {
-        setBestTime(null);
-        return;
-      }
-
-      try {
-        const records = await base44.entities.SolveRecord.filter(
-          { puzzle_name: currentPuzzleName, no_assist: true },
-          'time_seconds',
-          1
-        );
-        
-        if (records.length > 0) {
-          setBestTime(records[0].time_seconds);
-        } else {
-          setBestTime(null);
-        }
-      } catch (error) {
-        console.error('Failed to load best time:', error);
-        setBestTime(null);
-      }
-    };
-
-    loadBestTime();
-  }, [user, currentPuzzleName]);
-
   // Load a random puzzle on mount
   useEffect(() => {
-    const loadRandomPuzzle = async () => {
+    let cancelled = false;
+    (async () => {
       try {
-        const userPuzzles = await base44.entities.SudokuPuzzle.list();
-        
-        const allAvailablePuzzles = [];
-        for (const difficulty in PUZZLES) {
-          PUZZLES[difficulty].forEach(p => allAvailablePuzzles.push({ 
-            puzzle: p.puzzle, 
-            name: p.name, 
-            difficulty 
-          }));
-        }
-        userPuzzles.forEach(p => allAvailablePuzzles.push({ 
-          puzzle: p.puzzle, 
-          name: p.name, 
-          difficulty: p.difficulty 
-        }));
-
-        if (allAvailablePuzzles.length > 0) {
-          const randomPuzzleData = allAvailablePuzzles[Math.floor(Math.random() * allAvailablePuzzles.length)];
-          await handleLoadPuzzle(randomPuzzleData.puzzle, { 
-            name: randomPuzzleData.name, 
-            difficulty: randomPuzzleData.difficulty 
-          });
+        const entries = await fetchAllPuzzleEntries();
+        const entry = pickRandomPuzzleEntry(entries);
+        if (entry && !cancelled) {
+          handleLoadPuzzle(entry.puzzle, { name: entry.name, difficulty: entry.difficulty });
         }
       } catch (error) {
         console.error('Failed to load random puzzle:', error);
       }
+    })();
+    return () => {
+      cancelled = true;
     };
-    loadRandomPuzzle();
-  }, [handleLoadPuzzle]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
       {/* Error sound */}
       <audio ref={errorAudioRef} src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIF2i777edTRALUKXi8LljHAU2jdTwzIUsBS2Ayv=="  preload="auto"></audio>
-      
+
       {/* Header */}
       <header className="bg-slate-900/90 backdrop-blur-md border-b border-slate-700/60 sticky top-0 z-50 safe-area-inset-top">
         <div className="max-w-7xl mx-auto px-2 py-2">
@@ -458,11 +241,11 @@ export default function SudokuMentorMobile() {
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
                 <span className="text-white font-bold text-sm">9</span>
               </div>
-              {currentPuzzleName && (
+              {game.puzzleName && (
                 <div className="flex items-center gap-1.5">
-                  <span className="text-sm font-medium text-white truncate max-w-[120px]">{currentPuzzleName}</span>
-                  {currentPuzzleDifficulty && (
-                    <span className="px-2 py-0.5 bg-slate-800 rounded-full text-xs capitalize text-slate-300">{currentPuzzleDifficulty}</span>
+                  <span className="text-sm font-medium text-white truncate max-w-[120px]">{game.puzzleName}</span>
+                  {game.puzzleDifficulty && (
+                    <span className="px-2 py-0.5 bg-slate-800 rounded-full text-xs capitalize text-slate-300">{game.puzzleDifficulty}</span>
                   )}
                 </div>
               )}
@@ -492,7 +275,7 @@ export default function SudokuMentorMobile() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                 </svg>
               </button>
-              
+
               <div className="relative">
                 {user ? (
                   <>
@@ -505,7 +288,7 @@ export default function SudokuMentorMobile() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                       </svg>
                     </button>
-                    
+
                     {showAccountMenu && (
                       <div className="absolute right-0 mt-2 w-56 bg-slate-800 rounded-lg shadow-xl border border-slate-700 overflow-hidden z-50">
                         <div className="px-4 py-3 border-b border-slate-700">
@@ -542,27 +325,27 @@ export default function SudokuMentorMobile() {
         {/* Sudoku Grid */}
         <div className="pt-5">
           <SudokuGrid
-            grid={grid}
+            grid={game.grid}
             selectedCell={selectedCell}
             focusedDigit={null}
             focusedCandidates={focusedDigit ? { [focusedDigit]: colors.focusDigit || '#fbbf24' } : null}
             removalCandidates={null}
             highlightedDigit={highlightedDigit}
-            validationErrors={validationErrors}
+            validationErrors={game.validationErrors}
             candidateMode={candidateMode}
             candidatesVisible={true}
             colors={colors}
             currentStep={null}
             playbackIndex={0}
             onCellClick={handleCellClick}
-            onCellInput={handleCellInput}
-            onToggleCandidate={handleToggleCandidate}
+            onCellInput={game.handleCellInput}
+            onToggleCandidate={game.handleToggleCandidate}
           />
         </div>
 
         {/* Mobile Controls - Fixed Bottom */}
         <div className="fixed left-0 right-0 bg-slate-900/95 backdrop-blur-md border-t border-slate-700 z-40" style={{ bottom: '20px' }}>
-          {/* Candidate/Solve Mode Toggle */}
+          {/* Mode toggle + undo/erase */}
           <div className="flex items-center gap-2 px-2 py-2 border-b border-slate-800">
             <button
               onClick={() => setCandidateMode(false)}
@@ -584,16 +367,40 @@ export default function SudokuMentorMobile() {
             >
               Candidate
             </button>
+            <button
+              onClick={game.undo}
+              disabled={!game.canUndo}
+              className={`p-2.5 rounded-lg transition-all ${
+                game.canUndo
+                  ? 'bg-slate-800 text-slate-300 active:bg-slate-700'
+                  : 'bg-slate-800 text-slate-700'
+              }`}
+              title="Undo"
+            >
+              <Undo2 className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleEraseCell}
+              disabled={selectedCell === null || game.grid[selectedCell]?.isFixed}
+              className={`p-2.5 rounded-lg transition-all ${
+                selectedCell !== null && !game.grid[selectedCell]?.isFixed
+                  ? 'bg-slate-800 text-red-400 active:bg-red-950'
+                  : 'bg-slate-800 text-slate-700'
+              }`}
+              title="Erase cell"
+            >
+              <Eraser className="w-4 h-4" />
+            </button>
           </div>
 
-          {/* Digit Input - Modified to handle input */}
+          {/* Digit Input */}
           <div className="py-1.5 px-1">
             <div className="flex gap-1 justify-between">
               {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(digit => {
-                const digitCount = grid.filter(cell => cell.value === digit).length;
+                const digitCount = game.grid.filter(cell => cell.value === digit).length;
                 const isComplete = digitCount >= 9;
                 const isSelected = focusedDigit === digit;
-                
+
                 return (
                   <button
                     key={digit}
@@ -624,12 +431,12 @@ export default function SudokuMentorMobile() {
         </div>
       </main>
 
-      {/* Candidate Numpad — bottom sheet for mobile candidate entry */}
+      {/* Candidate Numpad - bottom sheet for mobile candidate entry */}
       <CandidateNumpad
         isOpen={candidateMode && selectedCell !== null}
         selectedCell={selectedCell}
-        grid={grid}
-        onToggleCandidate={(digit) => handleToggleCandidate(selectedCell, digit)}
+        grid={game.grid}
+        onToggleCandidate={(digit) => game.handleToggleCandidate(selectedCell, digit)}
         onClose={() => setCandidateMode(false)}
         colors={colors}
         focusedDigit={focusedDigit}
@@ -647,16 +454,7 @@ export default function SudokuMentorMobile() {
       {showColorSettings && (
         <ColorSettings
           colors={colors}
-          onColorsChange={async (newColors) => {
-            setColors(newColors);
-            if (user) {
-              try {
-                await base44.auth.updateMe({ sudoku_colors: newColors });
-              } catch (error) {
-                console.error('Failed to save colors:', error);
-              }
-            }
-          }}
+          onColorsChange={player.saveColors}
           onClose={() => setShowColorSettings(false)}
         />
       )}
@@ -665,17 +463,7 @@ export default function SudokuMentorMobile() {
       <CompletionModal
         isOpen={showCompletion}
         onClose={() => setShowCompletion(false)}
-        stats={{
-          timeInSeconds: startTime ? Math.floor((Date.now() - startTime) / 1000) : 0,
-          errorCount: errorCount
-        }}
-      />
-
-      {/* Loading Modal */}
-      <LoadingModal
-        isOpen={isLoading}
-        stages={loadingStages}
-        currentStage={loadingStage}
+        stats={completionStats}
       />
 
       {/* Click outside to close account menu */}
