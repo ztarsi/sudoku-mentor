@@ -47,6 +47,7 @@ export default function SudokuMentor() {
   const [candidatesVisible, setCandidatesVisible] = useState(true);
 
   const errorAudioRef = useRef(null);
+  const [srAnnouncement, setSrAnnouncement] = useState('');
 
   // Values the onSolved callback needs that live outside the game hook
   const noAssistRef = useRef({ noAssistMode, noAssistStartTime });
@@ -55,11 +56,14 @@ export default function SudokuMentor() {
   const playerRef = useRef(null);
 
   const game = useSudokuGame({
-    onWrongInput: () => {
+    onWrongInput: (cellIndex, digit) => {
       if (errorAudioRef.current) {
         errorAudioRef.current.currentTime = 0;
         errorAudioRef.current.play();
       }
+      setSrAnnouncement(
+        `${digit} conflicts with the solution at row ${Math.floor(cellIndex / 9) + 1}, column ${(cellIndex % 9) + 1}`
+      );
     },
     onSolved: ({ timeInSeconds, errorCount, puzzleName, puzzleDifficulty }) => {
       setCompletionStats({ timeInSeconds, errorCount });
@@ -501,6 +505,11 @@ export default function SudokuMentor() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+      {/* Screen-reader announcements (rejected inputs) */}
+      <div aria-live="polite" role="status" className="sr-only">
+        {srAnnouncement}
+      </div>
+
       {/* Error sound */}
       <audio ref={errorAudioRef} src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIF2i777edTRALUKXi8LljHAU2jdTwzIUsBS2Ayv=="  preload="auto"></audio>
 
@@ -576,7 +585,7 @@ export default function SudokuMentor() {
               <button
                 onClick={() => setShowColorSettings(true)}
                 className="p-2 bg-slate-800 text-slate-300 rounded-lg lg:rounded-xl hover:bg-slate-700 transition-all duration-200 flex items-center justify-center"
-                title="Color Settings"
+                title="Color Settings" aria-label="Color Settings"
               >
                 <svg className="w-4 h-4 lg:w-5 lg:h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
@@ -587,7 +596,7 @@ export default function SudokuMentor() {
               <button
                 onClick={() => setShowAppInfo(true)}
                 className="hidden lg:block p-2 bg-slate-800 text-slate-300 rounded-xl hover:bg-slate-700 transition-all duration-200"
-                title="About Sudoku Mentor"
+                title="About Sudoku Mentor" aria-label="About Sudoku Mentor"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -608,6 +617,7 @@ export default function SudokuMentor() {
                     : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
                 }`}
                 title={noAssistMode ? "Disable No Assist Mode" : "Enable No Assist Mode"}
+                aria-label={noAssistMode ? "Disable No Assist Mode" : "Enable No Assist Mode"}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
@@ -621,6 +631,7 @@ export default function SudokuMentor() {
                     : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
                 }`}
                 title={candidatesVisible ? "Hide Candidates" : "Show Candidates"}
+                aria-label={candidatesVisible ? "Hide candidates" : "Show candidates"}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   {candidatesVisible ? (
@@ -633,7 +644,7 @@ export default function SudokuMentor() {
               <button
                 onClick={handlePrintPuzzle}
                 className="hidden lg:block p-2 bg-slate-800 text-slate-300 rounded-xl hover:bg-slate-700 transition-all duration-200"
-                title="Print Puzzle"
+                title="Print Puzzle" aria-label="Print Puzzle"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
@@ -642,7 +653,7 @@ export default function SudokuMentor() {
               <button
                 onClick={handleCopyPuzzle}
                 className="hidden lg:block p-2 bg-slate-800 text-slate-300 rounded-xl hover:bg-slate-700 transition-all duration-200"
-                title="Copy Puzzle"
+                title="Copy Puzzle" aria-label="Copy Puzzle"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -651,7 +662,7 @@ export default function SudokuMentor() {
               <button
                 onClick={() => setShowPuzzleLoader(true)}
                 className="p-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg lg:rounded-xl transition-all duration-200 flex items-center justify-center"
-                title="Load Puzzle"
+                title="Load Puzzle" aria-label="Load Puzzle"
               >
                 <svg className="w-4 h-4 lg:w-5 lg:h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
@@ -666,6 +677,7 @@ export default function SudokuMentor() {
                       onClick={() => setShowAccountMenu(!showAccountMenu)}
                       className="p-2 bg-slate-800 text-slate-300 rounded-lg lg:rounded-xl hover:bg-slate-700 transition-all duration-200 flex items-center justify-center"
                       title={user.email}
+                      aria-label="Account menu"
                     >
                       <svg className="w-4 h-4 lg:w-5 lg:h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />

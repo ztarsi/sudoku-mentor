@@ -25,6 +25,9 @@ export default function UltimateTechniqueScanModal({ isOpen, currentTechnique, r
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Ultimate technique scan"
           className="bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 w-full max-w-md"
         >
           <div className="p-6">

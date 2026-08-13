@@ -1,9 +1,18 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { TECHNIQUE_DETAILS } from './techniqueCatalog';
 
 export default function TechniqueModal({ technique, onClose }) {
+  // Close on Escape
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   if (!technique) return null;
   
   const details = TECHNIQUE_DETAILS[technique];
@@ -16,6 +25,9 @@ export default function TechniqueModal({ technique, onClose }) {
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
+          role="dialog"
+          aria-modal="true"
+          aria-label={technique}
           className="bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 max-w-2xl w-full max-h-[90vh] overflow-y-auto"
         >
           {/* Header */}
@@ -23,6 +35,7 @@ export default function TechniqueModal({ technique, onClose }) {
             <h2 className="text-2xl font-semibold text-white">{technique}</h2>
             <button
               onClick={onClose}
+              aria-label="Close"
               className="p-2 hover:bg-slate-800 rounded-xl transition-colors"
             >
               <X className="w-6 h-6 text-slate-400" />

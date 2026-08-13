@@ -16,6 +16,15 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
 
   // Load user on mount
   React.useEffect(() => {
+    if (!isOpen) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, onClose]);
+
+  React.useEffect(() => {
     const loadUser = async () => {
       try {
         const currentUser = await base44.auth.me();
@@ -114,6 +123,9 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
           onClick={(e) => e.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Load puzzle"
           className="bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 w-full max-w-4xl max-h-[90vh] overflow-hidden"
         >
           {/* Header with tabs */}

@@ -28,15 +28,19 @@ export default function SudokuMentorMobile() {
   const [showCopyConfirmation, setShowCopyConfirmation] = useState(false);
 
   const errorAudioRef = useRef(null);
+  const [srAnnouncement, setSrAnnouncement] = useState('');
   const playerRef = useRef(null);
 
   // The mobile page is always no-assist: every solve is recorded.
   const game = useSudokuGame({
-    onWrongInput: () => {
+    onWrongInput: (cellIndex, digit) => {
       if (errorAudioRef.current) {
         errorAudioRef.current.currentTime = 0;
         errorAudioRef.current.play();
       }
+      setSrAnnouncement(
+        `${digit} conflicts with the solution at row ${Math.floor(cellIndex / 9) + 1}, column ${(cellIndex % 9) + 1}`
+      );
     },
     onSolved: ({ timeInSeconds, errorCount, puzzleName, puzzleDifficulty }) => {
       setCompletionStats({ timeInSeconds, errorCount });
@@ -231,6 +235,11 @@ export default function SudokuMentorMobile() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+      {/* Screen-reader announcements (rejected inputs) */}
+      <div aria-live="polite" role="status" className="sr-only">
+        {srAnnouncement}
+      </div>
+
       {/* Error sound */}
       <audio ref={errorAudioRef} src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIF2i777edTRALUKXi8LljHAU2jdTwzIUsBS2Ayv=="  preload="auto"></audio>
 
@@ -261,7 +270,7 @@ export default function SudokuMentorMobile() {
               <button
                 onClick={() => setShowColorSettings(true)}
                 className="p-2 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 transition-all duration-200 flex items-center justify-center"
-                title="Color Settings"
+                title="Color Settings" aria-label="Color Settings"
               >
                 <svg className="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
@@ -270,7 +279,7 @@ export default function SudokuMentorMobile() {
               <button
                 onClick={() => setShowPuzzleLoader(true)}
                 className="p-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg transition-all duration-200 flex items-center justify-center"
-                title="Load Puzzle"
+                title="Load Puzzle" aria-label="Load Puzzle"
               >
                 <svg className="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
@@ -284,6 +293,7 @@ export default function SudokuMentorMobile() {
                       onClick={() => setShowAccountMenu(!showAccountMenu)}
                       className="p-2 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 transition-all duration-200 flex items-center justify-center"
                       title={user.email}
+                      aria-label="Account menu"
                     >
                       <svg className="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -376,7 +386,7 @@ export default function SudokuMentorMobile() {
                   ? 'bg-slate-800 text-slate-300 active:bg-slate-700'
                   : 'bg-slate-800 text-slate-700'
               }`}
-              title="Undo"
+              title="Undo" aria-label="Undo"
             >
               <Undo2 className="w-4 h-4" />
             </button>
@@ -388,7 +398,7 @@ export default function SudokuMentorMobile() {
                   ? 'bg-slate-800 text-red-400 active:bg-red-950'
                   : 'bg-slate-800 text-slate-700'
               }`}
-              title="Erase cell"
+              title="Erase cell" aria-label="Erase cell"
             >
               <Eraser className="w-4 h-4" />
             </button>

@@ -4,8 +4,19 @@ import { Trophy, Clock, AlertCircle, Target, X } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 export default function CompletionModal({ isOpen, onClose, stats }) {
+  // Close on Escape
   useEffect(() => {
     if (!isOpen) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, onClose]);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined;
 
     // Fire confetti, and stop the loop if the modal closes early
     const duration = 3000;
@@ -64,12 +75,16 @@ export default function CompletionModal({ isOpen, onClose, stats }) {
             exit={{ scale: 0.5, opacity: 0, y: 50 }}
             transition={{ type: 'spring', duration: 0.5 }}
             onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Puzzle solved"
             className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-3xl shadow-2xl border border-slate-700 w-full max-w-md overflow-hidden"
           >
             {/* Header */}
             <div className="relative bg-gradient-to-r from-emerald-500 to-blue-500 p-8 text-center">
               <button
                 onClick={onClose}
+                aria-label="Close"
                 className="absolute top-4 right-4 p-2 hover:bg-white/20 rounded-lg transition-colors"
               >
                 <X className="w-5 h-5 text-white" />
