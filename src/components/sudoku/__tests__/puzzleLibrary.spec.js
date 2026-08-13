@@ -86,15 +86,13 @@ describe('built-in puzzle library', () => {
     });
   }
 
-  it('easy-shelf puzzles rate easy', () => {
-    for (const p of PUZZLES.easy) {
-      expect(analyzeDifficulty(p.puzzle), p.name).toBe('easy');
-    }
-  });
-
-  it('ultimate-shelf puzzles rate ultimate (no singles-solvable impostors)', () => {
-    for (const p of PUZZLES.ultimate) {
-      expect(analyzeDifficulty(p.puzzle), p.name).toBe('ultimate');
-    }
-  });
+  // Every shelf must agree with the app's own difficulty analyzer, so the
+  // badge a player picks a puzzle by is the difficulty they actually get.
+  for (const [shelf, list] of Object.entries(PUZZLES)) {
+    it(`${shelf}-shelf puzzles rate ${shelf}`, () => {
+      for (const p of list) {
+        expect(analyzeDifficulty(p.puzzle), p.name).toBe(shelf);
+      }
+    });
+  }
 });
