@@ -11,8 +11,6 @@ import { findNextLogicStep } from '@/components/sudoku/logicEngine';
 import {
   buildRemovalMap,
   buildFocusedCandidates,
-  clearHighlightFlags,
-  stampStepHighlights,
 } from '@/components/sudoku/stepHighlights';
 import {
   fetchAllPuzzleEntries,
@@ -31,6 +29,7 @@ export default function SudokuMentor() {
   const [focusedCandidates, setFocusedCandidates] = useState(null); // { digit: color } map
   const [removalCandidates, setRemovalCandidates] = useState(null); // Map of cellIndex -> Set of digits to remove
   const [currentStep, setCurrentStep] = useState(null);
+  const [highlightedSteps, setHighlightedSteps] = useState([]);
   const [showPuzzleLoader, setShowPuzzleLoader] = useState(false);
   const [highlightedDigit, setHighlightedDigit] = useState(null);
   const [candidateMode, setCandidateMode] = useState(false);
@@ -98,12 +97,11 @@ export default function SudokuMentor() {
   }, []);
 
   const clearHighlights = useCallback(() => {
-    game.setGrid((prev) => clearHighlightFlags(prev));
+    setHighlightedSteps([]);
     setCurrentStep(null);
     setFocusedCandidates(null);
     setRemovalCandidates(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [game.setGrid]);
+  }, []);
 
   const handleCellClick = useCallback(
     (cellIndex) => {
@@ -142,13 +140,9 @@ export default function SudokuMentor() {
     [game.grid, colors]
   );
 
-  const highlightSteps = useCallback(
-    (steps) => {
-      game.setGrid((prev) => stampStepHighlights(prev, steps));
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [game.setGrid]
-  );
+  const highlightSteps = useCallback((steps) => {
+    setHighlightedSteps(steps);
+  }, []);
 
   const handleNextStep = useCallback(async () => {
     if (noAssistMode) return; // Block hints in no assist mode
@@ -175,6 +169,7 @@ export default function SudokuMentor() {
 
     game.applyStep(currentStep);
     setCurrentStep(null);
+    setHighlightedSteps([]);
     setFocusedDigit(null);
     setHighlightedDigit(null);
     setRemovalCandidates(null);
@@ -210,6 +205,7 @@ export default function SudokuMentor() {
     if (game.solvedCount > 0 && !window.confirm('Clear the entire grid?')) return;
     game.clearGrid();
     setCurrentStep(null);
+    setHighlightedSteps([]);
     setFocusedCandidates(null);
     setRemovalCandidates(null);
     setHighlightedDigit(null);
@@ -228,6 +224,7 @@ export default function SudokuMentor() {
       }
       setShowPuzzleLoader(false);
       setCurrentStep(null);
+      setHighlightedSteps([]);
       setFocusedCandidates(null);
       setRemovalCandidates(null);
       setHighlightedDigit(null);
@@ -738,6 +735,7 @@ export default function SudokuMentor() {
                 candidatesVisible={candidatesVisible}
                 colors={colors}
                 currentStep={currentStep}
+                highlightedSteps={highlightedSteps}
                 playbackIndex={chainPlaybackIndex}
                 onCellClick={handleCellClick}
                 onCellInput={game.handleCellInput}

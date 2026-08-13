@@ -1,10 +1,11 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import Cell from './Cell';
 import CellContextMenu from './CellContextMenu';
+import { buildHighlightSets } from './stepHighlights';
 
-export default function SudokuGrid({ 
-  grid, 
-  selectedCell, 
+export default function SudokuGrid({
+  grid,
+  selectedCell,
   focusedDigit,
   focusedCandidates,
   removalCandidates,
@@ -14,13 +15,15 @@ export default function SudokuGrid({
   candidatesVisible,
   colors,
   currentStep,
+  highlightedSteps = [],
   playbackIndex,
-  onCellClick, 
+  onCellClick,
   onCellInput,
   onToggleCandidate
 }) {
   const [contextMenu, setContextMenu] = useState({ isOpen: false, cellIndex: null, position: { x: 0, y: 0 } });
   const [measuredWidth, setMeasuredWidth] = useState(0);
+  const [overlaySize, setOverlaySize] = useState(0);
   const longPressTimerRef = useRef(null);
   const touchStartPosRef = useRef({ x: 0, y: 0 });
   const gridWrapperRef = useRef(null);
@@ -44,6 +47,23 @@ export default function SudokuGrid({
     return () => observer.disconnect();
   }, [isMobile]);
 
+  // Measure the rendered grid itself (all layouts) so the SVG overlays can
+  // position lines correctly. Previously they only rendered on mobile - and
+  // desktop, which is where chain/ALS steps are actually shown, got nothing.
+  useEffect(() => {
+    const el = gridContainerRef.current;
+    if (!el) return;
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setOverlaySize(entry.contentRect.width);
+      }
+    });
+    observer.observe(el);
+    setOverlaySize(el.getBoundingClientRect().width);
+    return () => observer.disconnect();
+  }, []);
+
   // Grid sizing: mobile uses measured container width, constrained for landscape
   const gridSize = isMobile && measuredWidth > 0
     ? (() => {
@@ -56,12 +76,23 @@ export default function SudokuGrid({
 
   const cellSize = gridSize ? gridSize / 9 : null;
 
+  // Overlay geometry follows the measured on-screen grid, not the mobile
+  // sizing model, so it works on the fluid desktop grid too.
+  const overlayCellSize = overlaySize > 0 ? overlaySize / 9 : null;
+
   const getCellCenter = (index) => {
     const row = Math.floor(index / 9);
     const col = index % 9;
-    const size = cellSize || 60;
+    const size = overlayCellSize || 60;
     return { x: col * size + size / 2, y: row * size + size / 2 };
   };
+
+  // Highlight flags are derived from the presented steps at render time;
+  // the grid data itself stays purely game state.
+  const highlightSets = useMemo(
+    () => buildHighlightSets(highlightedSteps ?? []),
+    [highlightedSteps]
+  );
 
   const handleTouchStart = (e, cellIndex) => {
     const touch = e.touches[0];
@@ -105,16 +136,50 @@ export default function SudokuGrid({
       for (const xCell2 of als2XCells)
         links.push({ from: getCellCenter(xCell1), to: getCellCenter(xCell2), color: '#f59e0b', type: 'bridge', strokeWidth: 4, dashArray: '8,4' });
     return links;
-  }, [currentStep, grid, cellSize]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep, grid, overlayCellSize]);
 
   const forcingChains = useMemo(() => {
     const forcingTechniques = ['Deep Forcing Chain', 'Hypothesis Mode', 'Cell Forcing Chain'];
-    if (forcingTechniques.includes(currentStep?.technique)) {
-      if (currentStep.chains) return currentStep.chains;
-      if (currentStep.chain && currentStep.contradiction)
-        return [{ cells: currentStep.chain, color: '#ef4444', label: `If ${currentStep.contradictoryDigit}` }];
+    if (!forcingTechniques.includes(currentStep?.technique)) return null;
+
+    const rawChains = currentStep.chains
+      ? currentStep.chains
+      : currentStep.chain && currentStep.contradiction
+      ? [{ cells: currentStep.chain, color: '#ef4444', label: `If ${currentStep.contradictoryDigit}` }]
+      : null;
+    if (!rawChains) return null;
+
+    // Chain entries are {cell, value, action, reason} records; the overlay
+    // needs the sequence of placed cell INDICES. (Passing the raw entries
+    // into getCellCenter produced NaN coordinates before.)
+    return rawChains.map((chain) => ({
+      ...chain,
+      cellIndices: (chain.cells ?? [])
+        .filter((entry) => (typeof entry === 'object' ? entry.action === 'place' : true))
+        .map((entry) => (typeof entry === 'object' ? entry.cell : entry)),
+    }));
+  }, [currentStep]);
+
+  // Hoisted out of the 81-cell render loop (it was recomputed per cell).
+  const alsUnits = useMemo(() => {
+    if (currentStep?.technique !== 'ALS-XZ' || !currentStep.als1 || !currentStep.als2) {
+      return null;
     }
-    return null;
+    const unitOf = (cells) => {
+      const rows = [...new Set(cells.map(c => Math.floor(c / 9)))];
+      const cols = [...new Set(cells.map(c => c % 9))];
+      const boxes = [...new Set(cells.map(c => Math.floor(Math.floor(c / 9) / 3) * 3 + Math.floor((c % 9) / 3)))];
+      return rows.length === 1 ? { type: 'row', value: rows[0] }
+        : cols.length === 1 ? { type: 'col', value: cols[0] }
+        : boxes.length === 1 ? { type: 'box', value: boxes[0] } : null;
+    };
+    return {
+      als1Cells: new Set(currentStep.als1.cells),
+      als2Cells: new Set(currentStep.als2.cells),
+      als1Unit: unitOf(currentStep.als1.cells),
+      als2Unit: unitOf(currentStep.als2.cells),
+    };
   }, [currentStep]);
 
   return (
@@ -156,38 +221,36 @@ export default function SudokuGrid({
 
               let alsSet = null;
               let alsUnitHighlight = null;
-              if (currentStep?.technique === 'ALS-XZ' && currentStep.als1 && currentStep.als2) {
-                if (currentStep.als1?.cells.includes(index)) alsSet = 1;
-                else if (currentStep.als2?.cells.includes(index)) alsSet = 2;
-                const als1Rows = [...new Set(currentStep.als1.cells.map(c => Math.floor(c / 9)))];
-                const als1Cols = [...new Set(currentStep.als1.cells.map(c => c % 9))];
-                const als1Boxes = [...new Set(currentStep.als1.cells.map(c => Math.floor(Math.floor(c / 9) / 3) * 3 + Math.floor((c % 9) / 3)))];
-                const als2Rows = [...new Set(currentStep.als2.cells.map(c => Math.floor(c / 9)))];
-                const als2Cols = [...new Set(currentStep.als2.cells.map(c => c % 9))];
-                const als2Boxes = [...new Set(currentStep.als2.cells.map(c => Math.floor(Math.floor(c / 9) / 3) * 3 + Math.floor((c % 9) / 3)))];
-                const als1Unit = als1Rows.length === 1 ? { type: 'row', value: als1Rows[0] }
-                  : als1Cols.length === 1 ? { type: 'col', value: als1Cols[0] }
-                  : als1Boxes.length === 1 ? { type: 'box', value: als1Boxes[0] } : null;
-                const als2Unit = als2Rows.length === 1 ? { type: 'row', value: als2Rows[0] }
-                  : als2Cols.length === 1 ? { type: 'col', value: als2Cols[0] }
-                  : als2Boxes.length === 1 ? { type: 'box', value: als2Boxes[0] } : null;
-                if (als1Unit && (
-                  (als1Unit.type === 'row' && row === als1Unit.value) ||
-                  (als1Unit.type === 'col' && col === als1Unit.value) ||
-                  (als1Unit.type === 'box' && box === als1Unit.value)
-                )) alsUnitHighlight = 1;
-                else if (als2Unit && (
-                  (als2Unit.type === 'row' && row === als2Unit.value) ||
-                  (als2Unit.type === 'col' && col === als2Unit.value) ||
-                  (als2Unit.type === 'box' && box === als2Unit.value)
-                )) alsUnitHighlight = 2;
+              if (alsUnits) {
+                if (alsUnits.als1Cells.has(index)) alsSet = 1;
+                else if (alsUnits.als2Cells.has(index)) alsSet = 2;
+                const inUnit = (unit) => unit && (
+                  (unit.type === 'row' && row === unit.value) ||
+                  (unit.type === 'col' && col === unit.value) ||
+                  (unit.type === 'box' && box === unit.value)
+                );
+                if (inUnit(alsUnits.als1Unit)) alsUnitHighlight = 1;
+                else if (inUnit(alsUnits.als2Unit)) alsUnitHighlight = 2;
               }
+
+              // Highlight flags are derived per render from highlightedSteps,
+              // overriding whatever (possibly stale) flags a snapshot carries.
+              const isBase = highlightSets.baseCells.has(index);
+              const isTarget = highlightSets.targetCells.has(index);
+              const displayCell = {
+                ...cell,
+                isBaseCell: isBase,
+                isTargetCell: isTarget,
+                isUnitCell: highlightSets.unitCells.has(index),
+                isHighlighted: isBase || isTarget,
+                highlightColor: isBase ? 'blue' : isTarget ? 'red' : null,
+              };
 
               return (
                 <Cell
                   key={index}
                   cellId={`sudoku-cell-${index}`}
-                  cell={cell}
+                  cell={displayCell}
                   isSelected={selectedCell === index}
                   isFocusedDigit={false}
                   isFocusCandidate={focusedDigit !== null && cell.value === null && cell.candidates.includes(focusedDigit)}
@@ -218,8 +281,8 @@ export default function SudokuGrid({
             })}
 
             {/* ALS-XZ link overlay */}
-            {alsLinks.length > 0 && gridSize && (
-              <svg className="absolute inset-0 pointer-events-none" width={gridSize} height={gridSize} style={{ overflow: 'visible' }}>
+            {alsLinks.length > 0 && overlaySize > 0 && (
+              <svg className="absolute inset-0 pointer-events-none" width={overlaySize} height={overlaySize} style={{ overflow: 'visible' }}>
                 {alsLinks.map((link, i) => (
                   <line key={i} x1={link.from.x} y1={link.from.y} x2={link.to.x} y2={link.to.y}
                     stroke={link.color} strokeWidth={link.strokeWidth} strokeDasharray={link.dashArray}
@@ -228,19 +291,23 @@ export default function SudokuGrid({
               </svg>
             )}
 
-            {/* Forcing chain overlay */}
-            {forcingChains && gridSize && (
-              <svg className="absolute inset-0 pointer-events-none" width={gridSize} height={gridSize} style={{ overflow: 'visible' }}>
-                {forcingChains.map((chain, chainIndex) => (
-                  chain.cells && chain.cells.slice(0, -1).map((cellIdx, i) => {
+            {/* Forcing chain overlay: connect consecutive placements up to
+                the current playback position */}
+            {forcingChains && overlaySize > 0 && (
+              <svg className="absolute inset-0 pointer-events-none" width={overlaySize} height={overlaySize} style={{ overflow: 'visible' }}>
+                {forcingChains.map((chain, chainIndex) => {
+                  const visible = playbackIndex != null
+                    ? chain.cellIndices.slice(0, playbackIndex + 2)
+                    : chain.cellIndices;
+                  return visible.slice(0, -1).map((cellIdx, i) => {
                     const from = getCellCenter(cellIdx);
-                    const to = getCellCenter(chain.cells[i + 1]);
+                    const to = getCellCenter(visible[i + 1]);
                     return (
                       <line key={`${chainIndex}-${i}`} x1={from.x} y1={from.y} x2={to.x} y2={to.y}
                         stroke={chain.color || '#ef4444'} strokeWidth={2} strokeLinecap="round" opacity={0.7} />
                     );
-                  })
-                ))}
+                  });
+                })}
               </svg>
             )}
           </div>

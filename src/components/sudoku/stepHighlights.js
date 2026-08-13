@@ -52,23 +52,16 @@ export const buildFocusedCandidates = (step, grid, colors) => {
   return null;
 };
 
-/** Reset all per-cell highlight flags. */
-export const clearHighlightFlags = (grid) =>
-  grid.map((cell) => ({
-    ...cell,
-    isHighlighted: false,
-    highlightColor: null,
-    isBaseCell: false,
-    isTargetCell: false,
-    isUnitCell: false,
-  }));
-
 /**
- * Return a new grid with highlight flags stamped for the given steps:
- * unit cells for singles, blue base cells, red target cells.
+ * Derive the highlight cell sets for a list of steps: unit cells for
+ * singles, blue base cells, red target cells. Purely derived data - the
+ * grid itself is never mutated for visuals, so highlighting can't trigger
+ * game-state effects or end up inside undo snapshots.
  */
-export const stampStepHighlights = (grid, steps) => {
-  const newGrid = clearHighlightFlags(grid);
+export const buildHighlightSets = (steps) => {
+  const baseCells = new Set();
+  const targetCells = new Set();
+  const unitCells = new Set();
 
   steps.forEach((step) => {
     // For Hidden/Naked Singles, highlight the whole unit named in the text
@@ -80,44 +73,24 @@ export const stampStepHighlights = (grid, steps) => {
       const row = Math.floor(cellIdx / 9);
       const col = cellIdx % 9;
 
-      const unitCells = [];
       if (step.explanation.includes('row')) {
-        for (let c = 0; c < 9; c++) unitCells.push(row * 9 + c);
+        for (let c = 0; c < 9; c++) unitCells.add(row * 9 + c);
       } else if (step.explanation.includes('column')) {
-        for (let r = 0; r < 9; r++) unitCells.push(r * 9 + col);
+        for (let r = 0; r < 9; r++) unitCells.add(r * 9 + col);
       } else if (step.explanation.includes('box')) {
         const boxStartRow = Math.floor(row / 3) * 3;
         const boxStartCol = Math.floor(col / 3) * 3;
         for (let r = boxStartRow; r < boxStartRow + 3; r++) {
           for (let c = boxStartCol; c < boxStartCol + 3; c++) {
-            unitCells.push(r * 9 + c);
+            unitCells.add(r * 9 + c);
           }
         }
       }
-
-      unitCells.forEach((idx) => {
-        newGrid[idx] = { ...newGrid[idx], isUnitCell: true };
-      });
     }
 
-    step.baseCells?.forEach((idx) => {
-      newGrid[idx] = {
-        ...newGrid[idx],
-        isHighlighted: true,
-        isBaseCell: true,
-        highlightColor: 'blue',
-      };
-    });
-
-    step.targetCells?.forEach((idx) => {
-      newGrid[idx] = {
-        ...newGrid[idx],
-        isHighlighted: true,
-        isTargetCell: true,
-        highlightColor: 'red',
-      };
-    });
+    step.baseCells?.forEach((idx) => baseCells.add(idx));
+    step.targetCells?.forEach((idx) => targetCells.add(idx));
   });
 
-  return newGrid;
+  return { baseCells, targetCells, unitCells };
 };
