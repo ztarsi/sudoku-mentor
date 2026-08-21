@@ -1,35 +1,6 @@
 // Deep Forcing Chain Engine - Explores "What-If" scenarios
 
-const getRow = (index) => Math.floor(index / 9);
-const getCol = (index) => index % 9;
-const getBox = (index) => Math.floor(getRow(index) / 3) * 3 + Math.floor(getCol(index) / 3);
-
-const getRowIndices = (row) => Array.from({ length: 9 }, (_, i) => row * 9 + i);
-const getColIndices = (col) => Array.from({ length: 9 }, (_, i) => i * 9 + col);
-const getBoxIndices = (box) => {
-  const startRow = Math.floor(box / 3) * 3;
-  const startCol = (box % 3) * 3;
-  const indices = [];
-  for (let r = startRow; r < startRow + 3; r++) {
-    for (let c = startCol; c < startCol + 3; c++) {
-      indices.push(r * 9 + c);
-    }
-  }
-  return indices;
-};
-
-const getPeers = (index) => {
-  const row = getRow(index);
-  const col = getCol(index);
-  const box = getBox(index);
-  const peers = new Set([
-    ...getRowIndices(row),
-    ...getColIndices(col),
-    ...getBoxIndices(box)
-  ]);
-  peers.delete(index);
-  return Array.from(peers);
-};
+import { getRow, getCol, getBox, getRowIndices, getColIndices, getBoxIndices, getPeers } from './gridUnits';
 
 // Clone grid for simulation
 const cloneGrid = (grid) => {
@@ -39,39 +10,49 @@ const cloneGrid = (grid) => {
   }));
 };
 
-// Apply a value and propagate constraints
-const applyValueAndPropagate = (grid, cellIndex, value, depth) => {
+// Apply a value and propagate constraints (naked-single cascade).
+//
+// Uses a worklist so that EVERY peer of every placement is processed. The
+// previous recursive version returned as soon as one peer became a naked
+// single, leaving the placed digit as a stale candidate on the remaining
+// peers - which could later surface false "forced" placements and false
+// contradictions in what the UI presents as logically certain reasoning.
+// Exported for tests.
+export const applyValueAndPropagate = (grid, cellIndex, value) => {
   const newGrid = cloneGrid(grid);
-  
-  // Set the value
-  newGrid[cellIndex].value = value;
-  newGrid[cellIndex].candidates = [];
-  
-  // Remove from peers
-  const peers = getPeers(cellIndex);
-  for (const peerIdx of peers) {
-    if (newGrid[peerIdx].value === null) {
-      newGrid[peerIdx].candidates = newGrid[peerIdx].candidates.filter(c => c !== value);
-      
-      // Check for contradictions
-      if (newGrid[peerIdx].candidates.length === 0) {
+  const queue = [[cellIndex, value]];
+
+  while (queue.length > 0) {
+    const [idx, val] = queue.shift();
+
+    if (newGrid[idx].value === val) continue; // already placed (re-entry)
+    if (newGrid[idx].value !== null) {
+      return { grid: newGrid, contradiction: true, cell: idx };
+    }
+
+    newGrid[idx].value = val;
+    newGrid[idx].candidates = [];
+
+    for (const peerIdx of getPeers(idx)) {
+      const peer = newGrid[peerIdx];
+      if (peer.value === null) {
+        if (peer.candidates.includes(val)) {
+          peer.candidates = peer.candidates.filter(c => c !== val);
+
+          if (peer.candidates.length === 0) {
+            return { grid: newGrid, contradiction: true, cell: peerIdx };
+          }
+          if (peer.candidates.length === 1) {
+            queue.push([peerIdx, peer.candidates[0]]);
+          }
+        }
+      } else if (peer.value === val) {
+        // Same value in peer = contradiction
         return { grid: newGrid, contradiction: true, cell: peerIdx };
       }
-      
-      // Auto-solve naked singles
-      if (newGrid[peerIdx].candidates.length === 1 && depth < 8) {
-        const result = applyValueAndPropagate(newGrid, peerIdx, newGrid[peerIdx].candidates[0], depth + 1);
-        if (result.contradiction) {
-          return result;
-        }
-        return { grid: result.grid, contradiction: false };
-      }
-    } else if (newGrid[peerIdx].value === value) {
-      // Same value in peer = contradiction
-      return { grid: newGrid, contradiction: true, cell: peerIdx };
     }
   }
-  
+
   return { grid: newGrid, contradiction: false };
 };
 
@@ -145,9 +126,6 @@ export const findHypothesis = (grid, maxDepth = 8) => {
     
     // Check for contradictions
     if (branch1.contradiction && !branch2.contradiction) {
-      const placements = branch1.chain.filter(c => c.action === 'place');
-      const eliminations = branch1.chain.filter(c => c.action === 'eliminate');
-      
       let explanation = `🔍 Let's explore: What if R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} = ${value1}?\n\n`;
 
       // Build a detailed narrative with natural language
@@ -155,7 +133,6 @@ export const findHypothesis = (grid, maxDepth = 8) => {
 
       placements1.forEach((step, idx) => {
         const cellRef = `R${getRow(step.cell) + 1}C${getCol(step.cell) + 1}`;
-        const boxNum = getBox(step.cell) + 1;
 
         if (idx === 0) {
           explanation += `📍 Starting assumption: Place ${step.value} at ${cellRef}\n\n`;
@@ -185,7 +162,8 @@ export const findHypothesis = (grid, maxDepth = 8) => {
       });
 
       const contradCell = `R${getRow(branch1.contradictionCell) + 1}C${getCol(branch1.contradictionCell) + 1}`;
-      explanation += `❌ CONTRADICTION: After ${placements1.length} forced placement${placements1.length > 1 ? 's' : ''}, ${contradCell} has no valid candidates left!\n\n`;
+      const caseSplits = placements1.filter(s => s.reason && s.reason.startsWith('Case analysis')).length;
+      explanation += `❌ CONTRADICTION: After ${placements1.length} placement${placements1.length > 1 ? 's' : ''}${caseSplits > 0 ? ` (including ${caseSplits} case split${caseSplits > 1 ? 's' : ''})` : ''}, ${contradCell} has no valid candidates left!\n\n`;
       explanation += `✅ Conclusion: The assumption was wrong. R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} must be ${value2}.`;
       
       return {
@@ -204,9 +182,6 @@ export const findHypothesis = (grid, maxDepth = 8) => {
     }
     
     if (branch2.contradiction && !branch1.contradiction) {
-      const placements = branch2.chain.filter(c => c.action === 'place');
-      const eliminations = branch2.chain.filter(c => c.action === 'eliminate');
-      
       let explanation = `🔍 Let's explore: What if R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} = ${value2}?\n\n`;
 
       // Build a detailed narrative with natural language
@@ -214,7 +189,6 @@ export const findHypothesis = (grid, maxDepth = 8) => {
 
       placements2.forEach((step, idx) => {
         const cellRef = `R${getRow(step.cell) + 1}C${getCol(step.cell) + 1}`;
-        const boxNum = getBox(step.cell) + 1;
 
         if (idx === 0) {
           explanation += `📍 Starting assumption: Place ${step.value} at ${cellRef}\n\n`;
@@ -244,7 +218,8 @@ export const findHypothesis = (grid, maxDepth = 8) => {
       });
 
       const contradCell = `R${getRow(branch2.contradictionCell) + 1}C${getCol(branch2.contradictionCell) + 1}`;
-      explanation += `❌ CONTRADICTION: After ${placements2.length} forced placement${placements2.length > 1 ? 's' : ''}, ${contradCell} has no valid candidates left!\n\n`;
+      const caseSplits = placements2.filter(s => s.reason && s.reason.startsWith('Case analysis')).length;
+      explanation += `❌ CONTRADICTION: After ${placements2.length} placement${placements2.length > 1 ? 's' : ''}${caseSplits > 0 ? ` (including ${caseSplits} case split${caseSplits > 1 ? 's' : ''})` : ''}, ${contradCell} has no valid candidates left!\n\n`;
       explanation += `✅ Conclusion: The assumption was wrong. R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} must be ${value1}.`;
       
       return {
@@ -395,7 +370,7 @@ const exploreBranchForImplications = (grid, cellIndex, value, maxDepth, placemen
   
   placements.set(cellIndex, value);
   
-  const result = applyValueAndPropagate(grid, cellIndex, value, 0);
+  const result = applyValueAndPropagate(grid, cellIndex, value);
   
   if (result.contradiction) {
     return { grid: result.grid, chain: newChain, contradiction: true };
@@ -678,23 +653,30 @@ const exploreBranch = (grid, cellIndex, value, maxDepth, chain) => {
       } else if (isHiddenInBox) {
         reason = `Only place for ${value} in box ${box + 1}`;
       } else {
-        reason = 'Forced by constraint propagation';
+        // This placement is a case split on a bi-value cell, not a forced
+        // deduction - the conclusion stays sound (both cases are checked),
+        // but the narrative must not present it as forced.
+        reason = `Case analysis: trying ${value} in a two-candidate cell`;
       }
     }
   }
-  
-  const newChain = [...chain, { 
-    cell: cellIndex, 
-    value, 
+
+  const newChain = [...chain, {
+    cell: cellIndex,
+    value,
     action: 'place',
     reason
   }];
-  
-  if (chain.length >= maxDepth) {
+
+  // Budget by placements, not raw chain entries: the chain also carries one
+  // entry per elimination (often dozens per placement), which used to eat
+  // the whole depth budget after a step or two.
+  const placementCount = chain.filter(s => s.action === 'place').length;
+  if (placementCount >= maxDepth) {
     return { grid, contradiction: false, chain: newChain };
   }
   
-  const result = applyValueAndPropagate(grid, cellIndex, value, 0);
+  const result = applyValueAndPropagate(grid, cellIndex, value);
   
   if (result.contradiction) {
     return { grid: result.grid, contradiction: true, chain: newChain, contradictionCell: result.cell };
@@ -727,7 +709,7 @@ const exploreBranch = (grid, cellIndex, value, maxDepth, chain) => {
       const subBranch1 = exploreBranch(newGrid, i, v1, maxDepth, chainWithEliminations);
       if (subBranch1.contradiction) {
         // If first value leads to contradiction, second must be true
-        const subBranch2 = applyValueAndPropagate(newGrid, i, v2, 0);
+        const subBranch2 = applyValueAndPropagate(newGrid, i, v2);
         if (!subBranch2.contradiction) {
           return exploreBranch(subBranch2.grid, i, v2, maxDepth, chainWithEliminations);
         }
@@ -738,22 +720,4 @@ const exploreBranch = (grid, cellIndex, value, maxDepth, chain) => {
   }
   
   return { grid: newGrid, contradiction: false, chain: chainWithEliminations };
-};
-
-// Find common eliminations between two branches
-const findCommonEliminations = (originalGrid, grid1, grid2) => {
-  const eliminations = [];
-  
-  for (let i = 0; i < 81; i++) {
-    if (originalGrid[i].value === null) {
-      for (const candidate of originalGrid[i].candidates) {
-        // If candidate is eliminated in both branches
-        if (!grid1[i].candidates.includes(candidate) && !grid2[i].candidates.includes(candidate)) {
-          eliminations.push({ cell: i, digit: candidate });
-        }
-      }
-    }
-  }
-  
-  return eliminations;
 };

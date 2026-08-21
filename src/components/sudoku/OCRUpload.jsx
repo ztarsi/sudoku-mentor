@@ -48,7 +48,7 @@ export default function OCRUpload({ onClose, onPuzzleExtracted, embedded = false
 
       // Step 2: Extract Sudoku grid using OCR
       setMessage('Analyzing puzzle with OCR...');
-      const extractResult = await base44.integrations.Core.ExtractDataFromUploadedFile({
+      const extractResult = /** @type {any} */ (await base44.integrations.Core.ExtractDataFromUploadedFile({
         file_url: uploadResult.file_url,
         json_schema: {
           type: 'object',
@@ -63,13 +63,14 @@ export default function OCRUpload({ onClose, onPuzzleExtracted, embedded = false
           },
           required: ['grid']
         }
-      });
+      }));
 
       if (extractResult.status === 'success' && extractResult.output?.grid) {
         const grid = extractResult.output.grid;
-        
-        // Validate grid
-        if (grid.length === 81 && grid.every(n => n >= 0 && n <= 9)) {
+
+        // Validate grid: exactly 81 integer digits 0-9 (the LLM-backed
+        // extraction can return strings or fractions that == compare fine)
+        if (grid.length === 81 && grid.every(n => Number.isInteger(n) && n >= 0 && n <= 9)) {
           setStatus('success');
           setMessage('Puzzle extracted! Please verify and correct if needed.');
           setExtractedGrid(grid);

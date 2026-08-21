@@ -222,17 +222,25 @@ export const testSuites = {
           grid[6].candidates = [8, 9];
           grid[7].candidates = [8, 9];
           grid[8].candidates = [8, 9];
-          
+
           // Fill rest with no naked singles
           for (let i = 9; i < 81; i++) {
             grid[i].candidates = [1, 2, 3, 4, 6, 7, 8, 9];
           }
-          
-          const step = findNextLogicStep(grid, 5);
-          
+
+          // Query the detector directly (findNextLogicStep would surface a
+          // simpler technique first on this synthetic grid).
+          const instances = findAllTechniqueInstances(grid, 'Pointing Pair');
+          const step = instances.find(s => s.digit === 5);
+          const elimOk = step?.eliminations?.some(e => e.cell === 3 && e.digit === 5);
+
           return {
-            pass: step?.technique === 'Pointing Pair' && step.digit === 5,
-            message: step ? `Found ${step.technique}` : 'No technique found'
+            pass: Boolean(step && elimOk),
+            message: !step
+              ? 'FAIL: No Pointing Pair found for digit 5 in box 1'
+              : elimOk
+              ? 'PASS: Pointing Pair for 5 eliminates 5 from R1C4'
+              : `FAIL: Pointing Pair found but missing elimination of 5 from R1C4. Got: ${JSON.stringify(step.eliminations)}`
           };
         }
       }
@@ -259,12 +267,12 @@ export const testSuites = {
           for (let i = 9; i < 81; i++) {
             grid[i].candidates = [1, 2, 3, 4, 7, 8, 9];
           }
-          
-          const step = findNextLogicStep(grid);
-          
+
+          const instances = findAllTechniqueInstances(grid, 'Naked Pair');
+
           return {
-            pass: step?.technique === 'Naked Pair',
-            message: step ? `Found ${step.technique}` : 'No technique found'
+            pass: instances.length > 0,
+            message: instances.length > 0 ? 'Found Naked Pair' : 'No Naked Pair found'
           };
         }
       },
@@ -288,20 +296,14 @@ export const testSuites = {
           for (let i = 9; i < 81; i++) {
             grid[i].candidates = [1, 2, 3, 4, 7, 8, 9];
           }
-          
-          const step = findNextLogicStep(grid);
-          
+
+          const step = findAllTechniqueInstances(grid, 'Naked Pair')
+            .find(s => s.eliminations?.some(e => e.cell === 2));
+
           if (!step) {
             return {
               pass: false,
-              message: 'FAIL: No technique found. Expected Naked Pair with eliminations for digits 5 and 6'
-            };
-          }
-          
-          if (step.technique !== 'Naked Pair') {
-            return {
-              pass: false,
-              message: `FAIL: Expected Naked Pair, got ${step.technique}`
+              message: 'FAIL: No Naked Pair found with eliminations in cell 2. Expected eliminations for digits 5 and 6'
             };
           }
           
@@ -363,12 +365,12 @@ export const testSuites = {
           for (let i = 9; i < 81; i++) {
             grid[i].candidates = [1, 2, 3, 4, 7, 8, 9];
           }
-          
-          const step = findNextLogicStep(grid);
-          
+
+          const instances = findAllTechniqueInstances(grid, 'Hidden Pair');
+
           return {
-            pass: step?.technique === 'Hidden Pair',
-            message: step ? `Found ${step.technique}` : 'No technique found'
+            pass: instances.length > 0,
+            message: instances.length > 0 ? 'Found Hidden Pair' : 'No Hidden Pair found'
           };
         }
       }
@@ -403,11 +405,12 @@ export const testSuites = {
             }
           }
           
-          const step = findNextLogicStep(grid, 5);
-          
+          const instances = findAllTechniqueInstances(grid, 'X-Wing');
+          const step = instances.find(s => s.digit === 5);
+
           return {
-            pass: step?.technique === 'X-Wing' && step.digit === 5,
-            message: step ? `Found ${step.technique}` : 'No X-Wing found'
+            pass: Boolean(step),
+            message: step ? 'Found X-Wing for digit 5' : 'No X-Wing found'
           };
         }
       }
@@ -440,66 +443,72 @@ export const testSuites = {
             }
           }
           
-          const step = findNextLogicStep(grid);
-          
+          const instances = findAllTechniqueInstances(grid, 'XY-Wing');
+          const step = instances.find(s => s.digit === 3);
+          const elimOk = step?.eliminations?.some(e => e.cell === 10 && e.digit === 3);
+
           return {
-            pass: step?.technique === 'XY-Wing' && step.digit === 3,
-            message: step ? `Found ${step.technique}` : 'No XY-Wing found'
+            pass: Boolean(step && elimOk),
+            message: !step
+              ? 'No XY-Wing found for digit 3'
+              : elimOk
+              ? 'Found XY-Wing eliminating 3 from R2C2'
+              : `XY-Wing found but missing elimination of 3 from cell 10. Got: ${JSON.stringify(step.eliminations)}`
           };
         }
       }
     ]
   },
 
-  // 'Solver': {
-  //   tests: [
-  //     {
-  //       name: 'Solve valid puzzle',
-  //       run: () => {
-  //         const grid = createEmptyGrid();
-  //         // Simple puzzle
-  //         const puzzle = [
-  //           5,3,0,0,7,0,0,0,0,
-  //           6,0,0,1,9,5,0,0,0,
-  //           0,9,8,0,0,0,0,6,0,
-  //           8,0,0,0,6,0,0,0,3,
-  //           4,0,0,8,0,3,0,0,1,
-  //           7,0,0,0,2,0,0,0,6,
-  //           0,6,0,0,0,0,2,8,0,
-  //           0,0,0,4,1,9,0,0,5,
-  //           0,0,0,0,8,0,0,7,9
-  //         ];
-  //         
-  //         puzzle.forEach((val, idx) => {
-  //           grid[idx].value = val === 0 ? null : val;
-  //         });
-  //         
-  //         const solved = solveSudoku(grid);
-  //         
-  //         return {
-  //           pass: solved !== null && solved[0].value !== null,
-  //           message: solved ? 'Puzzle solved successfully' : 'Failed to solve puzzle'
-  //         };
-  //       }
-  //     },
-  //     {
-  //       name: 'Return null for invalid puzzle',
-  //       run: () => {
-  //         const grid = createEmptyGrid();
-  //         // Invalid puzzle (two 5s in same row)
-  //         grid[0].value = 5;
-  //         grid[1].value = 5;
-  //         
-  //         const solved = solveSudoku(grid);
-  //         
-  //         return {
-  //           pass: solved === null,
-  //           message: solved ? 'Incorrectly solved invalid puzzle' : 'Correctly rejected invalid puzzle'
-  //         };
-  //       }
-  //     }
-  //   ]
-  // },
+  'Solver': {
+    tests: [
+      {
+        name: 'Solve valid puzzle',
+        run: () => {
+          const grid = createEmptyGrid();
+          // Simple puzzle
+          const puzzle = [
+            5,3,0,0,7,0,0,0,0,
+            6,0,0,1,9,5,0,0,0,
+            0,9,8,0,0,0,0,6,0,
+            8,0,0,0,6,0,0,0,3,
+            4,0,0,8,0,3,0,0,1,
+            7,0,0,0,2,0,0,0,6,
+            0,6,0,0,0,0,2,8,0,
+            0,0,0,4,1,9,0,0,5,
+            0,0,0,0,8,0,0,7,9
+          ];
+
+          puzzle.forEach((val, idx) => {
+            grid[idx].value = val === 0 ? null : val;
+          });
+
+          const solved = solveSudoku(grid);
+
+          return {
+            pass: solved !== null && solved.every(cell => cell.value !== null),
+            message: solved ? 'Puzzle solved successfully' : 'Failed to solve puzzle'
+          };
+        }
+      },
+      {
+        name: 'Return null for invalid puzzle',
+        run: () => {
+          const grid = createEmptyGrid();
+          // Invalid puzzle (two 5s in same row)
+          grid[0].value = 5;
+          grid[1].value = 5;
+
+          const solved = solveSudoku(grid);
+
+          return {
+            pass: solved === null,
+            message: solved ? 'Incorrectly solved invalid puzzle' : 'Correctly rejected invalid puzzle'
+          };
+        }
+      }
+    ]
+  },
 
   'Step Application': {
     tests: [
@@ -552,23 +561,36 @@ export const testSuites = {
         name: 'Find cell forcing chain convergence',
         run: () => {
           const grid = createEmptyGrid();
-          
-          // Create a simple convergence scenario
-          // Cell 0 with [1, 2]
+
+          // Cell forcing chain: R1C1 = {1,2}.
+          // If R1C1=1: R1C2 {1,3} becomes 3, so R2C2 {3,4} becomes 4.
+          // If R1C1=2: R2C1 {2,3} becomes 3, so R2C2 {3,4} becomes 4.
+          // Both branches converge on R2C2 = 4.
           grid[0].candidates = [1, 2];
-          // If 1: forces cell 1 to be 3
-          grid[1].candidates = [3];
-          // If 2: also forces cell 1 to be 3
-          
-          for (let i = 2; i < 81; i++) {
-            grid[i].candidates = [4, 5, 6, 7, 8, 9];
+          grid[1].candidates = [1, 3];
+          grid[9].candidates = [2, 3];
+          grid[10].candidates = [3, 4];
+
+          for (let i = 0; i < 81; i++) {
+            if (grid[i].candidates.length === 0) {
+              grid[i].candidates = [5, 6, 7, 8, 9];
+            }
           }
-          
+
           const result = findForcingChain(grid, 5);
-          
+
+          if (!result) {
+            return { pass: false, message: 'FAIL: Expected a Cell Forcing Chain converging on R2C2=4, got null' };
+          }
+          if (result.technique !== 'Cell Forcing Chain') {
+            return { pass: false, message: `FAIL: Expected Cell Forcing Chain, got ${result.technique}` };
+          }
+          const conv = result.placement;
           return {
-            pass: result !== null || result === null,
-            message: result ? `Found forcing chain: ${result.technique}` : 'No forcing chain found (may be expected)'
+            pass: conv?.cell === 10 && conv?.digit === 4,
+            message: conv?.cell === 10 && conv?.digit === 4
+              ? 'PASS: Both branches converge on R2C2 = 4'
+              : `FAIL: Expected convergence placement R2C2=4 (cell 10), got ${JSON.stringify(conv)}`
           };
         }
       },
@@ -576,20 +598,32 @@ export const testSuites = {
         name: 'Find hypothesis mode contradiction',
         run: () => {
           const grid = createEmptyGrid();
-          
-          // Simple bi-value cell
+
+          // R1C1 = {1,2}. Assuming R1C1=1 empties both R1C2 {1,3} and R1C3 {1,3}
+          // of digit 1, forcing both to 3 in the same row: contradiction.
+          // Therefore R1C1 must be 2.
           grid[0].candidates = [1, 2];
-          
-          // Make branch 1 lead nowhere (needs complex setup)
-          for (let i = 1; i < 81; i++) {
-            grid[i].candidates = [3, 4, 5, 6, 7, 8, 9];
+          grid[1].candidates = [1, 3];
+          grid[2].candidates = [1, 3];
+
+          for (let i = 3; i < 81; i++) {
+            grid[i].candidates = [4, 5, 6, 7, 8, 9];
           }
-          
-          const result = findHypothesis(grid, 3);
-          
+
+          const result = findHypothesis(grid, 8);
+
+          if (!result) {
+            return { pass: false, message: 'FAIL: Expected hypothesis contradiction proving R1C1=2, got null' };
+          }
+          const sound =
+            result.technique === 'Hypothesis Mode' &&
+            result.placement?.cell === 0 &&
+            result.placement?.digit === 2;
           return {
-            pass: result !== null || result === null,
-            message: result ? `Found contradiction: ${result.technique}` : 'No contradiction found (may be expected)'
+            pass: sound,
+            message: sound
+              ? 'PASS: Contradiction on R1C1=1 correctly proves R1C1=2'
+              : `FAIL: Expected placement R1C1=2, got ${JSON.stringify({ technique: result.technique, placement: result.placement })}`
           };
         }
       }
@@ -654,28 +688,77 @@ export const testSuites = {
       {
         name: 'Pointing Pair vs Triple Distinction',
         run: () => {
-          const puzzle = "530070000600195000098000060800060003400803001700020006060000280000419005000080079";
-          const grid = initGridFromDigits(puzzle);
-          const pairs = findAllTechniqueInstances(grid, 'Pointing Pair');
-          const triples = findAllTechniqueInstances(grid, 'Pointing Triple');
-          
+          // Pair grid: in box 1, digit 5 is confined to R1C1+R1C2 (two cells)
+          // with an eliminable 5 at R1C4.
+          const pairGrid = createEmptyGrid();
+          pairGrid[0].candidates = [5, 6];
+          pairGrid[1].candidates = [5, 7];
+          pairGrid[2].candidates = [6, 7, 8];
+          pairGrid[3].candidates = [5, 8, 9];
+          for (let i = 4; i < 81; i++) {
+            if (pairGrid[i].candidates.length === 0) {
+              pairGrid[i].candidates = [1, 2, 3, 4, 6, 7, 8, 9];
+            }
+          }
+
+          // Triple grid: same, but digit 5 occupies all three of R1C1..R1C3.
+          const tripleGrid = createEmptyGrid();
+          tripleGrid[0].candidates = [5, 6];
+          tripleGrid[1].candidates = [5, 7];
+          tripleGrid[2].candidates = [5, 6, 7];
+          tripleGrid[3].candidates = [5, 8, 9];
+          for (let i = 4; i < 81; i++) {
+            if (tripleGrid[i].candidates.length === 0) {
+              tripleGrid[i].candidates = [1, 2, 3, 4, 6, 7, 8, 9];
+            }
+          }
+
+          const pairsInPairGrid = findAllTechniqueInstances(pairGrid, 'Pointing Pair');
+          const triplesInPairGrid = findAllTechniqueInstances(pairGrid, 'Pointing Triple');
+          const triplesInTripleGrid = findAllTechniqueInstances(tripleGrid, 'Pointing Triple');
+
+          const pairFound = pairsInPairGrid.some(s => s.digit === 5);
+          const pairNotMisclassified = !triplesInPairGrid.some(s => s.digit === 5);
+          const tripleFound = triplesInTripleGrid.some(s => s.digit === 5);
+
+          const pass = pairFound && pairNotMisclassified && tripleFound;
           return {
-            pass: true,
-            message: `✓ Detected ${pairs.length} Pointing Pairs and ${triples.length} Pointing Triples`,
-            gridState: grid
+            pass,
+            message: pass
+              ? '✓ Two-cell pattern detected as Pointing Pair only; three-cell pattern as Pointing Triple'
+              : `FAIL: pair-as-pair=${pairFound}, pair-not-triple=${pairNotMisclassified}, triple-as-triple=${tripleFound}`,
+            gridState: pairGrid
           };
         }
       },
       {
         name: 'Naked Triple Detection',
         run: () => {
-          const puzzle = "300000000070000000600000000000000000000000000000000000000000000000000000000000000";
-          const grid = initGridFromDigits(puzzle);
+          // R1C1..R1C3 = {1,2},{2,3},{1,3}: a naked triple on {1,2,3} in row 1.
+          // R1C4 holds candidate 1, which must be eliminated.
+          const grid = createEmptyGrid();
+          grid[0].candidates = [1, 2];
+          grid[1].candidates = [2, 3];
+          grid[2].candidates = [1, 3];
+          grid[3].candidates = [1, 4, 5];
+          for (let i = 4; i < 81; i++) {
+            if (grid[i].candidates.length === 0) {
+              grid[i].candidates = [4, 5, 6, 7, 8, 9];
+            }
+          }
+
           const instances = findAllTechniqueInstances(grid, 'Naked Triple');
-          
+          const withElimination = instances.some(s =>
+            s.eliminations?.some(e => e.cell === 3 && e.digit === 1)
+          );
+
           return {
-            pass: instances.length >= 0,
-            message: `✓ Scan complete: Found ${instances.length} Naked Triple instance(s)`,
+            pass: instances.length > 0 && withElimination,
+            message: instances.length === 0
+              ? 'FAIL: No Naked Triple found for {1,2,3} in row 1'
+              : withElimination
+              ? `✓ Found ${instances.length} Naked Triple(s) including the elimination of 1 from R1C4`
+              : 'FAIL: Naked Triple found but missing the elimination of 1 from R1C4',
             gridState: grid
           };
         }

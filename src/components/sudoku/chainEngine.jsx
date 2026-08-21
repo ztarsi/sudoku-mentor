@@ -1,29 +1,11 @@
 // Advanced Chain-Based Logic Engine for Expert Sudoku Techniques
 
-const getRow = (index) => Math.floor(index / 9);
-const getCol = (index) => index % 9;
-const getBox = (index) => Math.floor(getRow(index) / 3) * 3 + Math.floor(getCol(index) / 3);
-
-const getRowIndices = (row) => Array.from({ length: 9 }, (_, i) => row * 9 + i);
-const getColIndices = (col) => Array.from({ length: 9 }, (_, i) => i * 9 + col);
-const getBoxIndices = (box) => {
-  const startRow = Math.floor(box / 3) * 3;
-  const startCol = (box % 3) * 3;
-  const indices = [];
-  for (let r = startRow; r < startRow + 3; r++) {
-    for (let c = startCol; c < startCol + 3; c++) {
-      indices.push(r * 9 + c);
-    }
-  }
-  return indices;
-};
+import { getRow, getCol, getBox, getRowIndices, getColIndices, getBoxIndices, arePeers } from './gridUnits';
 
 // Strong Link: If one candidate is false, the other must be true
-// Weak Link: If one candidate is true, the other must be false
 const buildLinkGraph = (grid) => {
   const strongLinks = [];
-  const weakLinks = [];
-  
+
   // Build bi-value cell strong links (naked pairs within a cell)
   for (let i = 0; i < 81; i++) {
     const cell = grid[i];
@@ -63,172 +45,165 @@ const buildLinkGraph = (grid) => {
     }
   }
   
-  // Build weak links (same digit in peer cells)
-  for (let i = 0; i < 81; i++) {
-    const cell = grid[i];
-    if (cell.value !== null) continue;
-    
-    for (const digit of cell.candidates) {
-      const row = getRow(i);
-      const col = getCol(i);
-      const box = getBox(i);
-      
-      // Check all peers
-      const peers = new Set([
-        ...getRowIndices(row),
-        ...getColIndices(col),
-        ...getBoxIndices(box)
-      ]);
-      
-      peers.delete(i);
-      
-      for (const peer of peers) {
-        if (grid[peer].candidates.includes(digit)) {
-          weakLinks.push({
-            from: { cell: i, digit },
-            to: { cell: peer, digit }
-          });
-        }
-      }
-    }
-  }
-  
-  return { strongLinks, weakLinks };
+  return { strongLinks };
 };
 
-// X-Cycles (Simple Coloring with chains)
+// X-Cycles (Simple Coloring on conjugate links)
+//
+// For each digit, connect cells joined by conjugate strong links (the digit
+// appears exactly twice in a unit) and 2-color each connected component.
+// The invariant: within a component, either every color-A cell holds the
+// digit or every color-B cell does. Two standard rules then eliminate:
+// - Color wrap: two same-colored cells share a unit, so that color is
+//   impossible - the digit comes off every cell of that color.
+// - Color trap: an outside candidate that sees both colors is false either
+//   way, so the digit comes off that cell.
 export const findXCycle = (grid, focusedDigit, returnAll = false) => {
   const allInstances = [];
   const digitsToCheck = focusedDigit ? [focusedDigit] : [1, 2, 3, 4, 5, 6, 7, 8, 9];
-  
+  const { strongLinks } = buildLinkGraph(grid);
+
   for (const digit of digitsToCheck) {
-    const { strongLinks } = buildLinkGraph(grid);
-    const digitLinks = strongLinks.filter(link => 
-      link.from.digit === digit && link.to.digit === digit
+    const digitLinks = strongLinks.filter(link =>
+      link.type === 'conjugate' && link.from.digit === digit && link.to.digit === digit
     );
-    
+
     if (digitLinks.length < 2) continue;
-    
-    // Build adjacency graph
-    const graph = new Map();
-    digitLinks.forEach(link => {
-      const fromKey = `${link.from.cell}`;
-      const toKey = `${link.to.cell}`;
-      
-      if (!graph.has(fromKey)) graph.set(fromKey, []);
-      if (!graph.has(toKey)) graph.set(toKey, []);
-      
-      graph.get(fromKey).push({ cell: link.to.cell, link });
-      graph.get(toKey).push({ cell: link.from.cell, link });
-    });
-    
-    // Try to find a cycle
-    for (const startCell of graph.keys()) {
-      const visited = new Map();
-      const queue = [{ cell: parseInt(startCell), color: 0, path: [parseInt(startCell)] }];
-      visited.set(parseInt(startCell), 0);
-      
+
+    // Build adjacency over conjugate links
+    const adjacency = new Map();
+    for (const link of digitLinks) {
+      const a = link.from.cell;
+      const b = link.to.cell;
+      if (!adjacency.has(a)) adjacency.set(a, new Set());
+      if (!adjacency.has(b)) adjacency.set(b, new Set());
+      adjacency.get(a).add(b);
+      adjacency.get(b).add(a);
+    }
+
+    // 2-color each connected component
+    const colorOf = new Map();
+    for (const start of adjacency.keys()) {
+      if (colorOf.has(start)) continue;
+
+      const component = [];
+      colorOf.set(start, 0);
+      const queue = [start];
+      let consistent = true;
       while (queue.length > 0) {
-        const { cell, color, path } = queue.shift();
-        const neighbors = graph.get(`${cell}`) || [];
-        
-        for (const { cell: nextCell } of neighbors) {
-          const nextColor = 1 - color;
-          
-          if (visited.has(nextCell)) {
-            if (visited.get(nextCell) === color) {
-              // Found a contradiction - cycle with odd length
-              // Any candidate that sees both colors can be eliminated
-              const colorA = Array.from(visited.entries())
-                .filter(([_, c]) => c === 0)
-                .map(([cell, _]) => cell);
-              const colorB = Array.from(visited.entries())
-                .filter(([_, c]) => c === 1)
-                .map(([cell, _]) => cell);
-              
-              const eliminations = [];
-              for (let i = 0; i < 81; i++) {
-                if (grid[i].candidates.includes(digit)) {
-                  const seesA = colorA.some(c => arePeers(i, c));
-                  const seesB = colorB.some(c => arePeers(i, c));
-                  if (seesA && seesB && !colorA.includes(i) && !colorB.includes(i)) {
-                    eliminations.push({ cell: i, digit });
-                  }
-                }
-              }
-              
-              if (eliminations.length > 0) {
-                // Build chain links for visualization
-                const chainLinks = [];
-                for (let i = 0; i < path.length - 1; i++) {
-                  chainLinks.push({
-                    from: { cell: path[i], digit },
-                    to: { cell: path[i + 1], digit }
-                  });
-                }
-                
-                const step = {
-                  technique: 'X-Cycle',
-                  digit,
-                  baseCells: [...colorA, ...colorB],
-                  targetCells: eliminations.map(e => e.cell),
-                  chains: path,
-                  strongLinks: chainLinks,
-                  eliminations,
-                  explanation: `An X-Cycle on digit ${digit} creates two color groups. Candidates seeing both colors can be eliminated.`
-                };
-                
-                if (returnAll) {
-                  allInstances.push(step);
-                } else {
-                  return step;
-                }
-              }
-            }
-          } else if (path.length < 10) {
-            visited.set(nextCell, nextColor);
-            queue.push({ cell: nextCell, color: nextColor, path: [...path, nextCell] });
+        const cell = queue.shift();
+        component.push(cell);
+        for (const next of adjacency.get(cell)) {
+          if (!colorOf.has(next)) {
+            colorOf.set(next, 1 - colorOf.get(cell));
+            queue.push(next);
+          } else if (colorOf.get(next) === colorOf.get(cell)) {
+            // Odd cycle of XOR constraints: impossible on a grid with valid
+            // candidates. Don't derive eliminations from a broken component.
+            consistent = false;
           }
+        }
+      }
+      if (!consistent || component.length < 3) continue;
+
+      const colorA = component.filter(c => colorOf.get(c) === 0);
+      const colorB = component.filter(c => colorOf.get(c) === 1);
+      if (colorA.length === 0 || colorB.length === 0) continue;
+
+      const eliminations = [];
+      let rule = null;
+
+      // Color wrap: same-colored cells sharing a unit kill that color
+      const wrappedColor = [colorA, colorB].findIndex(cells =>
+        cells.some((c1, idx) => cells.slice(idx + 1).some(c2 => arePeers(c1, c2)))
+      );
+
+      if (wrappedColor !== -1) {
+        const falseCells = wrappedColor === 0 ? colorA : colorB;
+        falseCells.forEach(cell => eliminations.push({ cell, digit }));
+        rule = 'wrap';
+      } else {
+        // Color trap: outside candidates seeing both colors
+        for (let i = 0; i < 81; i++) {
+          if (
+            grid[i].value === null &&
+            grid[i].candidates.includes(digit) &&
+            !colorOf.has(i)
+          ) {
+            const seesA = colorA.some(c => arePeers(i, c));
+            const seesB = colorB.some(c => arePeers(i, c));
+            if (seesA && seesB) {
+              eliminations.push({ cell: i, digit });
+            }
+          }
+        }
+        rule = 'trap';
+      }
+
+      if (eliminations.length > 0) {
+        const componentLinks = digitLinks
+          .filter(link => colorOf.has(link.from.cell) && component.includes(link.from.cell))
+          .map(link => ({
+            from: { cell: link.from.cell, digit },
+            to: { cell: link.to.cell, digit }
+          }));
+
+        const step = {
+          technique: 'X-Cycle',
+          digit,
+          baseCells: component,
+          targetCells: eliminations.map(e => e.cell),
+          chains: component,
+          strongLinks: componentLinks,
+          eliminations,
+          explanation: rule === 'wrap'
+            ? `Simple coloring on digit ${digit}: two cells of the same color share a unit, so that whole color is false and ${digit} can be removed from all of its cells.`
+            : `Simple coloring on digit ${digit}: chained strong links split these cells into two colors, one of which must be true. Any outside ${digit} that sees both colors can be eliminated.`
+        };
+
+        if (returnAll) {
+          allInstances.push(step);
+        } else {
+          return step;
         }
       }
     }
   }
-  
+
   return returnAll ? allInstances : null;
 };
 
-const arePeers = (cell1, cell2) => {
-  const row1 = getRow(cell1), col1 = getCol(cell1), box1 = getBox(cell1);
-  const row2 = getRow(cell2), col2 = getCol(cell2), box2 = getBox(cell2);
-  return row1 === row2 || col1 === col2 || box1 === box2;
-};
 
 // Almost Locked Set (ALS) - XZ Rule
 export const findALSXZ = (grid, focusedDigit, returnAll = false) => {
   const allInstances = [];
   const findALS = (indices) => {
     const als = [];
-    const n = indices.length;
-    
+    // Enumerate subsets of the EMPTY cells only. Enumerating all cells and
+    // skipping filled ones inside the loop yielded each ALS once per subset
+    // of filled cells in the unit - up to 2^(filled) duplicate copies.
+    const emptyCells = indices.filter(i => grid[i].value === null);
+    const n = emptyCells.length;
+
     for (let mask = 1; mask < (1 << n); mask++) {
       const cells = [];
       const candidates = new Set();
-      
+
       for (let i = 0; i < n; i++) {
         if (mask & (1 << i)) {
-          const cell = indices[i];
-          if (grid[cell].value !== null) continue;
+          const cell = emptyCells[i];
           cells.push(cell);
           grid[cell].candidates.forEach(c => candidates.add(c));
         }
       }
-      
-      // ALS: n cells with n+1 candidates
-      if (cells.length > 1 && cells.length <= 4 && candidates.size === cells.length + 1) {
+
+      // ALS: n cells with n+1 candidates. Size 1 (a bi-value cell) is the
+      // most common ALS-XZ ingredient and is deliberately included.
+      if (cells.length <= 4 && candidates.size === cells.length + 1) {
         als.push({ cells, candidates: Array.from(candidates) });
       }
     }
-    
+
     return als;
   };
   
@@ -239,10 +214,17 @@ export const findALSXZ = (grid, focusedDigit, returnAll = false) => {
   ];
   
   const allALS = [];
+  const seenCellSets = new Set();
   for (const unit of units) {
     const alsInUnit = findALS(unit.indices);
-    alsInUnit.forEach(als => als.unitName = unit.name);
-    allALS.push(...alsInUnit);
+    for (const als of alsInUnit) {
+      // The same cell set can qualify in several units (any single cell is
+      // in three); keep one copy.
+      const key = als.cells.slice().sort((a, b) => a - b).join(',');
+      if (seenCellSets.has(key)) continue;
+      seenCellSets.add(key);
+      allALS.push({ ...als, unitName: unit.name });
+    }
   }
   
   // Find ALS-XZ: Two ALS with restricted common X and eliminating digit Z
@@ -333,56 +315,53 @@ export const findUniqueRectangle = (grid, focusedDigit = null, returnAll = false
             r2 * 9 + c2
           ];
           
-          // Must be in different boxes
+          // The deadly pattern only exists when the four corners span
+          // exactly two boxes (a 4-box rectangle is not interchangeable).
           const boxes = corners.map(getBox);
-          if (new Set(boxes).size !== 2 && new Set(boxes).size !== 4) continue;
-          
+          if (new Set(boxes).size !== 2) continue;
+
           // Check if all corners are empty
           if (!corners.every(c => grid[c].value === null)) continue;
-          
-          // Find common bi-value pattern
-          const cands = corners.map(c => grid[c].candidates);
-          const allCands = [...new Set(cands.flat())];
-          
-          if (allCands.length !== 2) continue;
-          
-          const [d1, d2] = allCands;
-          
-          // Count how many corners have both candidates
-          const biValueCount = corners.filter(c => {
-            const cellCands = grid[c].candidates;
-            return cellCands.length === 2 && cellCands.includes(d1) && cellCands.includes(d2);
-          }).length;
-          
-          // Type 1: Three corners are bi-value, fourth has extra candidates
-          if (biValueCount === 3) {
-            const extraCorner = corners.find(c => {
-              const cellCands = grid[c].candidates;
-              return cellCands.length > 2 && cellCands.includes(d1) && cellCands.includes(d2);
-            });
-            
-            if (extraCorner !== undefined) {
-              const eliminations = grid[extraCorner].candidates
-                .filter(c => c !== d1 && c !== d2)
-                .map(digit => ({ cell: extraCorner, digit }));
-              
-              if (eliminations.length > 0) {
-                const step = {
-                  technique: 'Unique Rectangle Type 1',
-                  digit: null,
-                  baseCells: corners,
-                  targetCells: [extraCorner],
-                  eliminations,
-                  explanation: `Unique Rectangle on digits ${d1} and ${d2}. Extra candidates in R${getRow(extraCorner)+1}C${getCol(extraCorner)+1} can be eliminated to avoid deadly pattern.`
-                };
-                
-                if (returnAll) {
-                  allInstances.push(step);
-                } else {
-                  return step;
-                }
-              }
-            }
+
+          // Type 1: three corners hold exactly the same two candidates
+          // (the floor); the fourth holds those two plus extras (the roof).
+          const biValueCorners = corners.filter(c => grid[c].candidates.length === 2);
+          if (biValueCorners.length !== 3) continue;
+
+          const [d1, d2] = grid[biValueCorners[0]].candidates;
+          const floorMatches = biValueCorners.every(c =>
+            grid[c].candidates.includes(d1) && grid[c].candidates.includes(d2)
+          );
+          if (!floorMatches) continue;
+
+          const extraCorner = corners.find(c => !biValueCorners.includes(c));
+          const extraCands = grid[extraCorner].candidates;
+          if (
+            extraCands.length <= 2 ||
+            !extraCands.includes(d1) ||
+            !extraCands.includes(d2)
+          ) continue;
+
+          // If all four corners kept only {d1,d2}, the puzzle would have two
+          // solutions - so the roof corner must take one of its extras:
+          // remove d1 and d2 from it.
+          const eliminations = [d1, d2].map(digit => ({ cell: extraCorner, digit }));
+
+          if (focusedDigit && d1 !== focusedDigit && d2 !== focusedDigit) continue;
+
+          const step = {
+            technique: 'Unique Rectangle Type 1',
+            digit: null,
+            baseCells: corners,
+            targetCells: [extraCorner],
+            eliminations,
+            explanation: `Unique Rectangle on digits ${d1} and ${d2}: if R${getRow(extraCorner)+1}C${getCol(extraCorner)+1} were ${d1} or ${d2}, the four corners could swap ${d1}/${d2} freely and the puzzle would have two solutions. Since a valid Sudoku has one solution, ${d1} and ${d2} can be removed from R${getRow(extraCorner)+1}C${getCol(extraCorner)+1}.`
+          };
+
+          if (returnAll) {
+            allInstances.push(step);
+          } else {
+            return step;
           }
         }
       }
@@ -430,26 +409,47 @@ export const findBUGPlus1 = (grid, focusedDigit = null, returnAll = false) => {
   // Find which digit appears 3 times in all units containing the extra cell
   for (const digit of grid[extraCell].candidates) {
     let isExtra = true;
-    
+
     const relevantUnits = units.filter(unit => unit.includes(extraCell));
-    
+
     for (const unit of relevantUnits) {
-      const count = unit.filter(c => 
+      const count = unit.filter(c =>
         grid[c].value === null && grid[c].candidates.includes(digit)
       ).length;
-      
+
       if (count !== 3) {
         isExtra = false;
         break;
       }
     }
-    
+
     if (isExtra) {
       extraDigit = digit;
       break;
     }
   }
-  
+
+  // Verify the actual BUG property before placing anything: in EVERY unit,
+  // every candidate digit must appear exactly 0 or 2 times - the only
+  // exception being the extra digit appearing 3 times in the three units
+  // that contain the tri-value cell. Cell-count shapes alone (all bi-value
+  // + one tri-value) do NOT guarantee a BUG, and a false positive here
+  // places a wrong digit.
+  if (extraDigit) {
+    for (const unit of units) {
+      for (let d = 1; d <= 9; d++) {
+        const count = unit.filter(c =>
+          grid[c].value === null && grid[c].candidates.includes(d)
+        ).length;
+        if (count === 0 || count === 2) continue;
+        if (count === 3 && d === extraDigit && unit.includes(extraCell)) continue;
+        return null;
+      }
+    }
+  }
+
+  if (focusedDigit && extraDigit !== focusedDigit) return null;
+
   if (extraDigit) {
     return {
       technique: 'BUG+1',

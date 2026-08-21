@@ -1,5 +1,4 @@
 import React from 'react';
-import { motion } from 'framer-motion';
 import { 
   Lightbulb, 
   Play, 
@@ -28,7 +27,7 @@ export default function ControlBar({
           <button
             onClick={onNextStep}
             className="p-2.5 bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-lg shadow-lg active:scale-95 transition-transform"
-            title="Hint"
+            title="Hint" aria-label="Hint"
           >
             <Lightbulb className="w-5 h-5" />
           </button>
@@ -43,7 +42,7 @@ export default function ControlBar({
                 : 'bg-slate-800 text-slate-600 cursor-not-allowed'
               }
             `}
-            title="Apply"
+            title="Apply" aria-label="Apply"
           >
             <Play className="w-5 h-5" />
           </button>
@@ -60,7 +59,7 @@ export default function ControlBar({
                 : 'bg-slate-800 text-slate-700 cursor-not-allowed'
               }
             `}
-            title="Undo"
+            title="Undo" aria-label="Undo"
           >
             <Undo2 className="w-5 h-5" />
           </button>
@@ -75,7 +74,7 @@ export default function ControlBar({
                 : 'bg-slate-800 text-slate-700 cursor-not-allowed'
               }
             `}
-            title="Redo"
+            title="Redo" aria-label="Redo"
           >
             <Redo2 className="w-5 h-5" />
           </button>
@@ -83,7 +82,7 @@ export default function ControlBar({
           <button
             onClick={onClear}
             className="p-2.5 bg-slate-800 text-red-400 rounded-lg active:bg-red-950 transition-all"
-            title="Clear"
+            title="Clear" aria-label="Clear"
           >
             <Trash2 className="w-5 h-5" />
           </button>
@@ -91,7 +90,7 @@ export default function ControlBar({
           <button
             onClick={onOpenDrawer}
             className="p-2.5 bg-slate-800 text-slate-300 rounded-lg active:bg-slate-700 transition-all"
-            title="Logic Panel"
+            title="Logic Panel" aria-label="Logic Panel"
           >
             <Menu className="w-5 h-5" />
           </button>

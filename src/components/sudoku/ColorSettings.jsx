@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Palette, X, Check, Save, Trash2 } from 'lucide-react';
+import { toast } from "@/components/ui/use-toast";
 
 const PRESET_COLORS = [
   { name: 'White', value: '#ffffff' },
@@ -32,6 +33,15 @@ export default function ColorSettings({ colors, onColorsChange, onClose }) {
 
   // Load presets from localStorage
   useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
     const saved = localStorage.getItem('sudoku-color-presets');
     if (saved) {
       try {
@@ -45,7 +55,7 @@ export default function ColorSettings({ colors, onColorsChange, onClose }) {
   const savePreset = () => {
     if (!presetName.trim()) return;
     if (presets.length >= 3) {
-      alert('Maximum 3 presets allowed. Delete one to add a new preset.');
+      toast({ title: 'Preset limit reached', description: 'Maximum 3 presets allowed. Delete one to add a new preset.' });
       return;
     }
 
@@ -115,6 +125,9 @@ export default function ColorSettings({ colors, onColorsChange, onClose }) {
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
           onClick={(e) => e.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Color settings"
           className="bg-slate-900 rounded-xl sm:rounded-2xl shadow-2xl border border-slate-700 w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden"
         >
           {/* Header */}

@@ -30,7 +30,19 @@ export default function Cell({
   onTouchEnd,
   onTouchMove,
 }) {
-  const { value, isFixed, candidates, isBaseCell, isTargetCell, highlightColor, ghostValue, isUnitCell } = cell;
+  const { value, isFixed, candidates, isBaseCell, isTargetCell, ghostValue, isUnitCell } = cell;
+
+  // Screen-reader description of this cell
+  const cellIndex = cellId ? parseInt(cellId.replace('sudoku-cell-', ''), 10) : null;
+  const positionLabel = cellIndex !== null
+    ? `Row ${Math.floor(cellIndex / 9) + 1}, column ${(cellIndex % 9) + 1}`
+    : 'Cell';
+  const contentLabel = value
+    ? `${value}${isFixed ? ', given' : ''}`
+    : candidates.length > 0
+    ? `empty, candidates ${candidates.join(' ')}`
+    : 'empty';
+  const ariaLabel = `${positionLabel}: ${contentLabel}${hasError ? ', conflict' : ''}`;
 
   const hasGhostConflict = ghostValue && value && value !== ghostValue;
 
@@ -87,11 +99,15 @@ export default function Cell({
     <div className="relative w-full h-full">
       <motion.div
         id={cellId}
+        role="button"
+        aria-label={ariaLabel}
+        tabIndex={isSelected ? 0 : -1}
         className={`
           relative w-full h-full flex items-center justify-center cursor-pointer overflow-hidden
           ${!useCustomBg ? bgColor : ''} ${borderClasses}
           transition-all duration-200 ease-out
           hover:bg-slate-800/50
+          focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400
           ${isSelected ? 'ring-2 ring-blue-500 ring-inset z-10' : ''}
           ${isFocusedDigit && !borderStyle ? 'ring-2 ring-emerald-500 ring-inset' : ''}
           ${isHighlightedNumber && !borderStyle ? 'ring-2 ring-amber-400 ring-inset' : ''}
@@ -100,6 +116,12 @@ export default function Cell({
         style={useCustomBg ? { backgroundColor: bgColor, borderColor: gridLineColor }
           : { borderColor: gridLineColor }}
         onClick={onClick}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onClick();
+          }
+        }}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
         onTouchMove={onTouchMove}
@@ -142,7 +164,9 @@ export default function Cell({
             </span>
           </motion.div>
         ) : candidatesVisible ? (
-          <div className="grid grid-cols-3 gap-0 absolute inset-0">
+          // Candidate mini-grid: pointer-only affordance; the cell's own
+          // aria-label already announces the candidates.
+          <div className="grid grid-cols-3 gap-0 absolute inset-0" aria-hidden="true">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => {
               const hasCandidate = candidates.includes(num);
               const isHighlightedCandidate = focusedDigit === num && hasCandidate;

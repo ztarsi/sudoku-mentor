@@ -7,6 +7,7 @@ import TextPuzzleUpload from './TextPuzzleUpload';
 import { analyzeDifficulty } from './difficultyAnalyzer';
 import { base44 } from '@/api/base44Client';
 import { solveSudoku } from './solver';
+import { toast } from "@/components/ui/use-toast";
 
 export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded }) {
   const [activeTab, setActiveTab] = useState('library');
@@ -14,6 +15,15 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
   const [user, setUser] = useState(null);
 
   // Load user on mount
+  React.useEffect(() => {
+    if (!isOpen) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, onClose]);
+
   React.useEffect(() => {
     const loadUser = async () => {
       try {
@@ -48,7 +58,7 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
       
       const solved = solveSudoku(gridForSolving);
       if (!solved) {
-        alert('This puzzle has no valid solution and cannot be saved.');
+        toast({ title: 'Invalid puzzle', description: 'This puzzle has no valid solution and cannot be saved.', variant: 'destructive' });
         setSavingPuzzle(false);
         return;
       }
@@ -60,7 +70,7 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
       );
       
       if (isDuplicate) {
-        alert('This puzzle already exists in your library!');
+        toast({ title: 'Already in your library', description: 'This puzzle already exists in your library.' });
         setSavingPuzzle(false);
         onPuzzleLoaded(puzzle);
         return;
@@ -83,7 +93,7 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
       onPuzzleLoaded(puzzle, { name, difficulty });
     } catch (error) {
       console.error('Error saving puzzle:', error);
-      alert('Failed to save puzzle: ' + error.message);
+      toast({ title: 'Failed to save puzzle', description: error.message, variant: 'destructive' });
       setSavingPuzzle(false);
       return;
     } finally {
@@ -113,6 +123,9 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
           onClick={(e) => e.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Load puzzle"
           className="bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 w-full max-w-4xl max-h-[90vh] overflow-hidden"
         >
           {/* Header with tabs */}
@@ -173,7 +186,6 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
             {activeTab === 'library' && (
               <div className="p-6">
                 <PuzzleLibrary
-                  isOpen={true}
                   onClose={onClose}
                   onSelectPuzzle={(puzzle, meta) => handlePuzzleLoad(puzzle, 'library', null, meta)}
                   embedded={true}
@@ -184,7 +196,6 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
               <div className="p-6">
                 {user ? (
                   <OCRUpload
-                    isOpen={true}
                     onClose={onClose}
                     onPuzzleExtracted={(puzzle, name) => handlePuzzleLoad(puzzle, 'ocr', name)}
                     embedded={true}
@@ -196,7 +207,7 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
                     </svg>
                     <p className="text-slate-400 mb-4">Sign in to upload puzzles via image</p>
                     <button
-                      onClick={() => base44.auth.redirectToLogin()}
+                      onClick={() => base44.auth.redirectToLogin(window.location.href)}
                       className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors"
                     >
                       Sign In
@@ -209,7 +220,6 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
               <div className="p-6">
                 {user ? (
                   <TextPuzzleUpload
-                    isOpen={true}
                     onClose={onClose}
                     onPuzzleLoaded={(puzzle, name) => handlePuzzleLoad(puzzle, 'text', name)}
                     embedded={true}
@@ -221,7 +231,7 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
                     </svg>
                     <p className="text-slate-400 mb-4">Sign in to upload puzzles via text</p>
                     <button
-                      onClick={() => base44.auth.redirectToLogin()}
+                      onClick={() => base44.auth.redirectToLogin(window.location.href)}
                       className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors"
                     >
                       Sign In

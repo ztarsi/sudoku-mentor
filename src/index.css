@@ -86,3 +86,9 @@
     @apply bg-background text-foreground;
   }
 }
+/* Respect reduced-motion preferences for decorative animation */
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulse {
+    animation: none;
+  }
+}

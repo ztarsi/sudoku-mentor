@@ -67,7 +67,8 @@ export default function TextPuzzleUpload({ onClose, onPuzzleLoaded, embedded = f
     if (file) {
       const reader = new FileReader();
       reader.onload = (event) => {
-        setText(event.target.result);
+        const content = event.target.result;
+        setText(typeof content === 'string' ? content : '');
       };
       reader.readAsText(file);
     }

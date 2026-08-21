@@ -13,6 +13,9 @@ export default function DeepSearchModal({ isOpen, onClose, onGoDeeper, currentDe
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="No techniques found"
           className="bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 max-w-md w-full"
         >
           {/* Header */}

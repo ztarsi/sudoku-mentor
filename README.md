@@ -1,91 +1,60 @@
-I am unable to execute Git commands or directly update files in your GitHub repository. However, I can provide you with the updated **README.md** content in GitHub Flavored Markdown (GFM) format so you can manually copy and paste it into your GitHub editor.
-
-This version includes the new **Difficulty Analyzer** and **Ghost Mode** features we discussed.
-
----
-
 # Sudoku Mentor
 
-**Sudoku Mentor** is a specialized React application designed to teach advanced Sudoku solving techniques through interactive logical deduction. Rather than just providing solutions, it acts as a tutor, guiding users through complex strategies like X-Wings, XY-Chains, Almost Locked Sets (ALS), and Forcing Chains.
+**Sudoku Mentor** is a React application that teaches advanced Sudoku solving techniques through interactive logical deduction. Rather than just providing solutions, it acts as a tutor, guiding you through strategies from naked singles up to X-Wings, XY-Chains, Almost Locked Sets (ALS-XZ), and forcing chains.
 
----
+Built on [Base44](https://base44.com) for hosting, auth, data persistence (solve records, uploaded puzzles), and OCR-based puzzle import.
 
-## 🌟 Key Features
+## Key Features
 
-* **Logic Engine Tutor**: Automatically scans for the next logical step, ranging from basic singles to expert-level techniques.
-* **"Ghost Mode" Visualization**: Instead of static diagrams, the mentor demonstrates "What-If" scenarios by temporarily placing "ghost" candidates on the grid. These values appear in a distinct orange, italicized style to help you visualize a hypothesis leading to a placement or a contradiction.
-* **Logical Chain Playback**: Step-by-step navigation through deep forcing chains and hypotheses, allowing you to watch the board state evolve as the logic unfolds.
-* **Difficulty Analyzer**: Ranks puzzles from "Easy" to "Ultimate" based on the actual human-solving techniques required to reach a solution.
-* **Unified Puzzle Loader**: Supports loading puzzles from a built-in library, manual text string input, or OCR-based image uploads.
-* **Interactive Learning**: Includes tools like Digit Filtering to highlight specific numbers and candidate tracking to help manage your own deductions.
+- **Logic Engine Tutor** - scans for the next logical step, from basic singles to expert-level techniques, and explains the reasoning.
+- **Ghost Mode Visualization** - demonstrates what-if scenarios by temporarily placing ghost candidates on the grid, with step-by-step chain playback.
+- **Technique Hierarchy** - live counts of every technique currently available on the board, with click-to-highlight instances.
+- **Difficulty Analyzer** - rates puzzles from Easy to Ultimate based on the human techniques actually required to solve them.
+- **Unified Puzzle Loader** - built-in library, manual text entry, or OCR image upload.
+- **No Assist Mode** - timed competitive solving with per-puzzle best times saved to your account.
+- **Mobile page** - a dedicated touch-first layout with digit-first input and a candidate numpad.
 
----
+## Tech Stack
 
-## 🚀 Technical Stack
+- [React 18](https://react.dev/) + [Vite](https://vite.dev/)
+- [Tailwind CSS](https://tailwindcss.com/) with a small set of [shadcn/ui](https://ui.shadcn.com/) components
+- [Framer Motion](https://www.framer.com/motion/) for highlights and transitions
+- [Base44 SDK](https://base44.com) for auth, entities, and integrations
+- [Vitest](https://vitest.dev/) for the test suite
+- Custom constraint-propagation and search engines for the Sudoku logic
 
-Built with modern web technologies for a high-performance, responsive experience:
+## Development
 
-* **Framework**: [React](https://reactjs.org/) (Vite)
-* **Styling**: [Tailwind CSS](https://tailwindcss.com/) with [Shadcn/UI](https://ui.shadcn.com/) components
-* **Animations**: [Framer Motion](https://www.framer.com/motion/) for logical highlights and transitions
-* **Logic**: Custom constraint propagation and deep search engines for Sudoku logic
-
----
-
-## 📦 Installation & Setup
-
-1. **Clone the repository**:
-```bash
-git clone https://github.com/your-username/sudoku-mentor.git
-cd sudoku-mentor
-
-```
-
-
-2. **Install dependencies**:
 ```bash
 npm install
-
+npm run dev        # development server
+npm test           # run the test suite (unit + solution-oracle tests)
+npm run lint       # eslint
+npm run typecheck  # tsc over the JS sources (checkJs)
+npm run build      # production build
 ```
 
+CI (GitHub Actions) runs lint, typecheck, tests, and build on every push and pull request.
 
-3. **Run the development server**:
-```bash
-npm run dev
-
-```
-
-
-4. **Build for production**:
-```bash
-npm run build
-
-```
-
-
-
----
-
-## 🛠️ Project Structure
+## Project Structure
 
 | Path | Description |
 | --- | --- |
-| `src/pages/SudokuMentor.jsx` | Main application orchestrator managing grid state and logic flow. |
-| `src/components/sudoku/SudokuGrid.jsx` | Handles the 9x9 layout and manages logic visualizations. |
-| `src/components/sudoku/Cell.jsx` | Individual grid cell supporting value input, candidates, and "Ghost Mode" values. |
-| `src/components/sudoku/difficultyAnalyzer.jsx` | Analyzes puzzle complexity based on required techniques. |
-| `src/components/sudoku/logicEngine.jsx` | Core library for standard logical deduction techniques. |
-| `src/components/sudoku/forcingChainEngine.jsx` | Advanced engine for "What-If" scenarios and convergence proofs. |
+| `src/pages/SudokuMentor.jsx` | Desktop page: layout, hint flow, modals. |
+| `src/pages/SudokuMentorMobile.jsx` | Touch-first mobile page (digit-first input). |
+| `src/hooks/useSudokuGame.js` | Shared game state: grid, history/undo/redo, validation, completion. |
+| `src/hooks/useSudokuPlayer.js` | Shared account state: user, colors, best times. |
+| `src/components/sudoku/logicEngine.jsx` | Core techniques: singles, pointing/claiming, pairs/triples, fish, XY-Wing. |
+| `src/components/sudoku/chainEngine.jsx` | Expert techniques: X-Cycle coloring, ALS-XZ, Unique Rectangle, BUG+1, Finned X-Wing. |
+| `src/components/sudoku/forcingChainEngine.jsx` | What-if engines: cell forcing chains and hypothesis (contradiction) search. |
+| `src/components/sudoku/solver.jsx` | Bitmask MRV backtracking solver (computes the reference solution). |
+| `src/components/sudoku/difficultyAnalyzer.jsx` | Rates puzzle difficulty by simulating a solve. |
+| `src/components/sudoku/puzzles.js` | Built-in puzzle library (pure data). |
+| `src/components/sudoku/__tests__/` | Vitest specs, including solution-oracle tests that verify every engine step against the true solution. |
 
----
+## How to Use
 
-## 💡 How to Use
-
-1. **Load a Puzzle**: Click the **Load Puzzle** icon to choose from the library or input your own.
-2. **Seek Guidance**: Click **Next Step** to find the most appropriate logical technique for the current board.
-3. **Watch the Proof**: For advanced steps, use the playback controls in the **Logic Panel** to watch ghost values populate the grid and prove the deduction.
-4. **Apply Logic**: Click **Apply Step** to permanently execute the logic on the grid and continue solving.
-
----
-
-Would you like me to refine the **Difficulty Analyzer** scores in `difficultyAnalyzer.jsx` to match a specific ranking system like the standard SE (Sudoku Explainer) scores?
+1. **Load a puzzle** - pick from the library or upload your own (text or photo).
+2. **Seek guidance** - click **Hint** to find the most appropriate technique for the current board.
+3. **Watch the proof** - for advanced steps, use the playback controls in the Logic Panel to watch ghost values populate the grid.
+4. **Apply the step** - or place digits yourself; wrong entries are rejected and counted.
