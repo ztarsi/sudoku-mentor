@@ -1,0 +1,41 @@
+{
+  "name": "SolveRecord",
+  "type": "object",
+  "properties": {
+    "puzzle_name": {
+      "type": "string",
+      "description": "Name of the puzzle solved"
+    },
+    "difficulty": {
+      "type": "string",
+      "enum": [
+        "easy",
+        "medium",
+        "hard",
+        "expert",
+        "diabolical",
+        "ultimate"
+      ],
+      "description": "Puzzle difficulty level"
+    },
+    "time_seconds": {
+      "type": "integer",
+      "description": "Time taken to solve in seconds"
+    },
+    "no_assist": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether solved without assistance"
+    },
+    "error_count": {
+      "type": "integer",
+      "default": 0,
+      "description": "Number of errors made"
+    }
+  },
+  "required": [
+    "puzzle_name",
+    "difficulty",
+    "time_seconds"
+  ]
+}

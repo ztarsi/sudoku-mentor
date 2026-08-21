@@ -1,0 +1,44 @@
+{
+  "name": "SudokuPuzzle",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Name of the puzzle"
+    },
+    "difficulty": {
+      "type": "string",
+      "enum": [
+        "easy",
+        "medium",
+        "hard",
+        "expert",
+        "diabolical",
+        "ultimate"
+      ],
+      "description": "Difficulty level"
+    },
+    "puzzle": {
+      "type": "array",
+      "items": {
+        "type": "integer"
+      },
+      "description": "81-element array representing the puzzle grid"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "ocr",
+        "text",
+        "manual"
+      ],
+      "description": "How the puzzle was added"
+    }
+  },
+  "required": [
+    "name",
+    "difficulty",
+    "puzzle",
+    "source"
+  ]
+}
