@@ -8,7 +8,7 @@ import AccountMenu from '@/components/sudoku/AccountMenu';
 import { playErrorTone } from '@/components/sudoku/errorSound';
 import { resolveShortcut, isTypingTarget } from '@/components/sudoku/keyboardShortcuts';
 import { findNextLogicStep } from '@/components/sudoku/logicEngine';
-import { searchWhatIf, isCancelled, HINT_SEARCH_DEPTH } from '@/components/sudoku/whatIfSearch';
+import { searchWhatIf, isCancelled, isTimedOut, HINT_SEARCH_DEPTH, HINT_TIME_BUDGET_MS } from '@/components/sudoku/whatIfSearch';
 import {
   buildRemovalMap,
   buildFocusedCandidates,
@@ -182,13 +182,15 @@ export default function SudokuMentor() {
     let step = findNextLogicStep(game.logicGrid, null);
     if (!step) {
       // No regular technique applies: what-if search, off the main thread.
-      const search = searchWhatIf(game.logicGrid, HINT_SEARCH_DEPTH);
+      const search = searchWhatIf(game.logicGrid, HINT_SEARCH_DEPTH, { timeBudgetMs: HINT_TIME_BUDGET_MS });
       hintSearchRef.current = search;
       setSearchingHint(true);
       try {
         step = await search.promise;
       } catch (error) {
-        if (!isCancelled(error)) {
+        if (isTimedOut(error)) {
+          toast({ title: 'No quick hint', description: `The what-if search ran out of time (${HINT_TIME_BUDGET_MS / 1000} s). The Search button in the Technique Hierarchy looks longer and deeper.` });
+        } else if (!isCancelled(error)) {
           console.error('What-if search failed', error);
           toast({ title: 'Hint search failed', description: String(error?.message || error), variant: 'destructive' });
         }

@@ -167,3 +167,15 @@ An independent reviewer read the whole repository again at main `6d426da`, with 
 
 Still open after the second review: LICENSE (owner's decision), the five npm advisories in the vite/vitest peer set (npm resolver crash), no service worker, and the Base44 dashboard entity rules. The reviewer also noted, unconfirmed, that a pasted hard puzzle could keep the depth-100 panel search busy for a long time; it is cancellable and off the main thread, and a time budget is a reasonable follow-up.
 
+## Follow-up (2026-09-18, evening): the items left open
+
+PR #27 closes what both reviews had left open, except the licence.
+
+- **npm advisories.** Installing with peer resolution skipped (`--legacy-peer-deps`) sidesteps the resolver crash: vite 6.4.3, vitest 4.1.11, react-router-dom 7.18 (the v6 range was itself the last advisory). `@testing-library/dom` is now an explicit dev dependency, since it is a peer that the skipped resolution no longer pulls in. `npm audit`: 0 vulnerabilities; `npm ci` clean.
+- **Time budget for what-if search.** The engines take a deadline; the hint gives up after 5 s and says so, the panel's deeper search after 30 s. A timed-out search is reported, never mistaken for "no chain".
+- **Service worker.** `public/sw.js`, production only: navigations network-first with the cached shell as fallback, hashed assets cache-first, `/api/` never touched. Verified: an offline reload still renders and plays.
+- **Test gaps.** The worker path (message, error, cancel isolation, time-out) runs in node against a stand-in Worker; the No Assist assistance rule is tested in the hook, including across a save and restore; the mobile digit-complete rule is covered by a browser check.
+- **Entity access rules.** The platform's entity-schema API carries no permission fields, so the rule cannot be set from the repository. The platform's security scan was run; see its result in the pull request.
+
+Still open: LICENSE (owner's decision).
+

@@ -100,6 +100,14 @@ scoping on `SudokuPuzzle` and `SolveRecord`; the repo cannot express that.
 4. Run the oracle tests. If the library never exercises it, add a puzzle
    that does; `oracleAll.spec.js` requires every named technique to appear.
 
+## Offline
+
+`public/sw.js` is a hand-written service worker registered in production
+builds only. It serves navigations network-first (a deploy is picked up on
+the next visit; the cached shell is the fallback), hashed `/assets/`
+cache-first, icons and the manifest stale-while-revalidate, and never
+touches `/api/` or another origin. Bump `VERSION` in it to drop old caches.
+
 ## Deploying
 
 Base44 watches `main`. A merge creates a checkpoint; publishing that

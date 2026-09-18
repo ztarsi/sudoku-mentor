@@ -3,6 +3,18 @@
 import { getRow, getCol, getBox, getRowIndices, getColIndices, getBoxIndices, getPeers, ALL_UNITS, cellName } from './gridUnits';
 import { makeStep } from './stepShape';
 
+/** Thrown when a search passes its deadline (Date.now() ms). */
+export class SearchTimeout extends Error {
+  constructor() {
+    super('What-if search ran out of time');
+    this.name = 'SearchTimeout';
+    this.timedOut = true;
+  }
+}
+const checkDeadline = (deadline) => {
+  if (deadline !== Infinity && Date.now() > deadline) throw new SearchTimeout();
+};
+
 // Clone grid for simulation
 const cloneGrid = (grid) => {
   return grid.map(cell => ({
@@ -98,7 +110,7 @@ export const applyValueAndPropagate = (grid, cellIndex, value) => {
 };
 
 // Find forcing chains - convergence-based logical technique
-export const findForcingChain = (grid, maxDepth = 10) => {
+export const findForcingChain = (grid, maxDepth = 10, deadline = Infinity) => {
   // Priority 1: Bi-value cells (most likely to succeed)
   const biValueCells = [];
   for (let i = 0; i < 81; i++) {
@@ -109,6 +121,7 @@ export const findForcingChain = (grid, maxDepth = 10) => {
   
   // Try Cell Forcing Chains first
   for (const cellIndex of biValueCells) {
+    checkDeadline(deadline);
     const [value1, value2] = grid[cellIndex].candidates;
     
     // Explore both branches and collect implications
@@ -132,6 +145,7 @@ export const findForcingChain = (grid, maxDepth = 10) => {
   }
   
   for (const cellIndex of triValueCells) {
+    checkDeadline(deadline);
     const [value1, value2, value3] = grid[cellIndex].candidates;
     
     const branch1 = collectImplications(grid, cellIndex, value1, maxDepth);
@@ -206,7 +220,7 @@ const hypothesisStep = (cellIndex, badValue, branch, placement) => {
 // is sound on its own, so a contradicted digit is eliminated regardless of
 // what the other branches do. When the cell has two candidates and one of
 // them contradicts, the other is placed.
-export const findHypothesis = (grid, maxDepth = 8) => {
+export const findHypothesis = (grid, maxDepth = 8, deadline = Infinity) => {
   const bySize = (n) => {
     const cells = [];
     for (let i = 0; i < 81; i++) {
@@ -217,6 +231,7 @@ export const findHypothesis = (grid, maxDepth = 8) => {
 
   // Bi-value cells first: a contradiction here places a digit.
   for (const cellIndex of bySize(2)) {
+    checkDeadline(deadline);
     const [v1, v2] = grid[cellIndex].candidates;
     const b1 = exploreBranch(grid, cellIndex, v1, maxDepth, []);
     if (b1.contradiction) return hypothesisStep(cellIndex, v1, b1, { cell: cellIndex, digit: v2 });
@@ -231,6 +246,7 @@ export const findHypothesis = (grid, maxDepth = 8) => {
   }
   for (const cellIndex of rest) {
     for (const value of grid[cellIndex].candidates) {
+      checkDeadline(deadline);
       const branch = exploreBranch(grid, cellIndex, value, maxDepth, []);
       if (branch.contradiction) return hypothesisStep(cellIndex, value, branch, null);
     }

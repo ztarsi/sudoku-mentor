@@ -535,4 +535,51 @@ describe('useSudokuGame assistance and play clock', () => {
       expect(outcome).toEqual({ ok: false, reason: 'multiple-solutions' });
     });
   });
+
+  describe('assistance tracking for No Assist records', () => {
+    it('starts clean, is set by hints and by any other assistance, and is reported on solve', () => {
+      const onSolved = vi.fn();
+      const { result } = setup({ onSolved });
+      act(() => { result.current.loadPuzzle(PUZZLE, { name: 'Test', difficulty: 'easy' }); });
+      expect(result.current.assistUsed).toBe(false);
+      expect(result.current.hintsUsed).toBe(0);
+
+      act(() => { result.current.noteAssistUsed(); });
+      expect(result.current.assistUsed).toBe(true);
+      expect(result.current.hintsUsed).toBe(0);
+
+      // A new puzzle clears it; a hint sets it again.
+      act(() => { result.current.loadPuzzle(PUZZLE, { name: 'Test', difficulty: 'easy' }); });
+      expect(result.current.assistUsed).toBe(false);
+      act(() => { result.current.noteHintUsed(); });
+      expect(result.current.assistUsed).toBe(true);
+      expect(result.current.hintsUsed).toBe(1);
+
+      // Solve it: the callback carries both flags.
+      const solved = solveSudoku(PUZZLE.map((v) => ({ value: v || null, candidates: [] })));
+      // One act per placement: each input reads the grid of its own render.
+      for (let i = 0; i < 81; i++) {
+        if (result.current.grid[i].value === null) {
+          act(() => { result.current.handleCellInput(i, solved[i].value); });
+        }
+      }
+      expect(onSolved).toHaveBeenCalledTimes(1);
+      expect(onSolved.mock.calls[0][0]).toMatchObject({ hintsUsed: 1, assistUsed: true });
+    });
+
+    it('survives a save and restore', () => {
+      const key = 'test:assist';
+      window.localStorage.removeItem(key);
+      const first = renderHook(() => useSudokuGame({ persistKey: key }), { wrapper: strictWrapper });
+      act(() => { first.result.current.loadPuzzle(PUZZLE, { name: 'Test', difficulty: 'easy' }); });
+      act(() => { first.result.current.noteAssistUsed(); });
+      first.unmount();
+      const second = renderHook(() => useSudokuGame({ persistKey: key }), { wrapper: strictWrapper });
+      let restored;
+      act(() => { restored = second.result.current.restoreSavedGame(); });
+      expect(restored).toBe(true);
+      expect(second.result.current.assistUsed).toBe(true);
+      window.localStorage.removeItem(key);
+    });
+  });
 });
