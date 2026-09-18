@@ -1,7 +1,11 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 
-export default function Cell({ 
+// Seconds the rejected-entry flash plays; shorter than the hook's TTL so
+// the overlay finishes fading before it unmounts.
+const REJECT_FLASH_SECONDS = 0.8;
+
+export default function Cell({
   cellId,
   cell, 
   isSelected, 
@@ -26,11 +30,13 @@ export default function Cell({
   xDigit,
   zDigit,
   cellSize,         // NEW: passed from SudokuGrid on mobile; undefined on desktop
+  rejected = null,  // { digit, id } while this cell's last entry is being refused
   onTouchStart,
   onTouchEnd,
   onTouchMove,
 }) {
   const { value, isFixed, candidates, isBaseCell, isTargetCell, ghostValue, isUnitCell } = cell;
+  const reduceMotion = useReducedMotion();
 
   // Screen-reader description of this cell
   const cellIndex = cellId ? parseInt(cellId.replace('sudoku-cell-', ''), 10) : null;
@@ -237,6 +243,35 @@ export default function Cell({
             animate={{ opacity: 1 }}
             className={`absolute inset-0 pointer-events-none ${isBaseCell ? 'bg-blue-500/20' : 'bg-red-500/20'}`}
           />
+        )}
+
+        {/* Rejected entry: the refused digit flashes red and shakes, then
+            fades. Visual counterpart to the error sound and the live-region
+            announcement, for players with sound off. Keyed on the rejection
+            id so a repeated wrong entry replays the flash. */}
+        {rejected && (
+          <motion.div
+            key={rejected.id}
+            data-testid="rejected-input"
+            aria-hidden="true"
+            initial={{ opacity: 1, x: 0 }}
+            animate={reduceMotion
+              ? { opacity: [1, 1, 0] }
+              : { x: [0, -6, 6, -4, 4, 0], opacity: [1, 1, 1, 1, 1, 0] }}
+            transition={{
+              duration: REJECT_FLASH_SECONDS,
+              ease: 'easeOut',
+              times: reduceMotion ? [0, 0.6, 1] : [0, 0.1, 0.2, 0.3, 0.45, 1],
+            }}
+            className="absolute inset-0 z-20 pointer-events-none flex items-center justify-center bg-red-950/85 ring-2 ring-red-500 ring-inset"
+          >
+            <span
+              className={`font-bold text-red-400 ${!valueFontSize ? 'text-2xl sm:text-4xl' : ''}`}
+              style={valueFontSize ? { fontSize: valueFontSize } : {}}
+            >
+              {rejected.digit}
+            </span>
+          </motion.div>
         )}
       </motion.div>
     </div>

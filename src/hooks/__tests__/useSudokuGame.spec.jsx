@@ -5,9 +5,9 @@
 // duplicate onSolved firing, broken redo, history writes inside setState
 // updaters (StrictMode double-commit), and stale-grid validation.
 import React, { StrictMode } from 'react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useSudokuGame } from '../useSudokuGame';
+import { useSudokuGame, REJECTED_INPUT_TTL_MS } from '../useSudokuGame';
 import { PUZZLES } from '@/components/sudoku/puzzles';
 import { solveSudoku } from '@/components/sudoku/solver';
 
@@ -199,6 +199,66 @@ describe('useSudokuGame', () => {
     });
     expect(outcome.ok).toBe(false);
     expect(result.current.puzzleName).toBe('Good'); // previous puzzle intact
+  });
+});
+
+describe('useSudokuGame rejected-input feedback', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('flags a wrong entry on its cell, then clears it after the TTL', () => {
+    vi.useFakeTimers();
+    const { result } = setup();
+    act(() => {
+      result.current.loadPuzzle(PUZZLE);
+    });
+    const solved = solveSudoku(PUZZLE.map((v) => ({ value: v || null, candidates: [] })));
+    const idx = firstEmptyCell(result.current.grid);
+    const wrong = (solved[idx].value % 9) + 1;
+
+    expect(result.current.rejectedInput).toBeNull();
+    act(() => {
+      result.current.handleCellInput(idx, wrong);
+    });
+    expect(result.current.rejectedInput).toMatchObject({ cellIndex: idx, digit: wrong });
+    expect(result.current.grid[idx].value).toBeNull(); // still not placed
+
+    // A second wrong entry gets a new id so the animation replays
+    const firstId = result.current.rejectedInput.id;
+    act(() => {
+      result.current.handleCellInput(idx, wrong);
+    });
+    expect(result.current.rejectedInput.id).not.toBe(firstId);
+
+    act(() => {
+      vi.advanceTimersByTime(REJECTED_INPUT_TTL_MS + 10);
+    });
+    expect(result.current.rejectedInput).toBeNull();
+  });
+
+  it('a correct entry never sets the flag, and loading clears a pending one', () => {
+    vi.useFakeTimers();
+    const { result } = setup();
+    act(() => {
+      result.current.loadPuzzle(PUZZLE);
+    });
+    const solved = solveSudoku(PUZZLE.map((v) => ({ value: v || null, candidates: [] })));
+    const idx = firstEmptyCell(result.current.grid);
+
+    act(() => {
+      result.current.handleCellInput(idx, (solved[idx].value % 9) + 1);
+    });
+    expect(result.current.rejectedInput).not.toBeNull();
+    act(() => {
+      result.current.loadPuzzle(PUZZLE);
+    });
+    expect(result.current.rejectedInput).toBeNull();
+
+    act(() => {
+      result.current.handleCellInput(idx, solved[idx].value);
+    });
+    expect(result.current.rejectedInput).toBeNull();
   });
 });
 

@@ -48,6 +48,9 @@ const computeConflicts = (grid) => {
   return errors;
 };
 
+// How long a rejected entry stays flagged in the grid.
+export const REJECTED_INPUT_TTL_MS = 900;
+
 const readSavedGame = (key) => {
   if (!key) return null;
   try {
@@ -99,6 +102,10 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
   const [puzzleName, setPuzzleName] = useState(null);
   const [puzzleDifficulty, setPuzzleDifficulty] = useState(null);
   const [startTime, setStartTime] = useState(null);
+  // The last input rejected against the solution, for visual feedback in
+  // the grid (sound may be off). Cleared automatically shortly after.
+  const [rejectedInput, setRejectedInput] = useState(null);
+  const rejectSeq = useRef(0);
 
   // Keep callbacks fresh without retriggering effects
   const onSolvedRef = useRef(onSolved);
@@ -133,6 +140,7 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
       // Reject inputs that contradict the known solution
       if (solution && value !== null && solution[cellIndex].value !== value) {
         setErrorCount((c) => c + 1);
+        setRejectedInput({ cellIndex, digit: value, id: ++rejectSeq.current });
         onWrongInputRef.current?.(cellIndex, value);
         return;
       }
@@ -228,8 +236,20 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
     setPuzzleName(meta?.name ?? null);
     setPuzzleDifficulty(meta?.difficulty ?? null);
     setStartTime(Date.now());
+    setRejectedInput(null);
     return { ok: true };
   }, []);
+
+  // Rejected-input feedback is transient: drop it once the animation has
+  // had time to play. Keyed on the rejection id so rapid repeats each
+  // restart the timer.
+  useEffect(() => {
+    if (!rejectedInput) return undefined;
+    const timer = setTimeout(() => {
+      setRejectedInput((current) => (current?.id === rejectedInput.id ? null : current));
+    }, REJECTED_INPUT_TTL_MS);
+    return () => clearTimeout(timer);
+  }, [rejectedInput]);
 
   const clearGrid = useCallback(() => {
     if (persistKey) clearSavedGame(persistKey);
@@ -243,6 +263,7 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
     setPuzzleName(null);
     setPuzzleDifficulty(null);
     setStartTime(null);
+    setRejectedInput(null);
   }, [persistKey]);
 
   /**
@@ -328,6 +349,7 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
     setGrid, // raw setter for non-undoable visual updates (highlights)
     solution,
     validationErrors,
+    rejectedInput, // { cellIndex, digit, id } for ~1s after a wrong entry
     errorCount,
     completed,
     puzzleName,

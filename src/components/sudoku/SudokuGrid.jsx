@@ -17,6 +17,7 @@ export default function SudokuGrid({
   currentStep,
   highlightedSteps = [],
   playbackIndex,
+  rejectedInput = null,
   onCellClick,
   onCellInput,
   onToggleCandidate
@@ -272,6 +273,7 @@ export default function SudokuGrid({
                   xDigit={currentStep?.technique === 'ALS-XZ' ? currentStep.xDigit : null}
                   zDigit={currentStep?.technique === 'ALS-XZ' ? currentStep.zDigit : null}
                   cellSize={cellSize}
+                  rejected={rejectedInput?.cellIndex === index ? rejectedInput : null}
                   onClick={() => onCellClick(index)}
                   onInput={(value) => onCellInput(index, value)}
                   onToggleCandidate={(candidate) => onToggleCandidate(index, candidate)}
