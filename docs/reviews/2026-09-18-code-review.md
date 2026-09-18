@@ -175,7 +175,8 @@ PR #27 closes what both reviews had left open, except the licence.
 - **Time budget for what-if search.** The engines take a deadline; the hint gives up after 5 s and says so, the panel's deeper search after 30 s. A timed-out search is reported, never mistaken for "no chain".
 - **Service worker.** `public/sw.js`, production only: navigations network-first with the cached shell as fallback, hashed assets cache-first, `/api/` never touched. Verified: an offline reload still renders and plays.
 - **Test gaps.** The worker path (message, error, cancel isolation, time-out) runs in node against a stand-in Worker; the No Assist assistance rule is tested in the hook, including across a save and restore; the mobile digit-complete rule is covered by a browser check.
-- **Entity access rules.** The platform's entity-schema API carries no permission fields, so the rule cannot be set from the repository. The platform's security scan was run; see its result in the pull request.
+- **Entity access rules.** Base44 reads row-level security from `base44/entities/*.jsonc` (`rls`), rebuilt on every GitHub sync, so the rule now lives in the repository: create by the signed-in user only; read, update and delete by the creator or an admin, exactly as the platform's own security scan recommended. The scan found no hardcoded secrets, no static-code findings and no dependency findings.
+- **Platform templates.** The Base44 builder re-created `OAuthConsent.jsx` and `AuthLayout.jsx` on `main` after batch 7 removed them. They stay, unrouted, and are excluded from lint and typecheck.
 
 Still open: LICENSE (owner's decision).
 

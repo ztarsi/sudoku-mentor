@@ -8,7 +8,10 @@ import pluginJsxA11y from "eslint-plugin-jsx-a11y";
 export default [
   {
     files: ["src/**/*.{js,mjs,cjs,jsx}"],
-    ignores: ["src/components/ui/**/*"],
+    // src/pages/OAuthConsent.jsx and src/components/AuthLayout.jsx are
+    // platform-generated templates that Base44's builder re-creates on main;
+    // they are not routed and not ours to keep lint-clean.
+    ignores: ["src/components/ui/**/*", "src/pages/OAuthConsent.jsx", "src/components/AuthLayout.jsx"],
     ...pluginJs.configs.recommended,
     ...pluginReact.configs.flat.recommended,
     languageOptions: {

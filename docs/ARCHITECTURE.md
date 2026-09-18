@@ -108,6 +108,18 @@ the next visit; the cached shell is the fallback), hashed `/assets/`
 cache-first, icons and the manifest stale-while-revalidate, and never
 touches `/api/` or another origin. Bump `VERSION` in it to drop old caches.
 
+## Platform-generated files
+
+`src/pages/OAuthConsent.jsx` and `src/components/AuthLayout.jsx` are
+templates the Base44 builder writes to `main` on its own (it did so after
+they were removed). They are not routed by `pages.config.js`, and lint and
+typecheck skip them. Leave them alone.
+
+The entity access rules live in `base44/entities/*.jsonc` under `rls`
+(create by the signed-in user only; read, update and delete by the creator
+or an admin). Base44 rebuilds the live data model from these files on every
+GitHub sync, so that is where the rule is kept, not in the dashboard.
+
 ## Deploying
 
 Base44 watches `main`. A merge creates a checkpoint; publishing that
