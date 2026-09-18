@@ -163,6 +163,33 @@ describe('explainStep on advanced steps', () => {
     expect(out.action).toBe('Write 8 in R1C1.');
   });
 
+  it('Hypothesis Mode repeats the contradiction the engine actually found', () => {
+    const step = {
+      technique: 'Hypothesis Mode',
+      digit: 3,
+      contradictoryDigit: 3,
+      baseCells: [0],
+      targetCells: [40],
+      contradictionCell: 40,
+      contradictionText: 'R5C5 would have to be both 6 and 9',
+      placement: null,
+      eliminations: [{ cell: 0, digit: 3 }],
+      chain: [
+        { action: 'place', cell: 0, value: 3, reason: 'Initial assumption' },
+        { action: 'place', cell: 1, value: 4, reason: 'Only candidate left in R1C2', derived: true },
+        { action: 'place', cell: 2, value: 5, reason: 'Case analysis: trying 5 in a two-candidate cell' },
+        { action: 'note', cell: 2, value: 7, reason: 'The other option for R1C3, 7, also leads to a contradiction (R9C9 has no valid candidates left).' },
+      ],
+      explanation: 'engine narrative',
+    };
+    const out = explainStep(step, null, 'simple');
+    expect(out.why).toContain('R5C5 would have to be both 6 and 9');
+    expect(out.why).not.toContain('no possible number');
+    expect(out.why).toContain('through 1 forced move ');
+    expect(out.why).toContain('both options failed');
+    expect(out.action).toBe('Erase the pencil mark 3 from R1C1.');
+  });
+
   it('unknown techniques fall back to the engine text instead of crashing', () => {
     const out = explainStep({ technique: 'Mystery', explanation: 'engine says so', eliminations: [] }, null, 'simple');
     expect(out.why).toBe('engine says so');

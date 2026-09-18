@@ -54,14 +54,14 @@ export default function SudokuMentorMobile() {
         `${digit} conflicts with the solution at row ${Math.floor(cellIndex / 9) + 1}, column ${(cellIndex % 9) + 1}`
       );
     },
-    onSolved: ({ timeInSeconds, errorCount, hintsUsed, puzzleName, puzzleDifficulty }) => {
+    onSolved: ({ timeInSeconds, errorCount, hintsUsed, assistUsed, puzzleName, puzzleDifficulty }) => {
       setCompletionStats({ timeInSeconds, errorCount });
       setShowCompletion(true);
 
       // The mobile page has no hints, but a game resumed from the desktop
       // page may have used some: only clean solves are recorded.
       const user = playerRef.current?.user;
-      if (user && hintsUsed === 0 && puzzleName && puzzleDifficulty) {
+      if (user && hintsUsed === 0 && !assistUsed && puzzleName && puzzleDifficulty) {
         playerRef.current?.saveSolveRecord({
           puzzle_name: puzzleName,
           difficulty: puzzleDifficulty,
@@ -82,9 +82,11 @@ export default function SudokuMentorMobile() {
       setSelectedCell(cellIndex);
 
       // Digit-first input: if a digit is selected in the bottom bar, apply it
+      // to an EMPTY cell. A tap on a filled cell just looks at it; it is
+      // not an attempt to overwrite, so it is never counted as a mistake.
       if (focusedDigit !== null) {
         const cell = game.grid[cellIndex];
-        if (!cell.isFixed) {
+        if (!cell.isFixed && cell.value === null) {
           if (candidateMode) {
             game.handleToggleCandidate(cellIndex, focusedDigit);
           } else {
@@ -95,6 +97,17 @@ export default function SudokuMentorMobile() {
     },
     [game, focusedDigit, candidateMode]
   );
+
+  // The ninth copy of a digit is placed: nothing is left to do with it, so
+  // drop the selection instead of turning every next tap into an error.
+  useEffect(() => {
+    if (focusedDigit === null || candidateMode) return;
+    const count = game.grid.filter((cell) => cell.value === focusedDigit).length;
+    if (count >= 9) {
+      setFocusedDigit(null);
+      setHighlightedDigit(null);
+    }
+  }, [game.grid, focusedDigit, candidateMode]);
 
   const handleDigitSelect = useCallback(
     (digit) => {
@@ -132,19 +145,23 @@ export default function SudokuMentorMobile() {
         toast({ title: 'Invalid puzzle', description: 'This puzzle has no valid solution.', variant: 'destructive' });
         return;
       }
+      if (!result.ok && result.reason === 'multiple-solutions') {
+        toast({ title: 'Not a proper Sudoku', description: 'This puzzle has more than one solution. Check the givens and try again.', variant: 'destructive' });
+        return;
+      }
       markUserLoadRef.current();
       setShowPuzzleLoader(false);
       setHighlightedDigit(null);
       setFocusedDigit(null);
-       
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [game.loadPuzzle]
   );
 
   // Keyboard shortcuts (external keyboards on tablets, dev convenience)
   // One listener for the page's lifetime; it reads the latest handlers
   // and state through a ref instead of re-subscribing on every change.
-  const keyHandlersRef = useRef({ onKeyDown: (e) => {}, onKeyUp: (e) => {} });
+  const keyHandlersRef = useRef({ onKeyDown: (_e) => {}, onKeyUp: (_e) => {} });
   keyHandlersRef.current.onKeyDown = (e) => {
     if (isTypingTarget(e.target)) return;
     const isModalOpen =
@@ -230,11 +247,14 @@ export default function SudokuMentorMobile() {
   useEffect(() => {
     const handleKeyDown = (e) => keyHandlersRef.current.onKeyDown(e);
     const handleKeyUp = (e) => keyHandlersRef.current.onKeyUp(e);
+    const handleBlur = () => setCandidateMode(false);
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleBlur);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleBlur);
     };
   }, []);
 
@@ -418,7 +438,7 @@ export default function SudokuMentorMobile() {
                   <button
                     key={digit}
                     onClick={() => handleDigitSelect(digit)}
-                    disabled={isComplete && !candidateMode}
+                    disabled={isComplete && !candidateMode && !isSelected}
                     aria-pressed={isSelected}
                     aria-label={`Digit ${digit}, ${digitCount} placed${isComplete ? ', complete' : ''}`}
                     className={`

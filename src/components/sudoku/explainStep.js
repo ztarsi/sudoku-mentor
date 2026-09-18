@@ -14,7 +14,7 @@
 //
 // Both levels are derived per step, so they always describe the actual
 // pattern on the board rather than a generic textbook case.
-import { getRow, getCol, getBox, arePeers } from './gridUnits';
+import { getRow, getCol, getBox, arePeers, getPeers, getRowIndices, getColIndices, getBoxIndices } from './gridUnits';
 
 export const EXPLAIN_LEVELS = ['simple', 'detailed'];
 export const EXPLAIN_LEVEL_KEY = 'sudoku-mentor:explain-level';
@@ -81,9 +81,18 @@ const TERMS_BY_TECHNIQUE = {
 // ---------------------------------------------------------------------------
 // Small formatting helpers
 // ---------------------------------------------------------------------------
+// Engine contradiction text uses R#C# and unit names; the beginner text
+// uses the same short cell names, so pass it through.
+const plainContradiction = (text) => text.replace(/^no cell in (\w+) (\d) can hold (\d)$/, 'no cell in $1 $2 can hold $3');
+
+const unitIndices = (unit) =>
+  unit.type === 'row' ? getRowIndices(unit.index)
+  : unit.type === 'column' || unit.type === 'col' ? getColIndices(unit.index)
+  : unit.type === 'box' ? getBoxIndices(unit.index)
+  : [];
+
 const r1 = (i) => getRow(i) + 1;
 const c1 = (i) => getCol(i) + 1;
-const b1 = (i) => getBox(i) + 1;
 
 /** "row 5, column 1" - the long form, used once in the legend. */
 export const plainCell = (i) => `row ${r1(i)}, column ${c1(i)}`;
@@ -157,20 +166,34 @@ const placeLine = (placement) => {
 // "look" = what to look at on the board; "why" = the reasoning in plain words.
 // ---------------------------------------------------------------------------
 const SIMPLE = {
-  'Naked Single': (step) => {
+  'Naked Single': (step, grid) => {
     const cell = step.placement?.cell ?? step.baseCells?.[0];
+    // The strong claim ("already appears in its row, column or box") only
+    // holds when the other digits were removed by placements. After any
+    // elimination technique it is false, so check before saying it.
+    const seen = grid ? new Set(getPeers(cell).map((i) => grid[i].value).filter((v) => v !== null)) : null;
+    const allSeen = seen ? [1, 2, 3, 4, 5, 6, 7, 8, 9].every((d) => d === step.digit || seen.has(d)) : false;
     return {
       look: `Look at ${shortCell(cell)}. It has only one pencil mark left: ${step.digit}.`,
-      why: `Every other number from 1 to 9 already appears somewhere in its row, its column, or its 3x3 box. ${step.digit} is the only number that still fits.`,
+      why: allSeen
+        ? `Every other number from 1 to 9 already appears somewhere in its row, its column, or its 3x3 box. ${step.digit} is the only number that still fits.`
+        : `Every other number has already been ruled out for this cell, some by digits in its row, column, or box and some by earlier steps. ${step.digit} is the only number that still fits.`,
     };
   },
 
   'Hidden Single': (step, grid) => {
     const cell = step.placement?.cell ?? step.baseCells?.[0];
     const unitName = step.unit?.name ?? 'this row, column, or box';
+    const unitCells = step.unit ? unitIndices(step.unit) : [];
+    const others = grid ? unitCells.filter((i) => i !== cell && grid[i].value === null) : [];
+    const allBlocked = grid && others.length > 0
+      ? others.every((i) => getPeers(i).some((p) => grid[p].value === step.digit))
+      : false;
     return {
       look: `Look at ${unitName}. The number ${step.digit} is still missing from it, and ${shortCell(cell)} is the only empty cell there where ${step.digit} can go.`,
-      why: `Every other empty cell in ${unitName} already has a ${step.digit} in its row, column, or box, so none of them can take it. Since ${unitName} must contain a ${step.digit} somewhere, it has to be this cell.`,
+      why: allBlocked
+        ? `Every other empty cell in ${unitName} already has a ${step.digit} in its row, column, or box, so none of them can take it. Since ${unitName} must contain a ${step.digit} somewhere, it has to be this cell.`
+        : `No other empty cell in ${unitName} still has ${step.digit} as a pencil mark; the others were ruled out by digits nearby or by earlier steps. Since ${unitName} must contain a ${step.digit} somewhere, it has to be this cell.`,
       _grid: grid,
     };
   },
@@ -242,9 +265,16 @@ const SIMPLE = {
     const core = step.baseCells.filter((c) => !fins.includes(c));
     const rows = uniq(core.map(r1));
     const cols = uniq(core.map(c1));
+    // The engine says which lines are the base (orientation); the text
+    // must follow it, or every column-based instance is described wrong.
+    const byRows = step.orientation ? step.orientation === 'row' : rows.length <= cols.length;
+    const baseWord = byRows ? 'rows' : 'columns';
+    const coverWord = byRows ? 'columns' : 'rows';
+    const base = byRows ? rows : cols;
+    const cover = byRows ? cols : rows;
     return {
-      look: `Look at rows ${listWords(rows)}. Almost every ${d} in those rows sits in columns ${listWords(cols)}, forming a rectangle, except for ${fins.length === 1 ? 'one extra spot' : 'a couple of extra spots'} at ${shortCells(fins)} (the "fin").`,
-      why: `There are two cases. If the fin is not ${d}, the rectangle works like a normal X-Wing and ${d} can be erased from the rest of columns ${listWords(cols)}. If the fin is ${d}, then any cell sharing a row, column, or box with the fin can't be ${d}. The highlighted cells are ruled out in both cases, so they can never be ${d}.`,
+      look: `Look at ${baseWord} ${listWords(base)}. Almost every ${d} in those ${baseWord} sits in ${coverWord} ${listWords(cover)}, forming a rectangle, except for ${fins.length === 1 ? 'one extra spot' : 'a couple of extra spots'} at ${shortCells(fins)} (the "fin").`,
+      why: `There are two cases. If the fin is not ${d}, the rectangle works like a normal X-Wing and ${d} can be erased from the rest of ${coverWord} ${listWords(cover)}. If the fin is ${d}, then any cell sharing a row, column, or box with the fin can't be ${d}. The highlighted cells are ruled out in both cases, so they can never be ${d}.`,
     };
   },
 
@@ -296,13 +326,25 @@ const SIMPLE = {
     const origin = step.baseCells?.[0];
     const tried = step.contradictoryDigit ?? step.digit;
     const bad = step.contradictionCell;
-    const placements = (step.chain ?? []).filter((s) => s.action === 'place').length;
+    const chain = step.chain ?? [];
+    // Forced moves: placements that followed from the assumption, not the
+    // assumption itself and not case splits.
+    const forced = chain.filter((s, i) => s.action === 'place' && i > 0 && !(s.reason || '').startsWith('Case analysis')).length;
+    const splits = chain.filter((s) => s.action === 'place' && (s.reason || '').startsWith('Case analysis')).length;
+    const notes = chain.filter((s) => s.action === 'note');
+    const deadEnd = step.contradictionText
+      ? plainContradiction(step.contradictionText)
+      : `${bad != null ? shortCell(bad) : 'a cell'} is left with no possible number at all`;
     const outcome = step.placement
       ? `So ${shortCell(origin)} cannot be ${tried}, and its only other option, ${step.placement.digit}, must be right.`
       : `So ${shortCell(origin)} cannot be ${tried}, and that pencil mark can be erased.`;
+    const path = forced > 0 ? ` through ${forced} forced move${forced === 1 ? '' : 's'}` : '';
+    const splitNote = splits > 0
+      ? ` Along the way the test had to try both options of ${splits === 1 ? 'a two-option cell' : `${splits} two-option cells`}; ${notes.length > 0 ? 'both options failed each time' : 'the option shown is the one that did not fail on its own'}.`
+      : '';
     return {
       look: `This is a "what if" test. Suppose ${shortCell(origin)} were ${tried}.`,
-      why: `Following that assumption${placements > 1 ? ` through ${placements} forced moves` : ''} leads to a dead end: ${bad != null ? shortCell(bad) : 'a cell'} is left with no possible number at all. An assumption that breaks the puzzle must be wrong. ${outcome}`,
+      why: `Following that assumption${path} leads to a dead end: ${deadEnd}.${splitNote} An assumption that breaks the puzzle must be wrong. ${outcome}`,
     };
   },
 };

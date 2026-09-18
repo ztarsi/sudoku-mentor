@@ -80,7 +80,6 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
   });
 
   const config = DIFFICULTY_CONFIG[selectedDifficulty];
-  const DifficultyIcon = config.icon;
 
   // Combine built-in and user puzzles for selected difficulty
   const allPuzzles = [

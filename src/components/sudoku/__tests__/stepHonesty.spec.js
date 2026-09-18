@@ -6,6 +6,8 @@
 import { describe, it, expect } from 'vitest';
 import { generateCandidates, findAllTechniqueInstances } from '../logicEngine';
 import { findHypothesis, applyValueAndPropagate } from '../forcingChainEngine';
+import { applyLogicStep, findNextLogicStep } from '../logicEngine';
+import { getPeers } from '../gridUnits';
 import { explainStep } from '../explainStep';
 import { buildHighlightSets } from '../stepHighlights';
 import { ALL_UNITS, getRow, getCol } from '../gridUnits';
@@ -95,6 +97,80 @@ describe('fish explanations state the true orientation', () => {
         expect(out.look.startsWith(step.orientation === 'row' ? 'Look at rows' : 'Look at columns')).toBe(true);
         checked++;
       }
+    }
+    expect(checked).toBeGreaterThan(0);
+  });
+
+  it('Finned X-Wing: the beginner text follows the orientation the engine found', () => {
+    const seen = { row: 0, column: 0 };
+    for (const { step, grid } of instancesOf('Finned X-Wing')) {
+      expect(['row', 'column']).toContain(step.orientation);
+      const out = explainStep(step, grid, 'simple');
+      const baseWord = step.orientation === 'row' ? 'rows' : 'columns';
+      const coverWord = step.orientation === 'row' ? 'columns' : 'rows';
+      expect(out.look.startsWith(`Look at ${baseWord}`)).toBe(true);
+      expect(out.why).toContain(`erased from the rest of ${coverWord}`);
+      // The eliminations really lie on the cover lines named in the text.
+      const cover = step.orientation === 'row' ? getCol : getRow;
+      const fins = new Set(step.finCells ?? []);
+      const coverLines = new Set(step.baseCells.filter((c) => !fins.has(c)).map(cover));
+      for (const e of step.eliminations) expect(coverLines.has(cover(e.cell))).toBe(true);
+      seen[step.orientation]++;
+    }
+    expect(seen.row).toBeGreaterThan(0);
+    expect(seen.column).toBeGreaterThan(0);
+  });
+});
+
+describe('single explanations only claim what the grid shows', () => {
+  // Walk every library puzzle with the hint engine; after elimination
+  // techniques the strong "already appears in its row, column or box"
+  // wording is often false, and the builder must notice.
+  it('Naked Single / Hidden Single: the strong claim is used only when it is true', () => {
+    let strong = 0; let weak = 0;
+    for (const puzzle of Object.values(PUZZLES).flat()) {
+      let grid = gridFrom(puzzle.puzzle);
+      for (let n = 0; n < 200; n++) {
+        const step = findNextLogicStep(grid, null);
+        if (!step) break;
+        if (step.technique === 'Naked Single') {
+          const cell = step.placement.cell;
+          const seen = new Set(getPeers(cell).map((i) => grid[i].value).filter((v) => v !== null));
+          const allSeen = [1, 2, 3, 4, 5, 6, 7, 8, 9].every((d) => d === step.digit || seen.has(d));
+          const out = explainStep(step, grid, 'simple');
+          if (allSeen) { expect(out.why).toContain('already appears somewhere in its row'); strong++; }
+          else { expect(out.why).not.toContain('already appears somewhere in its row'); weak++; }
+        }
+        if (step.technique === 'Hidden Single') {
+          const cell = step.placement.cell;
+          const others = unitCells(step.unit).filter((i) => i !== cell && grid[i].value === null);
+          const allBlocked = others.length > 0 && others.every((i) => getPeers(i).some((p) => grid[p].value === step.digit));
+          const out = explainStep(step, grid, 'simple');
+          if (allBlocked) expect(out.why).toContain('already has a');
+          else expect(out.why).not.toContain('already has a');
+        }
+        grid = applyLogicStep(grid, step);
+      }
+    }
+    expect(strong).toBeGreaterThan(0);
+    expect(weak).toBeGreaterThan(0);
+  });
+
+  it('Hypothesis Mode: the dead end named in the text is the one the engine hit', () => {
+    let checked = 0;
+    for (const puzzle of PUZZLES.ultimate) {
+      const grid = gridFrom(puzzle.puzzle);
+      const step = findHypothesis(grid, 20);
+      if (!step) continue;
+      expect(typeof step.contradictionText).toBe('string');
+      const out = explainStep(step, grid, 'simple');
+      expect(out.why).toContain(step.contradictionText);
+      expect(out.why).not.toContain('no possible number at all');
+      // Every case split the trace hides is declared.
+      const splits = step.chain.filter((s) => s.action === 'place' && (s.reason || '').startsWith('Case analysis: trying'));
+      const notes = step.chain.filter((s) => s.action === 'note');
+      if (splits.length > 0) expect(notes.length).toBeGreaterThan(0);
+      checked++;
     }
     expect(checked).toBeGreaterThan(0);
   });

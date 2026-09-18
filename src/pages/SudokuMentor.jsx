@@ -80,15 +80,16 @@ export default function SudokuMentor() {
         `${digit} conflicts with the solution at row ${Math.floor(cellIndex / 9) + 1}, column ${(cellIndex % 9) + 1}`
       );
     },
-    onSolved: ({ timeInSeconds, errorCount, hintsUsed, puzzleName, puzzleDifficulty }) => {
+    onSolved: ({ timeInSeconds, errorCount, hintsUsed, assistUsed, puzzleName, puzzleDifficulty }) => {
       setCompletionStats({ timeInSeconds, errorCount });
       setShowCompletion(true);
 
-      // A clean solve: No Assist on at the finish AND no hint shown or
-      // applied at any point on this puzzle. Time is play time.
+      // A clean solve: No Assist on at the finish AND nothing assisted at
+      // any point on this puzzle - no hint, no live technique counts, no
+      // scan, no search. Time is play time.
       const { noAssistMode: na } = noAssistRef.current;
       const user = playerRef.current?.user;
-      if (na && hintsUsed === 0 && user && puzzleName && puzzleDifficulty) {
+      if (na && hintsUsed === 0 && !assistUsed && user && puzzleName && puzzleDifficulty) {
         playerRef.current?.saveSolveRecord({
           puzzle_name: puzzleName,
           difficulty: puzzleDifficulty,
@@ -152,6 +153,7 @@ export default function SudokuMentor() {
       setFocusedCandidates(buildFocusedCandidates(step, game.grid, colors));
       game.noteHintUsed();
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [game.grid, game.noteHintUsed, colors]
   );
 
@@ -176,10 +178,11 @@ export default function SudokuMentor() {
     if (hintSearchRef.current) return; // a search is already running
     setChainPlaybackIndex(0); // Reset playback for new hint
 
-    let step = findNextLogicStep(game.grid, null);
+    const gridAtStart = game.grid;
+    let step = findNextLogicStep(game.logicGrid, null);
     if (!step) {
       // No regular technique applies: what-if search, off the main thread.
-      const search = searchWhatIf(game.grid, HINT_SEARCH_DEPTH);
+      const search = searchWhatIf(game.logicGrid, HINT_SEARCH_DEPTH);
       hintSearchRef.current = search;
       setSearchingHint(true);
       try {
@@ -196,6 +199,9 @@ export default function SudokuMentor() {
           setSearchingHint(false);
         }
       }
+      // The board moved on while the worker ran: this result is for a grid
+      // the player no longer has.
+      if (gridRef.current !== gridAtStart) return;
       if (!step) {
         toast({ title: 'No hint found', description: `No technique or what-if chain within ${HINT_SEARCH_DEPTH} steps. Try the Search button in the Technique Hierarchy for a deeper look.` });
         return;
@@ -206,7 +212,9 @@ export default function SudokuMentor() {
       presentStep(step);
       highlightSteps([step]);
     }
-  }, [game.grid, noAssistMode, presentStep, highlightSteps]);
+  }, [game.grid, game.logicGrid, noAssistMode, presentStep, highlightSteps]);
+  const gridRef = useRef(game.grid);
+  gridRef.current = game.grid;
 
   useEffect(() => {
     if (hintSearchRef.current) cancelHintSearch();
@@ -269,6 +277,10 @@ export default function SudokuMentor() {
         toast({ title: 'Invalid puzzle', description: 'This puzzle has no valid solution.', variant: 'destructive' });
         return;
       }
+      if (!result.ok && result.reason === 'multiple-solutions') {
+        toast({ title: 'Not a proper Sudoku', description: 'This puzzle has more than one solution. Check the givens and try again.', variant: 'destructive' });
+        return;
+      }
       markUserLoadRef.current();
       setShowPuzzleLoader(false);
       setCurrentStep(null);
@@ -277,15 +289,15 @@ export default function SudokuMentor() {
       setRemovalCandidates(null);
       setHighlightedDigit(null);
       setChainPlaybackIndex(0);
-       
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [game.loadPuzzle]
   );
 
   // Keyboard shortcuts
   // One listener for the page's lifetime; it reads the latest handlers
   // and state through a ref instead of re-subscribing on every change.
-  const keyHandlersRef = useRef({ onKeyDown: (e) => {}, onKeyUp: (e) => {} });
+  const keyHandlersRef = useRef({ onKeyDown: (_e) => {}, onKeyUp: (_e) => {} });
   keyHandlersRef.current.onKeyDown = (e) => {
       // Typing in a text field is never a shortcut.
       if (isTypingTarget(e.target)) return;
@@ -398,20 +410,32 @@ export default function SudokuMentor() {
   useEffect(() => {
     const handleKeyDown = (e) => keyHandlersRef.current.onKeyDown(e);
     const handleKeyUp = (e) => keyHandlersRef.current.onKeyUp(e);
+    // Shift released while the window was not focused never sends keyup.
+    const handleBlur = () => setCandidateMode(false);
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleBlur);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleBlur);
     };
   }, []);
 
   const handleCopyPuzzle = () => {
     // Copy the puzzle givens (0 for empty/solved-by-player cells)
     const puzzleString = game.grid.map((cell) => (cell.isFixed ? cell.value : 0)).join('');
-    navigator.clipboard.writeText(puzzleString);
-    setShowCopyConfirmation(true);
-    setTimeout(() => setShowCopyConfirmation(false), 2000);
+    const write = navigator.clipboard?.writeText
+      ? navigator.clipboard.writeText(puzzleString)
+      : Promise.reject(new Error('Clipboard unavailable'));
+    write
+      .then(() => {
+        setShowCopyConfirmation(true);
+        setTimeout(() => setShowCopyConfirmation(false), 2000);
+      })
+      .catch(() => {
+        toast({ title: 'Could not copy', description: `Copy this by hand: ${puzzleString}`, variant: 'destructive' });
+      });
   };
 
   const handlePrintPuzzle = () => {
@@ -701,7 +725,9 @@ export default function SudokuMentor() {
               hasStep={currentStep !== null}
               canUndo={game.canUndo}
               canRedo={game.canRedo}
-              hintsDisabled={noAssistMode || searchingHint}
+              hintsDisabled={noAssistMode}
+              searching={searchingHint}
+              onCancelSearch={cancelHintSearch}
             />
 
             {/* Sudoku Grid */}
@@ -742,7 +768,8 @@ export default function SudokuMentor() {
               <LogicPanel
                 currentStep={currentStep}
                 focusedDigit={focusedDigit}
-                grid={game.grid}
+                grid={game.logicGrid}
+                onAssistUsed={game.noteAssistUsed}
                 noAssistMode={noAssistMode}
                 onApplyStep={handleApplyStep}
                 onNextStep={handleNextStep}
@@ -763,7 +790,8 @@ export default function SudokuMentor() {
           <LogicPanel
             currentStep={currentStep}
             focusedDigit={focusedDigit}
-            grid={game.grid}
+            grid={game.logicGrid}
+            onAssistUsed={game.noteAssistUsed}
             noAssistMode={noAssistMode}
             onApplyStep={handleApplyStep}
             onNextStep={handleNextStep}

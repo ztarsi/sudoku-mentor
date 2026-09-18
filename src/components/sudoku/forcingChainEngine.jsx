@@ -30,7 +30,7 @@ export const applyValueAndPropagate = (grid, cellIndex, value) => {
   const queue = [[cellIndex, value, null]];
   const placements = [];
 
-  const contradiction = (cell, text) => ({ grid: newGrid, contradiction: true, cell, text, placements });
+  const contradiction = (cell, text, unit = null) => ({ grid: newGrid, contradiction: true, cell, text, unit, placements });
 
   for (;;) {
     while (queue.length > 0) {
@@ -82,7 +82,7 @@ export const applyValueAndPropagate = (grid, cellIndex, value) => {
         if (placed) continue;
         if (spots.length === 0) {
           const empty = unit.indices.find((idx) => newGrid[idx].value === null);
-          return contradiction(empty ?? unit.indices[0], `no cell in ${unit.name} can hold ${d}`);
+          return contradiction(empty ?? unit.indices[0], `no cell in ${unit.name} can hold ${d}`, { ...unit, digit: d });
         }
         if (spots.length === 1) {
           queue.push([spots[0], d, `Only place for ${d} in ${unit.name}`]);
@@ -173,6 +173,7 @@ const narrateContradiction = (cellIndex, value, branch, conclusion) => {
   text += `CONTRADICTION: after ${placements.length} placement${placements.length > 1 ? 's' : ''}`;
   if (caseSplits > 0) text += ` (including ${caseSplits} case split${caseSplits > 1 ? 's' : ''})`;
   text += `, ${branch.contradictionText || `${cellRef(branch.contradictionCell)} has no valid candidates left`}.\n\n`;
+  branch.chain.filter((s) => s.action === 'note').forEach((n) => { text += `${n.reason}\n\n`; });
   text += `Conclusion: ${conclusion}`;
   return text;
 };
@@ -187,13 +188,14 @@ const hypothesisStep = (cellIndex, badValue, branch, placement) => {
     technique: 'Hypothesis Mode',
     explanation: narrateContradiction(cellIndex, badValue, branch, conclusion),
     baseCells: [cellIndex],
-    targetCells: [branch.contradictionCell],
+    targetCells: branch.contradictionUnit ? branch.contradictionUnit.indices : [branch.contradictionCell],
     placement: placement || null,
     eliminations: placement ? [] : [{ cell: cellIndex, digit: badValue }],
     chain: branch.chain,
     contradiction: true,
     contradictionCell: branch.contradictionCell,
     contradictionText: branch.contradictionText || null,
+    contradictionUnit: branch.contradictionUnit || null,
     contradictoryDigit: badValue,
   });
 };
@@ -591,6 +593,7 @@ const exploreBranch = (grid, cellIndex, value, maxDepth, chain, forcedReason = n
       chain: [...newChain, ...derived],
       contradictionCell: result.cell,
       contradictionText: result.text,
+      contradictionUnit: result.unit || null,
     };
   }
   
@@ -631,6 +634,20 @@ const exploreBranch = (grid, cellIndex, value, maxDepth, chain, forcedReason = n
         if (!subBranch2.contradiction) {
           return subBranch2;
         }
+        // Both options fail: the shown trace follows v1; say that v2 was
+        // also refuted so the proof the card presents is complete.
+        return {
+          ...subBranch1,
+          chain: [
+            ...subBranch1.chain,
+            {
+              cell: i,
+              value: v2,
+              action: 'note',
+              reason: `The other option for ${cellName(i)}, ${v2}, also leads to a contradiction (${subBranch2.contradictionText || 'not shown'}).`,
+            },
+          ],
+        };
       }
       
       return subBranch1;

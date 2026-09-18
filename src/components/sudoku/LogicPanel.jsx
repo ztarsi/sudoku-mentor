@@ -42,6 +42,7 @@ export default function LogicPanel({
   chainPlaybackIndex,
   searchingHint = false,
   onCancelHintSearch,
+  onAssistUsed,
 }) {
   const [selectedTechnique, setSelectedTechnique] = useState(null);
   const [techniqueExpanded, setTechniqueExpanded] = useState(true);
@@ -66,10 +67,21 @@ export default function LogicPanel({
   const onApplyStepRef = useRef(onApplyStep);
   onApplyStepRef.current = onApplyStep;
 
-  // Ultimate scan counts describe one grid; drop them when it changes.
+  // Ultimate scan counts describe one grid; drop them when it changes, and
+  // let a scan still running for the old grid know it is stale.
+  const gridRef = useRef(grid);
   useEffect(() => {
+    gridRef.current = grid;
     setScanResults({});
   }, [grid]);
+
+  // Live technique counts, scans and searches are assistance: a No Assist
+  // record must not be earned with them on screen.
+  const onAssistUsedRef = useRef(onAssistUsed);
+  onAssistUsedRef.current = onAssistUsed;
+  useEffect(() => {
+    if (techniqueExpanded && !noAssistMode) onAssistUsedRef.current?.();
+  }, [techniqueExpanded, noAssistMode, grid]);
 
   // Count occurrences of each technique (excluding ultimate for performance).
   // Only scan while the hierarchy section is actually visible - these 11
@@ -92,15 +104,18 @@ export default function LogicPanel({
   }, [grid, scanResults, techniqueExpanded, noAssistMode]);
 
   const handleUltimateScan = async () => {
+    onAssistUsedRef.current?.();
     setShowUltimateScan(true);
     setScanResults({});
 
+    const scanned = grid;
     const results = {};
     for (const tech of ULTIMATE_TECHNIQUES) {
       setScanningTechnique(tech);
       await new Promise((resolve) => setTimeout(resolve, 100)); // Small delay for UI update
+      if (gridRef.current !== scanned) break; // the board changed: these counts would lie
 
-      results[tech] = findAllTechniqueInstances(grid, tech).length;
+      results[tech] = findAllTechniqueInstances(scanned, tech).length;
       setScanResults({ ...results });
     }
 
@@ -118,6 +133,7 @@ export default function LogicPanel({
   useEffect(() => () => searchRef.current?.cancel(), []);
 
   const performDeepSearch = async (depth) => {
+    onAssistUsedRef.current?.();
     searchRef.current?.cancel();
     const search = searchWhatIf(grid, depth);
     searchRef.current = search;

@@ -3,6 +3,8 @@ import Cell from './Cell';
 import CellContextMenu from './CellContextMenu';
 import { buildHighlightSets } from './stepHighlights';
 import { commonUnit } from './gridUnits';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { isTypingTarget } from './keyboardShortcuts';
 
 export default function SudokuGrid({
   grid,
@@ -34,7 +36,11 @@ export default function SudokuGrid({
   const gridWrapperRef = useRef(null);
   const gridContainerRef = useRef(null);
 
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 1024;
+  // Narrow layout sizes the grid from the container; touch input decides
+  // whether pencil-mark slots are click targets. A mouse in a narrow
+  // window keeps click-to-place; a finger never hits a 13px slot.
+  const isMobile = useMediaQuery('(max-width: 1023px)');
+  const touchInput = useMediaQuery('(pointer: coarse)');
 
   // ResizeObserver: measure real available container width on mobile
   useEffect(() => {
@@ -91,6 +97,19 @@ export default function SudokuGrid({
     const size = overlayCellSize || 60;
     return { x: col * size + size / 2, y: row * size + size / 2 };
   };
+
+  // DOM focus follows the selection so keyboard users can Tab to the grid
+  // and screen readers hear the newly selected cell. Never steal focus
+  // from a dialog or a text field.
+  useEffect(() => {
+    if (selectedCell === null || selectedCell === undefined) return;
+    const el = document.getElementById(`sudoku-cell-${selectedCell}`);
+    if (!el) return;
+    const active = document.activeElement;
+    if (active && (active.closest('[role="dialog"]') || isTypingTarget(active))) return;
+    if (active === el) return;
+    el.focus({ preventScroll: true });
+  }, [selectedCell]);
 
   // Highlight flags are derived from the presented steps at render time;
   // the grid data itself stays purely game state.
@@ -286,6 +305,8 @@ export default function SudokuGrid({
                   cellId={`sudoku-cell-${index}`}
                   cell={displayCell}
                   isSelected={selectedCell === index}
+                  tabbable={selectedCell === index || (selectedCell === null && index === 0)}
+                  touchInput={touchInput}
                   isFocusedDigit={false}
                   isDimmed={false}
                   isHighlightedNumber={highlightedDigit !== null && cell.value === highlightedDigit}
