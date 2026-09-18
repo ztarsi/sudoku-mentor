@@ -45,3 +45,12 @@ jobs:
           grep -Eq '<script[^>]+type="module"[^>]+src="/assets/' dist/index.html
           ls dist/assets | grep -q 'whatIf.worker'
           test -f dist/favicon.svg
+          test -f dist/manifest.webmanifest
+
+      # Budget: all JavaScript in the build, uncompressed. The build is about
+      # 750 kB today; raise this number deliberately, not by accident.
+      - name: Check the bundle-size budget
+        run: |
+          total=$(cat dist/assets/*.js | wc -c)
+          echo "JavaScript total: $total bytes"
+          test "$total" -le 900000
