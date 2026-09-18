@@ -88,12 +88,14 @@ describe('useSudokuGame', () => {
     });
     expect(result.current.grid[idx].value).toBe(digit);
 
-    // undo -> new move truncates the redo tail
+    // undo -> new move truncates the redo tail (adding a pencil mark is a
+    // move; removing the TRUE mark would be rejected, see the test below)
     act(() => {
       result.current.undo();
     });
+    const wrongDigit = digit === 9 ? 1 : digit + 1;
     act(() => {
-      result.current.handleToggleCandidate(idx, digit);
+      result.current.handleToggleCandidate(idx, wrongDigit);
     });
     expect(result.current.canRedo).toBe(false);
   });
@@ -451,5 +453,86 @@ describe('useSudokuGame assistance and play clock', () => {
       }
     }
     expect(onSolved.mock.calls[0][0].timeInSeconds).toBe(12);
+  });
+
+  describe('player edits keep the mentor sound', () => {
+    it('refuses to erase the pencil mark that is the answer, like a wrong digit', () => {
+      const onWrongInput = vi.fn();
+      const { result } = setup({ onWrongInput });
+      act(() => { result.current.loadPuzzle(PUZZLE); });
+      const idx = firstEmptyCell(result.current.grid);
+      const truth = solveSudoku(PUZZLE.map((v) => ({ value: v || null, candidates: [] })))[idx].value;
+      expect(result.current.grid[idx].candidates).toContain(truth);
+
+      act(() => { result.current.handleToggleCandidate(idx, truth); });
+      expect(result.current.grid[idx].candidates).toContain(truth);
+      expect(result.current.errorCount).toBe(1);
+      expect(onWrongInput).toHaveBeenCalledWith(idx, truth);
+      expect(result.current.rejectedInput).toMatchObject({ cellIndex: idx, digit: truth });
+
+      // Any other mark toggles freely, both ways.
+      const other = result.current.grid[idx].candidates.find((d) => d !== truth) ?? (truth === 9 ? 1 : truth + 1);
+      act(() => { result.current.handleToggleCandidate(idx, other); });
+      act(() => { result.current.handleToggleCandidate(idx, other); });
+      expect(result.current.errorCount).toBe(1);
+    });
+
+    it('erasing a placed digit gives the cell its valid pencil marks back', () => {
+      const { result } = setup();
+      act(() => { result.current.loadPuzzle(PUZZLE); });
+      const idx = firstEmptyCell(result.current.grid);
+      const truth = solveSudoku(PUZZLE.map((v) => ({ value: v || null, candidates: [] })))[idx].value;
+      act(() => { result.current.handleCellInput(idx, truth); });
+      expect(result.current.grid[idx].candidates).toEqual([]);
+      act(() => { result.current.handleCellInput(idx, null); });
+      const cell = result.current.grid[idx];
+      expect(cell.value).toBeNull();
+      expect(cell.candidates.length).toBeGreaterThan(0);
+      expect(cell.candidates).toContain(truth);
+    });
+
+    it('logicGrid repairs empty and truth-less candidate sets without touching the player grid', () => {
+      const { result } = setup();
+      act(() => { result.current.loadPuzzle(PUZZLE, null, { withCandidates: false }); });
+      const idx = firstEmptyCell(result.current.grid);
+      expect(result.current.grid[idx].candidates).toEqual([]);
+      const truth = solveSudoku(PUZZLE.map((v) => ({ value: v || null, candidates: [] })))[idx].value;
+      expect(result.current.logicGrid[idx].candidates).toContain(truth);
+      expect(result.current.logicGrid[idx].candidates.length).toBeGreaterThan(0);
+      // Filled cells are shared by reference; the player grid is untouched.
+      expect(result.current.grid[idx].candidates).toEqual([]);
+      const given = result.current.grid.findIndex((c) => c.isFixed);
+      expect(result.current.logicGrid[given]).toBe(result.current.grid[given]);
+    });
+
+    it('applyStep refuses a step that contradicts the solution', () => {
+      const { result } = setup();
+      act(() => { result.current.loadPuzzle(PUZZLE); });
+      const idx = firstEmptyCell(result.current.grid);
+      const truth = solveSudoku(PUZZLE.map((v) => ({ value: v || null, candidates: [] })))[idx].value;
+      const wrong = truth === 9 ? 1 : truth + 1;
+      let applied;
+      act(() => {
+        applied = result.current.applyStep({ technique: 'Naked Single', placement: { cell: idx, digit: wrong }, eliminations: [], baseCells: [idx], targetCells: [idx] });
+      });
+      expect(applied).toBe(false);
+      expect(result.current.grid[idx].value).toBeNull();
+      expect(result.current.hintsUsed).toBe(0);
+      act(() => {
+        applied = result.current.applyStep({ technique: 'X-Wing', placement: null, eliminations: [{ cell: idx, digit: truth }], baseCells: [], targetCells: [idx] });
+      });
+      expect(applied).toBe(false);
+      expect(result.current.grid[idx].candidates).toContain(truth);
+    });
+
+    it('refuses a puzzle with more than one solution', () => {
+      const { result } = setup();
+      // Drop enough givens from a real puzzle to make it ambiguous.
+      const loose = [...PUZZLE];
+      for (let i = 0; i < 81 && loose.filter(Boolean).length > 8; i++) loose[i] = 0;
+      let outcome;
+      act(() => { outcome = result.current.loadPuzzle(loose); });
+      expect(outcome).toEqual({ ok: false, reason: 'multiple-solutions' });
+    });
   });
 });

@@ -39,7 +39,7 @@ const initGridFromDigits = (digits) => {
 };
 
 // Helper to set grid values
-const setGridValues = (grid, values) => {
+const _setGridValues = (grid, values) => {
   values.forEach(([index, value]) => {
     grid[index].value = value;
     grid[index].isFixed = true;

@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
+import { useAuth } from '@/lib/AuthContext';
 import { bestNoAssistTime, createSolveRecord, saveColors as persistColors } from '@/api/playerData';
 import { toast } from '@/components/ui/use-toast';
 
@@ -18,25 +18,13 @@ export function useSudokuPlayer(puzzleName) {
   const [bestTime, setBestTime] = useState(null);
   const [bestTimeVersion, setBestTimeVersion] = useState(0);
 
-  // Load user and their saved colors once
+  // The signed-in user comes from AuthContext (resolved before any page
+  // mounts), so there is one source of truth and no second request.
+  const { user: authUser } = useAuth();
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const currentUser = await base44.auth.me();
-        if (cancelled) return;
-        setUser(currentUser);
-        if (currentUser?.sudoku_colors) {
-          setColors(currentUser.sudoku_colors);
-        }
-      } catch {
-        if (!cancelled) setUser(null);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    setUser(authUser ?? null);
+    if (authUser?.sudoku_colors) setColors(authUser.sudoku_colors);
+  }, [authUser]);
 
   // Persist color changes to the account (if signed in)
   const saveColors = useCallback(

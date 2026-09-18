@@ -7,7 +7,7 @@ import TextPuzzleUpload from './TextPuzzleUpload';
 import { analyzeDifficulty } from './difficultyAnalyzer';
 import { base44 } from '@/api/base44Client';
 import { findMySavedPuzzle, savePuzzle } from '@/api/playerData';
-import { solveSudoku } from './solver';
+import { solveSudoku, countSolutions } from './solver';
 import { toast } from "@/components/ui/use-toast";
 import { useDialog } from '@/hooks/useDialog';
 
@@ -37,6 +37,15 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded, u
       const solved = solveSudoku(gridForSolving);
       if (!solved) {
         toast({ title: 'Invalid puzzle', description: 'This puzzle has no valid solution.', variant: 'destructive' });
+        setSavingPuzzle(false);
+        return;
+      }
+      if (countSolutions(gridForSolving, 2) > 1) {
+        toast({
+          title: 'Not a proper Sudoku',
+          description: 'This puzzle has more than one solution, so the mentor could not tell right entries from wrong ones. Check the givens and try again.',
+          variant: 'destructive',
+        });
         setSavingPuzzle(false);
         return;
       }

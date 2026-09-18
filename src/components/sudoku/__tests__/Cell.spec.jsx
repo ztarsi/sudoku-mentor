@@ -53,6 +53,7 @@ const renderCell = (props = {}) => {
       onInput={onInput}
       onToggleCandidate={onToggleCandidate}
       cellSize={props.cellSize}
+      touchInput={props.touchInput ?? false}
       rejected={props.rejected ?? null}
     />
   );
@@ -85,8 +86,8 @@ describe('Cell click handling', () => {
     expect(onToggleCandidate).toHaveBeenCalledWith(5);
   });
 
-  it('routes every tap to the cell on mobile, even over a candidate slot', () => {
-    const { container, onClick, onInput } = renderCell({ cell: { candidates: [5] }, cellSize: 40 });
+  it('routes every tap to the cell on a touch screen, even over a candidate slot', () => {
+    const { container, onClick, onInput } = renderCell({ cell: { candidates: [5] }, cellSize: 40, touchInput: true });
     const overlay = container.querySelector('[aria-hidden="true"]');
     expect(overlay.className).toContain('pointer-events-none');
     // With pointer-events disabled the browser never dispatches to a slot;

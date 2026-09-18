@@ -141,3 +141,29 @@ Each line is one pull request, verified in the browser before merge.
 ## What is solid
 
 `useSudokuGame` (pure conflict computation, latched completion, history kept out of updaters, cancellation guards) and its StrictMode tests. The technique detectors themselves, all sixteen of them, traced and probe-verified. The bitmask solver. The difficulty analyser, which now rates every shelf as labelled. `keyboardShortcuts.js` and `stepHighlights.js` as small pure modules with tests. The oracle test design, which just needs wider coverage. The README is accurate and now points to the product definition.
+
+---
+
+## Second review (2026-09-18, after batch 7b)
+
+An independent reviewer read the whole repository again at main `6d426da`, with probes against the solver's solution. It confirmed the deductive engines sound on consistent candidate sets and found the items below. All of them were fixed in PR #19 the same day; each fix carries a regression test or a browser check.
+
+| Sev | Finding | Fix |
+| --- | --- | --- |
+| S1 | Hints computed from player-edited pencil marks could be wrong (a removed true mark made the next hint "Naked Single: 1", solution 2; an erased digit left a cell with no marks, invisible to every technique), and Apply wrote the digit unchecked. | Removing the pencil mark that is the answer is refused like a wrong digit (flash, sound, error count). Erasing a digit restores the cell's valid marks. The engines reason from `logicGrid`, the player's grid with empty or truth-less candidate sets repaired. `applyStep` refuses any step that contradicts the solution. Tests in `useSudokuGame.spec.jsx`. |
+| S1 | Finned X-Wing beginner text said "rows ... columns" for every column-based instance (66 of 66 false). | The text follows `step.orientation`; `stepHonesty.spec.js` checks both orientations and that the eliminations lie on the named cover lines. |
+| S2 | Hypothesis Mode always narrated "no possible number left", highlighted a stand-in cell for unit contradictions, and hid that the other option of a case split had also failed. | The card and the beginner text use the engine's own `contradictionText`; unit contradictions carry the unit and highlight all its cells; both-fail case splits add a note entry that the trace, the footer and the narrative show. Tests in `stepHonesty.spec.js` and `explainStep.spec.js`. |
+| S2 | Naked Single and Hidden Single "why" claimed digits "already appear" nearby, false after any elimination technique (about 2% of singles). | The builder checks the claim against the grid and uses the weaker, true wording otherwise. Test walks every library puzzle. |
+| S2 | A No Assist record could be earned after solving with live technique counts or a scan, then switching No Assist on for the last digit. | The game tracks `assistUsed` (persisted); live counts, scans, searches and hints all set it; records need it false. |
+| S2 | Pasted puzzles with several solutions were accepted, then valid entries were rejected as wrong. | `countSolutions` in the solver; `loadPuzzle` returns `multiple-solutions`; the loader and both pages refuse with a clear message. |
+| S2 | Mobile: a completed digit stayed selected and undeselectable, so every tap was a counted error; taps on filled cells counted as overwrites. | The selection clears when the ninth copy lands; the selected button is never disabled; taps on filled cells only select. |
+| S2 | The grid was unreachable by Tab and DOM focus never followed the selection. | R1C1 (or the selected cell) is in the Tab order; focus follows the selection unless a dialog or text field has it. |
+| S3 | One shared worker: cancelling either search killed the other. | One worker per search. |
+| S3 | Hint search invisible in the narrow action bar. | The Hint button becomes a spinning Cancel while searching. |
+| S3 | Ultimate scan could report counts for a grid that had changed. | The scan stops when the grid changes. |
+| S3 | Narrow desktop windows lost click-to-place on pencil marks; `isMobile` ignored resizes. | Slot pass-through depends on a coarse pointer, layout on a live media query. |
+| S3 | `eslint --quiet` hid 16 warnings. | `--max-warnings 0`, warnings cleared. |
+| S3 | Second user source in `useSudokuPlayer`; bootstrap read the user before auth resolved; clipboard rejection unhandled; SVG `apple-touch-icon`; Shift stuck after window blur; Cell Forcing Chain had no trace. | `useSudokuPlayer` reads `AuthContext`; PNG icons; clipboard failure toasts with the string; window blur ends candidate mode; the card lists both paths of a Cell Forcing Chain. |
+
+Still open after the second review: LICENSE (owner's decision), the five npm advisories in the vite/vitest peer set (npm resolver crash), no service worker, and the Base44 dashboard entity rules. The reviewer also noted, unconfirmed, that a pasted hard puzzle could keep the depth-100 panel search busy for a long time; it is cancellable and off the main thread, and a time budget is a reasonable follow-up.
+

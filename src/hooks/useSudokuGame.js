@@ -4,7 +4,14 @@ import {
   applyLogicStep,
   eliminateCandidatesFromPeers,
 } from '@/components/sudoku/logicEngine';
-import { solveSudoku } from '@/components/sudoku/solver';
+import { solveSudoku, countSolutions } from '@/components/sudoku/solver';
+import { getPeers } from '@/components/sudoku/gridUnits';
+
+// Digits a cell could still hold given only the placed digits around it.
+const validCandidates = (grid, cellIndex) => {
+  const used = new Set(getPeers(cellIndex).map((i) => grid[i].value).filter((v) => v !== null));
+  return [1, 2, 3, 4, 5, 6, 7, 8, 9].filter((d) => !used.has(d));
+};
 
 export const createEmptyGrid = () =>
   Array(81)
@@ -88,7 +95,7 @@ const clearSavedGame = (key) => {
  *
  * Callbacks:
  * - onWrongInput(cellIndex, digit): input rejected against the solution
- * - onSolved({ timeInSeconds, errorCount, hintsUsed, puzzleName, puzzleDifficulty }):
+ * - onSolved({ timeInSeconds, errorCount, hintsUsed, assistUsed, puzzleName, puzzleDifficulty }):
  *   fired exactly once per loaded puzzle when the grid is complete+correct.
  *   timeInSeconds is PLAY time: the clock pauses while the tab is hidden
  *   and survives a reload, so a resumed game never counts the days away.
@@ -111,6 +118,9 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
   // Assistance used on this puzzle (hints shown or applied). A clean solve
   // is one with hintsUsed === 0; it is the only kind worth recording.
   const [hintsUsed, setHintsUsed] = useState(0);
+  // Any assistance at all on this puzzle (live technique counts, a scan,
+  // a search, a hint). A No Assist record needs none of it, ever.
+  const [assistUsed, setAssistUsed] = useState(false);
   // Play clock: milliseconds accumulated while the tab was visible, plus the
   // start of the current visible segment (null while paused).
   const playedMsRef = useRef(0);
@@ -149,7 +159,8 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
     return () => document.removeEventListener('visibilitychange', onVisibility);
   }, [clockRunning, elapsedMs]);
 
-  const noteHintUsed = useCallback(() => setHintsUsed((n) => n + 1), []);
+  const noteHintUsed = useCallback(() => { setHintsUsed((n) => n + 1); setAssistUsed(true); }, []);
+  const noteAssistUsed = useCallback(() => setAssistUsed(true), []);
 
   // Keep callbacks fresh without retriggering effects
   const onSolvedRef = useRef(onSolved);
@@ -193,7 +204,9 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
       newGrid[cellIndex] = {
         ...cell,
         value,
-        candidates: value ? [] : cell.candidates,
+        // An erased cell gets its pencil marks back from its peers; a cell
+        // left with none is invisible to every technique.
+        candidates: value ? [] : validCandidates(grid, cellIndex),
       };
       commit(
         value ? eliminateCandidatesFromPeers(newGrid, cellIndex, value) : newGrid
@@ -208,6 +221,15 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
       if (!cell || cell.isFixed || cell.value !== null) return;
 
       const has = cell.candidates.includes(candidate);
+      // Erasing the pencil mark that IS the answer is a mistake, and the
+      // product promises mistakes are caught at once. It would also leave
+      // the mentor reasoning from a lie.
+      if (has && solution && solution[cellIndex].value === candidate) {
+        setErrorCount((c) => c + 1);
+        setRejectedInput({ cellIndex, digit: candidate, id: ++rejectSeq.current });
+        onWrongInputRef.current?.(cellIndex, candidate);
+        return;
+      }
       const newGrid = [...grid];
       newGrid[cellIndex] = {
         ...cell,
@@ -217,15 +239,50 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
       };
       commit(newGrid);
     },
-    [grid, commit]
+    [grid, solution, commit]
   );
 
+  // The grid the engines reason from. The player's pencil marks are their
+  // notes; the mentor needs candidate sets that still contain the truth.
+  // Cells with no marks at all (erased, or a phone game that never had
+  // marks) get their valid digits back, and a missing true digit is
+  // restored. Everything else is the player's own state.
+  const logicGrid = useMemo(() => {
+    let changed = false;
+    const repaired = grid.map((cell, i) => {
+      if (cell.value !== null) return cell;
+      let candidates = cell.candidates;
+      if (candidates.length === 0) candidates = validCandidates(grid, i);
+      const truth = solution?.[i]?.value;
+      if (truth && !candidates.includes(truth)) candidates = [...candidates, truth].sort((a, b) => a - b);
+      if (candidates === cell.candidates) return cell;
+      changed = true;
+      return { ...cell, candidates };
+    });
+    return changed ? repaired : grid;
+  }, [grid, solution]);
+
   // Apply a logic-engine step (placement and/or eliminations) as one
-  // undoable move.
+  // undoable move. A step is checked against the solution first: the
+  // engines are sound on consistent marks, and the player never sees a
+  // wrong digit written by the mentor. Returns false when refused.
   const applyStep = useCallback(
     (step) => {
-      if (!step) return;
-      let newGrid = applyLogicStep(grid, step);
+      if (!step) return false;
+      if (solution) {
+        const badPlacement = step.placement && solution[step.placement.cell].value !== step.placement.digit;
+        const badElimination = (step.eliminations ?? []).some((e) => solution[e.cell].value === e.digit);
+        if (badPlacement || badElimination) {
+          console.error('Refused an unsound step', step.technique, step);
+          return false;
+        }
+      }
+      // Cells the player left without marks take the repaired marks, so
+      // the step's eliminations have something to remove.
+      const base = grid.map((cell, i) =>
+        cell.value === null && cell.candidates.length === 0 ? logicGrid[i] : cell
+      );
+      let newGrid = applyLogicStep(base, step);
       if (step.placement) {
         newGrid = eliminateCandidatesFromPeers(
           newGrid,
@@ -235,8 +292,9 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
       }
       commit(newGrid);
       setHintsUsed((n) => n + 1);
+      return true;
     },
-    [grid, commit]
+    [grid, logicGrid, solution, commit]
   );
 
   const canUndo = history.index > 0;
@@ -270,6 +328,9 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
 
     const solved = solveSudoku(newGrid);
     if (!solved) return { ok: false, reason: 'no-solution' };
+    // A puzzle with two solutions would reject valid entries as "wrong"
+    // and mislead the uniqueness techniques (Unique Rectangle, BUG+1).
+    if (countSolutions(newGrid, 2) > 1) return { ok: false, reason: 'multiple-solutions' };
     if (seq !== loadSeq.current) return { ok: false, reason: 'superseded' };
 
     const startGrid = withCandidates ? generateCandidates(newGrid) : newGrid;
@@ -283,6 +344,7 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
     setStartTime(Date.now());
     setRejectedInput(null);
     setHintsUsed(0);
+    setAssistUsed(false);
     startClock(0);
     return { ok: true };
   }, [startClock]);
@@ -312,6 +374,7 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
     setStartTime(null);
     setRejectedInput(null);
     setHintsUsed(0);
+    setAssistUsed(false);
     stopClock();
     playedMsRef.current = 0;
   }, [persistKey, stopClock]);
@@ -351,6 +414,7 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
     setPuzzleDifficulty(saved.puzzleDifficulty ?? null);
     setStartTime(saved.startTime || Date.now());
     setHintsUsed(saved.hintsUsed || 0);
+    setAssistUsed(!!saved.assistUsed);
     // Resume the play clock from where it stopped, never from wall time.
     startClock(typeof saved.playedMs === 'number' ? saved.playedMs : 0);
     return true;
@@ -368,6 +432,7 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
     startTime,
     errorCount,
     hintsUsed,
+    assistUsed,
     playedMs: elapsedMs(),
     completed,
     savedAt: Date.now(),
@@ -414,10 +479,11 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
       timeInSeconds,
       errorCount,
       hintsUsed,
+      assistUsed,
       puzzleName,
       puzzleDifficulty,
     });
-  }, [grid, solution, startTime, completed, errorCount, hintsUsed, puzzleName, puzzleDifficulty, getElapsedSeconds, stopClock]);
+  }, [grid, solution, startTime, completed, errorCount, hintsUsed, assistUsed, puzzleName, puzzleDifficulty, getElapsedSeconds, stopClock]);
 
   const solvedCount = useMemo(
     () => grid.filter((c) => c.value !== null).length,
@@ -431,8 +497,11 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
     validationErrors,
     rejectedInput, // { cellIndex, digit, id } for ~1s after a wrong entry
     errorCount,
+    logicGrid,
     hintsUsed,
+    assistUsed,
     noteHintUsed,
+    noteAssistUsed,
     getElapsedSeconds,
     completed,
     puzzleName,

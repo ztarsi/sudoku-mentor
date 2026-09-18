@@ -1,7 +1,7 @@
 import React from 'react';
-import { Lightbulb, Play, Undo2, Redo2, Trash2, PanelRight } from 'lucide-react';
+import { Lightbulb, Play, Undo2, Redo2, Trash2, PanelRight, Loader2 } from 'lucide-react';
 
-const ActionButton = ({ onClick, disabled = false, label, icon: Icon, tone = 'neutral' }) => {
+const ActionButton = ({ onClick, disabled = false, label, icon: Icon, tone = 'neutral', spin = false }) => {
   const tones = {
     neutral: 'text-slate-300 active:bg-slate-800',
     primary: 'text-amber-300 active:bg-slate-800',
@@ -19,7 +19,7 @@ const ActionButton = ({ onClick, disabled = false, label, icon: Icon, tone = 'ne
         ${disabled ? 'text-slate-600 cursor-not-allowed' : tones[tone]}
       `}
     >
-      <Icon className="w-5 h-5" />
+      <Icon className={`w-5 h-5 ${spin ? 'animate-spin' : ''}`} aria-hidden="true" />
       <span className="text-[11px] leading-none">{label}</span>
     </button>
   );
@@ -41,6 +41,8 @@ export default function ControlBar({
   canRedo,
   hasStep,
   hintsDisabled = false,
+  searching = false,
+  onCancelSearch,
 }) {
   return (
     <nav
@@ -49,7 +51,11 @@ export default function ControlBar({
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       <div className="flex items-center justify-around px-2 py-1">
-        <ActionButton onClick={onNextStep} disabled={hintsDisabled} label="Hint" icon={Lightbulb} tone="primary" />
+        {searching ? (
+          <ActionButton onClick={onCancelSearch} label="Cancel" icon={Loader2} tone="primary" spin />
+        ) : (
+          <ActionButton onClick={onNextStep} disabled={hintsDisabled} label="Hint" icon={Lightbulb} tone="primary" />
+        )}
         <ActionButton onClick={onApplyStep} disabled={!hasStep || hintsDisabled} label="Apply" icon={Play} tone="success" />
         <ActionButton onClick={onUndo} disabled={!canUndo} label="Undo" icon={Undo2} />
         <ActionButton onClick={onRedo} disabled={!canRedo} label="Redo" icon={Redo2} />

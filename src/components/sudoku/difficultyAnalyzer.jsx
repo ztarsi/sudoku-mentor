@@ -38,7 +38,6 @@ export const analyzeDifficulty = (puzzleArray) => {
 
   const techniques = [];
   let maxScore = 0;
-  let totalScore = 0;
   let iterations = 0;
   // A full solve is at most ~81 placements plus the elimination-only steps
   // between them; anything past this means the engine stopped progressing.
@@ -52,7 +51,6 @@ export const analyzeDifficulty = (puzzleArray) => {
 
     techniques.push(step.technique);
     const score = TECHNIQUE_SCORES[step.technique] || 0;
-    totalScore += score;
     maxScore = Math.max(maxScore, score);
 
     // Apply the step in place. Do NOT regenerate candidates from scratch

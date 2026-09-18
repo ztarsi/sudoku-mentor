@@ -365,7 +365,6 @@ export const findBUGPlus1 = (grid, focusedDigit = null, returnAll = false) => {
   let extraDigit = null;
   
   // Count bi-value cells and tri-value cells
-  let biValueCount = 0;
   let triValueCount = 0;
   
   for (let i = 0; i < 81; i++) {
@@ -374,9 +373,7 @@ export const findBUGPlus1 = (grid, focusedDigit = null, returnAll = false) => {
     
     const candCount = cell.candidates.length;
     
-    if (candCount === 2) {
-      biValueCount++;
-    } else if (candCount === 3) {
+    if (candCount === 3) {
       triValueCount++;
       extraCell = i;
     } else if (candCount > 3) {

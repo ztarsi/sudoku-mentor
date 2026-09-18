@@ -205,8 +205,13 @@ const ChainTrace = ({
               CONTRADICTION REACHED
             </div>
             <p className="text-sm text-red-300">
-              {cellRef(currentStep.contradictionCell)} has no valid candidates left!
+              {currentStep.contradictionText
+                ? `${currentStep.contradictionText[0].toUpperCase()}${currentStep.contradictionText.slice(1)}.`
+                : `${cellRef(currentStep.contradictionCell)} has no valid candidates left!`}
             </p>
+            {currentStep.chain.filter((s) => s.action === 'note').map((n, i) => (
+              <p key={i} className="text-sm text-red-200/80 mt-1">{n.reason}</p>
+            ))}
             {currentStep.placement && (
               <p className="text-sm text-emerald-400 mt-2">
                 ✓ Therefore: {cellRef(currentStep.placement.cell)} must be {currentStep.placement.digit}
@@ -333,6 +338,23 @@ export default function CurrentStepCard({
                 isPlayingChain={isPlayingChain}
                 onToggleChainPlayback={onToggleChainPlayback}
               />
+            )}
+
+            {/* Both paths of a Cell Forcing Chain, so the convergence is visible */}
+            {currentStep.technique === 'Cell Forcing Chain' && Array.isArray(currentStep.chains) && (
+              <div className="space-y-2">
+                <p className="text-base font-medium text-slate-300">Both paths:</p>
+                {currentStep.chains.map((path, pi) => (
+                  <div key={pi} className="bg-slate-800 rounded-xl p-3">
+                    <p className="text-sm font-medium mb-1" style={{ color: path.color || '#94a3b8' }}>{path.label}</p>
+                    <ol className="text-xs text-slate-300 space-y-0.5">
+                      {(path.cells ?? []).filter((e) => e.action === 'place').map((e, i) => (
+                        <li key={i}>{cellRef(e.cell)} = {e.value}{e.reason && i > 0 ? <span className="text-slate-500"> ({e.reason})</span> : null}</li>
+                      ))}
+                    </ol>
+                  </div>
+                ))}
+              </div>
             )}
 
             {/* Action Summary */}

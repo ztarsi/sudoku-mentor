@@ -5,45 +5,20 @@
 //   search.promise.then((step) => ...);   // step | null
 //   search.cancel();                       // rejects with { cancelled: true }
 //
-// One worker serves all callers. Cancelling terminates it (the only way to
-// stop a synchronous search) and rejects every pending request; the next
-// search starts a fresh worker. Where workers are unavailable (tests,
-// very old browsers) the search runs on the main thread in a macrotask.
+// Every search gets its own worker (the module is small), so cancelling
+// one search - the only way to stop a synchronous search is to terminate
+// its worker - never kills another caller's search. Where workers are
+// unavailable (tests, very old browsers) the search runs on the main
+// thread in a macrotask.
 
 /** Depth for the hint button: enough for library puzzles, never a freeze. */
 export const HINT_SEARCH_DEPTH = 20;
 
-let worker = null;
 let nextId = 1;
 const pending = new Map();
 
-const rejectAll = (reason) => {
-  for (const [, entry] of pending) entry.reject(reason);
-  pending.clear();
-};
-
 const workersSupported = () =>
   typeof Worker !== 'undefined' && typeof URL !== 'undefined' && typeof import.meta.url === 'string';
-
-const getWorker = () => {
-  if (worker) return worker;
-  worker = new Worker(new URL('./whatIf.worker.js', import.meta.url), { type: 'module' });
-  worker.onmessage = (event) => {
-    const { id, step, error } = event.data || {};
-    const entry = pending.get(id);
-    if (!entry) return;
-    pending.delete(id);
-    if (error) entry.reject(new Error(error));
-    else entry.resolve(step ?? null);
-  };
-  worker.onerror = (event) => {
-    const error = new Error(event?.message || 'What-if search failed');
-    rejectAll(error);
-    worker?.terminate();
-    worker = null;
-  };
-  return worker;
-};
 
 // Plain data only: the grid crosses a structured-clone boundary.
 const serializeGrid = (grid) =>
@@ -70,8 +45,10 @@ export function searchWhatIf(grid, depth) {
         try {
           const { findForcingChain, findHypothesis } = await import('./forcingChainEngine');
           if (cancelled) return;
+          pending.delete(id);
           resolve(findForcingChain(grid, depth) || findHypothesis(grid, depth) || null);
         } catch (error) {
+          pending.delete(id);
           reject(error);
         }
       }, 0);
@@ -89,12 +66,31 @@ export function searchWhatIf(grid, depth) {
     };
   }
 
+  let worker = null;
+  const settle = () => {
+    pending.delete(id);
+    worker?.terminate();
+    worker = null;
+  };
   const promise = new Promise((resolve, reject) => {
     pending.set(id, { resolve, reject });
     try {
-      getWorker().postMessage({ id, grid: serializeGrid(grid), depth });
+      worker = new Worker(new URL('./whatIf.worker.js', import.meta.url), { type: 'module' });
+      worker.onmessage = (event) => {
+        const { step, error } = event.data || {};
+        if (!pending.has(id)) return;
+        settle();
+        if (error) reject(new Error(error));
+        else resolve(step ?? null);
+      };
+      worker.onerror = (event) => {
+        if (!pending.has(id)) return;
+        settle();
+        reject(new Error(event?.message || 'What-if search failed'));
+      };
+      worker.postMessage({ id, grid: serializeGrid(grid), depth });
     } catch (error) {
-      pending.delete(id);
+      settle();
       reject(error);
     }
   });
@@ -102,12 +98,10 @@ export function searchWhatIf(grid, depth) {
   return {
     promise,
     cancel: () => {
-      if (!pending.has(id)) return;
-      // Terminating is the only way to interrupt a running search; every
-      // other pending request dies with it and is told so.
-      rejectAll({ cancelled: true });
-      worker?.terminate();
-      worker = null;
+      const entry = pending.get(id);
+      if (!entry) return;
+      settle();
+      entry.reject({ cancelled: true });
     },
   };
 }

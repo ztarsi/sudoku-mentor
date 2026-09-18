@@ -29,7 +29,9 @@ function Cell({
   currentStep,
   xDigit,
   zDigit,
-  cellSize,         // NEW: passed from SudokuGrid on mobile; undefined on desktop
+  cellSize,         // set by SudokuGrid on narrow layouts; undefined on desktop
+  tabbable = false, // exactly one cell is in the Tab order: the selected one, or R1C1
+  touchInput = false, // coarse pointer: the whole cell is one tap target
   rejected = null,  // { digit, id } while this cell's last entry is being refused
   onTouchStart,
   onTouchEnd,
@@ -65,14 +67,13 @@ function Cell({
   const hasGhostConflict = ghostValue && value && value !== ghostValue;
 
   let bgColor = colors?.cellBg || DEFAULT_COLORS.cellBg;
-  let textColor = isFixed ? 'text-slate-100' : 'text-blue-400';
   let useCustomBg = false;
   let borderStyle = '';
 
   if (hasGhostConflict) {
-    bgColor = 'bg-red-900/60'; textColor = 'text-red-400';
+    bgColor = 'bg-red-900/60';
   } else if (hasError) {
-    bgColor = 'bg-red-900/40'; textColor = 'text-red-400';
+    bgColor = 'bg-red-900/40';
   } else if (alsSet) {
     bgColor = alsSet === 1 ? 'bg-blue-600/40' : 'bg-indigo-600/40';
     borderStyle = alsSet === 1 ? 'ring-2 ring-blue-400 ring-inset' : 'ring-2 ring-indigo-400 ring-inset';
@@ -99,7 +100,6 @@ function Cell({
   }
 
   const focusDigitColor = colors?.focusDigit || DEFAULT_COLORS.focusDigit;
-  const candidateColor = colors?.candidate || DEFAULT_COLORS.candidate;
   const cellNumberColor = colors?.cellNumber || DEFAULT_COLORS.cellNumber;
   const gridLineColor = colors?.gridLines || DEFAULT_COLORS.gridLines;
 
@@ -119,7 +119,7 @@ function Cell({
         id={cellId}
         role="button"
         aria-label={ariaLabel}
-        tabIndex={isSelected ? 0 : -1}
+        tabIndex={tabbable ? 0 : -1}
         className={`
           relative w-full h-full flex items-center justify-center cursor-pointer overflow-hidden
           ${!useCustomBg ? bgColor : ''} ${borderClasses}
@@ -188,7 +188,7 @@ function Cell({
           // set) the whole cell is one touch target: the page's digit-first
           // model decides what a tap means, never the 13px slot under it.
           <div
-            className={`grid grid-cols-3 gap-0 absolute inset-0 ${cellSize ? 'pointer-events-none' : ''}`}
+            className={`grid grid-cols-3 gap-0 absolute inset-0 ${touchInput ? 'pointer-events-none' : ''}`}
             aria-hidden="true"
           >
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => {
