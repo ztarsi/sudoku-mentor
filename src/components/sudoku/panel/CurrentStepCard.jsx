@@ -2,20 +2,24 @@ import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Lightbulb, Eye, Sparkles, Check } from 'lucide-react';
 import { LEVEL_COLORS, TECHNIQUE_INFO } from '../techniqueCatalog';
-import { explainStep, readExplainLevel, writeExplainLevel } from '../explainStep';
+import { explainStep, readExplainLevel, writeExplainLevel, CELL_LEGEND } from '../explainStep';
 
 const cellRef = (index) => `R${Math.floor(index / 9) + 1}C${(index % 9) + 1}`;
 
-/** Simple / Detailed switch for the explanation text. */
+/**
+ * Beginner / Expert switch for the explanation text. The selected option is
+ * filled blue with a check mark so it cannot be mistaken for the inactive
+ * one.
+ */
 const LevelToggle = ({ level, onChange }) => (
   <div
     role="radiogroup"
     aria-label="Explanation level"
-    className="inline-flex rounded-lg bg-slate-800 p-0.5 text-xs font-medium"
+    className="inline-flex rounded-lg bg-slate-800 border border-slate-700 p-0.5 text-xs font-medium"
   >
     {[
-      { id: 'simple', label: 'Simple' },
-      { id: 'detailed', label: 'Detailed' },
+      { id: 'simple', label: 'Beginner' },
+      { id: 'detailed', label: 'Expert' },
     ].map((opt) => {
       const active = level === opt.id;
       return (
@@ -24,10 +28,11 @@ const LevelToggle = ({ level, onChange }) => (
           role="radio"
           aria-checked={active}
           onClick={() => onChange(opt.id)}
-          className={`px-2.5 py-1 rounded-md transition-colors ${
-            active ? 'bg-slate-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
+          className={`flex items-center gap-1 px-2.5 py-1 rounded-md transition-colors ${
+            active ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
           }`}
         >
+          {active && <Check className="w-3 h-3" aria-hidden="true" />}
           {opt.label}
         </button>
       );
@@ -91,6 +96,7 @@ const Explanation = ({ explanation }) => {
         </div>
       ))}
       {extra && <p className="text-xs text-slate-500 px-1">{extra}</p>}
+      <p className="text-xs text-slate-500 px-1">{CELL_LEGEND}</p>
     </div>
   );
 };
