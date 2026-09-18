@@ -20,7 +20,7 @@ export default function DigitFilter({ focusedDigit, onDigitClick, grid }) {
     >
       <div className="flex items-center justify-between mb-2 sm:mb-3">
         <span className="text-sm sm:text-base font-medium text-slate-300">Focus Mode</span>
-        <span className="hidden sm:inline text-sm text-slate-500">Press Ctrl + 1-9 or click</span>
+        <span className="hidden sm:inline text-sm text-slate-500">Click, or press 1-9 with no cell selected</span>
       </div>
 
       <div className="flex justify-between sm:justify-center gap-1 sm:gap-2">

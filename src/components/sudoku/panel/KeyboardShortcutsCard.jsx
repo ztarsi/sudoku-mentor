@@ -1,20 +1,9 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Info, ChevronDown, ChevronUp } from 'lucide-react';
+import { SHORTCUT_REFERENCE } from '../keyboardShortcuts';
 
-const SHORTCUTS = [
-  { label: 'Navigate cells', keys: 'Arrow Keys' },
-  { label: 'Enter number', keys: '1-9' },
-  { label: 'Toggle candidate', keys: 'Shift + 1-9' },
-  { label: 'Focus digit', keys: 'Ctrl/Cmd + 1-9' },
-  { label: 'Hint', keys: 'H' },
-  { label: 'Apply step', keys: 'A' },
-  { label: 'Undo', keys: 'Z' },
-  { label: 'Redo', keys: 'Shift + Z' },
-  { label: 'Clear cell', keys: 'Delete / Backspace' },
-  { label: 'Clear grid', keys: 'C' },
-  { label: 'Clear focus', keys: 'Esc' },
-];
+const SHORTCUTS = SHORTCUT_REFERENCE;
 
 /** Collapsible keyboard-shortcut reference. */
 export default function KeyboardShortcutsCard({ onShowInfo }) {
@@ -67,9 +56,9 @@ export default function KeyboardShortcutsCard({ onShowInfo }) {
           >
             <div className="px-5 pb-5 space-y-2 text-base border-t border-slate-800">
               {SHORTCUTS.map(({ label, keys }, idx) => (
-                <div key={label} className={`flex justify-between ${idx === 0 ? 'pt-3' : ''}`}>
+                <div key={label} className={`flex justify-between items-center gap-3 ${idx === 0 ? 'pt-3' : ''}`}>
                   <span className="text-slate-300">{label}</span>
-                  <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm">{keys}</span>
+                  <span className="font-mono bg-slate-700 px-2 py-1 rounded text-sm text-right">{keys}</span>
                 </div>
               ))}
             </div>
