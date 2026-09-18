@@ -283,7 +283,7 @@ export const findALSXZ = (grid, focusedDigit, returnAll = false) => {
                 als2,
                 xDigit: x,
                 zDigit: z,
-                explanation: `🎯 The Two-House Trap (ALS-XZ)\n\nLook at the two highlighted groups of cells in ${als1.unitName} and ${als2.unitName}. Each is "Almost Locked"—it has one more candidate than it has cells.\n\n🔗 The Bridge: These groups are linked by digit ${x}. Because of how they see each other, if ${als1.unitName} doesn't contain ${x}, ${als2.unitName} is forced to take it.\n\n⚡ The Result: This "Bridge" forces digit ${z} to stay inside these two groups. Since one of them must claim ${z}, any cell outside that sees all instances of ${z} in both sets can safely have ${z} eliminated.`
+                explanation: `ALS-XZ on digits ${x} (restricted common) and ${z} (eliminated). ALS A = {${als1.cells.map(c => `R${getRow(c)+1}C${getCol(c)+1}`).join(', ')}} in ${als1.unitName} with candidates {${[...als1.candidates].sort().join(', ')}}; ALS B = {${als2.cells.map(c => `R${getRow(c)+1}C${getCol(c)+1}`).join(', ')}} in ${als2.unitName} with candidates {${[...als2.candidates].sort().join(', ')}}. Every ${x} in A sees every ${x} in B, so at most one ALS contains ${x}; the other is then locked and must contain ${z}. Any ${z} that sees all ${z} candidates in both sets can be eliminated.`
               };
               
               if (returnAll) {
@@ -535,7 +535,7 @@ export const findFinnedXWing = (grid, focusedDigit, returnAll = false) => {
                 finCells: fins,
                 strongLinks: xwingLinks,
                 eliminations,
-                explanation: `Finned X-Wing on ${digit} in Rows ${r1.row+1} and ${r2.row+1}. Fin cells create restricted eliminations.`
+                explanation: `Finned X-Wing on digit ${digit} in rows ${r1.row+1} and ${r2.row+1}, with fin ${fins.map(c => `R${getRow(c)+1}C${getCol(c)+1}`).join(', ')}. If the fin is false the pattern is a plain X-Wing; if the fin is true it eliminates its own peers. Only ${digit} candidates that see the fin and lie in the X-Wing columns are eliminated in both cases.`
               };
               
               if (returnAll) {

@@ -1,9 +1,99 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Lightbulb, ChevronRight } from 'lucide-react';
+import { Lightbulb, Eye, Sparkles, Check } from 'lucide-react';
 import { LEVEL_COLORS, TECHNIQUE_INFO } from '../techniqueCatalog';
+import { explainStep, readExplainLevel, writeExplainLevel } from '../explainStep';
 
 const cellRef = (index) => `R${Math.floor(index / 9) + 1}C${(index % 9) + 1}`;
+
+/** Simple / Detailed switch for the explanation text. */
+const LevelToggle = ({ level, onChange }) => (
+  <div
+    role="radiogroup"
+    aria-label="Explanation level"
+    className="inline-flex rounded-lg bg-slate-800 p-0.5 text-xs font-medium"
+  >
+    {[
+      { id: 'simple', label: 'Simple' },
+      { id: 'detailed', label: 'Detailed' },
+    ].map((opt) => {
+      const active = level === opt.id;
+      return (
+        <button
+          key={opt.id}
+          role="radio"
+          aria-checked={active}
+          onClick={() => onChange(opt.id)}
+          className={`px-2.5 py-1 rounded-md transition-colors ${
+            active ? 'bg-slate-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          {opt.label}
+        </button>
+      );
+    })}
+  </div>
+);
+
+/**
+ * The explanation body. Simple mode is chunked into "Look", "Why", and
+ * "Do" so a beginner can follow it one idea at a time; detailed mode shows
+ * the engine's own text with a glossary for its terms.
+ */
+const Explanation = ({ explanation }) => {
+  if (!explanation) return null;
+  const { level, look, why, extra, action, terms } = explanation;
+
+  if (level === 'detailed') {
+    return (
+      <div className="space-y-3">
+        <div className="bg-slate-800 rounded-xl p-4">
+          <p className="text-slate-200 leading-relaxed text-base whitespace-pre-line">{why}</p>
+        </div>
+        {action && (
+          <div className="flex items-start gap-2 text-emerald-300 text-sm">
+            <Check className="w-4 h-4 mt-0.5 shrink-0" />
+            <p>{action}</p>
+          </div>
+        )}
+        {terms.length > 0 && (
+          <details className="text-sm text-slate-400">
+            <summary className="cursor-pointer hover:text-slate-200">Terms used here</summary>
+            <dl className="mt-2 space-y-1.5">
+              {terms.map(({ term, meaning }) => (
+                <div key={term}>
+                  <dt className="inline font-medium text-slate-300">{term}: </dt>
+                  <dd className="inline">{meaning}</dd>
+                </div>
+              ))}
+            </dl>
+          </details>
+        )}
+      </div>
+    );
+  }
+
+  const blocks = [
+    look && { key: 'look', icon: Eye, label: 'Look', text: look, tone: 'text-blue-300' },
+    why && { key: 'why', icon: Sparkles, label: 'Why it works', text: why, tone: 'text-violet-300' },
+    action && { key: 'do', icon: Check, label: 'What to do', text: action, tone: 'text-emerald-300' },
+  ].filter(Boolean);
+
+  return (
+    <div className="space-y-2">
+      {blocks.map(({ key, icon: Icon, label, text, tone }) => (
+        <div key={key} className="bg-slate-800 rounded-xl p-4 flex gap-3">
+          <Icon className={`w-5 h-5 mt-0.5 shrink-0 ${tone}`} aria-hidden="true" />
+          <div className="min-w-0">
+            <p className={`text-xs font-semibold uppercase tracking-wide ${tone} mb-1`}>{label}</p>
+            <p className="text-slate-200 leading-relaxed text-base">{text}</p>
+          </div>
+        </div>
+      ))}
+      {extra && <p className="text-xs text-slate-500 px-1">{extra}</p>}
+    </div>
+  );
+};
 
 const ChainTrace = ({
   currentStep,
@@ -132,6 +222,7 @@ const ChainTrace = ({
  */
 export default function CurrentStepCard({
   currentStep,
+  grid = null,
   focusedDigit,
   noAssistMode,
   onNextStep,
@@ -142,6 +233,15 @@ export default function CurrentStepCard({
   onToggleChainPlayback,
 }) {
   const techniqueInfo = currentStep ? TECHNIQUE_INFO[currentStep.technique] : null;
+  const [explainLevel, setExplainLevel] = useState(readExplainLevel);
+  const changeLevel = (level) => {
+    setExplainLevel(level);
+    writeExplainLevel(level);
+  };
+  const explanation = useMemo(
+    () => (currentStep ? explainStep(currentStep, grid, explainLevel) : null),
+    [currentStep, grid, explainLevel]
+  );
 
   return (
     <motion.div
@@ -179,9 +279,10 @@ export default function CurrentStepCard({
             className="p-5 space-y-4"
           >
             {/* Technique Name */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 onClick={() => onSelectTechnique(currentStep.technique)}
+                title="Learn how this technique works"
                 className={`
                   px-3 py-1 rounded-full text-base font-medium
                   bg-gradient-to-r ${LEVEL_COLORS[techniqueInfo?.color || 'emerald']} text-white
@@ -195,6 +296,9 @@ export default function CurrentStepCard({
                   Digit: {currentStep.digit}
                 </span>
               )}
+              <div className="ml-auto">
+                <LevelToggle level={explainLevel} onChange={changeLevel} />
+              </div>
             </div>
 
             {currentStep.technique === 'Hypothesis Mode' && (
@@ -205,12 +309,8 @@ export default function CurrentStepCard({
               </p>
             )}
 
-            {/* Explanation */}
-            <div className="bg-slate-800 rounded-xl p-4">
-              <p className="text-slate-200 leading-relaxed text-base whitespace-pre-line">
-                {currentStep.explanation}
-              </p>
-            </div>
+            {/* Explanation, at the reader's chosen level */}
+            <Explanation explanation={explanation} />
 
             {/* Step-by-step breakdown for Deep Forcing Chains and Hypothesis Mode */}
             {(currentStep.technique === 'Deep Forcing Chain' || currentStep.technique === 'Hypothesis Mode') && currentStep.chain && (
@@ -245,14 +345,6 @@ export default function CurrentStepCard({
               </div>
             )}
 
-            {currentStep.placement && (
-              <div className="flex items-center gap-2 text-emerald-400">
-                <ChevronRight className="w-5 h-5" />
-                <span className="text-base font-medium">
-                  Place {currentStep.placement.digit} at {cellRef(currentStep.placement.cell)}
-                </span>
-              </div>
-            )}
           </motion.div>
         ) : (
           <motion.div

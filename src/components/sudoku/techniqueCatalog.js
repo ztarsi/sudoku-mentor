@@ -171,95 +171,119 @@ export const TECHNIQUE_TIERS = [
   },
 ];
 
+// Teaching content for the "learn this technique" dialog.
+//
+// `plain` is written for someone who has never read a Sudoku guide: everyday
+// words, no notation, one idea per sentence. `description`, `strategy` and
+// `example` use the standard vocabulary an experienced solver expects.
+// Cell notation in the advanced text: R3C4 = row 3, column 4.
 export const TECHNIQUE_DETAILS = {
   'Naked Single': {
-    description: 'When a cell has only one possible candidate remaining after eliminating all numbers that appear in its row, column, and 3x3 box.',
-    example: 'If a cell can only be a 5 (all other digits 1-9 are already present in its row, column, or box), then it must be a 5.',
-    strategy: '1. Look at the cell\n2. Check which numbers appear in its row, column, and box\n3. If only one number is missing, place it'
+    plain: 'A cell where only one number can still go. Every other number from 1 to 9 is already used in its row, its column, or its 3x3 box. Write that number in.',
+    description: 'A cell has exactly one candidate left after removing every digit present in its row, column, and box.',
+    example: 'A cell whose row, column, and box together already contain 1, 2, 3, 4, 6, 7, 8, and 9 must be 5.',
+    strategy: '1. Pick an empty cell\n2. Cross off every digit that appears in its row, column, or box\n3. If exactly one digit is left, place it'
   },
   'Hidden Single': {
-    description: 'When a candidate appears only once in a row, column, or box, even if that cell has other candidates.',
-    example: 'If the digit 7 can only go in one cell within a row (even if that cell also has candidates 2, 4, 7), then it must be 7.',
-    strategy: '1. Pick a digit to focus on\n2. Look at a row, column, or box\n3. If the digit can only fit in one cell, place it there'
+    plain: 'A number that has only one possible home in a row, column, or box. The cell might have other pencil marks too, but since the number has nowhere else to go, it must go there.',
+    description: 'Within one unit, a digit is a candidate in exactly one cell, even if that cell has other candidates.',
+    example: 'In row 4 the digit 7 fits only in R4C6 (its other cells all see a 7). R4C6 = 7, even if it also had candidates 2 and 4.',
+    strategy: '1. Pick a digit\n2. Scan one row, column, or box for where it can still go\n3. If there is only one spot, place it there'
   },
   'Pointing Pair': {
-    description: 'When a candidate in a box appears in only two cells, and those cells are aligned in the same row or column, you can eliminate that candidate from other cells in that row/column outside the box.',
-    example: 'If 3s in a box only appear in two cells that share a row, eliminate all other 3s from that row outside the box.',
-    strategy: '1. Look at candidates within a box\n2. Find digits that appear in only 2-3 cells\n3. If aligned in a row/column, eliminate from that row/column outside the box'
+    plain: 'Inside one 3x3 box, a number can only go in two cells, and those two cells happen to be in the same row (or column). The box must get that number from one of them. So the number cannot appear anywhere else in that row (or column), and you can erase it from the other cells of that row outside the box.',
+    description: 'All candidates for a digit within a box lie in one row or column. That digit is then excluded from the rest of that row or column outside the box.',
+    example: 'In box 1, the only 3s are R2C1 and R2C3. Row 2 gets its 3 from box 1, so 3 is removed from R2C4 through R2C9.',
+    strategy: '1. Pick a box and a digit\n2. Find the cells in the box where the digit can go\n3. If they all share a row or column, erase the digit from that line outside the box'
   },
   'Pointing Triple': {
-    description: 'Similar to Pointing Pair, but with three cells in the same row or column within a box.',
-    example: 'If 6s only appear in three aligned cells within a box, eliminate 6s from the rest of that row/column.',
-    strategy: 'Same as Pointing Pair, but look for three aligned cells instead of two'
+    plain: 'The same idea as a Pointing Pair, with three cells instead of two: inside a box, a number can only go in three cells that all sit in one row or column. Erase the number from the rest of that row or column.',
+    description: 'A Pointing Pair with three aligned candidate cells in the box.',
+    example: 'In box 5, the only 6s are R4C4, R4C5, and R4C6. Remove 6 from the rest of row 4.',
+    strategy: 'As for Pointing Pair, with three aligned cells'
   },
   'Claiming': {
-    description: 'When all instances of a candidate in a row or column are confined to a single box, you can eliminate that candidate from other cells in that box.',
-    example: 'If all 8s in a row appear only within one box, eliminate 8s from other cells in that box.',
-    strategy: '1. Look at a row or column\n2. Find a digit whose candidates all fall in one box\n3. Eliminate that digit from other cells in the box'
+    plain: 'Look along one row (or column). A number can only go in a few cells there, and all of them sit inside the same 3x3 box. The row must get its number from one of those cells, so the box gets its number from the row. Erase the number from every other cell in that box.',
+    description: 'All candidates for a digit within a row or column lie inside one box. That digit is excluded from the rest of the box. Also called Box/Line Reduction.',
+    example: 'In row 7 the only 8s are R7C7 and R7C8, both in box 9. Remove 8 from the other cells of box 9.',
+    strategy: '1. Pick a row or column and a digit\n2. Find where the digit can go along that line\n3. If every spot is in one box, erase the digit from the rest of that box'
   },
   'Naked Pair': {
-    description: 'When two cells in a unit (row, column, or box) contain exactly the same two candidates, those candidates can be eliminated from all other cells in that unit.',
-    example: 'If two cells both have only {2,5}, eliminate 2 and 5 from all other cells in their row/column/box.',
-    strategy: '1. Find two cells with identical pair of candidates\n2. Ensure they are in the same unit\n3. Eliminate those numbers from other cells in the unit'
+    plain: 'Two cells in the same row, column, or box that have exactly the same two pencil marks and nothing else. Between them they must use up both numbers. So those two numbers cannot appear anywhere else in that row, column, or box.',
+    description: 'Two cells in a unit hold the same two candidates and no others. Those digits are removed from every other cell in the unit.',
+    example: 'R3C2 and R3C8 both hold only {2, 5}. Remove 2 and 5 from the rest of row 3.',
+    strategy: '1. Look for two cells in one unit with the same two pencil marks\n2. Erase those two numbers from every other cell in that unit'
   },
   'Hidden Pair': {
-    description: 'When two candidates appear only in the same two cells within a unit, all other candidates can be removed from those two cells.',
-    example: 'If 3 and 7 only appear in cells A and B within a row, remove all other candidates from cells A and B.',
-    strategy: '1. Look for two digits that appear in only two cells in a unit\n2. Remove all other candidates from those cells'
+    plain: 'Two numbers that can only go in the same two cells of a row, column, or box. Those two cells are reserved for those two numbers, so any other pencil marks in them can be erased.',
+    description: 'Two digits are candidates in exactly the same two cells of a unit. All other candidates are removed from those two cells.',
+    example: 'In box 4, the digits 3 and 7 fit only in R4C1 and R6C2. Those cells become {3, 7}.',
+    strategy: '1. Pick a unit\n2. Find two digits that each fit in only two cells, the same two cells\n3. Erase every other pencil mark from those two cells'
   },
   'Naked Triple': {
-    description: 'When three cells in a unit collectively contain only three candidates distributed among them, eliminate those candidates from all other cells in that unit.',
-    example: 'Three cells contain {1,4}, {1,9}, {4,9}. Eliminate 1, 4, and 9 from other cells in that unit.',
-    strategy: '1. Find three cells that share only three candidates total\n2. Eliminate those candidates from other cells in the unit'
+    plain: 'Three cells in the same row, column, or box whose pencil marks, put together, are only three different numbers. (Each cell can have two or three of them.) Those three numbers must fill those three cells, so erase them from the rest of that row, column, or box.',
+    description: 'Three cells in a unit whose combined candidates are exactly three digits. Those digits are removed from the other cells of the unit.',
+    example: 'Three cells in column 5 hold {1, 4}, {1, 9}, and {4, 9}. Remove 1, 4, and 9 from the rest of column 5.',
+    strategy: '1. Find three cells in one unit\n2. Check that their pencil marks together make only three numbers\n3. Erase those numbers from every other cell in the unit'
   },
   'X-Wing': {
-    description: 'When a candidate appears in only two cells in each of two rows (or columns), and these cells align in the same columns (or rows), forming a rectangle, you can eliminate that candidate from other cells in those columns (or rows).',
-    example: 'If 5 appears only in columns 2 and 7 in both rows 1 and 8, eliminate all other 5s from columns 2 and 7.',
-    strategy: '1. Find a candidate in exactly two positions in a row\n2. Find another row where it appears in the same two columns\n3. Eliminate from those columns in other rows'
+    plain: 'Pick a number. Find two rows where that number can only go in the same two columns, making the four corners of a rectangle. Each of those rows needs the number once, so the two columns will each get one from these rows. That uses up both columns, so erase the number from every other cell in those two columns. (It also works with rows and columns swapped.)',
+    description: 'A digit has exactly two candidate cells in each of two rows, in the same two columns. The digit is removed from those columns outside the two rows. Symmetrically for columns.',
+    example: 'The 5s in rows 1 and 8 are confined to columns 2 and 7. Remove 5 from columns 2 and 7 in every other row.',
+    strategy: '1. Pick a digit\n2. Find a row where it has exactly two spots\n3. Find a second row with its two spots in the same columns\n4. Erase the digit from those columns in all other rows'
   },
   'Swordfish': {
-    description: 'An extension of X-Wing to three rows and three columns. When a candidate appears 2-3 times in each of three rows, confined to the same three columns, eliminate from those columns in other rows.',
-    example: 'Similar to X-Wing but with three rows and three columns forming the pattern.',
-    strategy: 'Like X-Wing, but look for the pattern across three rows and three columns'
+    plain: 'An X-Wing with three rows and three columns instead of two. A number is limited to the same three columns in three different rows (two or three spots in each). Those three columns get all their copies of the number from these rows, so erase it from the rest of those columns.',
+    description: 'A digit appears in at most three cells in each of three rows, all within the same three columns. The digit is removed from those columns outside the three rows.',
+    example: 'The 4s in rows 2, 5, and 9 all fall in columns 1, 4, and 8. Remove 4 from those columns in the other rows.',
+    strategy: '1. Pick a digit\n2. Find three rows whose candidate cells fall in only three columns\n3. Erase the digit from those columns in the other rows'
   },
   'XY-Wing': {
-    description: 'Three cells form a chain: pivot cell with candidates {X,Y}, one wing with {X,Z}, another wing with {Y,Z}. Any cell that sees both wings cannot be Z.',
-    example: 'Pivot: {2,5}, Wing 1: {2,8}, Wing 2: {5,8}. Eliminate 8 from cells seeing both wings.',
-    strategy: '1. Find a bi-value cell (pivot) with {X,Y}\n2. Find two wings: {X,Z} and {Y,Z}\n3. Eliminate Z from cells seeing both wings'
+    plain: 'Three cells with two pencil marks each, arranged like a hinge. The middle cell holds numbers A and B. One outer cell holds A and C, the other holds B and C. Whichever number the middle cell takes, it pushes one outer cell to C. So C is guaranteed to land in one of the outer cells, and any cell that shares a row, column, or box with both outer cells can never be C.',
+    description: 'A pivot with candidates {X, Y} sees two wings, {X, Z} and {Y, Z}. Either value of the pivot forces a wing to be Z, so Z is removed from every cell that sees both wings.',
+    example: 'Pivot R5C5 = {2, 5}, wings R5C1 = {2, 8} and R1C5 = {5, 8}. Remove 8 from R1C1, which sees both wings.',
+    strategy: '1. Find a cell with two pencil marks (the pivot)\n2. Find two cells it shares a unit with that each share one of its marks and share a third mark with each other\n3. Erase that third mark from cells that see both wings'
   },
   'X-Cycle': {
-    description: 'Chain-based coloring technique using strong links (conjugate pairs). Creates two color groups where if one is true, the other is false.',
-    example: 'Build a chain where positions alternate colors. Any candidate seeing both color groups can be eliminated.',
-    strategy: '1. Find conjugate pairs (digit appears exactly twice in a unit)\n2. Build a chain alternating colors\n3. Eliminate candidates seeing both colors'
+    plain: 'Pick a number and find places where it has exactly two possible cells in a row, column, or box. Those pairs link into a chain: if one end is not the number, the other end must be. Colour the chain alternately, like a checkerboard. Exactly one colour is the true set. If a cell sees both colours it can never be the number. And if two cells of one colour clash with each other, that whole colour is wrong.',
+    description: 'Simple colouring: strong links (conjugate pairs) on one digit are chained and 2-coloured. A candidate that sees both colours is eliminated; a colour whose cells see each other is entirely false.',
+    example: 'Colour the 6s along a chain. R2C4 sees a blue 6 and a green 6, so R2C4 cannot be 6.',
+    strategy: '1. Pick a digit\n2. Mark units where it has exactly two spots and link them\n3. Colour the chain alternately\n4. Erase the digit from cells that see both colours'
   },
   'Finned X-Wing': {
-    description: 'An X-Wing pattern with extra "fin" candidates that break the perfect rectangle, but still allow limited eliminations.',
-    example: 'Standard X-Wing in R1,R5 / C2,C8 with a fin at R1C4. Only cells seeing the fin can be eliminated.',
-    strategy: '1. Find an X-Wing pattern with 1-2 extra candidates\n2. Eliminations only apply to cells that see all fins'
+    plain: 'Almost an X-Wing: a number is limited to two columns in two rows, except for one or two stray extra spots (the "fin") that spoil the rectangle. Either the fin is the number, or it is not. If it is not, the X-Wing works as usual. If it is, then cells near the fin cannot be the number. Cells that are ruled out both ways can be erased.',
+    description: 'An X-Wing with one or two extra candidates (the fin) in one of the base rows. Eliminations survive only in cells that see the fin and lie in the cover columns.',
+    example: 'An X-Wing on 3 in rows 1 and 5, columns 2 and 8, with a fin at R1C3. Remove 3 from R2C2 and R3C2, which see the fin.',
+    strategy: '1. Find a near-X-Wing with one or two extra candidates in a base row\n2. Keep only the eliminations that see every fin cell'
   },
   'ALS-XZ': {
-    description: 'Almost Locked Sets: two groups of N cells with N+1 candidates. They share a restricted common digit (X) and an eliminating digit (Z).',
-    example: 'ALS1={2,3,5} in 2 cells, ALS2={3,5,7} in 2 cells. If X=3, Z=5 can be eliminated from cells seeing both.',
-    strategy: '1. Find two ALS in different units\n2. Identify restricted common (X) and eliminating digit (Z)\n3. Eliminate Z from cells seeing both ALS'
+    plain: 'Find two small groups of cells, each in its own row, column, or box. In each group, the cells together hold exactly one more different pencil mark than there are cells. Such a group is "one number short of locked": remove any one of its numbers and the rest are forced. The two groups share a number, X, but every X in one group clashes with every X in the other, so only one group can take X. The group that loses X becomes locked and must contain another shared number, Z. So Z is certain to land in one of the two groups, and any cell that clashes with every Z in both groups can never be Z.',
+    description: 'Two Almost Locked Sets (N cells, N+1 candidates) share a restricted common digit X: every X in one set sees every X in the other. Whichever set loses X is locked and must contain Z, so Z is eliminated from cells that see all Z candidates in both sets.',
+    example: 'ALS A = {2, 3, 5} over two cells in row 5; ALS B = {3, 5, 7} over two cells in column 1. With X = 3, any 5 that sees all the 5s in both sets is removed.',
+    strategy: '1. Find two groups of N cells with N+1 candidates, in different units\n2. Find a shared digit X whose cells in one group all see its cells in the other\n3. Pick another shared digit Z and erase it from cells that see every Z in both groups'
   },
   'Unique Rectangle Type 1': {
-    description: 'Prevents deadly patterns where four cells would have only two possible arrangements, violating uniqueness.',
-    example: 'Three corners are {1,2}, fourth corner is {1,2,6}. The fourth corner cannot be 1 or 2 (that would allow two solutions), so remove 1 and 2 from it.',
-    strategy: '1. Find 4 cells forming a rectangle over exactly two boxes\n2. Three corners hold the same bare pair, one has extras\n3. Remove the pair digits from the corner with extras'
+    plain: 'Four cells at the corners of a rectangle, spread across two 3x3 boxes. Three corners hold exactly the same two pencil marks. If the fourth corner could also be one of those two numbers, the puzzle would have two answers (you could swap the numbers around the rectangle). Real puzzles have one answer, so the fourth corner must be something else. Erase those two numbers from it.',
+    description: 'Four cells in two rows, two columns, and two boxes where three corners are the same bare pair. The fourth corner cannot take either pair digit, or the puzzle would have two solutions.',
+    example: 'R2C3, R2C7, and R6C3 are {1, 2}; R6C7 is {1, 2, 6}. Remove 1 and 2 from R6C7, leaving 6.',
+    strategy: '1. Find a rectangle of four cells spanning exactly two boxes\n2. Check that three corners hold the same two pencil marks only\n3. Erase those two marks from the fourth corner'
   },
   'BUG+1': {
-    description: 'Bivalue Universal Grave: all cells except one have exactly 2 candidates, each digit appears exactly twice per unit.',
-    example: 'All cells bi-value except R5C5={4,7,9}. If 7 appears 3 times in row/col/box, R5C5 must be 7.',
-    strategy: '1. Check if all cells are bi-value except one\n2. Find the digit appearing 3 times (not 2) in units\n3. Place that digit'
+    plain: 'Every empty cell on the board has exactly two pencil marks, except one cell that has three. If that cell took one of its "normal" two numbers, the whole board would become a pattern with two answers. So it must take the odd one out: the number that shows up three times in its row, column, or box.',
+    description: 'Bivalue Universal Grave plus one: all empty cells are bi-value except one tri-value cell. That cell must take the digit that appears three times in one of its units, or the grid would have two solutions.',
+    example: 'Every cell is bi-value except R5C5 = {4, 7, 9}. 7 appears three times in row 5, so R5C5 = 7.',
+    strategy: '1. Check that all empty cells but one have exactly two pencil marks\n2. In the odd cell, find the mark that appears three times in its row, column, or box\n3. Place it'
   },
   'Cell Forcing Chain': {
-    description: 'A rigorous logical technique where ALL possible values of a cell lead to the same conclusion. This is proof by convergence, not trial-and-error.',
-    example: 'Cell R3C4 has candidates {2,7}. Path A (if 2): forces R8C6=5. Path B (if 7): also forces R8C6=5. Therefore R8C6 must be 5!',
-    strategy: '1. Find a bi-value or tri-value cell\n2. Explore each candidate path (up to 10 steps deep)\n3. Look for convergence: common placements or eliminations\n4. The convergence is logically proven!'
+    plain: 'Take a cell with just two (or three) pencil marks. Try each one in turn and follow the forced moves. If every option ends up putting the same number in the same cell, that number is certain, no matter which option was right. This is real logic, because every possibility was checked.',
+    description: 'All candidates of one cell are propagated independently. Any placement or elimination common to every branch is proven, regardless of which candidate is true.',
+    example: 'R3C4 = {2, 7}. If 2, then R8C6 = 5. If 7, then also R8C6 = 5. So R8C6 = 5.',
+    strategy: '1. Pick a cell with two or three pencil marks\n2. Follow the consequences of each mark\n3. Keep any result that every branch agrees on'
   },
   'Hypothesis Mode': {
-    description: 'Contradiction-based search (not pure logic). Assumes a value and checks if it leads to an impossible state. Use only when all logical techniques fail.',
-    example: 'Assume R1C1=3. This forces a chain of placements that leaves R5C5 with no valid candidates. Therefore R1C1 cannot be 3.',
-    strategy: '1. Select a bi-value cell\n2. Assume one value and propagate\n3. If contradiction found, the other value must be correct\n4. This is trial-and-error, not deductive logic'
+    plain: 'A "what if" test. Suppose a cell is a certain number, then follow the forced moves. If that leads to a dead end (a cell with no possible number), the supposition was wrong, so the cell is not that number. This is closer to trial and error than to a pattern, and the mentor uses it only when nothing else applies.',
+    description: 'Contradiction search: assume a candidate, propagate, and if some cell is left with no candidates, eliminate the assumption. Not a pattern-based deduction; used only when every named technique fails.',
+    example: 'Assume R1C1 = 3. Propagation empties R5C5 of candidates, so R1C1 is not 3.',
+    strategy: '1. Pick a cell with few pencil marks\n2. Assume one of them and follow the forced moves\n3. If you hit a dead end, erase that mark'
   }
 };

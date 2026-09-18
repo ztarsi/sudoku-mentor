@@ -255,6 +255,7 @@ export default function LogicPanel({
 
       <CurrentStepCard
         currentStep={currentStep}
+        grid={grid}
         focusedDigit={focusedDigit}
         noAssistMode={noAssistMode}
         onNextStep={onNextStep}
