@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Base44__execute_api",
+      "mcp__Base44__list_api_catalog",
+      "mcp__Base44__describe_api",
+      "mcp__Base44__list_user_apps",
+      "mcp__Base44__list_entity_schemas",
+      "mcp__Base44__query_entities",
+      "mcp__github"
+    ]
+  }
+}
