@@ -81,15 +81,13 @@ export default function SudokuMentor() {
       const user = playerRef.current?.user;
       if (na && naStart && user && puzzleName && puzzleDifficulty) {
         const noAssistTime = Math.floor((Date.now() - naStart) / 1000);
-        base44.entities.SolveRecord.create({
+        playerRef.current?.saveSolveRecord({
           puzzle_name: puzzleName,
           difficulty: puzzleDifficulty,
           time_seconds: noAssistTime,
           no_assist: true,
           error_count: errorCount,
-        })
-          .then(() => playerRef.current?.refreshBestTime())
-          .catch((err) => console.error('Failed to save solve record:', err));
+        });
       }
     },
   });
@@ -489,7 +487,7 @@ export default function SudokuMentor() {
 
     (async () => {
       try {
-        const entries = await fetchAllPuzzleEntries();
+        const entries = await fetchAllPuzzleEntries(playerRef.current?.user ?? null);
         const entry = pickRandomPuzzleEntry(entries);
         if (entry && !cancelled) {
           handleLoadPuzzle(entry.puzzle, { name: entry.name, difficulty: entry.difficulty });
@@ -830,6 +828,7 @@ export default function SudokuMentor() {
 
       {/* Unified Puzzle Loader Modal */}
       <UnifiedPuzzleLoader
+        user={user}
         isOpen={showPuzzleLoader}
         onClose={() => setShowPuzzleLoader(false)}
         onPuzzleLoaded={handleLoadPuzzle}

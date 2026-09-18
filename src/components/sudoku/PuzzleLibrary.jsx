@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Sparkles, Flame, Zap, Crown, Skull, Brain, Edit2, Check } from 'lucide-react';
-import { base44 } from '@/api/base44Client';
+import { listMyPuzzles, listMyNoAssistRecords, renamePuzzle, deletePuzzle } from '@/api/playerData';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from '@/components/ui/use-toast';
 
 import { PUZZLES } from './puzzles';
 export { PUZZLES };
@@ -16,32 +17,25 @@ const DIFFICULTY_CONFIG = {
   ultimate: { icon: Brain, color: 'violet', label: 'Ultimate' }
 };
 
-export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = false }) {
+export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = false, user = null }) {
   const [selectedDifficulty, setSelectedDifficulty] = useState('easy');
   const [editingPuzzleId, setEditingPuzzleId] = useState(null);
   const [editingName, setEditingName] = useState('');
 
   const queryClient = useQueryClient();
 
-  // Fetch user-added puzzles
+  // The player's own puzzles and clean-solve records (nothing when signed out)
   const { data: userPuzzles = [] } = useQuery({
-    queryKey: ['sudoku-puzzles'],
-    queryFn: () => base44.entities.SudokuPuzzle.list('-created_date'),
+    queryKey: ['sudoku-puzzles', user?.email ?? null],
+    queryFn: () => listMyPuzzles(user),
+    enabled: !!user,
     initialData: []
   });
 
-  // Fetch solve records for the logged-in user
   const { data: solveRecords = [] } = useQuery({
-    queryKey: ['solve-records'],
-    queryFn: async () => {
-      try {
-        const user = await base44.auth.me();
-        if (!user) return [];
-        return await base44.entities.SolveRecord.filter({ no_assist: true });
-      } catch {
-        return [];
-      }
-    },
+    queryKey: ['solve-records', user?.email ?? null],
+    queryFn: () => listMyNoAssistRecords(user),
+    enabled: !!user,
     initialData: []
   });
 
@@ -58,21 +52,27 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
 
   // Update puzzle name mutation
   const updatePuzzleMutation = useMutation({
-    mutationFn: (/** @type {{ id: string, name: string }} */ { id, name }) =>
-      base44.entities.SudokuPuzzle.update(id, { name }),
+    mutationFn: (/** @type {{ record: any, name: string }} */ { record, name }) =>
+      renamePuzzle(user, record, name),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sudoku-puzzles'] });
       setEditingPuzzleId(null);
       setEditingName('');
-    }
+    },
+    onError: (error) => {
+      toast({ title: 'Rename failed', description: String(error?.message || error), variant: 'destructive' });
+    },
   });
 
   // Delete puzzle mutation
   const deletePuzzleMutation = useMutation({
-    mutationFn: (/** @type {string} */ id) => base44.entities.SudokuPuzzle.delete(id),
+    mutationFn: (/** @type {any} */ record) => deletePuzzle(user, record),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sudoku-puzzles'] });
-    }
+    },
+    onError: (error) => {
+      toast({ title: 'Delete failed', description: String(error?.message || error), variant: 'destructive' });
+    },
   });
 
   const config = DIFFICULTY_CONFIG[selectedDifficulty];
@@ -83,7 +83,7 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
     ...PUZZLES[selectedDifficulty],
     ...userPuzzles
       .filter(p => p.difficulty === selectedDifficulty)
-      .map(p => ({ id: p.id, name: p.name, puzzle: p.puzzle, isCustom: true }))
+      .map(p => ({ id: p.id, name: p.name, puzzle: p.puzzle, isCustom: true, record: p }))
   ];
 
   const colorClasses = {
@@ -169,7 +169,7 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
                       autoFocus
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
-                          updatePuzzleMutation.mutate({ id: puzzle.id, name: editingName });
+                          updatePuzzleMutation.mutate({ record: puzzle.record, name: editingName });
                         } else if (e.key === 'Escape') {
                           setEditingPuzzleId(null);
                           setEditingName('');
@@ -179,7 +179,7 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        updatePuzzleMutation.mutate({ id: puzzle.id, name: editingName });
+                        updatePuzzleMutation.mutate({ record: puzzle.record, name: editingName });
                       }}
                       className="p-1 hover:bg-slate-600 rounded"
                     >
@@ -228,7 +228,7 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
                     onClick={(e) => {
                     e.stopPropagation();
                     if (confirm('Delete this puzzle? This cannot be undone.')) {
-                      deletePuzzleMutation.mutate(puzzle.id);
+                      deletePuzzleMutation.mutate(puzzle.record);
                     }
                     }}
                     className="opacity-60 group-hover:opacity-100 p-2 hover:bg-red-900/40 rounded transition-opacity"
