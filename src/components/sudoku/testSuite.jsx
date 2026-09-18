@@ -571,9 +571,11 @@ export const testSuites = {
           grid[9].candidates = [2, 3];
           grid[10].candidates = [3, 4];
 
+          // Every other cell may hold anything: propagation checks hidden
+          // singles, so a unit with no place for some digit is a contradiction.
           for (let i = 0; i < 81; i++) {
             if (grid[i].candidates.length === 0) {
-              grid[i].candidates = [5, 6, 7, 8, 9];
+              grid[i].candidates = [1, 2, 3, 4, 5, 6, 7, 8, 9];
             }
           }
 
@@ -607,7 +609,7 @@ export const testSuites = {
           grid[2].candidates = [1, 3];
 
           for (let i = 3; i < 81; i++) {
-            grid[i].candidates = [4, 5, 6, 7, 8, 9];
+            grid[i].candidates = [1, 2, 3, 4, 5, 6, 7, 8, 9];
           }
 
           const result = findHypothesis(grid, 8);

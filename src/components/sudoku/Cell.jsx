@@ -5,7 +5,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 // the overlay finishes fading before it unmounts.
 const REJECT_FLASH_SECONDS = 0.8;
 
-export default function Cell({
+function Cell({
   cellId,
   cell, 
   isSelected, 
@@ -290,3 +290,6 @@ export default function Cell({
   );
 }
 
+// 81 cells re-render on every keystroke otherwise. With stable per-cell
+// callbacks from SudokuGrid, only the cells whose props changed re-render.
+export default React.memo(Cell);

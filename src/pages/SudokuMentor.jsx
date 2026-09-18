@@ -9,6 +9,7 @@ import CompletionModal from '@/components/sudoku/CompletionModal';
 import MobileDrawer from '@/components/sudoku/MobileDrawer';
 import { resolveShortcut, isTypingTarget } from '@/components/sudoku/keyboardShortcuts';
 import { findNextLogicStep } from '@/components/sudoku/logicEngine';
+import { searchWhatIf, isCancelled, HINT_SEARCH_DEPTH } from '@/components/sudoku/whatIfSearch';
 import {
   buildRemovalMap,
   buildFocusedCandidates,
@@ -159,17 +160,47 @@ export default function SudokuMentor() {
     setHighlightedSteps(steps);
   }, []);
 
+  // What-if search runs in a worker; the page shows a spinner and a
+  // Cancel button meanwhile, and a result for a grid that has since
+  // changed is dropped.
+  const [searchingHint, setSearchingHint] = useState(false);
+  const hintSearchRef = useRef(null);
+  const cancelHintSearch = useCallback(() => {
+    hintSearchRef.current?.cancel();
+    hintSearchRef.current = null;
+    setSearchingHint(false);
+  }, []);
+  useEffect(() => () => hintSearchRef.current?.cancel(), []);
+
   const handleNextStep = useCallback(async () => {
     if (noAssistMode) return; // Block hints in no assist mode
+    if (hintSearchRef.current) return; // a search is already running
     setChainPlaybackIndex(0); // Reset playback for new hint
 
     let step = findNextLogicStep(game.grid, null);
     if (!step) {
-      // No regular techniques found - search for forcing chains automatically
-      const { findForcingChain, findHypothesis } = await import(
-        '@/components/sudoku/forcingChainEngine'
-      );
-      step = findForcingChain(game.grid, 100) || findHypothesis(game.grid, 100);
+      // No regular technique applies: what-if search, off the main thread.
+      const search = searchWhatIf(game.grid, HINT_SEARCH_DEPTH);
+      hintSearchRef.current = search;
+      setSearchingHint(true);
+      try {
+        step = await search.promise;
+      } catch (error) {
+        if (!isCancelled(error)) {
+          console.error('What-if search failed', error);
+          toast({ title: 'Hint search failed', description: String(error?.message || error), variant: 'destructive' });
+        }
+        return;
+      } finally {
+        if (hintSearchRef.current === search) {
+          hintSearchRef.current = null;
+          setSearchingHint(false);
+        }
+      }
+      if (!step) {
+        toast({ title: 'No hint found', description: `No technique or what-if chain within ${HINT_SEARCH_DEPTH} steps. Try the Search button in the Technique Hierarchy for a deeper look.` });
+        return;
+      }
     }
 
     if (step) {
@@ -177,6 +208,10 @@ export default function SudokuMentor() {
       highlightSteps([step]);
     }
   }, [game.grid, noAssistMode, presentStep, highlightSteps]);
+
+  useEffect(() => {
+    if (hintSearchRef.current) cancelHintSearch();
+  }, [game.grid, cancelHintSearch]);
 
   const handleApplyStep = useCallback(() => {
     if (noAssistMode) return; // Block apply in no assist mode
@@ -243,14 +278,16 @@ export default function SudokuMentor() {
       setRemovalCandidates(null);
       setHighlightedDigit(null);
       setChainPlaybackIndex(0);
-      // eslint-disable-next-line react-hooks/exhaustive-deps
+       
     },
     [game.loadPuzzle]
   );
 
   // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e) => {
+  // One listener for the page's lifetime; it reads the latest handlers
+  // and state through a ref instead of re-subscribing on every change.
+  const keyHandlersRef = useRef({ onKeyDown: (e) => {}, onKeyUp: (e) => {} });
+  keyHandlersRef.current.onKeyDown = (e) => {
       // Typing in a text field is never a shortcut.
       if (isTypingTarget(e.target)) return;
 
@@ -354,39 +391,22 @@ export default function SudokuMentor() {
       }
     };
 
-    const handleKeyUp = (e) => {
+  keyHandlersRef.current.onKeyUp = (e) => {
       if (e.key === 'Shift') {
         setCandidateMode(false);
       }
     };
 
+  useEffect(() => {
+    const handleKeyDown = (e) => keyHandlersRef.current.onKeyDown(e);
+    const handleKeyUp = (e) => keyHandlersRef.current.onKeyUp(e);
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [
-    selectedCell,
-    game,
-    currentStep,
-    noAssistMode,
-    handleNextStep,
-    handleApplyStep,
-    handleUndo,
-    handleRedo,
-    handleDigitFilter,
-    handleClearGrid,
-    clearHighlights,
-    showPuzzleLoader,
-    showColorSettings,
-    showCompletion,
-    drawerOpen,
-    showAccountMenu,
-    showAppInfo,
-    showCopyConfirmation,
-    showTour,
-  ]);
+  }, []);
 
   const handleCopyPuzzle = () => {
     // Copy the puzzle givens (0 for empty/solved-by-player cells)
@@ -727,7 +747,7 @@ export default function SudokuMentor() {
               hasStep={currentStep !== null}
               canUndo={game.canUndo}
               canRedo={game.canRedo}
-              hintsDisabled={noAssistMode}
+              hintsDisabled={noAssistMode || searchingHint}
             />
 
             {/* Sudoku Grid */}
@@ -772,6 +792,8 @@ export default function SudokuMentor() {
                 noAssistMode={noAssistMode}
                 onApplyStep={handleApplyStep}
                 onNextStep={handleNextStep}
+                searchingHint={searchingHint}
+                onCancelHintSearch={cancelHintSearch}
                 onChainPlaybackChange={setChainPlaybackIndex}
                 chainPlaybackIndex={chainPlaybackIndex}
                 onHighlightTechnique={handleHighlightTechnique}
@@ -791,6 +813,8 @@ export default function SudokuMentor() {
             noAssistMode={noAssistMode}
             onApplyStep={handleApplyStep}
             onNextStep={handleNextStep}
+            searchingHint={searchingHint}
+            onCancelHintSearch={cancelHintSearch}
             onChainPlaybackChange={setChainPlaybackIndex}
             chainPlaybackIndex={chainPlaybackIndex}
             onHighlightTechnique={(instances) => {

@@ -140,14 +140,16 @@ export default function SudokuMentorMobile() {
       setShowPuzzleLoader(false);
       setHighlightedDigit(null);
       setFocusedDigit(null);
-      // eslint-disable-next-line react-hooks/exhaustive-deps
+       
     },
     [game.loadPuzzle]
   );
 
   // Keyboard shortcuts (external keyboards on tablets, dev convenience)
-  useEffect(() => {
-    const handleKeyDown = (e) => {
+  // One listener for the page's lifetime; it reads the latest handlers
+  // and state through a ref instead of re-subscribing on every change.
+  const keyHandlersRef = useRef({ onKeyDown: (e) => {}, onKeyUp: (e) => {} });
+  keyHandlersRef.current.onKeyDown = (e) => {
       const isModalOpen =
         showPuzzleLoader || showColorSettings || showCompletion || showAccountMenu || showCopyConfirmation || showTour;
       if (isModalOpen) return;
@@ -199,31 +201,22 @@ export default function SudokuMentorMobile() {
       }
     };
 
-    const handleKeyUp = (e) => {
+  keyHandlersRef.current.onKeyUp = (e) => {
       if (e.key === 'Shift') {
         setCandidateMode(false);
       }
     };
 
+  useEffect(() => {
+    const handleKeyDown = (e) => keyHandlersRef.current.onKeyDown(e);
+    const handleKeyUp = (e) => keyHandlersRef.current.onKeyUp(e);
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [
-    selectedCell,
-    game,
-    handleDigitSelect,
-    handleEraseCell,
-    handleClearGrid,
-    showPuzzleLoader,
-    showColorSettings,
-    showCompletion,
-    showAccountMenu,
-    showCopyConfirmation,
-    showTour,
-  ]);
+  }, []);
 
   const handleCopyPuzzle = () => {
     const puzzleString = game.grid.map((cell) => (cell.isFixed ? cell.value : 0)).join('');

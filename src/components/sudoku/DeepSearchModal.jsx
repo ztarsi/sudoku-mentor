@@ -4,7 +4,7 @@ import { Search, AlertCircle, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useDialog } from '@/hooks/useDialog';
 
-export default function DeepSearchModal({ isOpen, onClose, onGoDeeper, currentDepth, isSearching }) {
+export default function DeepSearchModal({ isOpen, onClose, onGoDeeper, onCancel, currentDepth, isSearching }) {
   const dialog = useDialog({ open: isOpen, onClose });
   if (!isOpen) return null;
 
@@ -41,7 +41,10 @@ export default function DeepSearchModal({ isOpen, onClose, onGoDeeper, currentDe
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
                 </div>
                 <p className="text-slate-300 text-lg font-medium">Searching deeper...</p>
-                <p className="text-slate-400 text-sm mt-2">Depth: {currentDepth}</p>
+                <p className="text-slate-400 text-sm mt-2">Depth: {currentDepth}. The search runs in the background; the board stays usable.</p>
+                <Button onClick={onCancel} variant="outline" className="mt-4 border-slate-600">
+                  Cancel search
+                </Button>
               </div>
             ) : (
               <>

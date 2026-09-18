@@ -1,6 +1,6 @@
 // Deep Forcing Chain Engine - Explores "What-If" scenarios
 
-import { getRow, getCol, getBox, getRowIndices, getColIndices, getBoxIndices, getPeers } from './gridUnits';
+import { getRow, getCol, getBox, getRowIndices, getColIndices, getBoxIndices, getPeers, ALL_UNITS, cellName } from './gridUnits';
 import { makeStep } from './stepShape';
 
 // Clone grid for simulation
@@ -11,50 +11,90 @@ const cloneGrid = (grid) => {
   }));
 };
 
-// Apply a value and propagate constraints (naked-single cascade).
+// Apply a value and propagate constraints: naked singles AND hidden
+// singles, to a fixpoint.
 //
-// Uses a worklist so that EVERY peer of every placement is processed. The
-// previous recursive version returned as soon as one peer became a naked
-// single, leaving the placed digit as a stale candidate on the remaining
-// peers - which could later surface false "forced" placements and false
-// contradictions in what the UI presents as logically certain reasoning.
-// Exported for tests.
+// A worklist processes every peer of every placement (an older recursive
+// version stopped at the first naked single and left stale candidates).
+// After the naked-single cascade drains, each unit is scanned for a digit
+// with exactly one place left, which is queued with its reason; a digit
+// with NO place left is a contradiction. Without hidden singles the two
+// branches of a forcing chain almost never converged on library grids, so
+// the mentor fell straight to hypothesis search.
+//
+// Returns { grid, contradiction, cell?, text?, placements } where
+// `placements` lists every placement that followed from the first one, in
+// order, each with a plain-language reason. Exported for tests.
 export const applyValueAndPropagate = (grid, cellIndex, value) => {
   const newGrid = cloneGrid(grid);
-  const queue = [[cellIndex, value]];
+  const queue = [[cellIndex, value, null]];
+  const placements = [];
 
-  while (queue.length > 0) {
-    const [idx, val] = queue.shift();
+  const contradiction = (cell, text) => ({ grid: newGrid, contradiction: true, cell, text, placements });
 
-    if (newGrid[idx].value === val) continue; // already placed (re-entry)
-    if (newGrid[idx].value !== null) {
-      return { grid: newGrid, contradiction: true, cell: idx };
-    }
+  for (;;) {
+    while (queue.length > 0) {
+      const [idx, val, reason] = queue.shift();
 
-    newGrid[idx].value = val;
-    newGrid[idx].candidates = [];
+      if (newGrid[idx].value === val) continue; // already placed (re-entry)
+      if (newGrid[idx].value !== null) {
+        return contradiction(idx, `${cellName(idx)} would have to be both ${newGrid[idx].value} and ${val}`);
+      }
+      if (idx !== cellIndex && !newGrid[idx].candidates.includes(val)) {
+        return contradiction(idx, `${cellName(idx)} would have to be ${val}, which it can no longer hold`);
+      }
 
-    for (const peerIdx of getPeers(idx)) {
-      const peer = newGrid[peerIdx];
-      if (peer.value === null) {
-        if (peer.candidates.includes(val)) {
-          peer.candidates = peer.candidates.filter(c => c !== val);
+      newGrid[idx].value = val;
+      newGrid[idx].candidates = [];
+      if (reason) placements.push({ cell: idx, value: val, reason });
 
-          if (peer.candidates.length === 0) {
-            return { grid: newGrid, contradiction: true, cell: peerIdx };
+      for (const peerIdx of getPeers(idx)) {
+        const peer = newGrid[peerIdx];
+        if (peer.value === null) {
+          if (peer.candidates.includes(val)) {
+            peer.candidates = peer.candidates.filter(c => c !== val);
+
+            if (peer.candidates.length === 0) {
+              return contradiction(peerIdx, `${cellName(peerIdx)} has no valid candidates left`);
+            }
+            if (peer.candidates.length === 1) {
+              queue.push([peerIdx, peer.candidates[0], `Only candidate left in ${cellName(peerIdx)}`]);
+            }
           }
-          if (peer.candidates.length === 1) {
-            queue.push([peerIdx, peer.candidates[0]]);
-          }
+        } else if (peer.value === val) {
+          // Same value in peer = contradiction
+          return contradiction(peerIdx, `${cellName(peerIdx)} already holds ${val}`);
         }
-      } else if (peer.value === val) {
-        // Same value in peer = contradiction
-        return { grid: newGrid, contradiction: true, cell: peerIdx };
       }
     }
+
+    // Hidden singles: a digit with one place left in a unit goes there.
+    let queued = false;
+    for (const unit of ALL_UNITS) {
+      for (let d = 1; d <= 9; d++) {
+        let placed = false;
+        let spots = [];
+        for (const idx of unit.indices) {
+          const cell = newGrid[idx];
+          if (cell.value === d) { placed = true; break; }
+          if (cell.value === null && cell.candidates.includes(d)) spots.push(idx);
+        }
+        if (placed) continue;
+        if (spots.length === 0) {
+          const empty = unit.indices.find((idx) => newGrid[idx].value === null);
+          return contradiction(empty ?? unit.indices[0], `no cell in ${unit.name} can hold ${d}`);
+        }
+        if (spots.length === 1) {
+          queue.push([spots[0], d, `Only place for ${d} in ${unit.name}`]);
+          queued = true;
+        }
+      }
+      if (queued) break; // apply what we found, then rescan
+    }
+    if (!queued) break;
   }
 
-  return { grid: newGrid, contradiction: false };
+  return { grid: newGrid, contradiction: false, placements };
 };
 
 // Find forcing chains - convergence-based logical technique
@@ -132,7 +172,7 @@ const narrateContradiction = (cellIndex, value, branch, conclusion) => {
   const caseSplits = placements.filter(s => s.reason && s.reason.startsWith('Case analysis')).length;
   text += `CONTRADICTION: after ${placements.length} placement${placements.length > 1 ? 's' : ''}`;
   if (caseSplits > 0) text += ` (including ${caseSplits} case split${caseSplits > 1 ? 's' : ''})`;
-  text += `, ${cellRef(branch.contradictionCell)} has no valid candidates left.\n\n`;
+  text += `, ${branch.contradictionText || `${cellRef(branch.contradictionCell)} has no valid candidates left`}.\n\n`;
   text += `Conclusion: ${conclusion}`;
   return text;
 };
@@ -153,6 +193,7 @@ const hypothesisStep = (cellIndex, badValue, branch, placement) => {
     chain: branch.chain,
     contradiction: true,
     contradictionCell: branch.contradictionCell,
+    contradictionText: branch.contradictionText || null,
     contradictoryDigit: badValue,
   });
 };
@@ -228,6 +269,10 @@ const exploreBranchForImplications = (grid, cellIndex, value, maxDepth, placemen
   }
   
   const newGrid = result.grid;
+  // Every placement the propagation forced goes into the chain with its
+  // reason, so the narrative shows the actual path and not just its ends.
+  const derived = result.placements.map((p) => ({ cell: p.cell, value: p.value, action: 'place', reason: p.reason, derived: true }));
+  newChain.push(...derived);
   
   // Track all changes
   for (let i = 0; i < 81; i++) {
@@ -529,7 +574,8 @@ const exploreBranch = (grid, cellIndex, value, maxDepth, chain, forcedReason = n
   // Budget by placements, not raw chain entries: the chain also carries one
   // entry per elimination (often dozens per placement), which used to eat
   // the whole depth budget after a step or two.
-  const placementCount = chain.filter(s => s.action === 'place').length;
+  // Propagated (derived) placements are narrated but do not spend budget.
+  const placementCount = chain.filter(s => s.action === 'place' && !s.derived).length;
   if (placementCount >= maxDepth) {
     return { grid, contradiction: false, chain: newChain };
   }
@@ -537,26 +583,37 @@ const exploreBranch = (grid, cellIndex, value, maxDepth, chain, forcedReason = n
   const result = applyValueAndPropagate(grid, cellIndex, value);
   
   if (result.contradiction) {
-    return { grid: result.grid, contradiction: true, chain: newChain, contradictionCell: result.cell };
+    // Placements made before the contradiction are part of the story.
+    const derived = result.placements.map((p) => ({ cell: p.cell, value: p.value, action: 'place', reason: p.reason, derived: true }));
+    return {
+      grid: result.grid,
+      contradiction: true,
+      chain: [...newChain, ...derived],
+      contradictionCell: result.cell,
+      contradictionText: result.text,
+    };
   }
   
   // Track eliminations
   const newGrid = result.grid;
+  const derived = result.placements.map((p) => ({ cell: p.cell, value: p.value, action: 'place', reason: p.reason, derived: true }));
+  const placedHere = [{ cell: cellIndex, value }, ...result.placements];
   const eliminationSteps = [];
   
   newGrid.forEach((cell, idx) => {
     if (cell.value === null && initialCandidates[idx]) {
       const eliminated = initialCandidates[idx].filter(c => !cell.candidates.includes(c));
       eliminated.forEach(digit => {
-        const reason = getPeers(cellIndex).includes(idx) && digit === value 
-          ? `Sees ${value} at R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1}`
+        const source = placedHere.find((p) => p.value === digit && getPeers(p.cell).includes(idx));
+        const reason = source
+          ? `Sees ${digit} at ${cellName(source.cell)}`
           : 'Constraint propagation';
         eliminationSteps.push({ cell: idx, value: digit, action: 'eliminate', reason });
       });
     }
   });
   
-  const chainWithEliminations = [...newChain, ...eliminationSteps];
+  const chainWithEliminations = [...newChain, ...derived, ...eliminationSteps];
   
   // Look for next bi-value cell
   for (let i = 0; i < 81; i++) {
