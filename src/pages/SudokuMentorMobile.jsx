@@ -7,7 +7,11 @@ import CandidateNumpad from '@/components/sudoku/CandidateNumpad';
 import {
   fetchAllPuzzleEntries,
   pickRandomPuzzleEntry,
+  pickStarterPuzzleEntry,
+  hasOnboarded,
+  markOnboarded,
 } from '@/components/sudoku/puzzleSources';
+import WelcomeTour from '@/components/sudoku/WelcomeTour';
 import { useSudokuGame } from '@/hooks/useSudokuGame';
 import { useSudokuPlayer } from '@/hooks/useSudokuPlayer';
 import { base44 } from '@/api/base44Client';
@@ -26,6 +30,7 @@ export default function SudokuMentorMobile() {
   const [completionStats, setCompletionStats] = useState({ timeInSeconds: 0, errorCount: 0 });
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [showCopyConfirmation, setShowCopyConfirmation] = useState(false);
+  const [showTour, setShowTour] = useState(false);
 
   const errorAudioRef = useRef(null);
   const [srAnnouncement, setSrAnnouncement] = useState('');
@@ -33,6 +38,7 @@ export default function SudokuMentorMobile() {
 
   // The mobile page is always no-assist: every solve is recorded.
   const game = useSudokuGame({
+    persistKey: 'sudoku-mentor:game',
     onWrongInput: (cellIndex, digit) => {
       if (errorAudioRef.current) {
         errorAudioRef.current.currentTime = 0;
@@ -131,7 +137,7 @@ export default function SudokuMentorMobile() {
   useEffect(() => {
     const handleKeyDown = (e) => {
       const isModalOpen =
-        showPuzzleLoader || showColorSettings || showCompletion || showAccountMenu || showCopyConfirmation;
+        showPuzzleLoader || showColorSettings || showCompletion || showAccountMenu || showCopyConfirmation || showTour;
       if (isModalOpen) return;
 
       if (e.key === 'Shift' && !e.repeat) {
@@ -204,6 +210,7 @@ export default function SudokuMentorMobile() {
     showCompletion,
     showAccountMenu,
     showCopyConfirmation,
+    showTour,
   ]);
 
   const handleCopyPuzzle = () => {
@@ -213,9 +220,25 @@ export default function SudokuMentorMobile() {
     setTimeout(() => setShowCopyConfirmation(false), 2000);
   };
 
-  // Load a random puzzle on mount
+  // On mount: resume a saved game; otherwise a gentle starter puzzle for
+  // first-time visitors (plus the welcome tour); otherwise a random one.
   useEffect(() => {
     let cancelled = false;
+
+    if (game.restoreSavedGame()) {
+      toast({ title: 'Resumed your puzzle', description: 'Picked up where you left off. Load a new one any time.' });
+      return undefined;
+    }
+
+    if (!hasOnboarded()) {
+      const starter = pickStarterPuzzleEntry();
+      if (starter) {
+        handleLoadPuzzle(starter.puzzle, { name: starter.name, difficulty: starter.difficulty });
+      }
+      setShowTour(true);
+      return undefined;
+    }
+
     (async () => {
       try {
         const entries = await fetchAllPuzzleEntries();
@@ -246,27 +269,27 @@ export default function SudokuMentorMobile() {
       {/* Header */}
       <header className="bg-slate-900/90 backdrop-blur-md border-b border-slate-700/60 sticky top-0 z-50 safe-area-inset-top">
         <div className="max-w-7xl mx-auto px-2 py-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0">
                 <span className="text-white font-bold text-sm">9</span>
               </div>
               {game.puzzleName && (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-sm font-medium text-white truncate max-w-[120px]">{game.puzzleName}</span>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="text-sm font-medium text-white truncate">{game.puzzleName}</span>
                   {game.puzzleDifficulty && (
-                    <span className="px-2 py-0.5 bg-slate-800 rounded-full text-xs capitalize text-slate-300">{game.puzzleDifficulty}</span>
+                    <span className="px-2 py-0.5 bg-slate-800 rounded-full text-xs capitalize text-slate-300 shrink-0">{game.puzzleDifficulty}</span>
                   )}
                 </div>
               )}
-              <div className="px-2 py-1 bg-red-600 rounded-full flex items-center gap-1" title="No Assist Mode">
+              <div className="px-2 py-1 bg-red-600 rounded-full flex items-center gap-1 shrink-0" title="No Assist Mode" aria-label="No assist mode: every solve is timed">
                 <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                 </svg>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={() => setShowColorSettings(true)}
                 className="p-2 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 transition-all duration-200 flex items-center justify-center"
@@ -321,9 +344,9 @@ export default function SudokuMentorMobile() {
                 ) : (
                   <button
                     onClick={() => base44.auth.redirectToLogin(window.location.href)}
-                    className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-all duration-200 font-medium text-sm"
+                    className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-all duration-200 font-medium text-sm whitespace-nowrap"
                   >
-                    Sign In
+                    Sign in
                   </button>
                 )}
               </div>
@@ -332,9 +355,15 @@ export default function SudokuMentorMobile() {
         </div>
       </header>
 
-      <main className="flex flex-col h-[calc(100vh-56px)]">
-        {/* Sudoku Grid */}
-        <div className="pt-5">
+      <main className="flex flex-col min-h-[calc(100vh-56px)] px-3 pb-36">
+        {/* Progress strip */}
+        <div className="flex items-center justify-between text-xs text-slate-400 py-2">
+          <span>{game.progress}% complete</span>
+          <span>{game.errorCount === 0 ? 'No errors' : `${game.errorCount} error${game.errorCount === 1 ? '' : 's'}`}</span>
+        </div>
+
+        {/* Sudoku Grid - centered in the space above the controls */}
+        <div className="flex-1 flex items-start justify-center">
           <SudokuGrid
             grid={game.grid}
             selectedCell={selectedCell}
@@ -355,7 +384,10 @@ export default function SudokuMentorMobile() {
         </div>
 
         {/* Mobile Controls - Fixed Bottom */}
-        <div className="fixed left-0 right-0 bg-slate-900/95 backdrop-blur-md border-t border-slate-700 z-40" style={{ bottom: '20px' }}>
+        <div
+          className="fixed left-0 right-0 bottom-0 bg-slate-900/95 backdrop-blur-md border-t border-slate-700 z-40"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        >
           {/* Mode toggle + undo/erase */}
           <div className="flex items-center gap-2 px-2 py-2 border-b border-slate-800">
             <button
@@ -452,6 +484,15 @@ export default function SudokuMentorMobile() {
         colors={colors}
         focusedDigit={focusedDigit}
         removalCandidates={null}
+      />
+
+      <WelcomeTour
+        open={showTour}
+        variant="mobile"
+        onClose={() => {
+          markOnboarded();
+          setShowTour(false);
+        }}
       />
 
       {/* Unified Puzzle Loader Modal */}

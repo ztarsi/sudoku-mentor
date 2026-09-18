@@ -58,8 +58,20 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
       
       const solved = solveSudoku(gridForSolving);
       if (!solved) {
-        toast({ title: 'Invalid puzzle', description: 'This puzzle has no valid solution and cannot be saved.', variant: 'destructive' });
+        toast({ title: 'Invalid puzzle', description: 'This puzzle has no valid solution.', variant: 'destructive' });
         setSavingPuzzle(false);
+        return;
+      }
+
+      // Signed-out players can still play a pasted puzzle; only saving to
+      // the library needs an account.
+      if (!user) {
+        const difficulty = analyzeDifficulty(puzzle);
+        const clueCount = puzzle.filter(v => v !== 0).length;
+        const name = customName || `Custom Puzzle (${clueCount} clues)`;
+        setSavingPuzzle(false);
+        onPuzzleLoaded(puzzle, { name, difficulty });
+        toast({ title: `Loaded: ${difficulty}`, description: 'Sign in to save puzzles to your library.' });
         return;
       }
 
@@ -144,8 +156,9 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
             <div className="flex gap-2 px-6 mt-4">
               {tabs.map(tab => {
                 const Icon = tab.icon;
-                const isUploadTab = tab.id === 'ocr' || tab.id === 'text';
-                const isDisabled = isUploadTab && !user;
+                // Photo import calls the Base44 extraction service, which needs
+                // an account; typing/pasting a puzzle never does.
+                const isDisabled = tab.id === 'ocr' && !user;
                 
                 return (
                   <button
@@ -160,7 +173,7 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
                         : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
                       }
                     `}
-                    title={isDisabled ? 'Sign in to upload puzzles' : ''}
+                    title={isDisabled ? 'Sign in to import from a photo' : ''}
                   >
                     <Icon className="w-5 h-5" />
                     <span>{tab.label}</span>
@@ -217,27 +230,24 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
               </div>
             )}
             {activeTab === 'text' && (
-              <div className="p-6">
-                {user ? (
-                  <TextPuzzleUpload
-                    onClose={onClose}
-                    onPuzzleLoaded={(puzzle, name) => handlePuzzleLoad(puzzle, 'text', name)}
-                    embedded={true}
-                  />
-                ) : (
-                  <div className="text-center py-12">
-                    <svg className="w-16 h-16 mx-auto text-slate-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                    <p className="text-slate-400 mb-4">Sign in to upload puzzles via text</p>
+              <div className="p-6 space-y-4">
+                {!user && (
+                  <p className="text-sm text-slate-400 bg-slate-800/60 border border-slate-700 rounded-lg px-4 py-3">
+                    You can play any puzzle you paste here.{' '}
                     <button
                       onClick={() => base44.auth.redirectToLogin(window.location.href)}
-                      className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors"
+                      className="text-blue-400 hover:text-blue-300 underline"
                     >
-                      Sign In
-                    </button>
-                  </div>
+                      Sign in
+                    </button>{' '}
+                    to keep it in your library.
+                  </p>
                 )}
+                <TextPuzzleUpload
+                  onClose={onClose}
+                  onPuzzleLoaded={(puzzle, name) => handlePuzzleLoad(puzzle, 'text', name)}
+                  embedded={true}
+                />
               </div>
             )}
             

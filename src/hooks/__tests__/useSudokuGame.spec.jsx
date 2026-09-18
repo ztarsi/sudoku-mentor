@@ -201,3 +201,77 @@ describe('useSudokuGame', () => {
     expect(result.current.puzzleName).toBe('Good'); // previous puzzle intact
   });
 });
+
+describe('useSudokuGame persistence', () => {
+  const KEY = 'test:sudoku-game';
+
+  it('saves progress and restores it into a fresh hook instance', () => {
+    window.localStorage.removeItem(KEY);
+    const first = renderHook(() => useSudokuGame({ persistKey: KEY }), { wrapper: strictWrapper });
+    act(() => {
+      first.result.current.loadPuzzle(PUZZLE, { name: 'Gentle Start', difficulty: 'easy' });
+    });
+    const solved = solveSudoku(PUZZLE.map((v) => ({ value: v || null, candidates: [] })));
+    const idx = firstEmptyCell(first.result.current.grid);
+    act(() => {
+      first.result.current.handleCellInput(idx, solved[idx].value);
+    });
+    act(() => {
+      first.result.current.handleToggleCandidate(idx + 1, 9);
+    });
+    first.unmount();
+
+    const second = renderHook(() => useSudokuGame({ persistKey: KEY }), { wrapper: strictWrapper });
+    let restored = false;
+    act(() => {
+      restored = second.result.current.restoreSavedGame();
+    });
+    expect(restored).toBe(true);
+    expect(second.result.current.puzzleName).toBe('Gentle Start');
+    expect(second.result.current.puzzleDifficulty).toBe('easy');
+    expect(second.result.current.grid[idx].value).toBe(solved[idx].value);
+    expect(second.result.current.grid[idx + 1].candidates).toContain(9);
+    // Givens are restored as fixed cells, solution is recomputed
+    expect(second.result.current.grid.filter((c) => c.isFixed).length).toBe(PUZZLE.filter(Boolean).length);
+    expect(second.result.current.solution).not.toBeNull();
+  });
+
+  it('does not restore a completed game, and clearGrid drops the save', () => {
+    window.localStorage.removeItem(KEY);
+    const hook = renderHook(() => useSudokuGame({ persistKey: KEY }), { wrapper: strictWrapper });
+    act(() => {
+      hook.result.current.loadPuzzle(PUZZLE, { name: 'Done' });
+    });
+    const solved = solveSudoku(PUZZLE.map((v) => ({ value: v || null, candidates: [] })));
+    for (let i = 0; i < 81; i++) {
+      if (hook.result.current.grid[i].value === null) {
+        act(() => {
+          hook.result.current.handleCellInput(i, solved[i].value);
+        });
+      }
+    }
+    expect(hook.result.current.completed).toBe(true);
+
+    const again = renderHook(() => useSudokuGame({ persistKey: KEY }), { wrapper: strictWrapper });
+    let restored = true;
+    act(() => {
+      restored = again.result.current.restoreSavedGame();
+    });
+    expect(restored).toBe(false);
+
+    act(() => {
+      hook.result.current.clearGrid();
+    });
+    expect(window.localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it('ignores corrupt saved data', () => {
+    window.localStorage.setItem(KEY, '{"v":1,"givens":[1,2,3]}');
+    const hook = renderHook(() => useSudokuGame({ persistKey: KEY }), { wrapper: strictWrapper });
+    let restored = true;
+    act(() => {
+      restored = hook.result.current.restoreSavedGame();
+    });
+    expect(restored).toBe(false);
+  });
+});

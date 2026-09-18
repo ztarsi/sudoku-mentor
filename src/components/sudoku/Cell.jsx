@@ -164,9 +164,15 @@ export default function Cell({
             </span>
           </motion.div>
         ) : candidatesVisible ? (
-          // Candidate mini-grid: pointer-only affordance; the cell's own
-          // aria-label already announces the candidates.
-          <div className="grid grid-cols-3 gap-0 absolute inset-0" aria-hidden="true">
+          // Candidate mini-grid. On desktop a slot that HOLDS a candidate is a
+          // click target (place it / toggle it); every other click must fall
+          // through to the cell so it can be selected. On mobile (cellSize
+          // set) the whole cell is one touch target: the page's digit-first
+          // model decides what a tap means, never the 13px slot under it.
+          <div
+            className={`grid grid-cols-3 gap-0 absolute inset-0 ${cellSize ? 'pointer-events-none' : ''}`}
+            aria-hidden="true"
+          >
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => {
               const hasCandidate = candidates.includes(num);
               const isHighlightedCandidate = focusedDigit === num && hasCandidate;
@@ -180,11 +186,10 @@ export default function Cell({
                 <div
                   key={num}
                   onClick={(e) => {
+                    if (!hasCandidate) return; // let the cell handle selection
                     e.stopPropagation();
-                    if (hasCandidate) {
-                      if (candidateMode) onToggleCandidate(num);
-                      else onInput(num);
-                    }
+                    if (candidateMode) onToggleCandidate(num);
+                    else onInput(num);
                   }}
                   onContextMenu={(e) => {
                     e.preventDefault();
@@ -193,7 +198,8 @@ export default function Cell({
                   }}
                   className={`
                     flex items-center justify-center
-                    transition-all duration-200 rounded cursor-pointer
+                    transition-all duration-200 rounded
+                    ${hasCandidate ? 'cursor-pointer' : ''}
                     ${!hasCandidate ? 'text-transparent' : (
                       (isRemovalCandidate || isHighlightedCandidate || ((isBaseCell || isTargetCell) && isMultiColorCandidate))
                         ? 'font-semibold '

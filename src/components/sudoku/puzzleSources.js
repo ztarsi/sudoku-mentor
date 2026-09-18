@@ -27,3 +27,34 @@ export const fetchAllPuzzleEntries = async () => {
 
 export const pickRandomPuzzleEntry = (entries) =>
   entries.length > 0 ? entries[Math.floor(Math.random() * entries.length)] : null;
+
+const STARTER_DIFFICULTIES = new Set(['easy', 'medium']);
+
+/**
+ * A gentle first puzzle for a new visitor: built-ins from the easy/medium
+ * shelves only. Landing a newcomer on an "ultimate" puzzle - whose first
+ * hint is a what-if search - is the worst possible introduction to a
+ * technique tutor.
+ */
+export const pickStarterPuzzleEntry = () => {
+  const pool = getBuiltInPuzzleEntries().filter((e) => STARTER_DIFFICULTIES.has(e.difficulty));
+  return pickRandomPuzzleEntry(pool);
+};
+
+const ONBOARDED_KEY = 'sudoku-mentor:onboarded';
+
+export const hasOnboarded = () => {
+  try {
+    return window.localStorage.getItem(ONBOARDED_KEY) === '1';
+  } catch {
+    return true; // no storage: don't nag every load
+  }
+};
+
+export const markOnboarded = () => {
+  try {
+    window.localStorage.setItem(ONBOARDED_KEY, '1');
+  } catch {
+    // ignore
+  }
+};

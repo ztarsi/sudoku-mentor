@@ -112,7 +112,7 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
                   flex items-center gap-2 px-3 py-2 rounded-xl font-medium transition-all duration-300
                   ${isActive 
                     ? `bg-gradient-to-r ${colorClasses[cfg.color]} text-white shadow-lg` 
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
                   }
                 `}
               >
@@ -124,27 +124,33 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
         </div>
       </div>
       
+      {selectedDifficulty === 'ultimate' && (
+        <p className="mb-4 text-sm text-violet-200 bg-violet-950/40 border border-violet-800/50 rounded-xl px-4 py-3">
+          These puzzles need techniques beyond the mentor's deductive toolkit. Hints here fall back to
+          what-if search (assume a value and follow the consequences) rather than a named technique.
+        </p>
+      )}
+
       {/* Puzzle List */}
       <div className="grid gap-4">
-        <AnimatePresence mode="wait">
+        <AnimatePresence initial={false}>
           {allPuzzles.map((puzzle, index) => (
             <motion.button
               key={`${selectedDifficulty}-${index}`}
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ delay: index * 0.05 }}
+              transition={{ duration: 0.15, delay: Math.min(index * 0.03, 0.2) }}
               onClick={() => onSelectPuzzle(puzzle.puzzle, { name: puzzle.name, difficulty: selectedDifficulty })}
-              className="flex items-center gap-4 p-4 bg-slate-50 hover:bg-slate-100 rounded-2xl transition-all duration-300 group text-left"
+              className="flex items-center gap-4 p-4 bg-slate-800/70 hover:bg-slate-700/80 border border-slate-700 rounded-2xl transition-all duration-300 group text-left"
               >
               {/* Mini Preview */}
-              <div className="w-16 h-16 bg-white rounded-xl shadow-inner grid grid-cols-9 gap-0 p-1 flex-shrink-0">
+              <div className="w-16 h-16 bg-slate-950 rounded-xl border border-slate-700 grid grid-cols-9 gap-0 p-1 flex-shrink-0">
                 {puzzle.puzzle.map((val, i) => (
                   <div
                     key={i}
                     className={`
                       flex items-center justify-center text-[4px]
-                      ${val ? 'text-slate-700' : 'text-transparent'}
+                      ${val ? 'text-slate-300' : 'text-transparent'}
                     `}
                   >
                     {val || '·'}
@@ -159,7 +165,7 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
                       type="text"
                       value={editingName}
                       onChange={(e) => setEditingName(e.target.value)}
-                      className="flex-1 px-2 py-1 border border-slate-300 rounded text-sm"
+                      className="flex-1 px-2 py-1 bg-slate-900 text-white border border-slate-600 rounded text-sm"
                       autoFocus
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
@@ -175,38 +181,39 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
                         e.stopPropagation();
                         updatePuzzleMutation.mutate({ id: puzzle.id, name: editingName });
                       }}
-                      className="p-1 hover:bg-slate-200 rounded"
+                      className="p-1 hover:bg-slate-600 rounded"
                     >
-                      <Check className="w-4 h-4 text-green-600" />
+                      <Check className="w-4 h-4 text-green-400" />
                     </button>
                   </div>
                 ) : (
-                  <h3 className="font-semibold text-slate-800 group-hover:text-slate-900 flex items-center gap-2">
+                  <h3 className="font-semibold text-white flex items-center gap-2">
                     {puzzle.name}
                     {puzzle.isCustom && (
                       <>
-                        <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">Custom</span>
+                        <span className="text-xs px-2 py-0.5 bg-blue-900/60 text-blue-300 rounded-full">Custom</span>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             setEditingPuzzleId(puzzle.id);
                             setEditingName(puzzle.name);
                           }}
-                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-slate-200 rounded transition-opacity"
+                          className="opacity-60 group-hover:opacity-100 p-1 hover:bg-slate-600 rounded transition-opacity"
                           title="Edit name"
+                          aria-label="Edit name"
                         >
-                          <Edit2 className="w-3 h-3 text-slate-600" />
+                          <Edit2 className="w-3 h-3 text-slate-300" />
                         </button>
                       </>
                     )}
                     </h3>
                     )}
                     <div className="flex items-center gap-2">
-                      <p className="text-sm text-slate-500">
+                      <p className="text-sm text-slate-400">
                         {puzzle.puzzle.filter(v => v !== 0).length} clues given
                       </p>
                       {bestTimesMap[puzzle.name] && (
-                        <span className="text-xs px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full flex items-center gap-1" title="Your best no-assist time">
+                        <span className="text-xs px-2 py-0.5 bg-emerald-900/50 text-emerald-300 rounded-full flex items-center gap-1" title="Your best no-assist time">
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
@@ -224,10 +231,11 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
                       deletePuzzleMutation.mutate(puzzle.id);
                     }
                     }}
-                    className="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-100 rounded transition-opacity"
+                    className="opacity-60 group-hover:opacity-100 p-2 hover:bg-red-900/40 rounded transition-opacity"
                     title="Delete puzzle"
+                    aria-label="Delete puzzle"
                     >
-                    <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
                     </button>
@@ -236,7 +244,7 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
               <div className={`
                 px-3 py-1 rounded-full text-sm font-medium
                 bg-gradient-to-r ${colorClasses[config.color]} text-white
-                opacity-0 group-hover:opacity-100 transition-opacity
+                opacity-70 group-hover:opacity-100 transition-opacity
               `}>
                 Play
               </div>
@@ -264,18 +272,18 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.9, y: 20 }}
         onClick={e => e.stopPropagation()}
-        className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden"
+        className="bg-slate-900 border border-slate-700 rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden"
       >
         {/* Header */}
         <div className="p-6 border-b border-slate-100">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-slate-800">Puzzle Library</h2>
-              <p className="text-slate-500 mt-1">Choose your challenge</p>
+              <h2 className="text-2xl font-bold text-white">Puzzle Library</h2>
+              <p className="text-slate-400 mt-1">Choose your challenge</p>
             </div>
             <button
               onClick={onClose}
-              className="p-2 hover:bg-slate-100 rounded-xl transition-colors"
+              className="p-2 hover:bg-slate-800 rounded-xl transition-colors"
             >
               <X className="w-6 h-6 text-slate-400" />
             </button>
@@ -287,7 +295,7 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
         </div>
         
         {/* Footer */}
-        <div className="p-4 border-t border-slate-100 bg-slate-50">
+        <div className="p-4 border-t border-slate-800 bg-slate-900">
           <p className="text-center text-sm text-slate-500">
             More puzzles coming soon! 🧩
           </p>
