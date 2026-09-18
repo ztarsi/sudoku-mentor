@@ -1,5 +1,6 @@
 // Sudoku Logic Engine - Human-style solving techniques
 import { findXCycle, findALSXZ, findUniqueRectangle, findBUGPlus1, findFinnedXWing } from './chainEngine';
+import { makeStep } from './stepShape';
 
 // Helper functions
 import { getRow, getCol, getBox, getRowIndices, getColIndices, getBoxIndices, getPeers, unitOf } from './gridUnits';
@@ -49,70 +50,30 @@ const normalizeUnit = (unit) => {
   return unitOf(type, index);
 };
 
+// Techniques in teaching order: the hint is always the easiest that applies.
+const TECHNIQUE_ORDER = () => [
+  findNakedSingle,
+  findHiddenSingle,
+  findPointing,
+  findClaiming,
+  findNakedPair,
+  findHiddenPair,
+  findNakedTriple,
+  findXWing,
+  findSwordfish,
+  findXYWing,
+  findXCycle,
+  findFinnedXWing,
+  findALSXZ,
+  findUniqueRectangle,
+  findBUGPlus1,
+];
+
 export const findNextLogicStep = (grid, focusedDigit = null) => {
-  // Try techniques in order of complexity
-  let step;
-  
-  // 1. Naked Singles
-  step = findNakedSingle(grid, focusedDigit);
-  if (step) return step;
-  
-  // 2. Hidden Singles
-  step = findHiddenSingle(grid, focusedDigit);
-  if (step) return step;
-  
-  // 3. Pointing Pairs/Triples
-  step = findPointing(grid, focusedDigit);
-  if (step) return step;
-  
-  // 4. Claiming (Box-Line Reduction)
-  step = findClaiming(grid, focusedDigit);
-  if (step) return step;
-  
-  // 5. Naked Pairs
-  step = findNakedPair(grid, focusedDigit);
-  if (step) return step;
-  
-  // 6. Hidden Pairs
-  step = findHiddenPair(grid, focusedDigit);
-  if (step) return step;
-  
-  // 7. Naked Triples
-  step = findNakedTriple(grid, focusedDigit);
-  if (step) return step;
-  
-  // 8. X-Wing
-  step = findXWing(grid, focusedDigit);
-  if (step) return step;
-  
-  // 9. Swordfish
-  step = findSwordfish(grid, focusedDigit);
-  if (step) return step;
-
-  // 10. XY-Wing
-  step = findXYWing(grid, focusedDigit);
-  if (step) return step;
-  
-  // 11. X-Cycles
-  step = findXCycle(grid, focusedDigit);
-  if (step) return step;
-  
-  // 12. Finned X-Wing
-  step = findFinnedXWing(grid, focusedDigit);
-  if (step) return step;
-  
-  // 13. ALS-XZ
-  step = findALSXZ(grid, focusedDigit);
-  if (step) return step;
-  
-  // 14. Unique Rectangle
-  step = findUniqueRectangle(grid, focusedDigit);
-  if (step) return step;
-
-  // 15. BUG+1
-  step = findBUGPlus1(grid, focusedDigit);
-  if (step) return step;
-  
+  for (const find of TECHNIQUE_ORDER()) {
+    const step = find(grid, focusedDigit);
+    if (step) return makeStep(step);
+  }
   return null;
 };
 
@@ -157,7 +118,7 @@ export const findAllTechniqueInstances = (grid, techniqueName) => {
       : `e-${step.eliminations?.map(e => `${e.cell}${e.digit}`).join('-') || ''}`;
     
     if (!seenKeys.has(key)) {
-      uniqueResults.push(step);
+      uniqueResults.push(makeStep(step));
       seenKeys.add(key);
     }
   });
