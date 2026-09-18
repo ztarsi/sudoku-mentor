@@ -2,8 +2,12 @@
 import { useState, useEffect } from "react";
 
 const TOAST_LIMIT = 3;
-// Auto-dismiss: notifications here are confirmations, not decisions.
-const TOAST_REMOVE_DELAY = 5000;
+// Notifications here are confirmations, not decisions: every toast
+// dismisses itself after TOAST_DURATION and is dropped from the list
+// TOAST_REMOVE_DELAY later (room for an exit transition).
+export const TOAST_DURATION = 5000;
+const TOAST_REMOVE_DELAY = 250;
+const dismissTimeouts = new Map();
 
 const actionTypes = {
   ADD_TOAST: "ADD_TOAST",
@@ -87,6 +91,10 @@ export const reducer = (state, action) => {
       };
     }
     case actionTypes.REMOVE_TOAST:
+      if (action.toastId !== undefined && dismissTimeouts.has(action.toastId)) {
+        clearTimeout(dismissTimeouts.get(action.toastId));
+        dismissTimeouts.delete(action.toastId);
+      }
       if (action.toastId === undefined) {
         return {
           ...state,
@@ -129,11 +137,18 @@ function toast({ ...props }) {
       ...props,
       id,
       open: true,
-      onOpenChange: (open) => {
-        if (!open) dismiss();
-      },
     },
   });
+
+  // Auto-dismiss. The old Radix toast did this itself; the plain
+  // implementation has to schedule it.
+  const duration = typeof props.duration === 'number' ? props.duration : TOAST_DURATION;
+  if (duration > 0) {
+    dismissTimeouts.set(id, setTimeout(() => {
+      dismissTimeouts.delete(id);
+      dismiss();
+    }, duration));
+  }
 
   return {
     id,

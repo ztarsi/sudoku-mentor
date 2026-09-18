@@ -395,6 +395,14 @@ export default function SudokuMentor() {
   };
 
   const handlePrintPuzzle = () => {
+    // Anything user-provided goes through escapeHtml: the print page is a
+    // same-origin document built from a template string.
+    const escapeHtml = (value) =>
+      String(value ?? '').replace(/[&<>"']/g, (ch) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+      })[ch]);
+    const safeName = escapeHtml(game.puzzleName || 'Sudoku Puzzle');
+    const safeDifficulty = escapeHtml(game.puzzleDifficulty || '');
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
       toast({ title: 'Pop-up blocked', description: 'Allow pop-ups for this site to print the puzzle.' });
@@ -406,7 +414,7 @@ export default function SudokuMentor() {
       <!DOCTYPE html>
       <html>
       <head>
-        <title>${game.puzzleName || 'Sudoku Puzzle'}</title>
+        <title>${safeName}</title>
         <style>
           body {
             font-family: Arial, sans-serif;
@@ -445,10 +453,10 @@ export default function SudokuMentor() {
       </head>
       <body>
         <div class="container">
-          <h1>${game.puzzleName || 'Sudoku Puzzle'}</h1>
-          ${game.puzzleDifficulty ? `<div class="difficulty">Difficulty: ${game.puzzleDifficulty}</div>` : ''}
+          <h1>${safeName}</h1>
+          ${safeDifficulty ? `<div class="difficulty">Difficulty: ${safeDifficulty}</div>` : ''}
           <div class="grid">
-            ${puzzleGrid.map((val) => `<div class="cell">${val || ''}</div>`).join('')}
+            ${puzzleGrid.map((val) => `<div class="cell">${Number(val) || ''}</div>`).join('')}
           </div>
         </div>
       </body>
