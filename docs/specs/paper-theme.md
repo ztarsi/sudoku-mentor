@@ -1,6 +1,6 @@
 # Paper theme
 
-Roadmap bucket: Now (UX pass, phase 4). Source: [UX review](../reviews/2026-09-18-ux-review.md) sections 5.5, 5.7, decision 2. Founder decision, 18 Sep 2026: do it now. Player served: everyone who plays in daylight or prefers a light screen; many Sudoku players come from newspaper puzzles.
+Issue: [#33](https://github.com/ztarsi/sudoku-mentor/issues/33). Roadmap bucket: Now (UX pass, phase 4). Source: [UX review](../reviews/2026-09-18-ux-review.md) sections 5.5, 5.7, decision 2. Founder decision, 18 Sep 2026: do it now. Player served: everyone who plays in daylight or prefers a light screen; many Sudoku players come from newspaper puzzles.
 
 ## The player problem
 

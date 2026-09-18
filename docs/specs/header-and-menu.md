@@ -1,6 +1,6 @@
 # Header and menu
 
-Roadmap bucket: Now (UX pass, phase 4). Source: [UX review](../reviews/2026-09-18-ux-review.md) sections 4.A1, 4.A8, 4.D, 5.4, 5.5. Founder decision, 18 Sep 2026: secondary icons go behind a hamburger menu. Player served: everyone; the learner most, because the header is the first thing they read.
+Issue: [#32](https://github.com/ztarsi/sudoku-mentor/issues/32). Roadmap bucket: Now (UX pass, phase 4). Source: [UX review](../reviews/2026-09-18-ux-review.md) sections 4.A1, 4.A8, 4.D, 5.4, 5.5. Founder decision, 18 Sep 2026: secondary icons go behind a hamburger menu. Player served: everyone; the learner most, because the header is the first thing they read.
 
 ## The player problem
 

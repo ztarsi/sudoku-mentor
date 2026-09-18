@@ -1,6 +1,6 @@
 # Library and completion
 
-Roadmap bucket: Next (UX pass, phase 4, after the Now specs). Source: [UX review](../reviews/2026-09-18-ux-review.md) sections 4.A5, 4.A7, 5.5; [product review](../reviews/2026-09-18-product-review.md) items 2 and 3 and the smaller notes. Player served: the improver, who chooses what to learn next and needs somewhere to go after a solve.
+Issue: [#35](https://github.com/ztarsi/sudoku-mentor/issues/35). Roadmap bucket: Next (UX pass, phase 4, after the Now specs). Source: [UX review](../reviews/2026-09-18-ux-review.md) sections 4.A5, 4.A7, 5.5; [product review](../reviews/2026-09-18-product-review.md) items 2 and 3 and the smaller notes. Player served: the improver, who chooses what to learn next and needs somewhere to go after a solve.
 
 ## The player problem
 

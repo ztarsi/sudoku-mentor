@@ -1,6 +1,6 @@
 # Inline onboarding
 
-Roadmap bucket: Now (UX pass, phase 4). Source: [UX review](../reviews/2026-09-18-ux-review.md) sections 4.A6, 5.5, decision 5. Founder decision, 18 Sep 2026: the PM decides based on research. Decision: replace the modal tour with in-context prompts. Player served: the learner and every first-time visitor.
+Issue: [#34](https://github.com/ztarsi/sudoku-mentor/issues/34). Roadmap bucket: Now (UX pass, phase 4). Source: [UX review](../reviews/2026-09-18-ux-review.md) sections 4.A6, 5.5, decision 5. Founder decision, 18 Sep 2026: the PM decides based on research. Decision: replace the modal tour with in-context prompts. Player served: the learner and every first-time visitor.
 
 ## Why in-context prompts and not a tour
 

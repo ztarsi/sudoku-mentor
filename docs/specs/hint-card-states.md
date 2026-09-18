@@ -1,6 +1,6 @@
 # Hint card states
 
-Roadmap bucket: Now (UX pass, phase 2). Source: [UX review](../reviews/2026-09-18-ux-review.md) sections 3.4, 5.3; [product review](../reviews/2026-09-18-product-review.md) item 4. Player served: the improver and the learner; the enthusiast for the what-if and solved states.
+Issue: [#30](https://github.com/ztarsi/sudoku-mentor/issues/30). Roadmap bucket: Now (UX pass, phase 2). Source: [UX review](../reviews/2026-09-18-ux-review.md) sections 3.4, 5.3; [product review](../reviews/2026-09-18-product-review.md) item 4. Player served: the improver and the learner; the enthusiast for the what-if and solved states.
 
 ## The player problem
 

@@ -1,6 +1,6 @@
 # One adaptive page
 
-Roadmap bucket: Now (UX pass, phase 3). Source: [UX review](../reviews/2026-09-18-ux-review.md) sections 3.2, 4.B to 4.D, 5.2. Founder decisions, 18 Sep 2026: one adaptive page; the phone keeps No Assist for now. Player served: every player on a tablet or a narrow window; phone players get consistency, not hints yet.
+Issue: [#31](https://github.com/ztarsi/sudoku-mentor/issues/31). Roadmap bucket: Now (UX pass, phase 3). Source: [UX review](../reviews/2026-09-18-ux-review.md) sections 3.2, 4.B to 4.D, 5.2. Founder decisions, 18 Sep 2026: one adaptive page; the phone keeps No Assist for now. Player served: every player on a tablet or a narrow window; phone players get consistency, not hints yet.
 
 ## The player problem
 

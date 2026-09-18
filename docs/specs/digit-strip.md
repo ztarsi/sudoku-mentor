@@ -1,6 +1,6 @@
 # One digit strip
 
-Roadmap bucket: Now (UX pass, phase 1). Source: [UX review](../reviews/2026-09-18-ux-review.md) sections 3.5, 5.1 principle 4, 5.5. Player served: all three, the learner most.
+Issue: [#29](https://github.com/ztarsi/sudoku-mentor/issues/29). Roadmap bucket: Now (UX pass, phase 1). Source: [UX review](../reviews/2026-09-18-ux-review.md) sections 3.5, 5.1 principle 4, 5.5. Player served: all three, the learner most.
 
 ## The player problem
 

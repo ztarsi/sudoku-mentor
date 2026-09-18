@@ -1,6 +1,6 @@
 # Lesson-first panel
 
-Roadmap bucket: Now (UX pass, phase 1). Source: [UX review](../reviews/2026-09-18-ux-review.md) sections 3.1, 3.3, 5.2, 5.5. Player served: the improver first, then the learner.
+Issue: [#28](https://github.com/ztarsi/sudoku-mentor/issues/28). Roadmap bucket: Now (UX pass, phase 1). Source: [UX review](../reviews/2026-09-18-ux-review.md) sections 3.1, 3.3, 5.2, 5.5. Player served: the improver first, then the learner.
 
 ## The player problem
 
