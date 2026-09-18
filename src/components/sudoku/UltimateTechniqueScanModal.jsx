@@ -1,8 +1,10 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2, CheckCircle } from 'lucide-react';
+import { useDialog } from '@/hooks/useDialog';
 
 export default function UltimateTechniqueScanModal({ isOpen, currentTechnique, results, onClose }) {
+  const dialog = useDialog({ open: isOpen, onClose });
   const techniques = [
     { name: 'X-Cycle', time: '~2s' },
     { name: 'Finned X-Wing', time: '~1s' },
@@ -25,8 +27,8 @@ export default function UltimateTechniqueScanModal({ isOpen, currentTechnique, r
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
-          role="dialog"
-          aria-modal="true"
+          ref={dialog.ref}
+          {...dialog.props}
           aria-label="Ultimate technique scan"
           className="bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 w-full max-w-md"
         >

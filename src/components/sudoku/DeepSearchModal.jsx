@@ -2,8 +2,10 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, AlertCircle, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useDialog } from '@/hooks/useDialog';
 
 export default function DeepSearchModal({ isOpen, onClose, onGoDeeper, currentDepth, isSearching }) {
+  const dialog = useDialog({ open: isOpen, onClose });
   if (!isOpen) return null;
 
   return (
@@ -13,8 +15,8 @@ export default function DeepSearchModal({ isOpen, onClose, onGoDeeper, currentDe
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
-          role="dialog"
-          aria-modal="true"
+          ref={dialog.ref}
+          {...dialog.props}
           aria-label="No techniques found"
           className="bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 max-w-md w-full"
         >

@@ -31,6 +31,21 @@ export default function SudokuMentorMobile() {
   const [srAnnouncement, setSrAnnouncement] = useState('');
   const playerRef = useRef(null);
 
+  // The bottom bar grows when the pencil-mark pad opens; the page keeps
+  // exactly that much room below the grid so nothing hides behind it.
+  const bottomBarRef = useRef(null);
+  const [bottomBarHeight, setBottomBarHeight] = useState(140);
+  useEffect(() => {
+    const el = bottomBarRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) setBottomBarHeight(Math.ceil(entry.contentRect.height));
+    });
+    observer.observe(el);
+    setBottomBarHeight(Math.ceil(el.getBoundingClientRect().height));
+    return () => observer.disconnect();
+  }, []);
+
   // The mobile page is always no-assist: every solve is recorded.
   const game = useSudokuGame({
     persistKey: 'sudoku-mentor:game',
@@ -327,7 +342,10 @@ export default function SudokuMentorMobile() {
         </div>
       </header>
 
-      <main className="flex flex-col min-h-[calc(100vh-56px)] px-3 pb-36">
+      <main
+        className="flex flex-col min-h-[calc(100vh-56px)] px-3"
+        style={{ paddingBottom: bottomBarHeight + 12 }}
+      >
         {/* Progress strip */}
         <div className="flex items-center justify-between text-xs text-slate-400 py-2">
           <span>{game.progress}% complete</span>
@@ -339,8 +357,8 @@ export default function SudokuMentorMobile() {
           <SudokuGrid
             grid={game.grid}
             selectedCell={selectedCell}
-            focusedDigit={null}
-            focusedCandidates={focusedDigit ? { [focusedDigit]: colors.focusDigit || '#fbbf24' } : null}
+            focusedDigit={focusedDigit}
+            focusedCandidates={null}
             removalCandidates={null}
             highlightedDigit={highlightedDigit}
             validationErrors={game.validationErrors}
@@ -358,13 +376,27 @@ export default function SudokuMentorMobile() {
 
         {/* Mobile Controls - Fixed Bottom */}
         <div
+          ref={bottomBarRef}
           className="fixed left-0 right-0 bottom-0 bg-slate-900/95 backdrop-blur-md border-t border-slate-700 z-40"
           style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
         >
+          {/* Pencil-mark pad: stacks above the mode switch, never over it */}
+          <CandidateNumpad
+            isOpen={candidateMode && selectedCell !== null}
+            selectedCell={selectedCell}
+            grid={game.grid}
+            onToggleCandidate={(digit) => game.handleToggleCandidate(selectedCell, digit)}
+            onClose={() => setCandidateMode(false)}
+            colors={colors}
+            focusedDigit={focusedDigit}
+            removalCandidates={null}
+          />
+
           {/* Mode toggle + undo/erase */}
           <div className="flex items-center gap-2 px-2 py-2 border-b border-slate-800">
             <button
               onClick={() => setCandidateMode(false)}
+              aria-pressed={!candidateMode}
               className={`flex-1 py-2 rounded-lg font-medium text-sm transition-all ${
                 !candidateMode
                   ? 'bg-blue-600 text-white shadow-lg'
@@ -375,6 +407,7 @@ export default function SudokuMentorMobile() {
             </button>
             <button
               onClick={() => setCandidateMode(true)}
+              aria-pressed={candidateMode}
               className={`flex-1 py-2 rounded-lg font-medium text-sm transition-all ${
                 candidateMode
                   ? 'bg-purple-600 text-white shadow-lg'
@@ -422,6 +455,8 @@ export default function SudokuMentorMobile() {
                     key={digit}
                     onClick={() => handleDigitSelect(digit)}
                     disabled={isComplete && !candidateMode}
+                    aria-pressed={isSelected}
+                    aria-label={`Digit ${digit}, ${digitCount} placed${isComplete ? ', complete' : ''}`}
                     className={`
                       relative flex-shrink-0 w-9 h-9 rounded-lg font-semibold text-sm
                       transition-all duration-200
@@ -446,18 +481,6 @@ export default function SudokuMentorMobile() {
           </div>
         </div>
       </main>
-
-      {/* Candidate Numpad - bottom sheet for mobile candidate entry */}
-      <CandidateNumpad
-        isOpen={candidateMode && selectedCell !== null}
-        selectedCell={selectedCell}
-        grid={game.grid}
-        onToggleCandidate={(digit) => game.handleToggleCandidate(selectedCell, digit)}
-        onClose={() => setCandidateMode(false)}
-        colors={colors}
-        focusedDigit={focusedDigit}
-        removalCandidates={null}
-      />
 
       <WelcomeTour
         open={showTour}

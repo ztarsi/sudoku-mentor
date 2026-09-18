@@ -2,14 +2,14 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 /**
- * CandidateNumpad — bottom sheet numpad for mobile candidate entry.
+ * CandidateNumpad - pencil-mark pad for mobile candidate entry.
  *
- * Slides up from the bottom when candidate mode is active and a cell is selected.
- * Shows all 9 digits with visual state reflecting the selected cell's current candidates,
- * removal highlights, and focus digit highlights.
+ * Rendered INSIDE the fixed bottom bar, above the mode switch and digit
+ * row, so it never covers Undo, Erase or the mode buttons. It expands when
+ * candidate mode is active and a cell is selected, and shows the selected
+ * cell's current pencil marks, removal highlights and focus digit.
  *
  * Tapping a digit calls onToggleCandidate(digit).
- * Does not obscure the grid — sits below it in the layout.
  */
 export default function CandidateNumpad({
   isOpen,
@@ -25,32 +25,40 @@ export default function CandidateNumpad({
   const candidates = cell?.candidates || [];
 
   const focusDigitColor = colors?.focusDigit || '#10b981';
+  const cellLabel = selectedCell !== null
+    ? `R${Math.floor(selectedCell / 9) + 1}C${(selectedCell % 9) + 1}`
+    : '';
 
   return (
-    <AnimatePresence>
+    <AnimatePresence initial={false}>
       {isOpen && (
         <motion.div
-          initial={{ y: '100%', opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: '100%', opacity: 0 }}
+          key="candidate-numpad"
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: 'auto', opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
           transition={{ type: 'spring', damping: 32, stiffness: 320 }}
-          className="fixed bottom-0 left-0 right-0 z-40 lg:hidden"
+          className="overflow-hidden"
         >
-          <div className="bg-slate-900 border-t border-slate-700 px-4 pt-3 pb-6 safe-area-inset-bottom">
+          <div
+            role="group"
+            aria-label={`Pencil marks for ${cellLabel}`}
+            className="bg-slate-900 border-b border-slate-800 px-4 pt-3 pb-3"
+          >
             {/* Header row */}
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
-                Pencil Marks
+                Pencil marks {cellLabel && <span className="text-slate-500 normal-case">for {cellLabel}</span>}
               </span>
               <button
                 onClick={onClose}
-                className="text-xs text-slate-500 hover:text-slate-300 px-2 py-1 rounded transition-colors"
+                className="text-xs text-slate-400 hover:text-slate-200 px-2 py-1 rounded transition-colors"
               >
                 Done
               </button>
             </div>
 
-            {/* 3×3 numpad grid */}
+            {/* 3x3 numpad grid */}
             <div className="grid grid-cols-3 gap-2">
               {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => {
                 const isActive = candidates.includes(num);
@@ -76,9 +84,11 @@ export default function CandidateNumpad({
                     key={num}
                     whileTap={{ scale: 0.92 }}
                     onClick={() => onToggleCandidate(num)}
+                    aria-pressed={isActive}
+                    aria-label={`Pencil mark ${num}`}
                     className={`
                       flex items-center justify-center rounded-xl
-                      min-h-[52px] text-2xl
+                      min-h-[44px] text-xl
                       transition-all duration-150
                       ${textClass}
                       active:opacity-70

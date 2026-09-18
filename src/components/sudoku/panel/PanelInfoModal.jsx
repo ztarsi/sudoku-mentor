@@ -1,6 +1,7 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Info } from 'lucide-react';
+import { useDialog } from '@/hooks/useDialog';
 
 const CONTENT = {
   techniques: {
@@ -15,17 +16,8 @@ const CONTENT = {
 
 /** Small informational dialog for the panel section headers. */
 export default function PanelInfoModal({ topic, onClose }) {
-  // Close on Escape while open
-  useEffect(() => {
-    if (!topic) return undefined;
-    const onKey = (e) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [topic, onClose]);
-
   const content = topic ? CONTENT[topic] : null;
+  const dialog = useDialog({ open: !!content, onClose });
 
   return (
     <AnimatePresence>
@@ -42,8 +34,8 @@ export default function PanelInfoModal({ topic, onClose }) {
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
             onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
+            ref={dialog.ref}
+            {...dialog.props}
             aria-label={content.title}
             className="bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 w-full max-w-md p-6"
           >
