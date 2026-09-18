@@ -3,13 +3,9 @@ import { base44 } from '@/api/base44Client';
 import { bestNoAssistTime, createSolveRecord, saveColors as persistColors } from '@/api/playerData';
 import { toast } from '@/components/ui/use-toast';
 
-export const DEFAULT_COLORS = {
-  focusDigit: '#fbbf24',
-  candidate: '#ffffff',
-  cellNumber: '#60a5fa',
-  gridLines: '#ffffff',
-  cellBg: '#020617',
-};
+import { DEFAULT_COLORS } from '@/components/sudoku/colors';
+
+export { DEFAULT_COLORS };
 
 /**
  * Shared account-facing state: current user, persisted color settings, and

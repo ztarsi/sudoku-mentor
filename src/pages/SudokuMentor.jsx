@@ -1,12 +1,11 @@
-import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo, Suspense } from 'react';
 import SudokuGrid from '@/components/sudoku/SudokuGrid';
 import DigitFilter from '@/components/sudoku/DigitFilter';
 import LogicPanel from '@/components/sudoku/LogicPanel';
 import ControlBar from '@/components/sudoku/ControlBar';
-import UnifiedPuzzleLoader from '@/components/sudoku/UnifiedPuzzleLoader';
-import ColorSettings from '@/components/sudoku/ColorSettings';
-import CompletionModal from '@/components/sudoku/CompletionModal';
 import MobileDrawer from '@/components/sudoku/MobileDrawer';
+import AccountMenu from '@/components/sudoku/AccountMenu';
+import { playErrorTone } from '@/components/sudoku/errorSound';
 import { resolveShortcut, isTypingTarget } from '@/components/sudoku/keyboardShortcuts';
 import { findNextLogicStep } from '@/components/sudoku/logicEngine';
 import { searchWhatIf, isCancelled, HINT_SEARCH_DEPTH } from '@/components/sudoku/whatIfSearch';
@@ -22,10 +21,15 @@ import { useSudokuPlayer } from '@/hooks/useSudokuPlayer';
 import { usePuzzleBootstrap } from '@/hooks/usePuzzleBootstrap';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useDialog } from '@/hooks/useDialog';
-import { base44 } from '@/api/base44Client';
 import { AnimatePresence, motion } from 'framer-motion';
 import { createPageUrl } from '@/utils';
 import { toast } from "@/components/ui/use-toast";
+
+// Dialogs that carry their own weight (OCR, colour presets, confetti) load
+// on first open rather than with the page.
+const UnifiedPuzzleLoader = React.lazy(() => import('@/components/sudoku/UnifiedPuzzleLoader'));
+const ColorSettings = React.lazy(() => import('@/components/sudoku/ColorSettings'));
+const CompletionModal = React.lazy(() => import('@/components/sudoku/CompletionModal'));
 
 export default function SudokuMentor() {
   const [selectedCell, setSelectedCell] = useState(null);
@@ -43,7 +47,6 @@ export default function SudokuMentor() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [chainPlaybackIndex, setChainPlaybackIndex] = useState(0);
   const [showAppInfo, setShowAppInfo] = useState(false);
-  const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [showCopyConfirmation, setShowCopyConfirmation] = useState(false);
   const [noAssistMode, setNoAssistMode] = useState(false);
   const [showNoAssistModal, setShowNoAssistModal] = useState(false);
@@ -52,7 +55,6 @@ export default function SudokuMentor() {
   const [candidatesVisible, setCandidatesVisible] = useState(true);
   const [showTour, setShowTour] = useState(false);
 
-  const errorAudioRef = useRef(null);
   const [srAnnouncement, setSrAnnouncement] = useState('');
 
   // Values the onSolved callback needs that live outside the game hook
@@ -73,10 +75,7 @@ export default function SudokuMentor() {
   const game = useSudokuGame({
     persistKey: 'sudoku-mentor:game',
     onWrongInput: (cellIndex, digit) => {
-      if (errorAudioRef.current) {
-        errorAudioRef.current.currentTime = 0;
-        errorAudioRef.current.play();
-      }
+      playErrorTone();
       setSrAnnouncement(
         `${digit} conflicts with the solution at row ${Math.floor(cellIndex / 9) + 1}, column ${(cellIndex % 9) + 1}`
       );
@@ -298,7 +297,6 @@ export default function SudokuMentor() {
         showColorSettings ||
         showCompletion ||
         drawerOpen ||
-        showAccountMenu ||
         showAppInfo ||
         showCopyConfirmation ||
         showTour ||
@@ -528,9 +526,6 @@ export default function SudokuMentor() {
         {srAnnouncement}
       </div>
 
-      {/* Error sound */}
-      <audio ref={errorAudioRef} src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIF2i777edTRALUKXi8LljHAU2jdTwzIUsBS2Ayv=="  preload="auto"></audio>
-
       {/* Header */}
       <header className="bg-slate-900/90 backdrop-blur-md border-b border-slate-700/60 sticky top-0 z-50 safe-area-inset-top">
         <div className="max-w-7xl mx-auto px-2 lg:px-8 py-2 lg:py-4">
@@ -685,48 +680,7 @@ export default function SudokuMentor() {
                 <span className="hidden lg:inline whitespace-nowrap">Load puzzle</span>
               </button>
 
-              {/* Account Menu */}
-              <div className="relative">
-                {user ? (
-                  <>
-                    <button
-                      onClick={() => setShowAccountMenu(!showAccountMenu)}
-                      className="p-2 bg-slate-800 text-slate-300 rounded-lg lg:rounded-xl hover:bg-slate-700 transition-all duration-200 flex items-center justify-center"
-                      title={user.email}
-                      aria-label="Account menu"
-                    >
-                      <svg className="w-4 h-4 lg:w-5 lg:h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                      </svg>
-                    </button>
-
-                    {showAccountMenu && (
-                      <div className="absolute right-0 mt-2 w-56 bg-slate-800 rounded-lg shadow-xl border border-slate-700 overflow-hidden z-50">
-                        <div className="px-4 py-3 border-b border-slate-700">
-                          <p className="text-sm text-slate-400">Signed in as</p>
-                          <p className="text-sm font-medium text-white truncate">{user.email}</p>
-                        </div>
-                        <button
-                          onClick={() => {
-                            base44.auth.logout();
-                            setShowAccountMenu(false);
-                          }}
-                          className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 transition-colors"
-                        >
-                          Sign out
-                        </button>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <button
-                    onClick={() => base44.auth.redirectToLogin(window.location.href)}
-                    className="px-3 lg:px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg lg:rounded-xl transition-all duration-200 font-medium text-sm whitespace-nowrap"
-                  >
-                    Sign in
-                  </button>
-                )}
-              </div>
+              <AccountMenu user={user} />
             </div>
           </div>
         </div>
@@ -835,35 +789,37 @@ export default function SudokuMentor() {
       />
 
       {/* Unified Puzzle Loader Modal */}
-      <UnifiedPuzzleLoader
-        user={user}
-        isOpen={showPuzzleLoader}
-        onClose={() => setShowPuzzleLoader(false)}
-        onPuzzleLoaded={handleLoadPuzzle}
-      />
+      {showPuzzleLoader && (
+        <Suspense fallback={null}>
+          <UnifiedPuzzleLoader
+            user={user}
+            isOpen={showPuzzleLoader}
+            onClose={() => setShowPuzzleLoader(false)}
+            onPuzzleLoaded={handleLoadPuzzle}
+          />
+        </Suspense>
+      )}
 
       {/* Color Settings Modal */}
       {showColorSettings && (
-        <ColorSettings
-          colors={colors}
-          onColorsChange={player.saveColors}
-          onClose={() => setShowColorSettings(false)}
-        />
+        <Suspense fallback={null}>
+          <ColorSettings
+            colors={colors}
+            onColorsChange={player.saveColors}
+            onClose={() => setShowColorSettings(false)}
+          />
+        </Suspense>
       )}
 
       {/* Completion Modal */}
-      <CompletionModal
-        isOpen={showCompletion}
-        onClose={() => setShowCompletion(false)}
-        stats={completionStats}
-      />
-
-      {/* Click outside to close account menu */}
-      {showAccountMenu && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => setShowAccountMenu(false)}
-        />
+      {showCompletion && (
+        <Suspense fallback={null}>
+          <CompletionModal
+            isOpen={showCompletion}
+            onClose={() => setShowCompletion(false)}
+            stats={completionStats}
+          />
+        </Suspense>
       )}
 
       {/* App Info Modal */}

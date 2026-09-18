@@ -147,7 +147,7 @@ export default function OCRUpload({ onClose, onPuzzleExtracted, embedded = false
           <div className="grid md:grid-cols-2 gap-4">
             {/* Original Image */}
             <div>
-              <label className="block text-slate-300 text-sm font-medium mb-2">Original Image</label>
+              <p className="block text-slate-300 text-sm font-medium mb-2">Original Image</p>
               <div className="bg-slate-800 rounded-lg overflow-hidden">
                 <img src={preview} alt="Original puzzle" className="w-full h-auto" />
               </div>
@@ -155,7 +155,7 @@ export default function OCRUpload({ onClose, onPuzzleExtracted, embedded = false
 
             {/* Editable Grid */}
             <div>
-              <label className="block text-slate-300 text-sm font-medium mb-2">Extracted Grid (click to edit)</label>
+              <p className="block text-slate-300 text-sm font-medium mb-2">Extracted Grid (click to edit)</p>
               <div className="bg-slate-800 rounded-lg p-3">
                 <div 
                   className="grid grid-cols-9 gap-0 bg-slate-600 rounded"
@@ -196,10 +196,11 @@ export default function OCRUpload({ onClose, onPuzzleExtracted, embedded = false
           </div>
 
           <div>
-            <label className="block text-slate-300 text-sm font-medium mb-2">
+            <label htmlFor="ocr-puzzle-name" className="block text-slate-300 text-sm font-medium mb-2">
               Puzzle Name
             </label>
             <input
+              id="ocr-puzzle-name"
               type="text"
               value={puzzleName}
               onChange={(e) => setPuzzleName(e.target.value)}
@@ -323,7 +324,7 @@ export default function OCRUpload({ onClose, onPuzzleExtracted, embedded = false
         <div className="p-6 space-y-4">
           {/* Upload Area */}
           {!preview ? (
-            <label className="block">
+            <label className="block" aria-label="Upload a puzzle image">
               <div className="border-2 border-dashed border-slate-300 rounded-2xl p-8 hover:border-blue-500 hover:bg-blue-50/50 transition-all cursor-pointer">
                 <div className="flex flex-col items-center gap-3">
                   <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center">

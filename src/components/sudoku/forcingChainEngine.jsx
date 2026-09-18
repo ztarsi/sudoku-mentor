@@ -149,7 +149,7 @@ export const findForcingChain = (grid, maxDepth = 10) => {
   return null; // No forcing chain found - use other techniques or fallback to hypothesis mode
 };
 
-const cellRef = (i) => `R${getRow(i) + 1}C${getCol(i) + 1}`;
+const cellRef = cellName;
 
 // The step-by-step story of a branch that ended in a contradiction.
 const narrateContradiction = (cellIndex, value, branch, conclusion) => {
@@ -330,8 +330,8 @@ const findConvergence = (grid, branch1, branch2, cellIndex, value1, value2) => {
   
   if (commonPlacements.length > 0) {
     const placement = commonPlacements[0];
-    const originCell = `R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1}`;
-    const targetCell = `R${getRow(placement.cell) + 1}C${getCol(placement.cell) + 1}`;
+    const originCell = cellName(cellIndex);
+    const targetCell = cellName(placement.cell);
     
     let explanation = `🎯 Cell Forcing Chain (Convergence Proof)\n\n`;
     explanation += `📍 Origin: ${originCell} can only be ${value1} or ${value2}.\n\n`;
@@ -340,7 +340,7 @@ const findConvergence = (grid, branch1, branch2, cellIndex, value1, value2) => {
     explanation += `✅ Path A: If ${originCell} = ${value1}\n`;
     const pathASteps = branch1.chain.filter(s => s.action === 'place').slice(1, 4); // Show first few steps
     pathASteps.forEach((step, idx) => {
-      const cellRef = `R${getRow(step.cell) + 1}C${getCol(step.cell) + 1}`;
+      const cellRef = cellName(step.cell);
       explanation += `   ${idx + 1}. ${cellRef} must be ${step.value}\n`;
     });
     if (branch1.chain.filter(s => s.action === 'place').length > 4) {
@@ -352,7 +352,7 @@ const findConvergence = (grid, branch1, branch2, cellIndex, value1, value2) => {
     explanation += `✅ Path B: If ${originCell} = ${value2}\n`;
     const pathBSteps = branch2.chain.filter(s => s.action === 'place').slice(1, 4);
     pathBSteps.forEach((step, idx) => {
-      const cellRef = `R${getRow(step.cell) + 1}C${getCol(step.cell) + 1}`;
+      const cellRef = cellName(step.cell);
       explanation += `   ${idx + 1}. ${cellRef} must be ${step.value}\n`;
     });
     if (branch2.chain.filter(s => s.action === 'place').length > 4) {
@@ -380,7 +380,7 @@ const findConvergence = (grid, branch1, branch2, cellIndex, value1, value2) => {
   }
   
   if (commonEliminations.length > 0) {
-    const originCell = `R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1}`;
+    const originCell = cellName(cellIndex);
     
     let explanation = `🎯 Cell Forcing Chain (Convergence Proof)\n\n`;
     explanation += `📍 Origin: ${originCell} can only be ${value1} or ${value2}.\n\n`;
@@ -448,8 +448,8 @@ const findTripleConvergence = (grid, branch1, branch2, branch3, cellIndex, value
   
   if (commonPlacements.length > 0) {
     const placement = commonPlacements[0];
-    const originCell = `R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1}`;
-    const targetCell = `R${getRow(placement.cell) + 1}C${getCol(placement.cell) + 1}`;
+    const originCell = cellName(cellIndex);
+    const targetCell = cellName(placement.cell);
     
     let explanation = `🎯 Cell Forcing Chain (Triple Convergence)\n\n`;
     explanation += `📍 Origin: ${originCell} has three candidates {${value1}, ${value2}, ${value3}}.\n\n`;
@@ -479,7 +479,7 @@ const findTripleConvergence = (grid, branch1, branch2, branch3, cellIndex, value
   }
   
   if (commonEliminations.length > 0) {
-    const originCell = `R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1}`;
+    const originCell = cellName(cellIndex);
     
     let explanation = `🎯 Cell Forcing Chain (Triple Convergence)\n\n`;
     explanation += `📍 Origin: ${originCell} has three candidates {${value1}, ${value2}, ${value3}}.\n\n`;

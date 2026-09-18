@@ -2,6 +2,7 @@ import React, { useState, useRef, useMemo, useEffect } from 'react';
 import Cell from './Cell';
 import CellContextMenu from './CellContextMenu';
 import { buildHighlightSets } from './stepHighlights';
+import { commonUnit } from './gridUnits';
 
 export default function SudokuGrid({
   grid,
@@ -198,19 +199,11 @@ export default function SudokuGrid({
     if (currentStep?.technique !== 'ALS-XZ' || !currentStep.als1 || !currentStep.als2) {
       return null;
     }
-    const unitOf = (cells) => {
-      const rows = [...new Set(cells.map(c => Math.floor(c / 9)))];
-      const cols = [...new Set(cells.map(c => c % 9))];
-      const boxes = [...new Set(cells.map(c => Math.floor(Math.floor(c / 9) / 3) * 3 + Math.floor((c % 9) / 3)))];
-      return rows.length === 1 ? { type: 'row', value: rows[0] }
-        : cols.length === 1 ? { type: 'col', value: cols[0] }
-        : boxes.length === 1 ? { type: 'box', value: boxes[0] } : null;
-    };
     return {
       als1Cells: new Set(currentStep.als1.cells),
       als2Cells: new Set(currentStep.als2.cells),
-      als1Unit: unitOf(currentStep.als1.cells),
-      als2Unit: unitOf(currentStep.als2.cells),
+      als1Unit: commonUnit(currentStep.als1.cells),
+      als2Unit: commonUnit(currentStep.als2.cells),
     };
   }, [currentStep]);
 
@@ -294,7 +287,6 @@ export default function SudokuGrid({
                   cell={displayCell}
                   isSelected={selectedCell === index}
                   isFocusedDigit={false}
-                  isFocusCandidate={focusedDigit !== null && cell.value === null && cell.candidates.includes(focusedDigit)}
                   isDimmed={false}
                   isHighlightedNumber={highlightedDigit !== null && cell.value === highlightedDigit}
                   hasError={validationErrors.includes(index)}

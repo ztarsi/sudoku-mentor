@@ -1,3 +1,4 @@
+import { DEFAULT_COLORS } from './colors';
 // Pure helpers for turning a logic-engine step into UI highlight state.
 // One implementation, shared by the hint flow and the technique browser
 // (this logic used to be copy-pasted three times inside SudokuMentor.jsx).
@@ -25,7 +26,7 @@ export const buildFocusedCandidates = (step, grid, colors) => {
     });
 
     const colorPalette = [
-      colors.focusDigit || '#10b981',
+      colors.focusDigit || DEFAULT_COLORS.focusDigit,
       '#3b82f6',
       '#f59e0b',
       '#ef4444',
@@ -46,7 +47,7 @@ export const buildFocusedCandidates = (step, grid, colors) => {
   }
 
   if (step.digit) {
-    return { [step.digit]: colors.focusDigit || '#10b981' };
+    return { [step.digit]: colors.focusDigit || DEFAULT_COLORS.focusDigit };
   }
 
   return null;

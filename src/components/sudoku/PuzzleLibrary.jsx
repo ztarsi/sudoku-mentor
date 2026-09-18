@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Sparkles, Flame, Zap, Crown, Skull, Brain, Edit2, Check } from 'lucide-react';
 import { listMyPuzzles, listMyNoAssistRecords, renamePuzzle, deletePuzzle } from '@/api/playerData';
@@ -21,6 +21,10 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
   const [selectedDifficulty, setSelectedDifficulty] = useState('easy');
   const [editingPuzzleId, setEditingPuzzleId] = useState(null);
   const [editingName, setEditingName] = useState('');
+  const renameInputRef = useRef(null);
+  useEffect(() => {
+    if (editingPuzzleId !== null) renameInputRef.current?.focus();
+  }, [editingPuzzleId]);
 
   const queryClient = useQueryClient();
 
@@ -162,11 +166,12 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
                 {editingPuzzleId === puzzle.id ? (
                   <div className="flex items-center gap-2">
                     <input
+                      ref={renameInputRef}
                       type="text"
                       value={editingName}
+                      aria-label="New puzzle name"
                       onChange={(e) => setEditingName(e.target.value)}
                       className="flex-1 px-2 py-1 bg-slate-900 text-white border border-slate-600 rounded text-sm"
-                      autoFocus
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           updatePuzzleMutation.mutate({ record: puzzle.record, name: editingName });

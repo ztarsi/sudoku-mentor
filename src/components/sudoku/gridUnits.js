@@ -56,3 +56,17 @@ export const ALL_UNITS = [
   ...Array.from({ length: 9 }, (_, i) => ({ ...unitOf('column', i), indices: getColIndices(i) })),
   ...Array.from({ length: 9 }, (_, i) => ({ ...unitOf('box', i), indices: getBoxIndices(i) })),
 ];
+
+/**
+ * The single row, column or box that holds every one of `cells`, as
+ * { type: 'row' | 'col' | 'box', value }, or null when they span units.
+ */
+export const commonUnit = (cells) => {
+  const rows = new Set(cells.map(getRow));
+  const cols = new Set(cells.map(getCol));
+  const boxes = new Set(cells.map(getBox));
+  if (rows.size === 1) return { type: 'row', value: [...rows][0] };
+  if (cols.size === 1) return { type: 'col', value: [...cols][0] };
+  if (boxes.size === 1) return { type: 'box', value: [...boxes][0] };
+  return null;
+};

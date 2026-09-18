@@ -3,6 +3,7 @@ import pluginJs from "@eslint/js";
 import pluginReact from "eslint-plugin-react";
 import pluginReactHooks from "eslint-plugin-react-hooks";
 import pluginUnusedImports from "eslint-plugin-unused-imports";
+import pluginJsxA11y from "eslint-plugin-jsx-a11y";
 
 export default [
   {
@@ -29,6 +30,7 @@ export default [
       react: pluginReact,
       "react-hooks": pluginReactHooks,
       "unused-imports": pluginUnusedImports,
+      "jsx-a11y": pluginJsxA11y,
     },
     rules: {
       "no-unused-vars": "off",
@@ -52,6 +54,7 @@ export default [
       ],
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "warn",
+      ...pluginJsxA11y.configs.recommended.rules,
     },
   },
 ];
