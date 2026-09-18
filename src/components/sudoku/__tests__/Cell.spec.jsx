@@ -54,6 +54,7 @@ const renderCell = (props = {}) => {
       onInput={onInput}
       onToggleCandidate={onToggleCandidate}
       cellSize={props.cellSize}
+      rejected={props.rejected ?? null}
     />
   );
   return { ...utils, onClick, onInput, onToggleCandidate };
@@ -94,6 +95,44 @@ describe('Cell click handling', () => {
     fireEvent.click(container.querySelector('#sudoku-cell-4'));
     expect(onClick).toHaveBeenCalledTimes(1);
     expect(onInput).not.toHaveBeenCalled();
+  });
+
+  it('flashes the refused digit in red when an entry is rejected', () => {
+    const { queryByTestId, rerender } = renderCell();
+    expect(queryByTestId('rejected-input')).toBeNull();
+
+    const cellProps = /** @type {any} */ ({});
+    rerender(
+      <Cell
+        {...cellProps}
+        cellId="sudoku-cell-4"
+        cell={baseCell()}
+        isSelected={true}
+        isFocusedDigit={false}
+        isFocusCandidate={false}
+        isDimmed={false}
+        isHighlightedNumber={false}
+        hasError={false}
+        borderClasses=""
+        focusedDigit={null}
+        focusedCandidates={null}
+        removalCandidates={null}
+        candidateMode={false}
+        candidatesVisible={true}
+        colors={{}}
+        onClick={() => {}}
+        onInput={() => {}}
+        onToggleCandidate={() => {}}
+        rejected={{ cellIndex: 4, digit: 7, id: 1 }}
+      />
+    );
+    const flash = queryByTestId('rejected-input');
+    expect(flash).not.toBeNull();
+    expect(flash.textContent).toBe('7');
+    expect(flash.className).toContain('pointer-events-none');
+    // The refused digit is never written into the cell itself
+    expect(document.getElementById('sudoku-cell-4').getAttribute('aria-label'))
+      .toBe('Row 1, column 5: empty');
   });
 
   it('exposes a descriptive accessible name', () => {

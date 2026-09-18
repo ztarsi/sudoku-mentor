@@ -377,6 +377,7 @@ export default function SudokuMentorMobile() {
             colors={colors}
             currentStep={null}
             playbackIndex={0}
+            rejectedInput={game.rejectedInput}
             onCellClick={handleCellClick}
             onCellInput={game.handleCellInput}
             onToggleCandidate={game.handleToggleCandidate}

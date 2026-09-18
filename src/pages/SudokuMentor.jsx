@@ -775,6 +775,7 @@ export default function SudokuMentor() {
                 currentStep={currentStep}
                 highlightedSteps={highlightedSteps}
                 playbackIndex={chainPlaybackIndex}
+                rejectedInput={game.rejectedInput}
                 onCellClick={handleCellClick}
                 onCellInput={game.handleCellInput}
                 onToggleCandidate={game.handleToggleCandidate}
