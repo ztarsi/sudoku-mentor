@@ -44,9 +44,17 @@ export default function TechniqueModal({ technique, onClose }) {
 
           {/* Content */}
           <div className="p-6 space-y-6">
+            {/* Plain-language version first: this is what a beginner needs */}
+            {details.plain && (
+              <div>
+                <h3 className="text-lg font-semibold text-slate-200 mb-2">In plain words</h3>
+                <p className="text-slate-200 leading-relaxed text-base">{details.plain}</p>
+              </div>
+            )}
+
             {/* Description */}
             <div>
-              <h3 className="text-lg font-semibold text-slate-200 mb-2">What is it?</h3>
+              <h3 className="text-lg font-semibold text-slate-200 mb-2">The formal version</h3>
               <p className="text-slate-300 leading-relaxed">{details.description}</p>
             </div>
 
