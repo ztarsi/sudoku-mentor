@@ -46,6 +46,7 @@ jobs:
           ls dist/assets | grep -q 'whatIf.worker'
           test -f dist/favicon.svg
           test -f dist/manifest.webmanifest
+          test -f dist/sw.js
 
       # Budget: all JavaScript in the build, uncompressed. The build is about
       # 750 kB today; raise this number deliberately, not by accident.
