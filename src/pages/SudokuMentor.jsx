@@ -7,6 +7,7 @@ import UnifiedPuzzleLoader from '@/components/sudoku/UnifiedPuzzleLoader';
 import ColorSettings from '@/components/sudoku/ColorSettings';
 import CompletionModal from '@/components/sudoku/CompletionModal';
 import MobileDrawer from '@/components/sudoku/MobileDrawer';
+import { resolveShortcut, isTypingTarget } from '@/components/sudoku/keyboardShortcuts';
 import { findNextLogicStep } from '@/components/sudoku/logicEngine';
 import {
   buildRemovalMap,
@@ -248,7 +249,11 @@ export default function SudokuMentor() {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Disable shortcuts when any modal is open
+      // Typing in a text field is never a shortcut.
+      if (isTypingTarget(e.target)) return;
+
+      // Any open dialog owns the keyboard: the page-level flags plus the
+      // dialogs the logic panel opens on its own (technique info, scans).
       const isModalOpen =
         showPuzzleLoader ||
         showColorSettings ||
@@ -257,112 +262,93 @@ export default function SudokuMentor() {
         showAccountMenu ||
         showAppInfo ||
         showCopyConfirmation ||
-        showTour;
+        showTour ||
+        !!document.querySelector('[role="dialog"]');
       if (isModalOpen) return;
 
-      // Shift key toggles candidate mode
+      // Holding Shift switches to candidate mode for mouse clicks too
       if (e.key === 'Shift' && !e.repeat) {
         setCandidateMode(true);
+        return;
       }
 
-      // Arrow key navigation
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-        e.preventDefault();
-        if (selectedCell !== null) {
+      const action = resolveShortcut(e, { hasSelection: selectedCell !== null });
+      if (!action) return;
+
+      switch (action.type) {
+        case 'move': {
+          e.preventDefault();
+          if (selectedCell === null) {
+            setSelectedCell(0); // Start at top-left if no cell selected
+            return;
+          }
           const row = Math.floor(selectedCell / 9);
           const col = selectedCell % 9;
-          let newRow = row;
-          let newCol = col;
-
-          if (e.key === 'ArrowUp') newRow = Math.max(0, row - 1);
-          if (e.key === 'ArrowDown') newRow = Math.min(8, row + 1);
-          if (e.key === 'ArrowLeft') newCol = Math.max(0, col - 1);
-          if (e.key === 'ArrowRight') newCol = Math.min(8, col + 1);
-
-          setSelectedCell(newRow * 9 + newCol);
-        } else {
-          setSelectedCell(0); // Start at top-left if no cell selected
-        }
-        return;
-      }
-
-      // Hint shortcut (H key) - disabled in no assist mode
-      if (e.key.toLowerCase() === 'h' && !e.ctrlKey && !e.metaKey && !noAssistMode) {
-        e.preventDefault();
-        handleNextStep();
-        return;
-      }
-
-      // Apply step (A key) - disabled in no assist mode
-      if (e.key.toLowerCase() === 'a' && !e.ctrlKey && !e.metaKey && currentStep && !noAssistMode) {
-        e.preventDefault();
-        handleApplyStep();
-        return;
-      }
-
-      // Undo (Z or Ctrl+Z)
-      if (e.key.toLowerCase() === 'z' && !e.shiftKey) {
-        e.preventDefault();
-        handleUndo();
-        return;
-      }
-
-      // Redo (Shift+Z or Ctrl+Shift+Z / Ctrl+Y)
-      if (
-        (e.key.toLowerCase() === 'z' && e.shiftKey) ||
-        (e.key.toLowerCase() === 'y' && (e.ctrlKey || e.metaKey))
-      ) {
-        e.preventDefault();
-        handleRedo();
-        return;
-      }
-
-      if (e.key >= '1' && e.key <= '9') {
-        const digit = parseInt(e.key);
-
-        // Focus digit mode (Ctrl/Cmd + digit)
-        if (e.ctrlKey || e.metaKey) {
-          e.preventDefault();
-          handleDigitFilter(digit);
+          const next = {
+            up: [Math.max(0, row - 1), col],
+            down: [Math.min(8, row + 1), col],
+            left: [row, Math.max(0, col - 1)],
+            right: [row, Math.min(8, col + 1)],
+          }[action.direction];
+          setSelectedCell(next[0] * 9 + next[1]);
           return;
         }
-
-        // Candidate mode (Shift + digit) - check selected cell exists and is empty
-        if (e.shiftKey && selectedCell !== null) {
+        case 'hint':
+          if (noAssistMode) return;
           e.preventDefault();
+          handleNextStep();
+          return;
+        case 'apply':
+          if (noAssistMode || !currentStep) return;
+          e.preventDefault();
+          handleApplyStep();
+          return;
+        case 'undo':
+          e.preventDefault();
+          handleUndo();
+          return;
+        case 'redo':
+          e.preventDefault();
+          handleRedo();
+          return;
+        case 'focus-digit':
+          e.preventDefault();
+          handleDigitFilter(action.digit);
+          return;
+        case 'toggle-candidate': {
+          e.preventDefault();
+          if (selectedCell === null) return;
           const cell = game.grid[selectedCell];
           if (!cell.isFixed && cell.value === null) {
-            game.handleToggleCandidate(selectedCell, digit);
+            game.handleToggleCandidate(selectedCell, action.digit);
           }
           return;
         }
-
-        // Regular input
-        if (selectedCell !== null && !game.grid[selectedCell].isFixed) {
-          e.preventDefault();
-          game.handleCellInput(selectedCell, digit);
-        }
-      } else if (e.key === 'Backspace' || e.key === 'Delete') {
-        // Don't interfere with input fields
-        if (
-          document.activeElement.tagName === 'INPUT' ||
-          document.activeElement.tagName === 'TEXTAREA'
-        ) {
+        case 'input':
+          if (selectedCell !== null && !game.grid[selectedCell].isFixed) {
+            e.preventDefault();
+            game.handleCellInput(selectedCell, action.digit);
+          }
           return;
-        }
-        e.preventDefault();
-        if (selectedCell !== null && !game.grid[selectedCell].isFixed) {
-          game.handleCellInput(selectedCell, null);
-        }
-      } else if (e.key === 'Escape') {
-        e.preventDefault();
-        setFocusedDigit(null);
-        setSelectedCell(null);
-        setHighlightedDigit(null);
-        clearHighlights();
-      } else if (e.key.toLowerCase() === 'c' && !e.ctrlKey && !e.metaKey) {
-        e.preventDefault();
-        handleClearGrid();
+        case 'clear-cell':
+          e.preventDefault();
+          if (selectedCell !== null && !game.grid[selectedCell].isFixed) {
+            game.handleCellInput(selectedCell, null);
+          }
+          return;
+        case 'escape':
+          e.preventDefault();
+          setFocusedDigit(null);
+          setSelectedCell(null);
+          setHighlightedDigit(null);
+          clearHighlights();
+          return;
+        case 'clear-grid':
+          e.preventDefault();
+          handleClearGrid();
+          return;
+        default:
+          return;
       }
     };
 
