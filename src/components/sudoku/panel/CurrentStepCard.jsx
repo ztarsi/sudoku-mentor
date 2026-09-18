@@ -232,6 +232,8 @@ export default function CurrentStepCard({
   focusedDigit,
   noAssistMode,
   onNextStep,
+  searching = false,
+  onCancelSearch,
   onSelectTechnique,
   chainPlaybackIndex,
   onChainPlaybackChange,
@@ -266,10 +268,14 @@ export default function CurrentStepCard({
           </div>
           <div>
             <h3 className="text-lg font-semibold text-white">
-              {currentStep ? 'Technique Found!' : 'Ready for a Hint?'}
+              {currentStep ? 'Technique Found!' : searching ? 'Searching...' : 'Ready for a Hint?'}
             </h3>
             <p className="text-base text-slate-400">
-              {currentStep ? techniqueInfo?.level : 'Click "Hint" to analyze the board'}
+              {currentStep
+                ? techniqueInfo?.level
+                : searching
+                ? 'No named technique applies; trying what-if chains'
+                : 'Click "Hint" to analyze the board'}
             </p>
           </div>
         </div>
@@ -368,6 +374,20 @@ export default function CurrentStepCard({
                 <p className="text-slate-500 text-sm">
                   Hints disabled in No Assist Mode
                 </p>
+              </div>
+            ) : searching ? (
+              <div className="py-6" role="status" aria-live="polite">
+                <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-slate-800 flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400" aria-hidden="true"></div>
+                </div>
+                <p className="text-slate-300 text-base">Searching what-if chains in the background</p>
+                <p className="text-slate-500 text-sm mt-1 mb-3">The board stays usable. Changing it stops the search.</p>
+                <button
+                  onClick={onCancelSearch}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-sm font-medium transition-colors"
+                >
+                  Cancel search
+                </button>
               </div>
             ) : (
               <>

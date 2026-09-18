@@ -8,7 +8,7 @@ import AutoSolveControls from './panel/AutoSolveControls';
 import KeyboardShortcutsCard from './panel/KeyboardShortcutsCard';
 import PanelInfoModal from './panel/PanelInfoModal';
 import { findAllTechniqueInstances } from './logicEngine';
-import { findForcingChain, findHypothesis } from './forcingChainEngine';
+import { searchWhatIf, isCancelled } from './whatIfSearch';
 
 const SCANNABLE_TECHNIQUES = [
   'Naked Single', 'Hidden Single',
@@ -40,6 +40,8 @@ export default function LogicPanel({
   onNextStep,
   onChainPlaybackChange,
   chainPlaybackIndex,
+  searchingHint = false,
+  onCancelHintSearch,
 }) {
   const [selectedTechnique, setSelectedTechnique] = useState(null);
   const [techniqueExpanded, setTechniqueExpanded] = useState(true);
@@ -105,24 +107,42 @@ export default function LogicPanel({
     setScanningTechnique(null);
   };
 
+  // What-if search (forcing chains, then hypothesis) runs in a worker so
+  // the page never freezes; Cancel terminates it.
+  const searchRef = useRef(null);
+  const cancelSearch = () => {
+    searchRef.current?.cancel();
+    searchRef.current = null;
+    setSearchingForcingChain(false);
+  };
+  useEffect(() => () => searchRef.current?.cancel(), []);
+
   const performDeepSearch = async (depth) => {
-    // Try logical forcing chains first (convergence-based), then fall back
-    // to hypothesis mode (contradiction-based)
-    /** @type {any} */
-    let result = findForcingChain(grid, depth);
-    if (!result) {
-      result = findHypothesis(grid, depth);
+    searchRef.current?.cancel();
+    const search = searchWhatIf(grid, depth);
+    searchRef.current = search;
+    setSearchingForcingChain(true);
+    try {
+      return await search.promise;
+    } catch (error) {
+      if (!isCancelled(error)) console.error('What-if search failed', error);
+      return undefined; // cancelled or failed: caller does nothing
+    } finally {
+      if (searchRef.current === search) {
+        searchRef.current = null;
+        setSearchingForcingChain(false);
+      }
     }
-    return result;
   };
 
   const handleWhatIfSearch = async () => {
-    setSearchingForcingChain(true);
+    if (searchRef.current) {
+      cancelSearch();
+      return;
+    }
     setCurrentSearchDepth(100);
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
     const result = await performDeepSearch(100);
-    setSearchingForcingChain(false);
+    if (result === undefined) return;
 
     if (result) {
       onHighlightTechnique([result], 1, 1);
@@ -134,11 +154,8 @@ export default function LogicPanel({
   const handleGoDeeper = async () => {
     const newDepth = currentSearchDepth + 10;
     setCurrentSearchDepth(newDepth);
-    setSearchingForcingChain(true);
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
     const result = await performDeepSearch(newDepth);
-    setSearchingForcingChain(false);
+    if (result === undefined) return;
 
     if (result) {
       setShowDeepSearchModal(false);
@@ -228,7 +245,7 @@ export default function LogicPanel({
         clearTimeout(playIntervalRef.current);
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [isPlaying, currentStep, playSpeed]);
 
   const handleTechniqueClick = (techniqueName) => {
@@ -272,6 +289,8 @@ export default function LogicPanel({
         focusedDigit={focusedDigit}
         noAssistMode={noAssistMode}
         onNextStep={onNextStep}
+        searching={searchingHint}
+        onCancelSearch={onCancelHintSearch}
         onSelectTechnique={setSelectedTechnique}
         chainPlaybackIndex={chainPlaybackIndex}
         onChainPlaybackChange={onChainPlaybackChange}
@@ -314,9 +333,11 @@ export default function LogicPanel({
       <DeepSearchModal
         isOpen={showDeepSearchModal}
         onClose={() => {
+          cancelSearch();
           setShowDeepSearchModal(false);
           setCurrentSearchDepth(100);
         }}
+        onCancel={cancelSearch}
         onGoDeeper={handleGoDeeper}
         currentDepth={currentSearchDepth}
         isSearching={searchingForcingChain}

@@ -61,8 +61,10 @@ describe('applyValueAndPropagate', () => {
     grid[cellIndex(1, 1)].candidates = [5, 9];
     grid[cellIndex(1, 2)].candidates = [5, 7]; // -> naked 7
     grid[cellIndex(1, 3)].candidates = [5, 8]; // -> naked 8 (was left with a stale 5)
+    // Every other cell can be anything, so no unit is left without a place
+    // for some digit (propagation now checks hidden singles too).
     for (let i = 0; i < 81; i++) {
-      if (grid[i].candidates.length === 0) grid[i].candidates = [1, 2, 3, 4, 6];
+      if (grid[i].candidates.length === 0) grid[i].candidates = [1, 2, 3, 4, 5, 6, 7, 8, 9];
     }
 
     const result = applyValueAndPropagate(grid, cellIndex(1, 1), 5);
@@ -70,6 +72,12 @@ describe('applyValueAndPropagate', () => {
     expect(result.contradiction).toBe(false);
     expect(result.grid[cellIndex(1, 2)].value).toBe(7);
     expect(result.grid[cellIndex(1, 3)].value).toBe(8);
+    // The forced placements are reported, in order, with their reasons.
+    expect(result.placements.map((p) => [p.cell, p.value])).toEqual([
+      [cellIndex(1, 2), 7],
+      [cellIndex(1, 3), 8],
+    ]);
+    expect(result.placements[0].reason).toBe('Only candidate left in R1C2');
     for (const peer of [3, 4, 5, 6, 7, 8]) {
       // rest of row 1: no cell may keep 5 as a candidate
       expect(result.grid[cellIndex(1, peer + 1)].candidates).not.toContain(5);
@@ -86,6 +94,33 @@ describe('applyValueAndPropagate', () => {
     // Placing 1 at R1C1 forces both R1C2 and R1C3 to 3 in the same row.
     const result = applyValueAndPropagate(grid, cellIndex(1, 1), 1);
     expect(result.contradiction).toBe(true);
+    expect(result.text).toMatch(/already holds 3|both 3|no valid candidates/);
+  });
+
+  it('cascades hidden singles: a digit with one place left in a unit is placed', () => {
+    const grid = createEmptyGrid();
+    for (let i = 0; i < 81; i++) grid[i].candidates = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+    // In row 1, only R1C1 and R1C9 can hold 9. Placing 5 at R1C9 leaves
+    // R1C1 as the only place for 9 in row 1 (a hidden single, not a naked one).
+    for (let c = 2; c <= 8; c++) grid[cellIndex(1, c)].candidates = [1, 2, 3, 4, 5, 6, 7, 8];
+    grid[cellIndex(1, 9)].candidates = [5, 9];
+
+    const result = applyValueAndPropagate(grid, cellIndex(1, 9), 5);
+    expect(result.contradiction).toBe(false);
+    expect(result.grid[cellIndex(1, 1)].value).toBe(9);
+    expect(result.placements.find((p) => p.cell === cellIndex(1, 1)).reason).toBe('Only place for 9 in row 1');
+  });
+
+  it('reports a contradiction when a digit has no place left in a unit', () => {
+    const grid = createEmptyGrid();
+    for (let i = 0; i < 81; i++) grid[i].candidates = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+    // Row 1: only R1C1 can hold 9; placing 5 there leaves 9 with nowhere to go.
+    for (let c = 2; c <= 9; c++) grid[cellIndex(1, c)].candidates = [1, 2, 3, 4, 5, 6, 7, 8];
+    grid[cellIndex(1, 1)].candidates = [5, 9];
+
+    const result = applyValueAndPropagate(grid, cellIndex(1, 1), 5);
+    expect(result.contradiction).toBe(true);
+    expect(result.text).toBe('no cell in row 1 can hold 9');
   });
 });
 

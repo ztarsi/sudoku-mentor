@@ -116,6 +116,22 @@ export default function SudokuGrid({
     onCellClick(index);
   };
 
+  // Per-cell callbacks are created once and read the latest page handlers
+  // through a ref, so React.memo(Cell) actually skips unchanged cells.
+  const latestRef = useRef({ handleCellClick, onCellInput, onToggleCandidate, handleTouchStart: null, handleTouchEnd: null, handleTouchMove: null });
+  const cellHandlers = useMemo(
+    () =>
+      Array.from({ length: 81 }, (_, index) => ({
+        onClick: () => latestRef.current.handleCellClick(index),
+        onInput: (value) => latestRef.current.onCellInput(index, value),
+        onToggleCandidate: (candidate) => latestRef.current.onToggleCandidate(index, candidate),
+        onTouchStart: (e) => latestRef.current.handleTouchStart(e, index),
+        onTouchEnd: () => latestRef.current.handleTouchEnd(),
+        onTouchMove: () => latestRef.current.handleTouchMove(),
+      })),
+    []
+  );
+
   const handleTouchEnd = () => {
     if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; }
   };
@@ -123,6 +139,8 @@ export default function SudokuGrid({
   const handleTouchMove = () => {
     if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; }
   };
+
+  latestRef.current = { handleCellClick, onCellInput, onToggleCandidate, handleTouchStart, handleTouchEnd, handleTouchMove };
 
   const handleContextMenuClear = () => {
     if (contextMenu.cellIndex !== null) onCellInput(contextMenu.cellIndex, null);
@@ -253,14 +271,21 @@ export default function SudokuGrid({
               // overriding whatever (possibly stale) flags a snapshot carries.
               const isBase = highlightSets.baseCells.has(index);
               const isTarget = highlightSets.targetCells.has(index);
-              const displayCell = {
-                ...cell,
-                isBaseCell: isBase,
-                isTargetCell: isTarget,
-                isUnitCell: highlightSets.unitCells.has(index),
-                isHighlighted: isBase || isTarget,
-                highlightColor: isBase ? 'blue' : isTarget ? 'red' : null,
-              };
+              const isUnit = highlightSets.unitCells.has(index);
+              const flagged = isBase || isTarget || isUnit;
+              const stale = !!(cell.isBaseCell || cell.isTargetCell || cell.isUnitCell || cell.isHighlighted);
+              // Reuse the game's own cell object when nothing changes, so a
+              // memoised Cell sees the same props and skips the render.
+              const displayCell = flagged || stale
+                ? {
+                    ...cell,
+                    isBaseCell: isBase,
+                    isTargetCell: isTarget,
+                    isUnitCell: isUnit,
+                    isHighlighted: isBase || isTarget,
+                    highlightColor: isBase ? 'blue' : isTarget ? 'red' : null,
+                  }
+                : cell;
 
               return (
                 <Cell
@@ -287,12 +312,12 @@ export default function SudokuGrid({
                   zDigit={currentStep?.technique === 'ALS-XZ' ? currentStep.zDigit : null}
                   cellSize={cellSize}
                   rejected={rejectedInput?.cellIndex === index ? rejectedInput : null}
-                  onClick={() => handleCellClick(index)}
-                  onInput={(value) => onCellInput(index, value)}
-                  onToggleCandidate={(candidate) => onToggleCandidate(index, candidate)}
-                  onTouchStart={(e) => handleTouchStart(e, index)}
-                  onTouchEnd={handleTouchEnd}
-                  onTouchMove={handleTouchMove}
+                  onClick={cellHandlers[index].onClick}
+                  onInput={cellHandlers[index].onInput}
+                  onToggleCandidate={cellHandlers[index].onToggleCandidate}
+                  onTouchStart={cellHandlers[index].onTouchStart}
+                  onTouchEnd={cellHandlers[index].onTouchEnd}
+                  onTouchMove={cellHandlers[index].onTouchMove}
                 />
               );
             })}

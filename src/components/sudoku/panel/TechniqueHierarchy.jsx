@@ -74,16 +74,16 @@ export default function TechniqueHierarchy({
                       {tier.isWhatIf && (
                         <button
                           onClick={onWhatIfSearch}
-                          disabled={searchingForcingChain}
-                          className="px-2 py-1 bg-fuchsia-600 hover:bg-fuchsia-500 disabled:bg-slate-600 text-white text-xs rounded flex items-center gap-1 transition-colors"
-                          title="Explore What-If scenarios (~5s)"
+                          aria-busy={searchingForcingChain}
+                          className={`px-2 py-1 ${searchingForcingChain ? 'bg-slate-600 hover:bg-slate-500' : 'bg-fuchsia-600 hover:bg-fuchsia-500'} text-white text-xs rounded flex items-center gap-1 transition-colors`}
+                          title={searchingForcingChain ? 'Stop the what-if search' : 'Explore what-if scenarios (runs in the background)'}
                         >
                           {searchingForcingChain ? (
-                            <div className="animate-spin rounded-full h-3 w-3 border-b border-white"></div>
+                            <div className="animate-spin rounded-full h-3 w-3 border-b border-white" aria-hidden="true"></div>
                           ) : (
                             <Search className="w-3 h-3" />
                           )}
-                          Search
+                          {searchingForcingChain ? 'Cancel' : 'Search'}
                         </button>
                       )}
                     </div>
