@@ -12,7 +12,7 @@ export class SearchTimeout extends Error {
   }
 }
 const checkDeadline = (deadline) => {
-  if (deadline !== Infinity && Date.now() > deadline) throw new SearchTimeout();
+  if (deadline !== Infinity && Date.now() >= deadline) throw new SearchTimeout();
 };
 
 // Clone grid for simulation
@@ -111,6 +111,7 @@ export const applyValueAndPropagate = (grid, cellIndex, value) => {
 
 // Find forcing chains - convergence-based logical technique
 export const findForcingChain = (grid, maxDepth = 10, deadline = Infinity) => {
+  checkDeadline(deadline);
   // Priority 1: Bi-value cells (most likely to succeed)
   const biValueCells = [];
   for (let i = 0; i < 81; i++) {
@@ -221,6 +222,7 @@ const hypothesisStep = (cellIndex, badValue, branch, placement) => {
 // what the other branches do. When the cell has two candidates and one of
 // them contradicts, the other is placed.
 export const findHypothesis = (grid, maxDepth = 8, deadline = Infinity) => {
+  checkDeadline(deadline);
   const bySize = (n) => {
     const cells = [];
     for (let i = 0; i < 81; i++) {
