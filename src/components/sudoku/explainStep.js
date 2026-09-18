@@ -6,9 +6,9 @@
 // step DATA (cells, digits, eliminations) into a structured explanation at
 // two levels:
 //
-//   simple   - everyday words, no jargon, every cell named as "row 5,
-//              column 1", three short parts: what to look at, why it works,
-//              what to do.
+//   simple   - everyday words, no jargon, cells as R5C3 (a legend explains
+//              the notation once), three short parts: what to look at, why
+//              it works, what to do.
 //   detailed - the engine's own text, plus a short glossary of the terms it
 //              uses, and the same "what to do" line.
 //
@@ -85,10 +85,12 @@ const r1 = (i) => getRow(i) + 1;
 const c1 = (i) => getCol(i) + 1;
 const b1 = (i) => getBox(i) + 1;
 
-/** "row 5, column 1" - the beginner-friendly name of a cell. */
+/** "row 5, column 1" - the long form, used once in the legend. */
 export const plainCell = (i) => `row ${r1(i)}, column ${c1(i)}`;
-/** "R5C1" - the compact notation experienced solvers use. */
+/** "R5C1" - the notation used everywhere else; shorter and easier to scan. */
 export const shortCell = (i) => `R${r1(i)}C${c1(i)}`;
+/** The legend shown under beginner explanations. */
+export const CELL_LEGEND = 'R5C3 means row 5, column 3.';
 
 const listWords = (items) => {
   const arr = items.map(String);
@@ -97,13 +99,6 @@ const listWords = (items) => {
   return `${arr.slice(0, -1).join(', ')}, and ${arr[arr.length - 1]}`;
 };
 
-// Three or more "row X, column Y" names are separated with semicolons so the
-// commas inside each name do not blur together.
-const plainCells = (cells) => {
-  const names = cells.map(plainCell);
-  if (names.length <= 2) return listWords(names);
-  return `${names.slice(0, -1).join('; ')}; and ${names[names.length - 1]}`;
-};
 const shortCells = (cells) => listWords(cells.map(shortCell));
 
 const uniq = (arr) => [...new Set(arr)];
@@ -143,20 +138,18 @@ const elimSummary = (eliminations) => {
   return { digits, byDigit, cells: uniq(eliminations.map((e) => e.cell)) };
 };
 
-/** "Erase the pencil mark 7 from row 3, column 4 and row 3, column 8." */
-const eraseLine = (eliminations, level) => {
+/** "Erase the pencil mark 7 from R3C4 and R3C8." */
+const eraseLine = (eliminations) => {
   const s = elimSummary(eliminations);
   if (!s) return null;
-  const name = level === 'simple' ? plainCells : shortCells;
   return s.digits
-    .map((d) => `Erase the pencil mark ${d} from ${name(s.byDigit[d])}.`)
+    .map((d) => `Erase the pencil mark ${d} from ${shortCells(s.byDigit[d])}.`)
     .join(' ');
 };
 
-const placeLine = (placement, level) => {
+const placeLine = (placement) => {
   if (!placement) return null;
-  const name = level === 'simple' ? plainCell : shortCell;
-  return `Write ${placement.digit} in ${name(placement.cell)}.`;
+  return `Write ${placement.digit} in ${shortCell(placement.cell)}.`;
 };
 
 // ---------------------------------------------------------------------------
@@ -167,7 +160,7 @@ const SIMPLE = {
   'Naked Single': (step) => {
     const cell = step.placement?.cell ?? step.baseCells?.[0];
     return {
-      look: `Look at ${plainCell(cell)}. It has only one pencil mark left: ${step.digit}.`,
+      look: `Look at ${shortCell(cell)}. It has only one pencil mark left: ${step.digit}.`,
       why: `Every other number from 1 to 9 already appears somewhere in its row, its column, or its 3x3 box. ${step.digit} is the only number that still fits.`,
     };
   },
@@ -177,7 +170,7 @@ const SIMPLE = {
     const unit = unitFromText(step.explanation) || commonUnit([cell]);
     const unitName = unit?.name ?? 'this row, column, or box';
     return {
-      look: `Look at ${unitName}. The number ${step.digit} is still missing from it, and ${plainCell(cell)} is the only empty cell there where ${step.digit} can go.`,
+      look: `Look at ${unitName}. The number ${step.digit} is still missing from it, and ${shortCell(cell)} is the only empty cell there where ${step.digit} can go.`,
       why: `Every other empty cell in ${unitName} already has a ${step.digit} in its row, column, or box, so none of them can take it. Since ${unitName} must contain a ${step.digit} somewhere, it has to be this cell.`,
       _grid: grid,
     };
@@ -191,7 +184,7 @@ const SIMPLE = {
     const box = commonUnit([...step.baseCells, ...elims.cells], 'box');
     const line = commonUnit(step.baseCells, 'row') || commonUnit(step.baseCells, 'column');
     return {
-      look: `Look at ${line.name}. The number ${step.digit} can only go in ${step.baseCells.length} cells there (${plainCells(step.baseCells)}), and all of them sit inside ${box.name}.`,
+      look: `Look at ${line.name}. The number ${step.digit} can only go in ${step.baseCells.length} cells there (${shortCells(step.baseCells)}), and all of them sit inside ${box.name}.`,
       why: `${capitalize(line.name)} must contain a ${step.digit} somewhere, and every possible spot is in ${box.name}. So ${box.name} gets its ${step.digit} from ${line.name}, and no other cell in ${box.name} can be ${step.digit}.`,
     };
   },
@@ -206,7 +199,7 @@ const SIMPLE = {
     const pair = pairDigitsFromText(step.explanation) || [];
     const pairText = pair.length === 2 ? `${pair[0]} and ${pair[1]}` : 'two numbers';
     return {
-      look: `Look at ${unit?.name ?? 'this unit'}. The numbers ${pairText} can only go in two cells there: ${plainCell(a)} and ${plainCell(b)}.`,
+      look: `Look at ${unit?.name ?? 'this unit'}. The numbers ${pairText} can only go in two cells there: ${shortCell(a)} and ${shortCell(b)}.`,
       why: `Those two numbers have nowhere else to go, so between them they must fill both cells. That leaves no room for anything else in those cells, so their other pencil marks (${listWords(digits)}) can go.`,
     };
   },
@@ -222,7 +215,7 @@ const SIMPLE = {
     const w2 = candidatesOf(grid, wing2);
     const pv = pivotC.length ? `${pivotC.join(' or ')}` : 'one of two numbers';
     return {
-      look: `Look at three cells that each have just two pencil marks. The middle one is ${plainCell(pivot)} (${pv}). It is connected to ${plainCell(wing1)} (${w1.join(' or ') || 'two numbers'}) and to ${plainCell(wing2)} (${w2.join(' or ') || 'two numbers'}). Both outer cells contain ${z}.`,
+      look: `Look at three cells that each have just two pencil marks. The middle one is ${shortCell(pivot)} (${pv}). It is connected to ${shortCell(wing1)} (${w1.join(' or ') || 'two numbers'}) and to ${shortCell(wing2)} (${w2.join(' or ') || 'two numbers'}). Both outer cells contain ${z}.`,
       why: `Whatever the middle cell turns out to be, it forces one of the two outer cells to be ${z}. So ${z} is guaranteed to land in one of those two outer cells. Any cell that shares a row, column, or box with both outer cells can never be ${z}.`,
     };
   },
@@ -251,7 +244,7 @@ const SIMPLE = {
     const rows = uniq(core.map(r1));
     const cols = uniq(core.map(c1));
     return {
-      look: `Look at rows ${listWords(rows)}. Almost every ${d} in those rows sits in columns ${listWords(cols)}, forming a rectangle, except for ${fins.length === 1 ? 'one extra spot' : 'a couple of extra spots'} at ${plainCells(fins)} (the "fin").`,
+      look: `Look at rows ${listWords(rows)}. Almost every ${d} in those rows sits in columns ${listWords(cols)}, forming a rectangle, except for ${fins.length === 1 ? 'one extra spot' : 'a couple of extra spots'} at ${shortCells(fins)} (the "fin").`,
       why: `There are two cases. If the fin is not ${d}, the rectangle works like a normal X-Wing and ${d} can be erased from the rest of columns ${listWords(cols)}. If the fin is ${d}, then any cell sharing a row, column, or box with the fin can't be ${d}. The highlighted cells are ruled out in both cases, so they can never be ${d}.`,
     };
   },
@@ -259,15 +252,15 @@ const SIMPLE = {
   'ALS-XZ': (step) => {
     const { als1, als2, xDigit: x, zDigit: z } = step;
     const groupText = (als, label) => {
-      const marks = listWords([...als.candidates].sort());
+      const marks = [...als.candidates].sort();
       if (als.cells.length === 1) {
-        return `Group ${label} is a single cell, ${plainCell(als.cells[0])}, with two pencil marks (${marks}): one more mark than cells.`;
+        return `Group ${label} is the single cell ${shortCell(als.cells[0])}, which can only be ${marks.join(' or ')}.`;
       }
-      return `Group ${label} is ${als.cells.length} cells in ${als.unitName} (${plainCells(als.cells)}). Between them they have ${als.candidates.length} different pencil marks (${marks}): one more than the number of cells.`;
+      return `Group ${label} is the ${als.cells.length} cells ${shortCells(als.cells)} in ${als.unitName}. Between them they can only use ${marks.length} numbers: ${listWords(marks)}.`;
     };
     return {
       look: `${groupText(als1, 'A')} ${groupText(als2, 'B')}`,
-      why: `Each group is "one number short of being locked": take away any one of its pencil marks and the remaining numbers must fill all its cells. Both groups contain ${x}, and every ${x} in group A shares a row, column, or box with every ${x} in group B, so only one group can end up holding ${x}. The other group loses ${x}, becomes locked, and must then contain ${z}. So ${z} is guaranteed to land inside one of the two groups. Any cell that shares a row, column, or box with every ${z} in both groups can never be ${z}.`,
+      why: `Each group has exactly one more possible number than it has cells, so it is one step from being fully decided: rule out any one number and every cell in the group is forced. Both groups can use ${x}, but every ${x} in group A clashes with every ${x} in group B (they share a row, column, or box), so only one group can actually take ${x}. The other group loses ${x}, becomes forced, and must then use ${z}. Either way, ${z} ends up inside one of the two groups. Any cell that clashes with every ${z} in both groups can never be ${z}.`,
     };
   },
 
@@ -276,7 +269,7 @@ const SIMPLE = {
     const corners = step.baseCells.filter((c) => c !== extra);
     const digits = uniq(step.eliminations.map((e) => e.digit)).sort();
     return {
-      look: `Look at four cells that form a rectangle, spread over two boxes: ${plainCells(step.baseCells)}. Three of them (${plainCells(corners)}) hold exactly the same two pencil marks, ${digits[0]} and ${digits[1]}. The fourth, ${plainCell(extra)}, has those two plus something else.`,
+      look: `Look at four cells that form a rectangle, spread over two boxes: ${shortCells(step.baseCells)}. Three of them (${shortCells(corners)}) hold exactly the same two pencil marks, ${digits[0]} and ${digits[1]}. The fourth, ${shortCell(extra)}, has those two plus something else.`,
       why: `If the fourth cell were also ${digits[0]} or ${digits[1]}, all four corners could swap ${digits[0]} and ${digits[1]} with each other and the puzzle would have two different answers. A proper Sudoku has exactly one answer, so that cannot happen. The fourth cell must be one of its other pencil marks.`,
     };
   },
@@ -284,7 +277,7 @@ const SIMPLE = {
   'BUG+1': (step) => {
     const cell = step.placement?.cell ?? step.baseCells?.[0];
     return {
-      look: `Look at the whole grid: every empty cell has exactly two pencil marks, except ${plainCell(cell)}, which has three.`,
+      look: `Look at the whole grid: every empty cell has exactly two pencil marks, except ${shortCell(cell)}, which has three.`,
       why: `A grid where every cell has two options, and each digit appears exactly twice in every row, column, and box, would have two answers. A proper Sudoku has exactly one, so this cell must break the pattern. The only number that breaks it is ${step.digit}: it is the one that appears three times in this cell's row, column, or box.`,
     };
   },
@@ -295,8 +288,8 @@ const SIMPLE = {
     const target = step.placement?.cell;
     const opts = cands.length ? listWords(cands.map(String)).replace(', and ', ' or ').replace(' and ', ' or ') : 'a couple of numbers';
     return {
-      look: `Look at ${plainCell(origin)}. It can only be ${opts}.`,
-      why: `Try each option in turn and follow the consequences. Every option leads to the same result: ${target != null ? `${plainCell(target)} becomes ${step.placement.digit}` : 'the same pencil marks disappear'}. When every road leads to the same place, that result is certain, no matter which option is right. This is real logic, not guessing.`,
+      look: `Look at ${shortCell(origin)}. It can only be ${opts}.`,
+      why: `Try each option in turn and follow the consequences. Every option leads to the same result: ${target != null ? `${shortCell(target)} becomes ${step.placement.digit}` : 'the same pencil marks disappear'}. When every road leads to the same place, that result is certain, no matter which option is right. This is real logic, not guessing.`,
     };
   },
 
@@ -306,11 +299,11 @@ const SIMPLE = {
     const bad = step.contradictionCell;
     const placements = (step.chain ?? []).filter((s) => s.action === 'place').length;
     const outcome = step.placement
-      ? `So ${plainCell(origin)} cannot be ${tried}, and its only other option, ${step.placement.digit}, must be right.`
-      : `So ${plainCell(origin)} cannot be ${tried}, and that pencil mark can be erased.`;
+      ? `So ${shortCell(origin)} cannot be ${tried}, and its only other option, ${step.placement.digit}, must be right.`
+      : `So ${shortCell(origin)} cannot be ${tried}, and that pencil mark can be erased.`;
     return {
-      look: `This is a "what if" test. Suppose ${plainCell(origin)} were ${tried}.`,
-      why: `Following that assumption${placements > 1 ? ` through ${placements} forced moves` : ''} leads to a dead end: ${bad != null ? plainCell(bad) : 'a cell'} is left with no possible number at all. An assumption that breaks the puzzle must be wrong. ${outcome}`,
+      look: `This is a "what if" test. Suppose ${shortCell(origin)} were ${tried}.`,
+      why: `Following that assumption${placements > 1 ? ` through ${placements} forced moves` : ''} leads to a dead end: ${bad != null ? shortCell(bad) : 'a cell'} is left with no possible number at all. An assumption that breaks the puzzle must be wrong. ${outcome}`,
     };
   },
 };
@@ -339,7 +332,7 @@ function pointing(step) {
   const line = commonUnit([...step.baseCells, ...elims.cells], 'row') || commonUnit([...step.baseCells, ...elims.cells], 'column');
   const n = step.baseCells.length;
   return {
-    look: `Look at ${box.name}. The number ${step.digit} can only go in ${n} cells there (${plainCells(step.baseCells)}), and they all sit in ${line.name}.`,
+    look: `Look at ${box.name}. The number ${step.digit} can only go in ${n} cells there (${shortCells(step.baseCells)}), and they all sit in ${line.name}.`,
     why: `${capitalize(box.name)} must contain a ${step.digit} somewhere, and every possible spot is in ${line.name}. So ${line.name} gets its ${step.digit} from inside ${box.name}, and no other cell in ${line.name} can be ${step.digit}.`,
   };
 }
@@ -351,7 +344,7 @@ function nakedSet(step, grid, size) {
   const digitText = digits.length ? listWords(digits) : elims ? listWords(elims.digits) : 'the same numbers';
   const word = size === 2 ? 'two' : 'three';
   return {
-    look: `Look at ${word} cells in ${unit?.name ?? 'the same row, column, or box'}: ${plainCells(step.baseCells)}. Between them, their only pencil marks are ${digitText}.`,
+    look: `Look at ${word} cells in ${unit?.name ?? 'the same row, column, or box'}: ${shortCells(step.baseCells)}. Between them, their only pencil marks are ${digitText}.`,
     why: `${capitalize(word)} cells that share only ${word} numbers must use up all of those numbers between them. So ${digitText} are spoken for, and no other cell in ${unit?.name ?? 'that unit'} can hold them.`,
   };
 }
@@ -390,7 +383,7 @@ function fish(step, size) {
  */
 export function explainStep(step, grid, level = 'simple') {
   if (!step) return null;
-  const action = [placeLine(step.placement, level), eraseLine(step.eliminations, level)]
+  const action = [placeLine(step.placement), eraseLine(step.eliminations)]
     .filter(Boolean)
     .join(' ');
 

@@ -75,7 +75,7 @@ describe('explainStep on real engine steps', () => {
     it(`${tech}: simple mode is jargon-free and names concrete cells`, () => {
       const out = explainStep(step, grid, 'simple');
       expectWellFormed(out);
-      expect(out.look).toMatch(/rows? \d|columns? \d|box \d/);
+      expect(out.look).toMatch(/R\dC\d|rows? \d|columns? \d|box \d/);
       expect(`${out.look} ${out.why}`).not.toMatch(JARGON);
       // Every simple explanation ends with something to do
       expect(out.action).toMatch(/^(Write|Erase)/);
@@ -109,7 +109,7 @@ describe('explainStep on advanced steps', () => {
     expectWellFormed(out);
     expect(out.look).toMatch(/Group A/);
     expect(out.look).toMatch(/Group B/);
-    expect(out.why).toMatch(/only one group can end up holding/);
+    expect(out.why).toMatch(/only one group can actually take/);
     expect(out.why).not.toMatch(/Almost Locked|bridge|ALS/i);
   });
 
@@ -137,9 +137,10 @@ describe('explainStep on advanced steps', () => {
       explanation: 'engine text',
     };
     const out = explainStep(step, null, 'simple');
-    expect(out.look).toContain('Group A is 2 cells in row 5 (row 5, column 2 and row 5, column 3)');
-    expect(out.look).toContain('Group B is a single cell, row 1, column 1, with two pencil marks (3 and 5)');
-    expect(out.action).toBe('Erase the pencil mark 5 from row 5, column 7.');
+    expect(out.look).toContain('Group A is the 2 cells R5C2 and R5C3 in row 5. Between them they can only use 3 numbers: 2, 3, and 5.');
+    expect(out.look).toContain('Group B is the single cell R1C1, which can only be 3 or 5.');
+    expect(out.why).not.toMatch(/one more mark/);
+    expect(out.action).toBe('Erase the pencil mark 5 from R5C7.');
   });
 
   it('Hypothesis Mode explains the what-if and the dead end', () => {
@@ -156,10 +157,10 @@ describe('explainStep on advanced steps', () => {
       explanation: 'engine narrative',
     };
     const out = explainStep(step, null, 'simple');
-    expect(out.look).toBe('This is a "what if" test. Suppose row 1, column 1 were 3.');
-    expect(out.why).toContain('row 5, column 5 is left with no possible number');
+    expect(out.look).toBe('This is a "what if" test. Suppose R1C1 were 3.');
+    expect(out.why).toContain('R5C5 is left with no possible number');
     expect(out.why).toContain('its only other option, 8, must be right');
-    expect(out.action).toBe('Write 8 in row 1, column 1.');
+    expect(out.action).toBe('Write 8 in R1C1.');
   });
 
   it('unknown techniques fall back to the engine text instead of crashing', () => {
