@@ -4,6 +4,8 @@
 
 Built on [Base44](https://base44.com) for hosting, auth, data persistence (solve records, uploaded puzzles), and OCR-based puzzle import.
 
+What the product is, who it is for, and where it is going is defined in [docs/PRODUCT.md](docs/PRODUCT.md). This README covers how it is built.
+
 ## Key Features
 
 - **Logic Engine Tutor** - scans for the next logical step, from basic singles to expert-level techniques, and explains the reasoning.
