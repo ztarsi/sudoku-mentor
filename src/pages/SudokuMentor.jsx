@@ -15,7 +15,12 @@ import {
 import {
   fetchAllPuzzleEntries,
   pickRandomPuzzleEntry,
+  pickStarterPuzzleEntry,
+  hasOnboarded,
+  markOnboarded,
 } from '@/components/sudoku/puzzleSources';
+import WelcomeTour from '@/components/sudoku/WelcomeTour';
+import { FolderOpen } from 'lucide-react';
 import { useSudokuGame } from '@/hooks/useSudokuGame';
 import { useSudokuPlayer } from '@/hooks/useSudokuPlayer';
 import { base44 } from '@/api/base44Client';
@@ -45,6 +50,7 @@ export default function SudokuMentor() {
   const [showNoAssistModal, setShowNoAssistModal] = useState(false);
   const [noAssistStartTime, setNoAssistStartTime] = useState(null);
   const [candidatesVisible, setCandidatesVisible] = useState(true);
+  const [showTour, setShowTour] = useState(false);
 
   const errorAudioRef = useRef(null);
   const [srAnnouncement, setSrAnnouncement] = useState('');
@@ -56,6 +62,7 @@ export default function SudokuMentor() {
   const playerRef = useRef(null);
 
   const game = useSudokuGame({
+    persistKey: 'sudoku-mentor:game',
     onWrongInput: (cellIndex, digit) => {
       if (errorAudioRef.current) {
         errorAudioRef.current.currentTime = 0;
@@ -249,7 +256,8 @@ export default function SudokuMentor() {
         drawerOpen ||
         showAccountMenu ||
         showAppInfo ||
-        showCopyConfirmation;
+        showCopyConfirmation ||
+        showTour;
       if (isModalOpen) return;
 
       // Shift key toggles candidate mode
@@ -389,6 +397,7 @@ export default function SudokuMentor() {
     showAccountMenu,
     showAppInfo,
     showCopyConfirmation,
+    showTour,
   ]);
 
   const handleCopyPuzzle = () => {
@@ -465,9 +474,25 @@ export default function SudokuMentor() {
     setTimeout(() => printWindow.print(), 250);
   };
 
-  // Load a random puzzle on mount
+  // On mount: resume a saved game; otherwise a gentle starter puzzle for
+  // first-time visitors (plus the welcome tour); otherwise a random one.
   useEffect(() => {
     let cancelled = false;
+
+    if (game.restoreSavedGame()) {
+      toast({ title: 'Resumed your puzzle', description: 'Picked up where you left off. Load a new one any time.' });
+      return undefined;
+    }
+
+    if (!hasOnboarded()) {
+      const starter = pickStarterPuzzleEntry();
+      if (starter) {
+        handleLoadPuzzle(starter.puzzle, { name: starter.name, difficulty: starter.difficulty });
+      }
+      setShowTour(true);
+      return undefined;
+    }
+
     (async () => {
       try {
         const entries = await fetchAllPuzzleEntries();
@@ -484,6 +509,7 @@ export default function SudokuMentor() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
 
   // Calculate ghost grid for chain visualization
   const ghostGrid = useMemo(() => {
@@ -518,19 +544,19 @@ export default function SudokuMentor() {
         <div className="max-w-7xl mx-auto px-2 lg:px-8 py-2 lg:py-4">
           <div className="flex items-center justify-between">
             {/* Logo and Puzzle Info - Desktop */}
-            <div className="hidden lg:flex items-center gap-6">
-              <div className="flex items-center gap-3">
+            <div className="hidden lg:flex items-center gap-6 min-w-0">
+              <div className="flex items-center gap-3 shrink-0">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
                   <span className="text-white font-bold text-lg">9</span>
                 </div>
-                <h1 className="text-xl font-semibold text-white tracking-tight">Sudoku Mentor</h1>
+                <h1 className="text-xl font-semibold text-white tracking-tight whitespace-nowrap">Sudoku Mentor</h1>
               </div>
 
               {/* Puzzle Info */}
               {game.puzzleName ? (
-                <div className="flex items-center gap-3">
-                  <p className="text-lg font-medium text-white whitespace-nowrap" title={game.puzzleName}>
-                    {game.puzzleName.length > 20 ? game.puzzleName.slice(0, 20) + '...' : game.puzzleName}
+                <div className="flex items-center gap-3 min-w-0">
+                  <p className="text-lg font-medium text-white truncate max-w-[260px]" title={game.puzzleName}>
+                    {game.puzzleName}
                   </p>
                   {game.puzzleDifficulty && (
                     <span className="px-3 py-1 bg-slate-800 rounded-full text-sm capitalize text-slate-300">{game.puzzleDifficulty}</span>
@@ -574,11 +600,11 @@ export default function SudokuMentor() {
               )}
             </div>
 
-            <div className="flex items-center gap-2 lg:gap-4">
+            <div className="flex items-center gap-2 lg:gap-3 shrink-0">
               {/* Progress - desktop only */}
-              <div className="hidden lg:flex items-center gap-2 bg-slate-800 rounded-full px-4 py-2">
+              <div className="hidden xl:flex items-center gap-2 bg-slate-800 rounded-full px-4 py-2">
                 <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                <span className="text-base text-slate-300">{game.progress}% Complete</span>
+                <span className="text-base text-slate-300 whitespace-nowrap">{game.progress}% Complete</span>
               </div>
 
               {/* Color settings */}
@@ -661,12 +687,11 @@ export default function SudokuMentor() {
               </button>
               <button
                 onClick={() => setShowPuzzleLoader(true)}
-                className="p-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg lg:rounded-xl transition-all duration-200 flex items-center justify-center"
+                className="px-2.5 lg:px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-lg lg:rounded-xl transition-all duration-200 flex items-center justify-center gap-2 font-medium text-sm"
                 title="Load Puzzle" aria-label="Load Puzzle"
               >
-                <svg className="w-4 h-4 lg:w-5 lg:h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                </svg>
+                <FolderOpen className="w-4 h-4 lg:w-5 lg:h-5 pointer-events-none" />
+                <span className="hidden lg:inline whitespace-nowrap">Load puzzle</span>
               </button>
 
               {/* Account Menu */}
@@ -705,9 +730,9 @@ export default function SudokuMentor() {
                 ) : (
                   <button
                     onClick={() => base44.auth.redirectToLogin(window.location.href)}
-                    className="px-3 lg:px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg lg:rounded-xl transition-all duration-200 font-medium text-sm"
+                    className="px-3 lg:px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg lg:rounded-xl transition-all duration-200 font-medium text-sm whitespace-nowrap"
                   >
-                    Sign In
+                    Sign in
                   </button>
                 )}
               </div>
@@ -716,11 +741,11 @@ export default function SudokuMentor() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 lg:pb-8 pt-16 lg:pt-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-28 lg:pb-8 pt-6 lg:pt-8">
         <div className="grid lg:grid-cols-[1fr,380px] gap-8">
           {/* Left Column - Grid & Controls */}
           <div className="space-y-6">
-            {/* Control Bar (fixed top bar below lg; hidden on desktop) */}
+            {/* Action bar (fixed bottom bar below lg; hidden on desktop) */}
             <ControlBar
               onNextStep={handleNextStep}
               onApplyStep={handleApplyStep}
@@ -731,6 +756,7 @@ export default function SudokuMentor() {
               hasStep={currentStep !== null}
               canUndo={game.canUndo}
               canRedo={game.canRedo}
+              hintsDisabled={noAssistMode}
             />
 
             {/* Sudoku Grid */}
@@ -797,6 +823,15 @@ export default function SudokuMentor() {
           }}
         />
       </MobileDrawer>
+
+      <WelcomeTour
+        open={showTour}
+        variant="desktop"
+        onClose={() => {
+          markOnboarded();
+          setShowTour(false);
+        }}
+      />
 
       {/* Unified Puzzle Loader Modal */}
       <UnifiedPuzzleLoader

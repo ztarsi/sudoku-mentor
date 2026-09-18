@@ -145,7 +145,6 @@ export default function CurrentStepCard({
 
   return (
     <motion.div
-      layout
       className="bg-slate-900 rounded-2xl shadow-lg shadow-black/50 overflow-hidden border border-slate-700"
     >
       <div className="p-5 border-b border-slate-800">
@@ -197,6 +196,14 @@ export default function CurrentStepCard({
                 </span>
               )}
             </div>
+
+            {currentStep.technique === 'Hypothesis Mode' && (
+              <p className="text-sm text-amber-200 bg-amber-950/40 border border-amber-800/50 rounded-xl px-4 py-3">
+                No deductive technique in the mentor's toolkit applies to this position, so this hint
+                uses what-if search: assume a value, follow the consequences, and rule it out if it
+                breaks the puzzle.
+              </p>
+            )}
 
             {/* Explanation */}
             <div className="bg-slate-800 rounded-xl p-4">
