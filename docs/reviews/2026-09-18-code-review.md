@@ -8,6 +8,31 @@ The good news first: **the deductive engines are sound.** The probe found zero w
 
 ---
 
+## Outcome (2026-09-18, same day)
+
+All 24 findings were worked in the order proposed below, one pull request per batch, each verified in the browser (desktop and a 390x844 touch viewport) before merge. Counts at the end: lint clean including `jsx-a11y`, typecheck clean, 202 tests in 17 files, JavaScript 752 kB in seven chunks with the pages and the what-if worker split out.
+
+| Batch | PR | Findings | What changed |
+| --- | --- | --- | --- |
+| 1 | #10 | 1, 2, 3, 4 | Toasts auto-dismiss with a close button; print page escapes user text; engines emit `unit`, `orientation`, `pairDigits` so fish and hidden-pair explanations describe the real step; Hypothesis Mode says "case analysis" where it is one. |
+| 2 | #11 | 5, 14 | Every Base44 read and write goes through `playerData.js` scoped by `created_by`; failures toast; one auth source. The dashboard-side rule is still the founder's to confirm. |
+| 3 | #12 | 6, 7, 8, 9 | `usePuzzleBootstrap` with a user-load latch; auto-play calls the latest callbacks; one Logic Panel mounted; the clock pauses while hidden, saves on hide and unmount, and only clean solves (no hints) are recorded. |
+| 4 | #13 | 12, 16 | `makeStep()` is the one step shape; Finned X-Wing scans both orientations; Hypothesis narration is built from the actual contradiction; `oracleAll.spec.js` checks every instance of every technique on every intermediate grid, plus what-if search on the Ultimate shelf. |
+| 5 | #14 | 10, 13 | Mobile passes the focused digit (candidates light up, long-press toggle works, release after long-press no longer places); the pencil-mark pad stacks above the mode row; `useDialog` gives every dialog focus, trap, Escape and restore; names on icon buttons; pressed states; hint roles in cell names. |
+| 6 | #16 | 11, 15 | What-if search runs in a Web Worker with a spinner and Cancel; propagation cascades hidden singles, so Cell Forcing Chains converge and hypothesis search takes milliseconds; derived placements are narrated; `React.memo(Cell)` with stable handlers; one keyboard listener per page. |
+| 7 | #17, #18 | 17 to 24 | One cell-name helper; `applyLogicStep` clears peers itself; one colour source; dead pages, handlers and props removed; shared `AccountMenu`; mobile keyboard uses `resolveShortcut`; lazy pages and modals; unused packages removed; `jsx-a11y` lint; CI cancels superseded runs, smoke-tests the build and enforces a bundle budget; metadata, manifest, Dependabot, `ARCHITECTURE.md`; anonymous mode when the platform is unreachable. |
+
+Left open on purpose:
+
+- **LICENSE.** Choosing a licence is the owner's decision; nothing was added.
+- **Five npm advisories** in the vite/vitest peer set. npm's resolver crashes on that set in this environment (`arborist` "edgesOut" TypeError), so `npm audit fix` and any `vite` bump need a newer npm. Everything else `npm audit` flagged was updated one package at a time.
+- **Service worker.** Offline play is a "Later" item in `PRODUCT.md`; the manifest is in place, the worker is not.
+- **Entity access rules** on `SudokuPuzzle` and `SolveRecord` must be checked in the Base44 dashboard; the repository cannot express them.
+
+A second, independent review was run after batch 7b; its findings and their fixes are recorded at the end of this document.
+
+---
+
 ## S1: must fix
 
 ### 1. Toasts never dismiss

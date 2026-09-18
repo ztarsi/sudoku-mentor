@@ -1,9 +1,25 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import { appParams } from '@/lib/app-params';
-import { createAxiosClient } from '@base44/sdk/dist/utils/axios-client';
 
 const AuthContext = createContext(null);
+
+// The platform's public-settings endpoint. Fetched directly (no deep import
+// into the SDK's private axios helper) and shaped like the SDK's errors:
+// { status, data, message }.
+const fetchPublicSettings = async () => {
+  const headers = { 'X-App-Id': appParams.appId };
+  if (appParams.token) headers.Authorization = `Bearer ${appParams.token}`;
+  const response = await fetch(`/api/apps/public/prod/public-settings/by-id/${appParams.appId}`, { headers });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    const error = /** @type {any} */ (new Error(data?.message || `Request failed with status code ${response.status}`));
+    error.status = response.status;
+    error.data = data;
+    throw error;
+  }
+  return data;
+};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -13,30 +29,37 @@ export const AuthProvider = ({ children }) => {
   const [authError, setAuthError] = useState(null);
   const [appPublicSettings, setAppPublicSettings] = useState(null); // Contains only { id, public_settings }
 
-  useEffect(() => {
-    checkAppState();
+  const checkUserAuth = useCallback(async () => {
+    try {
+      setIsLoadingAuth(true);
+      const currentUser = await base44.auth.me();
+      setUser(currentUser);
+      setIsAuthenticated(true);
+      setIsLoadingAuth(false);
+    } catch (error) {
+      console.error('User auth check failed:', error);
+      setIsLoadingAuth(false);
+      setIsAuthenticated(false);
+
+      // If user auth fails, it might be an expired token
+      if (error.status === 401 || error.status === 403) {
+        setAuthError({
+          type: 'auth_required',
+          message: 'Authentication required'
+        });
+      }
+    }
   }, []);
 
-  const checkAppState = async () => {
+  const checkAppState = useCallback(async () => {
     try {
       setIsLoadingPublicSettings(true);
       setAuthError(null);
-      
-      // First, check app public settings (with token if available)
-      // This will tell us if auth is required, user not registered, etc.
-      const appClient = createAxiosClient({
-        baseURL: `/api/apps/public`,
-        headers: {
-          'X-App-Id': appParams.appId
-        },
-        token: appParams.token, // Include token if available
-        interceptResponses: true
-      });
-      
+
       try {
-        const publicSettings = await appClient.get(`/prod/public-settings/by-id/${appParams.appId}`);
+        const publicSettings = await fetchPublicSettings();
         setAppPublicSettings(publicSettings);
-        
+
         // If we got the app public settings successfully, check if user is authenticated
         if (appParams.token) {
           await checkUserAuth();
@@ -46,10 +69,12 @@ export const AuthProvider = ({ children }) => {
         }
         setIsLoadingPublicSettings(false);
       } catch (appError) {
-        console.error('App state check failed:', appError);
-        
-        // Handle app-level errors
+        // A platform verdict (auth required, not registered) is honoured.
+        // Anything else - the network is down, the platform is unreachable,
+        // a dev server with no backend - must not brick a puzzle app that
+        // works perfectly well signed out: continue in anonymous mode.
         if (appError.status === 403 && appError.data?.extra_data?.reason) {
+          console.error('App state check failed:', appError);
           const reason = appError.data.extra_data.reason;
           if (reason === 'auth_required') {
             setAuthError({
@@ -68,52 +93,29 @@ export const AuthProvider = ({ children }) => {
             });
           }
         } else {
-          setAuthError({
-            type: 'unknown',
-            message: appError.message || 'Failed to load app'
-          });
+          console.warn('Could not reach the platform; continuing signed out.', appError?.message || appError);
+          setAuthError(null);
+          setIsAuthenticated(false);
         }
         setIsLoadingPublicSettings(false);
         setIsLoadingAuth(false);
       }
     } catch (error) {
       console.error('Unexpected error:', error);
-      setAuthError({
-        type: 'unknown',
-        message: error.message || 'An unexpected error occurred'
-      });
+      setAuthError(null);
       setIsLoadingPublicSettings(false);
       setIsLoadingAuth(false);
     }
-  };
+  }, [checkUserAuth]);
 
-  const checkUserAuth = async () => {
-    try {
-      // Now check if the user is authenticated
-      setIsLoadingAuth(true);
-      const currentUser = await base44.auth.me();
-      setUser(currentUser);
-      setIsAuthenticated(true);
-      setIsLoadingAuth(false);
-    } catch (error) {
-      console.error('User auth check failed:', error);
-      setIsLoadingAuth(false);
-      setIsAuthenticated(false);
-      
-      // If user auth fails, it might be an expired token
-      if (error.status === 401 || error.status === 403) {
-        setAuthError({
-          type: 'auth_required',
-          message: 'Authentication required'
-        });
-      }
-    }
-  };
+  useEffect(() => {
+    checkAppState();
+  }, [checkAppState]);
 
   const logout = (shouldRedirect = true) => {
     setUser(null);
     setIsAuthenticated(false);
-    
+
     if (shouldRedirect) {
       // Use the SDK's logout method which handles token cleanup and redirect
       base44.auth.logout(window.location.href);
@@ -129,9 +131,9 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      isAuthenticated, 
+    <AuthContext.Provider value={{
+      user,
+      isAuthenticated,
       isLoadingAuth,
       isLoadingPublicSettings,
       authError,
