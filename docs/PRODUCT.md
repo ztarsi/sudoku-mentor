@@ -117,13 +117,26 @@ Ordered by value to the improver. "Now" is committed; "Next" is agreed in princi
 
 ### Now
 
-- UX/UI pass across desktop, laptop, tablet and phone, before any new capability. The audit and the proposed target experience are in [the UX review](reviews/2026-09-18-ux-review.md); the founder's answers to its decisions turn into specs, in the order the review proposes (lesson visible on every width; hint card states; one adaptive page; header, tour, library, completion).
+The UX pass, in order. Audit and target experience: [the UX review](reviews/2026-09-18-ux-review.md). One spec per item in `docs/specs/`.
+
+1. [Lesson-first panel](specs/lesson-first-panel.md): the hint card first in the column, Techniques collapsed under it, Auto-Solve removed, shortcuts to the menu.
+2. [One digit strip](specs/digit-strip.md): one input strip under the board on every device; absorbs Focus Mode and the phone pad.
+3. [Hint card states](specs/hint-card-states.md): a designed card for idle, found, what-if, searching, No Assist, solved and nothing-left.
+4. [One adaptive page](specs/one-adaptive-page.md): wide, medium, stacked and phone arrangements of one page; the mobile page goes.
+5. [Header and menu](specs/header-and-menu.md): puzzle, progress and errors on every width; No Assist as a labelled switch; everything secondary behind a hamburger menu.
+6. [Paper theme](specs/paper-theme.md): a light theme next to dark, switchable and remembered.
+7. [Inline onboarding](specs/inline-onboarding.md): three in-context prompts instead of the tour modal.
+
+Then:
+
 - Analytics on the five measures above, privacy-respecting and off by default for signed-out players until we decide otherwise.
-- Graduated hints: a nudge ("look at box 4") before the full step, so the player gets a chance to find it themselves. Designed as a state of the hint card in the UX pass.
-- Mobile hints: bring Hint, Apply, and the explanation card to the phone as a bottom sheet. Today the phone is play-only. Folded into the UX pass (one adaptive page).
+- Graduated hints: a nudge ("look at box 4") before the full step, so the player gets a chance to find it themselves. Becomes a state of the hint card.
 
 ### Next
 
+- [Library and completion](specs/library-and-completion.md): library rows that say what a puzzle teaches and where you left off; completion that shows what you learned and offers the next puzzle.
+- More vetted puzzles on the Hard, Expert and Diabolical shelves (today one, two and two). The improver runs out in a sitting.
+- Learning on the phone: what teaching looks like on a phone-sized screen, which may not be the desktop hint card. The phone stays No Assist until this is answered.
 - Technique practice mode: pick a technique, get a series of puzzles positioned so that technique is the next step, with the mentor checking the answer.
 - Checking modes: let the player choose between immediate rejection of wrong entries (today), highlighting conflicts only, or no checking at all for a pure experience.
 - Daily puzzle: one vetted puzzle a day at a chosen difficulty, with the same puzzle for everyone.
@@ -142,7 +155,7 @@ Ordered by value to the improver. "Now" is committed; "Next" is agreed in princi
 - Multiplayer, leaderboards, streaks, or any mechanic designed to create obligation rather than learning.
 - Advertising.
 - Variants (Killer, Samurai, Jigsaw) until classic Sudoku teaching is complete.
-- Automatically solving a puzzle end to end as a feature for players. The auto-solve playback exists to demonstrate reasoning, not to finish puzzles.
+- Automatically solving a puzzle end to end as a feature for players. The auto-solve playback is kept for tests and demonstrations only and has no control in the player-facing product (decided 2026-09-18).
 
 ## 12. Risks and open questions
 
@@ -150,13 +163,19 @@ Ordered by value to the improver. "Now" is committed; "Next" is agreed in princi
 - **Explanation quality at scale.** Plain-language explanations are hand-written per technique. Adding techniques means adding explanations, tests, and reference text together; a technique with only an engine is not done.
 - **Base44 dependency.** Auth, saved puzzles, and solve records live in Base44. The core play-and-learn loop must keep working without it, which is the case today.
 - **Data scoping.** Saved puzzles and solve records are per player. The rules that enforce that live in the Base44 dashboard, not in this repository, and need to be verified whenever the schema changes.
-- **Open question: should the mobile page keep hints off by default?** It is the cleanest "just play" surface, but it also means the phone does not teach. The roadmap assumes hints come to the phone behind a deliberate switch.
+- **Open question: what does learning look like on a phone?** Decided 2026-09-18: the phone stays No Assist for now, and tablets get the full lesson. The desktop hint card may be the wrong shape for a phone; the answer might be shorter hints, a nudge-only mode, or something else. This is a Next item, not a layout tweak.
 - **Open question: how much difficulty labelling to expose?** Players like shelves; the analyser can give a finer rating. Finer ratings may be more honest and more confusing.
 
 ## 13. Decision log
 
 Short record of product decisions and why, newest first.
 
+- 2026-09-18: One adaptive page replaces the separate desktop and mobile pages. Reason: only the wide desktop page teaches today; tablets and narrow windows get the least. Spec: docs/specs/one-adaptive-page.md.
+- 2026-09-18: The phone keeps No Assist (timed, no hints) for now. Reason: learning on a phone may need different capabilities than a shrunken hint card; we will find better ways to teach on the phone as we go rather than force the desktop lesson onto a small screen. Open question in section 12.
+- 2026-09-18: A light "paper" theme ships now, alongside dark. Reason: many players come from newspaper puzzles and play in daylight. Spec: docs/specs/paper-theme.md.
+- 2026-09-18: All secondary header actions move behind one hamburger menu; No Assist becomes a labelled switch. Reason: seven unlabelled icons competed with the board. Spec: docs/specs/header-and-menu.md.
+- 2026-09-18: Auto-Solve is removed from the player-facing product. Reason: automatic solving is a non-goal; the playback engine stays for tests and demonstrations only. Spec: docs/specs/lesson-first-panel.md.
+- 2026-09-18: The welcome tour modal is replaced by in-context prompts shown once, at the moment each is useful, plus a "How to play" menu item. Reason: research on onboarding overlays (Nielsen Norman Group and onboarding vendors' completion figures) finds tours are dismissed and forgotten, while in-context guidance is retained; our tour also blocked the board on arrival. Spec: docs/specs/inline-onboarding.md.
 - 2026-09-18: A full UX/UI pass comes before any new capability, and nothing in the current layout is protected. Reason: the first product review found the lesson off-screen on the most common laptop size and the phone unable to teach; the founder chose to fix the experience as a whole rather than patch it feature by feature. See the UX review.
 - 2026-09-18: First product review recorded (docs/reviews/2026-09-18-product-review.md). Top finding: the hint explanation is below the fold at 1366x768 and cut off at 1920x1080. Recommendation to the developer: make the lesson visible without scrolling on every desktop width.
 - 2026-09-18: Beginner explanations are the default and use R5C3 notation with a legend. Reason: long-form "row 5, column 3" made explanations harder to scan, and the notation is learnable in one line.
