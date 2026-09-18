@@ -6,21 +6,9 @@ import { getRow, getCol, getBox, getRowIndices, getColIndices, getBoxIndices, ar
 const buildLinkGraph = (grid) => {
   const strongLinks = [];
 
-  // Build bi-value cell strong links (naked pairs within a cell)
-  for (let i = 0; i < 81; i++) {
-    const cell = grid[i];
-    if (cell.value === null && cell.candidates.length === 2) {
-      const [c1, c2] = cell.candidates;
-      strongLinks.push({
-        type: 'bivalue',
-        from: { cell: i, digit: c1 },
-        to: { cell: i, digit: c2 },
-        description: `R${getRow(i)+1}C${getCol(i)+1} is either ${c1} or ${c2}`
-      });
-    }
-  }
-  
-  // Build conjugate pair strong links (digit appears exactly twice in a unit)
+  // Conjugate pair strong links (digit appears exactly twice in a unit).
+  // Only these are used by the colouring; per-cell bi-value links were
+  // built here for years and never read.
   const units = [
     ...Array.from({ length: 9 }, (_, i) => ({ type: 'row', indices: getRowIndices(i), name: `Row ${i + 1}` })),
     ...Array.from({ length: 9 }, (_, i) => ({ type: 'col', indices: getColIndices(i), name: `Column ${i + 1}` })),
@@ -392,12 +380,12 @@ export const findBUGPlus1 = (grid, focusedDigit = null, returnAll = false) => {
       triValueCount++;
       extraCell = i;
     } else if (candCount > 3) {
-      return null; // Not a BUG pattern
+      return returnAll ? [] : null; // Not a BUG pattern
     }
   }
   
   // BUG+1: All cells bi-value except one tri-value
-  if (triValueCount !== 1) return null;
+  if (triValueCount !== 1) return returnAll ? [] : null;
   
   // For each digit in units, count occurrences
   const units = [
@@ -443,15 +431,15 @@ export const findBUGPlus1 = (grid, focusedDigit = null, returnAll = false) => {
         ).length;
         if (count === 0 || count === 2) continue;
         if (count === 3 && d === extraDigit && unit.includes(extraCell)) continue;
-        return null;
+        return returnAll ? [] : null;
       }
     }
   }
 
-  if (focusedDigit && extraDigit !== focusedDigit) return null;
+  if (focusedDigit && extraDigit !== focusedDigit) return returnAll ? [] : null;
 
   if (extraDigit) {
-    return {
+    const step = {
       technique: 'BUG+1',
       digit: extraDigit,
       baseCells: [extraCell],
@@ -460,95 +448,94 @@ export const findBUGPlus1 = (grid, focusedDigit = null, returnAll = false) => {
       eliminations: [],
       explanation: `BUG+1 pattern detected. R${getRow(extraCell)+1}C${getCol(extraCell)+1} must be ${extraDigit} to avoid a deadly pattern with multiple solutions.`
     };
+    return returnAll ? [step] : step;
   }
   
-  return null;
+  return returnAll ? [] : null;
 };
 
-// Finned X-Wing
+// Finned X-Wing, in both orientations.
+//
+// Base lines hold the digit in 2 or 3 cells; two base lines share exactly
+// two cover lines, and the leftover cells (1 or 2 of them) are the fin.
+// If the fin is false the pattern is a plain X-Wing; if it is true its
+// peers lose the digit. Only cover-line candidates that see every fin cell
+// are false in both cases.
 export const findFinnedXWing = (grid, focusedDigit, returnAll = false) => {
   const allInstances = [];
   const digitsToCheck = focusedDigit ? [focusedDigit] : [1, 2, 3, 4, 5, 6, 7, 8, 9];
-  
+
+  const orientations = [
+    { name: 'row', baseIndices: getRowIndices, baseOf: getRow, coverOf: getCol, coverIndices: getColIndices, baseWord: 'rows' },
+    { name: 'column', baseIndices: getColIndices, baseOf: getCol, coverOf: getRow, coverIndices: getRowIndices, baseWord: 'columns' },
+  ];
+
   for (const digit of digitsToCheck) {
-    // Check rows
-    const rowsWithPositions = [];
-    for (let row = 0; row < 9; row++) {
-      const positions = getRowIndices(row)
-        .filter(i => grid[i].value === null && grid[i].candidates.includes(digit));
-      if (positions.length === 2 || positions.length === 3) {
-        rowsWithPositions.push({ row, positions, cols: positions.map(getCol) });
+    for (const o of orientations) {
+      const lines = [];
+      for (let line = 0; line < 9; line++) {
+        const positions = o.baseIndices(line)
+          .filter(i => grid[i].value === null && grid[i].candidates.includes(digit));
+        if (positions.length === 2 || positions.length === 3) {
+          lines.push({ line, positions, covers: positions.map(o.coverOf) });
+        }
       }
-    }
-    
-    // Look for finned pattern
-    for (let i = 0; i < rowsWithPositions.length; i++) {
-      for (let j = i + 1; j < rowsWithPositions.length; j++) {
-        const r1 = rowsWithPositions[i];
-        const r2 = rowsWithPositions[j];
-        
-        // Check if they share exactly 2 columns
-        const commonCols = r1.cols.filter(c => r2.cols.includes(c));
-        
-        if (commonCols.length === 2) {
-          // Check for fins
-          const finCells1 = r1.positions.filter(p => !commonCols.includes(getCol(p)));
-          const finCells2 = r2.positions.filter(p => !commonCols.includes(getCol(p)));
-          
-          const fins = [...finCells1, ...finCells2];
-          
-          if (fins.length > 0 && fins.length <= 2) {
-            // Find eliminations: cells in common columns that see all fins
-            const eliminations = [];
-            
-            for (const col of commonCols) {
-              for (const idx of getColIndices(col)) {
-                if (grid[idx].candidates.includes(digit)) {
-                  const inBaseRows = [r1.row, r2.row].includes(getRow(idx));
-                  const seesAllFins = fins.every(fin => arePeers(idx, fin));
-                  
-                  if (!inBaseRows && seesAllFins) {
-                    eliminations.push({ cell: idx, digit });
-                  }
-                }
-              }
+
+      for (let i = 0; i < lines.length; i++) {
+        for (let j = i + 1; j < lines.length; j++) {
+          const l1 = lines[i];
+          const l2 = lines[j];
+          const commonCovers = l1.covers.filter(c => l2.covers.includes(c));
+          if (commonCovers.length !== 2) continue;
+
+          const fins = [
+            ...l1.positions.filter(p => !commonCovers.includes(o.coverOf(p))),
+            ...l2.positions.filter(p => !commonCovers.includes(o.coverOf(p))),
+          ];
+          if (fins.length === 0 || fins.length > 2) continue;
+
+          const eliminations = [];
+          for (const cover of commonCovers) {
+            for (const idx of o.coverIndices(cover)) {
+              if (!grid[idx].candidates.includes(digit) || grid[idx].value !== null) continue;
+              const inBaseLines = [l1.line, l2.line].includes(o.baseOf(idx));
+              const seesAllFins = fins.every(fin => arePeers(idx, fin));
+              if (!inBaseLines && seesAllFins) eliminations.push({ cell: idx, digit });
             }
-            
-            if (eliminations.length > 0) {
-              const baseCells = [...r1.positions, ...r2.positions];
-              
-              // Build strong links for the X-Wing pattern
-              const xwingLinks = [];
-              // Link cells in same rows
-              if (r1.positions.length === 2) {
-                xwingLinks.push({ from: { cell: r1.positions[0], digit }, to: { cell: r1.positions[1], digit } });
-              }
-              if (r2.positions.length === 2) {
-                xwingLinks.push({ from: { cell: r2.positions[0], digit }, to: { cell: r2.positions[1], digit } });
-              }
-              
-              const step = {
-                technique: 'Finned X-Wing',
-                digit,
-                baseCells,
-                targetCells: eliminations.map(e => e.cell),
-                finCells: fins,
-                strongLinks: xwingLinks,
-                eliminations,
-                explanation: `Finned X-Wing on digit ${digit} in rows ${r1.row+1} and ${r2.row+1}, with fin ${fins.map(c => `R${getRow(c)+1}C${getCol(c)+1}`).join(', ')}. If the fin is false the pattern is a plain X-Wing; if the fin is true it eliminates its own peers. Only ${digit} candidates that see the fin and lie in the X-Wing columns are eliminated in both cases.`
-              };
-              
-              if (returnAll) {
-                allInstances.push(step);
-              } else {
-                return step;
-              }
-            }
+          }
+          if (eliminations.length === 0) continue;
+
+          const baseCells = [...l1.positions, ...l2.positions];
+          const xwingLinks = [];
+          if (l1.positions.length === 2) {
+            xwingLinks.push({ from: { cell: l1.positions[0], digit }, to: { cell: l1.positions[1], digit } });
+          }
+          if (l2.positions.length === 2) {
+            xwingLinks.push({ from: { cell: l2.positions[0], digit }, to: { cell: l2.positions[1], digit } });
+          }
+
+          const finNames = fins.map(c => `R${getRow(c)+1}C${getCol(c)+1}`).join(', ');
+          const step = {
+            technique: 'Finned X-Wing',
+            digit,
+            orientation: o.name,
+            baseCells,
+            targetCells: eliminations.map(e => e.cell),
+            finCells: fins,
+            strongLinks: xwingLinks,
+            eliminations,
+            explanation: `Finned X-Wing on digit ${digit} in ${o.baseWord} ${l1.line+1} and ${l2.line+1}, with fin ${finNames}. If the fin is false the pattern is a plain X-Wing; if the fin is true it eliminates its own peers. Only ${digit} candidates that see the fin and lie in the X-Wing ${o.name === 'row' ? 'columns' : 'rows'} are eliminated in both cases.`
+          };
+
+          if (returnAll) {
+            allInstances.push(step);
+          } else {
+            return step;
           }
         }
       }
     }
   }
-  
+
   return returnAll ? allInstances : null;
 };

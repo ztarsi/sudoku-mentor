@@ -231,7 +231,7 @@ describe('BUG+1', () => {
     }));
     grid = generateCandidates(grid);
 
-    const step = findBUGPlus1(grid, null);
+    const step = /** @type {any} */ (findBUGPlus1(grid, null));
     if (step) {
       // Whatever it places must agree with the true solution.
       expect(step.placement.digit).toBe(solution[step.placement.cell]);

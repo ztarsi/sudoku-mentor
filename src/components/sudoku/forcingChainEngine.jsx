@@ -1,6 +1,7 @@
 // Deep Forcing Chain Engine - Explores "What-If" scenarios
 
 import { getRow, getCol, getBox, getRowIndices, getColIndices, getBoxIndices, getPeers } from './gridUnits';
+import { makeStep } from './stepShape';
 
 // Clone grid for simulation
 const cloneGrid = (grid) => {
@@ -108,240 +109,90 @@ export const findForcingChain = (grid, maxDepth = 10) => {
   return null; // No forcing chain found - use other techniques or fallback to hypothesis mode
 };
 
-// FALLBACK: Hypothesis mode (contradiction-based, not pure logic)
+const cellRef = (i) => `R${getRow(i) + 1}C${getCol(i) + 1}`;
+
+// The step-by-step story of a branch that ended in a contradiction.
+const narrateContradiction = (cellIndex, value, branch, conclusion) => {
+  let text = `What if ${cellRef(cellIndex)} = ${value}?\n\n`;
+  const placements = branch.chain.filter(s => s.action === 'place');
+  placements.forEach((step, idx) => {
+    if (idx === 0) {
+      text += `Starting assumption: place ${step.value} at ${cellRef(step.cell)}\n\n`;
+    } else {
+      text += `Step ${idx}: ${cellRef(step.cell)} must be ${step.value}\n   Why? ${step.reason}\n`;
+    }
+    const chainIdx = branch.chain.indexOf(step);
+    let peerElims = 0;
+    for (let i = chainIdx + 1; i < branch.chain.length && branch.chain[i].action === 'eliminate'; i++) {
+      if (branch.chain[i].reason.includes('Sees')) peerElims++;
+    }
+    if (peerElims > 0) text += `   This eliminates ${step.value} from ${peerElims} peer cell${peerElims > 1 ? 's' : ''}\n`;
+    text += '\n';
+  });
+  const caseSplits = placements.filter(s => s.reason && s.reason.startsWith('Case analysis')).length;
+  text += `CONTRADICTION: after ${placements.length} placement${placements.length > 1 ? 's' : ''}`;
+  if (caseSplits > 0) text += ` (including ${caseSplits} case split${caseSplits > 1 ? 's' : ''})`;
+  text += `, ${cellRef(branch.contradictionCell)} has no valid candidates left.\n\n`;
+  text += `Conclusion: ${conclusion}`;
+  return text;
+};
+
+// A Hypothesis Mode step from a branch that contradicted. `placement` is
+// given when the contradiction leaves exactly one candidate in the cell.
+const hypothesisStep = (cellIndex, badValue, branch, placement) => {
+  const conclusion = placement
+    ? `${badValue} is impossible, so ${cellRef(cellIndex)} must be ${placement.digit}.`
+    : `${badValue} is impossible, so it can be removed from ${cellRef(cellIndex)}.`;
+  return makeStep({
+    technique: 'Hypothesis Mode',
+    explanation: narrateContradiction(cellIndex, badValue, branch, conclusion),
+    baseCells: [cellIndex],
+    targetCells: [branch.contradictionCell],
+    placement: placement || null,
+    eliminations: placement ? [] : [{ cell: cellIndex, digit: badValue }],
+    chain: branch.chain,
+    contradiction: true,
+    contradictionCell: branch.contradictionCell,
+    contradictoryDigit: badValue,
+  });
+};
+
+// FALLBACK: Hypothesis mode (contradiction-based, not pure logic).
+//
+// Any candidate whose assumption leads to a contradiction is false; that
+// is sound on its own, so a contradicted digit is eliminated regardless of
+// what the other branches do. When the cell has two candidates and one of
+// them contradicts, the other is placed.
 export const findHypothesis = (grid, maxDepth = 8) => {
-  // Try bi-value cells first (most efficient)
-  const biValueCells = [];
+  const bySize = (n) => {
+    const cells = [];
+    for (let i = 0; i < 81; i++) {
+      if (grid[i].value === null && grid[i].candidates.length === n) cells.push(i);
+    }
+    return cells;
+  };
+
+  // Bi-value cells first: a contradiction here places a digit.
+  for (const cellIndex of bySize(2)) {
+    const [v1, v2] = grid[cellIndex].candidates;
+    const b1 = exploreBranch(grid, cellIndex, v1, maxDepth, []);
+    if (b1.contradiction) return hypothesisStep(cellIndex, v1, b1, { cell: cellIndex, digit: v2 });
+    const b2 = exploreBranch(grid, cellIndex, v2, maxDepth, []);
+    if (b2.contradiction) return hypothesisStep(cellIndex, v2, b2, { cell: cellIndex, digit: v1 });
+  }
+
+  // Then tri-value cells, then anything: a contradiction eliminates.
+  const rest = [...bySize(3)];
   for (let i = 0; i < 81; i++) {
-    if (grid[i].value === null && grid[i].candidates.length === 2) {
-      biValueCells.push(i);
+    if (grid[i].value === null && grid[i].candidates.length > 3) rest.push(i);
+  }
+  for (const cellIndex of rest) {
+    for (const value of grid[cellIndex].candidates) {
+      const branch = exploreBranch(grid, cellIndex, value, maxDepth, []);
+      if (branch.contradiction) return hypothesisStep(cellIndex, value, branch, null);
     }
   }
-  
-  for (const cellIndex of biValueCells) {
-    const [value1, value2] = grid[cellIndex].candidates;
-    
-    const branch1 = exploreBranch(grid, cellIndex, value1, maxDepth, []);
-    const branch2 = exploreBranch(grid, cellIndex, value2, maxDepth, []);
-    
-    // Check for contradictions
-    if (branch1.contradiction && !branch2.contradiction) {
-      let explanation = `🔍 Let's explore: What if R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} = ${value1}?\n\n`;
 
-      // Build a detailed narrative with natural language
-      const placements1 = branch1.chain.filter(s => s.action === 'place');
-
-      placements1.forEach((step, idx) => {
-        const cellRef = `R${getRow(step.cell) + 1}C${getCol(step.cell) + 1}`;
-
-        if (idx === 0) {
-          explanation += `📍 Starting assumption: Place ${step.value} at ${cellRef}\n\n`;
-        } else {
-          explanation += `➜ Step ${idx}: ${cellRef} must be ${step.value}\n`;
-          explanation += `   Why? ${step.reason}\n`;
-        }
-
-        // Find and explain immediate eliminations
-        const nextElims = [];
-        const chainIdx = branch1.chain.findIndex(s => s === step);
-        for (let i = chainIdx + 1; i < branch1.chain.length; i++) {
-          if (branch1.chain[i].action === 'eliminate') {
-            nextElims.push(branch1.chain[i]);
-          } else {
-            break;
-          }
-        }
-
-        if (nextElims.length > 0) {
-          const peerElims = nextElims.filter(e => e.reason.includes('Sees'));
-          if (peerElims.length > 0) {
-            explanation += `   This eliminates ${step.value} from ${peerElims.length} peer cell${peerElims.length > 1 ? 's' : ''}\n`;
-          }
-        }
-        explanation += '\n';
-      });
-
-      const contradCell = `R${getRow(branch1.contradictionCell) + 1}C${getCol(branch1.contradictionCell) + 1}`;
-      const caseSplits = placements1.filter(s => s.reason && s.reason.startsWith('Case analysis')).length;
-      explanation += `❌ CONTRADICTION: After ${placements1.length} placement${placements1.length > 1 ? 's' : ''}${caseSplits > 0 ? ` (including ${caseSplits} case split${caseSplits > 1 ? 's' : ''})` : ''}, ${contradCell} has no valid candidates left!\n\n`;
-      explanation += `✅ Conclusion: The assumption was wrong. R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} must be ${value2}.`;
-      
-      return {
-        technique: 'Hypothesis Mode',
-        explanation,
-        baseCells: [cellIndex],
-        targetCells: [branch1.contradictionCell],
-        placement: { cell: cellIndex, digit: value2 },
-        eliminations: [],
-        chain: branch1.chain,
-        contradiction: true,
-        contradictionCell: branch1.contradictionCell,
-        digit: value1,
-        contradictoryDigit: value1
-      };
-    }
-    
-    if (branch2.contradiction && !branch1.contradiction) {
-      let explanation = `🔍 Let's explore: What if R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} = ${value2}?\n\n`;
-
-      // Build a detailed narrative with natural language
-      const placements2 = branch2.chain.filter(s => s.action === 'place');
-
-      placements2.forEach((step, idx) => {
-        const cellRef = `R${getRow(step.cell) + 1}C${getCol(step.cell) + 1}`;
-
-        if (idx === 0) {
-          explanation += `📍 Starting assumption: Place ${step.value} at ${cellRef}\n\n`;
-        } else {
-          explanation += `➜ Step ${idx}: ${cellRef} must be ${step.value}\n`;
-          explanation += `   Why? ${step.reason}\n`;
-        }
-
-        // Find and explain immediate eliminations
-        const nextElims = [];
-        const chainIdx = branch2.chain.findIndex(s => s === step);
-        for (let i = chainIdx + 1; i < branch2.chain.length; i++) {
-          if (branch2.chain[i].action === 'eliminate') {
-            nextElims.push(branch2.chain[i]);
-          } else {
-            break;
-          }
-        }
-
-        if (nextElims.length > 0) {
-          const peerElims = nextElims.filter(e => e.reason.includes('Sees'));
-          if (peerElims.length > 0) {
-            explanation += `   This eliminates ${step.value} from ${peerElims.length} peer cell${peerElims.length > 1 ? 's' : ''}\n`;
-          }
-        }
-        explanation += '\n';
-      });
-
-      const contradCell = `R${getRow(branch2.contradictionCell) + 1}C${getCol(branch2.contradictionCell) + 1}`;
-      const caseSplits = placements2.filter(s => s.reason && s.reason.startsWith('Case analysis')).length;
-      explanation += `❌ CONTRADICTION: After ${placements2.length} placement${placements2.length > 1 ? 's' : ''}${caseSplits > 0 ? ` (including ${caseSplits} case split${caseSplits > 1 ? 's' : ''})` : ''}, ${contradCell} has no valid candidates left!\n\n`;
-      explanation += `✅ Conclusion: The assumption was wrong. R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} must be ${value1}.`;
-      
-      return {
-        technique: 'Hypothesis Mode',
-        explanation,
-        baseCells: [cellIndex],
-        targetCells: [branch2.contradictionCell],
-        placement: { cell: cellIndex, digit: value1 },
-        eliminations: [],
-        chain: branch2.chain,
-        contradiction: true,
-        contradictionCell: branch2.contradictionCell,
-        digit: value2,
-        contradictoryDigit: value2
-      };
-    }
-  }
-  
-  // If no bi-value contradictions, try tri-value cells
-  const triValueCells = [];
-  for (let i = 0; i < 81; i++) {
-    if (grid[i].value === null && grid[i].candidates.length === 3) {
-      triValueCells.push(i);
-    }
-  }
-  
-  for (const cellIndex of triValueCells) {
-    const [value1, value2, value3] = grid[cellIndex].candidates;
-    
-    const branch1 = exploreBranch(grid, cellIndex, value1, maxDepth, []);
-    const branch2 = exploreBranch(grid, cellIndex, value2, maxDepth, []);
-    const branch3 = exploreBranch(grid, cellIndex, value3, maxDepth, []);
-    
-    if (branch1.contradiction && !branch2.contradiction && !branch3.contradiction) {
-      let explanation = `🔍 Hypothesis Mode: What if R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} = ${value1}?\n\n`;
-      explanation += `This leads to a contradiction. Therefore, R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} must be ${value2} or ${value3}.\n`;
-      explanation += `Eliminating ${value1} from this cell.`;
-      
-      return {
-        technique: 'Hypothesis Mode',
-        explanation,
-        baseCells: [cellIndex],
-        targetCells: [branch1.contradictionCell],
-        placement: null,
-        eliminations: [{ cell: cellIndex, digit: value1 }],
-        chain: branch1.chain,
-        contradiction: true,
-        contradictionCell: branch1.contradictionCell,
-        digit: value1,
-        contradictoryDigit: value1
-      };
-    }
-    
-    if (branch2.contradiction && !branch1.contradiction && !branch3.contradiction) {
-      let explanation = `🔍 Hypothesis Mode: What if R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} = ${value2}?\n\n`;
-      explanation += `This leads to a contradiction. Therefore, it cannot be ${value2}.\n`;
-      explanation += `Eliminating ${value2} from this cell.`;
-      
-      return {
-        technique: 'Hypothesis Mode',
-        explanation,
-        baseCells: [cellIndex],
-        targetCells: [branch2.contradictionCell],
-        placement: null,
-        eliminations: [{ cell: cellIndex, digit: value2 }],
-        chain: branch2.chain,
-        contradiction: true,
-        contradictionCell: branch2.contradictionCell,
-        digit: value2,
-        contradictoryDigit: value2
-      };
-    }
-    
-    if (branch3.contradiction && !branch1.contradiction && !branch2.contradiction) {
-      let explanation = `🔍 Hypothesis Mode: What if R${getRow(cellIndex) + 1}C${getCol(cellIndex) + 1} = ${value3}?\n\n`;
-      explanation += `This leads to a contradiction. Therefore, it cannot be ${value3}.\n`;
-      explanation += `Eliminating ${value3} from this cell.`;
-      
-      return {
-        technique: 'Hypothesis Mode',
-        explanation,
-        baseCells: [cellIndex],
-        targetCells: [branch3.contradictionCell],
-        placement: null,
-        eliminations: [{ cell: cellIndex, digit: value3 }],
-        chain: branch3.chain,
-        contradiction: true,
-        contradictionCell: branch3.contradictionCell,
-        digit: value3,
-        contradictoryDigit: value3
-      };
-    }
-  }
-  
-  // Last resort: try any empty cell with candidates
-  for (let i = 0; i < 81; i++) {
-    if (grid[i].value === null && grid[i].candidates.length > 0) {
-      for (const value of grid[i].candidates) {
-        const branch = exploreBranch(grid, i, value, maxDepth, []);
-        if (branch.contradiction) {
-          let explanation = `🔍 Hypothesis Mode: Testing R${getRow(i) + 1}C${getCol(i) + 1} = ${value}\n\n`;
-          explanation += `This assumption leads to a contradiction at R${getRow(branch.contradictionCell) + 1}C${getCol(branch.contradictionCell) + 1}.\n`;
-          explanation += `Therefore, ${value} can be eliminated from R${getRow(i) + 1}C${getCol(i) + 1}.`;
-          
-          return {
-            technique: 'Hypothesis Mode',
-            explanation,
-            baseCells: [i],
-            targetCells: [branch.contradictionCell],
-            placement: null,
-            eliminations: [{ cell: i, digit: value }],
-            chain: branch.chain,
-            contradiction: true,
-            contradictionCell: branch.contradictionCell,
-            digit: value,
-            contradictoryDigit: value
-          };
-        }
-      }
-    }
-  }
-  
   return null;
 };
 
@@ -467,7 +318,7 @@ const findConvergence = (grid, branch1, branch2, cellIndex, value1, value2) => {
     explanation += `💡 Proven Conclusion: Both paths converge on ${targetCell} = ${placement.digit}\n`;
     explanation += `This is logically certain, regardless of which candidate is correct!`;
     
-    return {
+    return makeStep({
       technique: 'Cell Forcing Chain',
       explanation,
       baseCells: [cellIndex],
@@ -480,7 +331,7 @@ const findConvergence = (grid, branch1, branch2, cellIndex, value1, value2) => {
       ],
       convergenceCell: placement.cell,
       digit: null
-    };
+    });
   }
   
   if (commonEliminations.length > 0) {
@@ -504,7 +355,7 @@ const findConvergence = (grid, branch1, branch2, cellIndex, value1, value2) => {
     }
     explanation += `\nThese eliminations are logically certain!`;
     
-    return {
+    return makeStep({
       technique: 'Cell Forcing Chain',
       explanation,
       baseCells: [cellIndex],
@@ -516,7 +367,7 @@ const findConvergence = (grid, branch1, branch2, cellIndex, value1, value2) => {
         { cells: branch2.chain, color: '#a855f7', label: `If ${value2}` }
       ],
       digit: null
-    };
+    });
   }
   
   return null;
@@ -565,7 +416,7 @@ const findTripleConvergence = (grid, branch1, branch2, branch3, cellIndex, value
     explanation += `💡 Proven Conclusion: All three paths converge!\n`;
     explanation += `${targetCell} must be ${placement.digit} (logically certain)`;
     
-    return {
+    return makeStep({
       technique: 'Cell Forcing Chain',
       explanation,
       baseCells: [cellIndex],
@@ -579,7 +430,7 @@ const findTripleConvergence = (grid, branch1, branch2, branch3, cellIndex, value
       ],
       convergenceCell: placement.cell,
       digit: null
-    };
+    });
   }
   
   if (commonEliminations.length > 0) {
@@ -597,7 +448,7 @@ const findTripleConvergence = (grid, branch1, branch2, branch3, cellIndex, value
     }
     explanation += `\n💡 These eliminations are proven by triple convergence!`;
     
-    return {
+    return makeStep({
       technique: 'Cell Forcing Chain',
       explanation,
       baseCells: [cellIndex],
@@ -610,7 +461,7 @@ const findTripleConvergence = (grid, branch1, branch2, branch3, cellIndex, value
         { cells: branch3.chain, color: '#3b82f6', label: `If ${value3}` }
       ],
       digit: null
-    };
+    });
   }
   
   return null;
