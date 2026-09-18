@@ -64,22 +64,16 @@ export const buildHighlightSets = (steps) => {
   const unitCells = new Set();
 
   steps.forEach((step) => {
-    // For Hidden/Naked Singles, highlight the whole unit named in the text
-    if (
-      (step.technique === 'Hidden Single' || step.technique === 'Naked Single') &&
-      step.baseCells?.[0] !== undefined
-    ) {
-      const cellIdx = step.baseCells[0];
-      const row = Math.floor(cellIdx / 9);
-      const col = cellIdx % 9;
-
-      if (step.explanation.includes('row')) {
-        for (let c = 0; c < 9; c++) unitCells.add(row * 9 + c);
-      } else if (step.explanation.includes('column')) {
-        for (let r = 0; r < 9; r++) unitCells.add(r * 9 + col);
-      } else if (step.explanation.includes('box')) {
-        const boxStartRow = Math.floor(row / 3) * 3;
-        const boxStartCol = Math.floor(col / 3) * 3;
+    // A step found inside one unit (Hidden Single) highlights that unit.
+    if (step.unit && (step.technique === 'Hidden Single' || step.technique === 'Naked Single')) {
+      const { type, index } = step.unit;
+      if (type === 'row') {
+        for (let c = 0; c < 9; c++) unitCells.add(index * 9 + c);
+      } else if (type === 'column') {
+        for (let r = 0; r < 9; r++) unitCells.add(r * 9 + index);
+      } else if (type === 'box') {
+        const boxStartRow = Math.floor(index / 3) * 3;
+        const boxStartCol = (index % 3) * 3;
         for (let r = boxStartRow; r < boxStartRow + 3; r++) {
           for (let c = boxStartCol; c < boxStartCol + 3; c++) {
             unitCells.add(r * 9 + c);

@@ -167,8 +167,7 @@ const SIMPLE = {
 
   'Hidden Single': (step, grid) => {
     const cell = step.placement?.cell ?? step.baseCells?.[0];
-    const unit = unitFromText(step.explanation) || commonUnit([cell]);
-    const unitName = unit?.name ?? 'this row, column, or box';
+    const unitName = step.unit?.name ?? 'this row, column, or box';
     return {
       look: `Look at ${unitName}. The number ${step.digit} is still missing from it, and ${shortCell(cell)} is the only empty cell there where ${step.digit} can go.`,
       why: `Every other empty cell in ${unitName} already has a ${step.digit} in its row, column, or box, so none of them can take it. Since ${unitName} must contain a ${step.digit} somewhere, it has to be this cell.`,
@@ -194,12 +193,12 @@ const SIMPLE = {
 
   'Hidden Pair': (step) => {
     const [a, b] = step.baseCells;
-    const unit = unitForElims(step.baseCells, []) ;
+    const unitName = step.unit?.name ?? 'this row, column, or box';
     const digits = uniq(step.eliminations.map((e) => e.digit));
-    const pair = pairDigitsFromText(step.explanation) || [];
+    const pair = step.pairDigits || [];
     const pairText = pair.length === 2 ? `${pair[0]} and ${pair[1]}` : 'two numbers';
     return {
-      look: `Look at ${unit?.name ?? 'this unit'}. The numbers ${pairText} can only go in two cells there: ${shortCell(a)} and ${shortCell(b)}.`,
+      look: `Look at ${unitName}. The numbers ${pairText} can only go in two cells there: ${shortCell(a)} and ${shortCell(b)}.`,
       why: `Those two numbers have nowhere else to go, so between them they must fill both cells. That leaves no room for anything else in those cells, so their other pencil marks (${listWords(digits)}) can go.`,
     };
   },
@@ -312,20 +311,6 @@ function capitalize(s) {
   return s ? s[0].toUpperCase() + s.slice(1) : s;
 }
 
-/** Pull "Row 3" / "Column 7" / "Box 2" out of an engine explanation. */
-function unitFromText(text) {
-  const m = /\b(Row|Column|Box)\s+(\d)/i.exec(text || '');
-  if (!m) return null;
-  const type = m[1].toLowerCase();
-  return { type, index: Number(m[2]) - 1, name: `${type} ${m[2]}` };
-}
-
-/** Pull "digits 3 and 7" out of the Hidden Pair engine text. */
-function pairDigitsFromText(text) {
-  const m = /digits (\d) and (\d)/.exec(text || '');
-  return m ? [Number(m[1]), Number(m[2])] : null;
-}
-
 function pointing(step) {
   const elims = elimSummary(step.eliminations);
   const box = commonUnit(step.baseCells, 'box');
@@ -339,7 +324,7 @@ function pointing(step) {
 
 function nakedSet(step, grid, size) {
   const elims = elimSummary(step.eliminations);
-  const unit = unitForElims(step.baseCells, elims.cells);
+  const unit = step.unit || unitForElims(step.baseCells, elims.cells);
   const digits = uniq(step.baseCells.flatMap((c) => candidatesOf(grid, c))).sort((a, b) => a - b);
   const digitText = digits.length ? listWords(digits) : elims ? listWords(elims.digits) : 'the same numbers';
   const word = size === 2 ? 'two' : 'three';
@@ -356,8 +341,11 @@ function fish(step, size) {
   const elimCols = uniq(elims.cells.map(getCol));
   const rows = uniq(step.baseCells.map(r1)).sort((a, b) => a - b);
   const cols = uniq(step.baseCells.map(c1)).sort((a, b) => a - b);
-  // Row-based fish eliminate down the columns (elims span several rows).
-  const rowBased = elimRows.length >= elimCols.length;
+  // The engine says which way the fish lies; never guess it from the
+  // shape of the eliminations (ties made that wrong for column fish).
+  const rowBased = step.orientation
+    ? step.orientation === 'row'
+    : elimRows.length > elimCols.length;
   const baseName = rowBased ? 'rows' : 'columns';
   const coverName = rowBased ? 'columns' : 'rows';
   const baseList = rowBased ? rows : cols;

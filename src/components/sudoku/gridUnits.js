@@ -36,3 +36,23 @@ export const arePeers = (cell1, cell2) =>
   getRow(cell1) === getRow(cell2) ||
   getCol(cell1) === getCol(cell2) ||
   getBox(cell1) === getBox(cell2);
+
+/** "R5C3" - the compact cell name used in explanations and tests. */
+export const cellName = (index) => `R${getRow(index) + 1}C${getCol(index) + 1}`;
+
+/** Describe a unit for step objects: { type, index, name }. */
+export const unitOf = (type, index) => ({
+  type,
+  index,
+  name: `${type} ${index + 1}`,
+});
+
+/**
+ * All 27 units with their cell indices, in row / column / box order.
+ * `type` is 'row' | 'column' | 'box'.
+ */
+export const ALL_UNITS = [
+  ...Array.from({ length: 9 }, (_, i) => ({ ...unitOf('row', i), indices: getRowIndices(i) })),
+  ...Array.from({ length: 9 }, (_, i) => ({ ...unitOf('column', i), indices: getColIndices(i) })),
+  ...Array.from({ length: 9 }, (_, i) => ({ ...unitOf('box', i), indices: getBoxIndices(i) })),
+];

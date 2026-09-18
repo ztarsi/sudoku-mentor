@@ -2,7 +2,7 @@
 import { findXCycle, findALSXZ, findUniqueRectangle, findBUGPlus1, findFinnedXWing } from './chainEngine';
 
 // Helper functions
-import { getRow, getCol, getBox, getRowIndices, getColIndices, getBoxIndices, getPeers } from './gridUnits';
+import { getRow, getCol, getBox, getRowIndices, getColIndices, getBoxIndices, getPeers, unitOf } from './gridUnits';
 
 export const generateCandidates = (grid) => {
   return grid.map((cell, index) => {
@@ -41,6 +41,14 @@ export const eliminateCandidatesFromPeers = (grid, placedCell, placedDigit) => {
 };
 
 // Find the next logical step
+// Step objects carry the unit a pattern was found in as { type, index, name }
+// with type 'row' | 'column' | 'box', so the UI never has to parse prose.
+const normalizeUnit = (unit) => {
+  const type = unit.type === 'col' ? 'column' : unit.type;
+  const index = Number(String(unit.name).replace(/\D/g, '')) - 1;
+  return unitOf(type, index);
+};
+
 export const findNextLogicStep = (grid, focusedDigit = null) => {
   // Try techniques in order of complexity
   let step;
@@ -244,6 +252,7 @@ const findHiddenSingle = (grid, focusedDigit, returnAll = false) => {
         const step = {
           technique: 'Hidden Single',
           digit: digitNum,
+          unit: unitOf(unitType.toLowerCase(), unitNumber - 1),
           baseCells: [targetCell],
           targetCells: [],
           placement: { cell: targetCell, digit: digitNum },
@@ -498,6 +507,7 @@ const findNakedTriple = (grid, focusedDigit, returnAll = false) => {
               const step = {
                 technique: 'Naked Triple',
                 digit: focusedDigit || tripleDigits[0],
+                unit: normalizeUnit(unit),
                 baseCells: [cell1, cell2, cell3],
                 targetCells: [...new Set(eliminations.map(e => e.cell))],
                 placement: null,
@@ -560,6 +570,7 @@ const findNakedPair = (grid, focusedDigit, returnAll = false) => {
             const step = {
               technique: 'Naked Pair',
               digit: focusedDigit || pairDigits[0],
+              unit: normalizeUnit(unit),
               baseCells: [cell1, cell2],
               targetCells: [...new Set(eliminations.map(e => e.cell))],
               placement: null,
@@ -629,6 +640,8 @@ const findHiddenPair = (grid, focusedDigit, returnAll = false) => {
             const step = {
               technique: 'Hidden Pair',
               digit: focusedDigit || d1,
+              unit: normalizeUnit(unit),
+              pairDigits: [d1, d2],
               baseCells: [cell1, cell2],
               targetCells: [cell1, cell2],
               placement: null,
@@ -689,6 +702,7 @@ const findXWing = (grid, focusedDigit, returnAll = false) => {
           if (eliminations.length > 0) {
             const step = {
               technique: 'X-Wing',
+              orientation: 'row',
               digit,
               baseCells,
               targetCells: eliminations.map(e => e.cell),
@@ -739,6 +753,7 @@ const findXWing = (grid, focusedDigit, returnAll = false) => {
           if (eliminations.length > 0) {
             const step = {
               technique: 'X-Wing',
+              orientation: 'column',
               digit,
               baseCells,
               targetCells: eliminations.map(e => e.cell),
@@ -804,6 +819,7 @@ const findSwordfish = (grid, focusedDigit, returnAll = false) => {
             if (eliminations.length > 0) {
               const step = {
                 technique: 'Swordfish',
+                orientation: 'row',
                 digit,
                 baseCells,
                 targetCells: eliminations.map(e => e.cell),
@@ -859,6 +875,7 @@ const findSwordfish = (grid, focusedDigit, returnAll = false) => {
             if (eliminations.length > 0) {
               const step = {
                 technique: 'Swordfish',
+                orientation: 'column',
                 digit,
                 baseCells,
                 targetCells: eliminations.map(e => e.cell),

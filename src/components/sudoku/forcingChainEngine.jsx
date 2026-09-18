@@ -617,7 +617,12 @@ const findTripleConvergence = (grid, branch1, branch2, branch3, cellIndex, value
 };
 
 // Explore a branch of the forcing chain
-const exploreBranch = (grid, cellIndex, value, maxDepth, chain) => {
+// `forcedReason`, when given, is the honest reason for this placement and
+// skips the hidden-single check. The caller uses it when a value is taken
+// because its alternative led to a contradiction: by then the alternative
+// has been ruled out on this grid, so the hidden-single test would pass
+// trivially and mislabel a case split as a deduction.
+const exploreBranch = (grid, cellIndex, value, maxDepth, chain, forcedReason = null) => {
   // Track initial state before applying value
   const initialCandidates = {};
   grid.forEach((cell, idx) => {
@@ -628,7 +633,9 @@ const exploreBranch = (grid, cellIndex, value, maxDepth, chain) => {
   
   // Determine reason for this placement
   let reason = 'Initial assumption';
-  if (chain.length > 0) {
+  if (forcedReason) {
+    reason = forcedReason;
+  } else if (chain.length > 0) {
     const cell = grid[cellIndex];
     if (cell.candidates.length === 1) {
       reason = 'Only candidate remaining (Naked Single)';
@@ -708,10 +715,13 @@ const exploreBranch = (grid, cellIndex, value, maxDepth, chain) => {
       // Try first value
       const subBranch1 = exploreBranch(newGrid, i, v1, maxDepth, chainWithEliminations);
       if (subBranch1.contradiction) {
-        // If first value leads to contradiction, second must be true
-        const subBranch2 = applyValueAndPropagate(newGrid, i, v2);
+        // The first value broke the puzzle, so the second is the only
+        // option left. Explore it from the SAME grid (exploreBranch applies
+        // the value itself) with the honest reason attached.
+        const reason = `Case analysis: ${v1} leads to a contradiction, so it must be ${v2}`;
+        const subBranch2 = exploreBranch(newGrid, i, v2, maxDepth, chainWithEliminations, reason);
         if (!subBranch2.contradiction) {
-          return exploreBranch(subBranch2.grid, i, v2, maxDepth, chainWithEliminations);
+          return subBranch2;
         }
       }
       
