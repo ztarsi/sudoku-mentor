@@ -6,13 +6,13 @@ import OCRUpload from './OCRUpload';
 import TextPuzzleUpload from './TextPuzzleUpload';
 import { analyzeDifficulty } from './difficultyAnalyzer';
 import { base44 } from '@/api/base44Client';
+import { findMySavedPuzzle, savePuzzle } from '@/api/playerData';
 import { solveSudoku } from './solver';
 import { toast } from "@/components/ui/use-toast";
 
-export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded }) {
+export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded, user = null }) {
   const [activeTab, setActiveTab] = useState('library');
   const [savingPuzzle, setSavingPuzzle] = useState(false);
-  const [user, setUser] = useState(null);
 
   // Load user on mount
   React.useEffect(() => {
@@ -23,20 +23,6 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [isOpen, onClose]);
-
-  React.useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const currentUser = await base44.auth.me();
-        setUser(currentUser);
-      } catch (error) {
-        setUser(null);
-      }
-    };
-    if (isOpen) {
-      loadUser();
-    }
-  }, [isOpen]);
 
   const handlePuzzleLoad = async (puzzle, source = 'library', customName = null, puzzleMeta = null) => {
     // If from library, just load it
@@ -75,16 +61,13 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
         return;
       }
 
-      // Check for duplicates
-      const existingPuzzles = await base44.entities.SudokuPuzzle.list();
-      const isDuplicate = existingPuzzles.some(existing => 
-        JSON.stringify(existing.puzzle) === JSON.stringify(puzzle)
-      );
-      
-      if (isDuplicate) {
-        toast({ title: 'Already in your library', description: 'This puzzle already exists in your library.' });
+      // Already saved by this player? Load the saved copy with its name
+      // and difficulty rather than a bare grid.
+      const saved = await findMySavedPuzzle(user, puzzle);
+      if (saved) {
+        toast({ title: 'Already in your library', description: `Loaded "${saved.name}" from your library.` });
         setSavingPuzzle(false);
-        onPuzzleLoaded(puzzle);
+        onPuzzleLoaded(puzzle, { name: saved.name, difficulty: saved.difficulty });
         return;
       }
 
@@ -95,12 +78,7 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
       
       const name = customName || `${source === 'ocr' ? 'OCR' : 'Custom'} Puzzle (${clueCount} clues) - ${timestamp}`;
       
-      await base44.entities.SudokuPuzzle.create({
-        name,
-        difficulty,
-        puzzle,
-        source
-      });
+      await savePuzzle(user, { name, difficulty, puzzle, source });
       
       onPuzzleLoaded(puzzle, { name, difficulty });
     } catch (error) {
@@ -199,6 +177,7 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded })
             {activeTab === 'library' && (
               <div className="p-6">
                 <PuzzleLibrary
+                  user={user}
                   onClose={onClose}
                   onSelectPuzzle={(puzzle, meta) => handlePuzzleLoad(puzzle, 'library', null, meta)}
                   embedded={true}

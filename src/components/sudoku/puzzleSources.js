@@ -1,4 +1,4 @@
-import { base44 } from '@/api/base44Client';
+import { listMyPuzzles } from '@/api/playerData';
 import { PUZZLES } from './puzzles';
 
 /** Built-in library flattened to { puzzle, name, difficulty } entries. */
@@ -8,19 +8,19 @@ export const getBuiltInPuzzleEntries = () =>
   );
 
 /**
- * All available puzzles: built-ins plus the user's uploaded ones. A failed
- * (e.g. unauthenticated) fetch of user puzzles must not block the
- * built-ins, so it degrades to the library alone.
+ * All available puzzles: built-ins plus the signed-in player's own uploads.
+ * A failed fetch of the player's puzzles must not block the built-ins, so
+ * it degrades to the library alone. Signed out: built-ins only.
  */
-export const fetchAllPuzzleEntries = async () => {
+export const fetchAllPuzzleEntries = async (user = null) => {
   const entries = getBuiltInPuzzleEntries();
   try {
-    const userPuzzles = await base44.entities.SudokuPuzzle.list();
+    const userPuzzles = await listMyPuzzles(user);
     userPuzzles.forEach((p) =>
       entries.push({ puzzle: p.puzzle, name: p.name, difficulty: p.difficulty })
     );
   } catch {
-    // Anonymous visitors can't list user puzzles - built-ins are enough.
+    // Offline or a transient failure - built-ins are enough.
   }
   return entries;
 };
