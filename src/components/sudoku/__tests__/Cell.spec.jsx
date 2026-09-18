@@ -140,4 +140,37 @@ describe('Cell click handling', () => {
     expect(container.querySelector('#sudoku-cell-4').getAttribute('aria-label'))
       .toBe('Row 1, column 5: empty, candidates 1 5');
   });
+
+  it('names the hint role and removed candidates, not just a colour', () => {
+    const { container, rerender } = renderCell({ cell: { candidates: [1, 5], isBaseCell: true } });
+    expect(container.querySelector('#sudoku-cell-4').getAttribute('aria-label'))
+      .toBe('Row 1, column 5: empty, candidates 1 5, part of the hint pattern');
+
+    const cellProps = /** @type {any} */ ({});
+    rerender(
+      <Cell
+        {...cellProps}
+        cellId="sudoku-cell-4"
+        cell={baseCell({ candidates: [1, 5], isTargetCell: true })}
+        isSelected={true}
+        isFocusedDigit={false}
+        isFocusCandidate={false}
+        isDimmed={false}
+        isHighlightedNumber={false}
+        hasError={false}
+        borderClasses=""
+        focusedDigit={null}
+        focusedCandidates={null}
+        removalCandidates={new Set([5])}
+        candidateMode={false}
+        candidatesVisible={true}
+        colors={{}}
+        onClick={() => {}}
+        onInput={() => {}}
+        onToggleCandidate={() => {}}
+      />
+    );
+    expect(container.querySelector('#sudoku-cell-4').getAttribute('aria-label'))
+      .toBe('Row 1, column 5: empty, candidates 1 5, hint target, hint removes 5, selected');
+  });
 });

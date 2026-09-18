@@ -9,20 +9,12 @@ import { base44 } from '@/api/base44Client';
 import { findMySavedPuzzle, savePuzzle } from '@/api/playerData';
 import { solveSudoku } from './solver';
 import { toast } from "@/components/ui/use-toast";
+import { useDialog } from '@/hooks/useDialog';
 
 export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded, user = null }) {
   const [activeTab, setActiveTab] = useState('library');
   const [savingPuzzle, setSavingPuzzle] = useState(false);
-
-  // Load user on mount
-  React.useEffect(() => {
-    if (!isOpen) return undefined;
-    const onKey = (e) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [isOpen, onClose]);
+  const dialog = useDialog({ open: isOpen, onClose });
 
   const handlePuzzleLoad = async (puzzle, source = 'library', customName = null, puzzleMeta = null) => {
     // If from library, just load it
@@ -113,8 +105,8 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded, u
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
           onClick={(e) => e.stopPropagation()}
-          role="dialog"
-          aria-modal="true"
+          ref={dialog.ref}
+          {...dialog.props}
           aria-label="Load puzzle"
           className="bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 w-full max-w-4xl max-h-[90vh] overflow-hidden"
         >
@@ -124,6 +116,7 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded, u
               <h2 className="text-2xl font-bold text-white">Load Puzzle</h2>
               <button
                 onClick={onClose}
+                aria-label="Close"
                 className="text-slate-400 hover:text-white transition-colors p-2 hover:bg-slate-800 rounded-lg"
               >
                 <X className="w-6 h-6" />

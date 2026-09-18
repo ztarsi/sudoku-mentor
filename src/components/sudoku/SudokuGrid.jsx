@@ -26,6 +26,9 @@ export default function SudokuGrid({
   const [measuredWidth, setMeasuredWidth] = useState(0);
   const [overlaySize, setOverlaySize] = useState(0);
   const longPressTimerRef = useRef(null);
+  // A finger lifting after a long-press still fires a click on the cell;
+  // that click must not place the focused digit under the menu.
+  const longPressFiredRef = useRef(false);
   const touchStartPosRef = useRef({ x: 0, y: 0 });
   const gridWrapperRef = useRef(null);
   const gridContainerRef = useRef(null);
@@ -98,9 +101,19 @@ export default function SudokuGrid({
   const handleTouchStart = (e, cellIndex) => {
     const touch = e.touches[0];
     touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
+    longPressFiredRef.current = false;
     longPressTimerRef.current = setTimeout(() => {
+      longPressFiredRef.current = true;
       setContextMenu({ isOpen: true, cellIndex, position: { x: touch.clientX, y: touch.clientY - 10 } });
     }, 500);
+  };
+
+  const handleCellClick = (index) => {
+    if (longPressFiredRef.current) {
+      longPressFiredRef.current = false;
+      return;
+    }
+    onCellClick(index);
   };
 
   const handleTouchEnd = () => {
@@ -274,7 +287,7 @@ export default function SudokuGrid({
                   zDigit={currentStep?.technique === 'ALS-XZ' ? currentStep.zDigit : null}
                   cellSize={cellSize}
                   rejected={rejectedInput?.cellIndex === index ? rejectedInput : null}
-                  onClick={() => onCellClick(index)}
+                  onClick={() => handleCellClick(index)}
                   onInput={(value) => onCellInput(index, value)}
                   onToggleCandidate={(candidate) => onToggleCandidate(index, candidate)}
                   onTouchStart={(e) => handleTouchStart(e, index)}
@@ -325,6 +338,7 @@ export default function SudokuGrid({
         onClear={handleContextMenuClear}
         onToggleCandidateMode={handleContextMenuToggleCandidates}
         cell={contextMenu.cellIndex !== null ? grid[contextMenu.cellIndex] : null}
+        focusedDigit={focusedDigit}
       />
     </>
   );

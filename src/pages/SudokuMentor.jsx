@@ -20,6 +20,7 @@ import { useSudokuGame } from '@/hooks/useSudokuGame';
 import { useSudokuPlayer } from '@/hooks/useSudokuPlayer';
 import { usePuzzleBootstrap } from '@/hooks/usePuzzleBootstrap';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { useDialog } from '@/hooks/useDialog';
 import { base44 } from '@/api/base44Client';
 import { AnimatePresence, motion } from 'framer-motion';
 import { createPageUrl } from '@/utils';
@@ -45,6 +46,8 @@ export default function SudokuMentor() {
   const [showCopyConfirmation, setShowCopyConfirmation] = useState(false);
   const [noAssistMode, setNoAssistMode] = useState(false);
   const [showNoAssistModal, setShowNoAssistModal] = useState(false);
+  const appInfoDialog = useDialog({ open: showAppInfo, onClose: () => setShowAppInfo(false) });
+  const noAssistDialog = useDialog({ open: showNoAssistModal, onClose: () => setShowNoAssistModal(false) });
   const [candidatesVisible, setCandidatesVisible] = useState(true);
   const [showTour, setShowTour] = useState(false);
 
@@ -854,6 +857,9 @@ export default function SudokuMentor() {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
+              ref={appInfoDialog.ref}
+              {...appInfoDialog.props}
+              aria-label="About Sudoku Mentor"
               className="bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 w-full max-w-lg overflow-hidden"
             >
               <div className="p-6 border-b border-slate-800">
@@ -957,6 +963,9 @@ export default function SudokuMentor() {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
+              ref={noAssistDialog.ref}
+              {...noAssistDialog.props}
+              aria-label="No Assist Mode"
               className="bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 w-full max-w-lg overflow-hidden"
             >
               <div className="p-6 border-b border-slate-800">

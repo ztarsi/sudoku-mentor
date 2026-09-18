@@ -1,6 +1,7 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MousePointerClick, Lightbulb, Play, Hand, Pencil, RotateCcw } from 'lucide-react';
+import { useDialog } from '@/hooks/useDialog';
 
 const STEPS = {
   desktop: [
@@ -17,14 +18,7 @@ const STEPS = {
 
 /** One-time orientation shown to first-time visitors. */
 export default function WelcomeTour({ open, variant = 'desktop', onClose }) {
-  useEffect(() => {
-    if (!open) return undefined;
-    const onKey = (e) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  const dialog = useDialog({ open, onClose });
 
   const steps = STEPS[variant] || STEPS.desktop;
 
@@ -43,8 +37,8 @@ export default function WelcomeTour({ open, variant = 'desktop', onClose }) {
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.95, opacity: 0, y: 12 }}
             onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
+            ref={dialog.ref}
+            {...dialog.props}
             aria-labelledby="welcome-title"
             className="bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 w-full max-w-md overflow-hidden"
           >

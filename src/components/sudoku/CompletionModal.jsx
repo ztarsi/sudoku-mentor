@@ -2,17 +2,10 @@ import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trophy, Clock, AlertCircle, Target, X } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { useDialog } from '@/hooks/useDialog';
 
 export default function CompletionModal({ isOpen, onClose, stats }) {
-  // Close on Escape
-  useEffect(() => {
-    if (!isOpen) return undefined;
-    const onKey = (e) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [isOpen, onClose]);
+  const dialog = useDialog({ open: isOpen, onClose });
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -75,8 +68,8 @@ export default function CompletionModal({ isOpen, onClose, stats }) {
             exit={{ scale: 0.5, opacity: 0, y: 50 }}
             transition={{ type: 'spring', duration: 0.5 }}
             onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
+            ref={dialog.ref}
+            {...dialog.props}
             aria-label="Puzzle solved"
             className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-3xl shadow-2xl border border-slate-700 w-full max-w-md overflow-hidden"
           >

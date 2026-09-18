@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Palette, X, Check, Save, Trash2 } from 'lucide-react';
 import { toast } from "@/components/ui/use-toast";
+import { useDialog } from '@/hooks/useDialog';
 
 const PRESET_COLORS = [
   { name: 'White', value: '#ffffff' },
@@ -30,17 +31,9 @@ export default function ColorSettings({ colors, onColorsChange, onClose }) {
   const [presets, setPresets] = useState([]);
   const [presetName, setPresetName] = useState('');
   const [showSaveInput, setShowSaveInput] = useState(false);
+  const dialog = useDialog({ open: true, onClose });
 
   // Load presets from localStorage
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   useEffect(() => {
     const saved = localStorage.getItem('sudoku-color-presets');
     if (saved) {
@@ -125,8 +118,8 @@ export default function ColorSettings({ colors, onColorsChange, onClose }) {
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
           onClick={(e) => e.stopPropagation()}
-          role="dialog"
-          aria-modal="true"
+          ref={dialog.ref}
+          {...dialog.props}
           aria-label="Color settings"
           className="bg-slate-900 rounded-xl sm:rounded-2xl shadow-2xl border border-slate-700 w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden"
         >
@@ -143,6 +136,7 @@ export default function ColorSettings({ colors, onColorsChange, onClose }) {
             </div>
             <button
               onClick={onClose}
+              aria-label="Close"
               className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
             >
               <X className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400" />
@@ -179,6 +173,7 @@ export default function ColorSettings({ colors, onColorsChange, onClose }) {
                       </button>
                       <button
                         onClick={() => deletePreset(preset.id)}
+                        aria-label={`Delete preset ${preset.name}`}
                         className="p-1 hover:bg-red-500/20 text-red-400 rounded transition-colors"
                       >
                         <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -205,6 +200,7 @@ export default function ColorSettings({ colors, onColorsChange, onClose }) {
                   />
                   <button
                     onClick={savePreset}
+                    aria-label="Save preset"
                     disabled={!presetName.trim() || presets.length >= 3}
                     className={`px-3 sm:px-4 py-2 rounded-lg font-medium transition-all ${
                       presetName.trim() && presets.length < 3
@@ -333,6 +329,8 @@ export default function ColorSettings({ colors, onColorsChange, onClose }) {
                     onClick={() => handleColorSelect(color.value)}
                     className="relative group"
                     title={color.name}
+                    aria-label={color.name}
+                    aria-pressed={colors[activeSection] === color.value}
                   >
                     <div
                       className={`

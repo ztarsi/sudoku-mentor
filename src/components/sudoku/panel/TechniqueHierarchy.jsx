@@ -21,40 +21,29 @@ export default function TechniqueHierarchy({
 }) {
   return (
     <div className="bg-slate-900 rounded-2xl text-white border border-slate-700 overflow-hidden">
-      <button
-        onClick={() => !noAssistMode && onToggleExpanded()}
-        disabled={noAssistMode}
-        aria-expanded={expanded && !noAssistMode}
-        className="w-full p-5 flex items-center justify-between hover:bg-slate-800/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        <div className="flex items-center gap-2">
+      <div className={`flex items-center transition-colors ${noAssistMode ? 'opacity-50' : 'hover:bg-slate-800/50'}`}>
+        <button
+          onClick={() => !noAssistMode && onToggleExpanded()}
+          disabled={noAssistMode}
+          aria-expanded={expanded && !noAssistMode}
+          className="flex-1 min-w-0 p-5 pr-2 flex items-center justify-between gap-2 text-left disabled:cursor-not-allowed"
+        >
           <h4 className="text-lg font-semibold">Technique Hierarchy</h4>
-          <span
-            role="button"
-            tabIndex={0}
-            onClick={(e) => {
-              e.stopPropagation();
-              onShowInfo();
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.stopPropagation();
-                onShowInfo();
-              }
-            }}
-            className="p-1 hover:bg-slate-700 rounded-lg transition-colors"
-            title="Learn more"
-            aria-label="About the technique hierarchy"
-          >
-            <Info className="w-4 h-4 text-slate-400" />
-          </span>
-        </div>
-        {expanded ? (
-          <ChevronUp className="w-5 h-5 text-slate-400" />
-        ) : (
-          <ChevronDown className="w-5 h-5 text-slate-400" />
-        )}
-      </button>
+          {expanded ? (
+            <ChevronUp className="w-5 h-5 text-slate-400" />
+          ) : (
+            <ChevronDown className="w-5 h-5 text-slate-400" />
+          )}
+        </button>
+        <button
+          onClick={onShowInfo}
+          className="p-2 mr-3 hover:bg-slate-700 rounded-lg transition-colors"
+          title="Learn more"
+          aria-label="About the technique hierarchy"
+        >
+          <Info className="w-4 h-4 text-slate-400" />
+        </button>
+      </div>
 
       <AnimatePresence>
         {expanded && !noAssistMode && (

@@ -11,39 +11,28 @@ export default function KeyboardShortcutsCard({ onShowInfo }) {
 
   return (
     <div className="bg-slate-900 rounded-2xl text-white border border-slate-700 overflow-hidden">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        aria-expanded={expanded}
-        className="w-full p-5 flex items-center justify-between hover:bg-slate-800/50 transition-colors"
-      >
-        <div className="flex items-center gap-2">
+      <div className="flex items-center hover:bg-slate-800/50 transition-colors">
+        <button
+          onClick={() => setExpanded(!expanded)}
+          aria-expanded={expanded}
+          className="flex-1 min-w-0 p-5 pr-2 flex items-center justify-between gap-2 text-left"
+        >
           <h4 className="text-lg font-semibold">Keyboard Shortcuts</h4>
-          <span
-            role="button"
-            tabIndex={0}
-            onClick={(e) => {
-              e.stopPropagation();
-              onShowInfo();
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.stopPropagation();
-                onShowInfo();
-              }
-            }}
-            className="p-1 hover:bg-slate-700 rounded-lg transition-colors"
-            title="Learn more"
-            aria-label="About keyboard shortcuts"
-          >
-            <Info className="w-4 h-4 text-slate-400" />
-          </span>
-        </div>
-        {expanded ? (
-          <ChevronUp className="w-5 h-5 text-slate-400" />
-        ) : (
-          <ChevronDown className="w-5 h-5 text-slate-400" />
-        )}
-      </button>
+          {expanded ? (
+            <ChevronUp className="w-5 h-5 text-slate-400" />
+          ) : (
+            <ChevronDown className="w-5 h-5 text-slate-400" />
+          )}
+        </button>
+        <button
+          onClick={onShowInfo}
+          className="p-2 mr-3 hover:bg-slate-700 rounded-lg transition-colors"
+          title="Learn more"
+          aria-label="About keyboard shortcuts"
+        >
+          <Info className="w-4 h-4 text-slate-400" />
+        </button>
+      </div>
 
       <AnimatePresence>
         {expanded && (

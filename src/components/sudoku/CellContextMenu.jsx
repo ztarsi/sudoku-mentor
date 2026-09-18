@@ -1,8 +1,15 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trash2, Edit3, X } from 'lucide-react';
+import { useDialog } from '@/hooks/useDialog';
 
-export default function CellContextMenu({ isOpen, position, onClose, onClear, onToggleCandidateMode, cell }) {
+/**
+ * Long-press menu for a cell. "Toggle candidate" needs a focused digit,
+ * because that is the digit it toggles; without one the row says so
+ * instead of silently doing nothing.
+ */
+export default function CellContextMenu({ isOpen, position, onClose, onClear, onToggleCandidateMode, cell, focusedDigit = null }) {
+  const dialog = useDialog({ open: isOpen && !!cell, onClose });
   if (!isOpen || !cell) return null;
 
   return (
@@ -17,6 +24,9 @@ export default function CellContextMenu({ isOpen, position, onClose, onClear, on
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
+            ref={dialog.ref}
+            {...dialog.props}
+            aria-label="Cell options"
             style={{
               position: 'fixed',
               left: position.x,
@@ -32,10 +42,15 @@ export default function CellContextMenu({ isOpen, position, onClose, onClear, on
                     onToggleCandidateMode();
                     onClose();
                   }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-left text-white hover:bg-slate-700 rounded-lg transition-colors"
+                  disabled={focusedDigit === null}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left text-white hover:bg-slate-700 rounded-lg transition-colors disabled:text-slate-500 disabled:hover:bg-transparent"
                 >
                   <Edit3 className="w-4 h-4 text-blue-400" />
-                  <span>Toggle Candidates</span>
+                  <span>
+                    {focusedDigit === null
+                      ? 'Pick a digit to toggle it here'
+                      : `Toggle candidate ${focusedDigit}`}
+                  </span>
                 </button>
               )}
               {(cell.value !== null || cell.candidates?.length > 0) && (

@@ -48,7 +48,19 @@ export default function Cell({
     : candidates.length > 0
     ? `empty, candidates ${candidates.join(' ')}`
     : 'empty';
-  const ariaLabel = `${positionLabel}: ${contentLabel}${hasError ? ', conflict' : ''}`;
+  const removedLabel = removalCandidates && removalCandidates.size > 0
+    ? `, hint removes ${[...removalCandidates].sort().join(' ')}`
+    : '';
+  const hintRole = isBaseCell
+    ? ', part of the hint pattern'
+    : isTargetCell
+    ? ', hint target'
+    : isUnitCell
+    ? ', in the hint unit'
+    : '';
+  const ariaLabel =
+    `${positionLabel}: ${contentLabel}${hasError ? ', conflict' : ''}${hintRole}${removedLabel}` +
+    `${isSelected ? ', selected' : ''}`;
 
   const hasGhostConflict = ghostValue && value && value !== ghostValue;
 

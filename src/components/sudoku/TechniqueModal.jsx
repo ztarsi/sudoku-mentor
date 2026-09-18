@@ -1,17 +1,11 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { TECHNIQUE_DETAILS } from './techniqueCatalog';
+import { useDialog } from '@/hooks/useDialog';
 
 export default function TechniqueModal({ technique, onClose }) {
-  // Close on Escape
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  const dialog = useDialog({ open: !!technique, onClose });
 
   if (!technique) return null;
   
@@ -25,8 +19,8 @@ export default function TechniqueModal({ technique, onClose }) {
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
-          role="dialog"
-          aria-modal="true"
+          ref={dialog.ref}
+          {...dialog.props}
           aria-label={technique}
           className="bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 max-w-2xl w-full max-h-[90vh] overflow-y-auto"
         >
