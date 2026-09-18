@@ -57,7 +57,7 @@ const readSavedGame = (key) => {
     const raw = window.localStorage.getItem(key);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    if (parsed?.v !== 1 || !Array.isArray(parsed.givens) || parsed.givens.length !== 81) return null;
+    if (![1, 2].includes(parsed?.v) || !Array.isArray(parsed.givens) || parsed.givens.length !== 81) return null;
     return parsed;
   } catch {
     return null;
@@ -88,8 +88,10 @@ const clearSavedGame = (key) => {
  *
  * Callbacks:
  * - onWrongInput(cellIndex, digit): input rejected against the solution
- * - onSolved({ timeInSeconds, errorCount, puzzleName, puzzleDifficulty }):
- *   fired exactly once per loaded puzzle when the grid is complete+correct
+ * - onSolved({ timeInSeconds, errorCount, hintsUsed, puzzleName, puzzleDifficulty }):
+ *   fired exactly once per loaded puzzle when the grid is complete+correct.
+ *   timeInSeconds is PLAY time: the clock pauses while the tab is hidden
+ *   and survives a reload, so a resumed game never counts the days away.
  *
  * @param {{ onSolved?: Function, onWrongInput?: Function, persistKey?: string }} [options]
  */
@@ -106,6 +108,48 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
   // the grid (sound may be off). Cleared automatically shortly after.
   const [rejectedInput, setRejectedInput] = useState(null);
   const rejectSeq = useRef(0);
+  // Assistance used on this puzzle (hints shown or applied). A clean solve
+  // is one with hintsUsed === 0; it is the only kind worth recording.
+  const [hintsUsed, setHintsUsed] = useState(0);
+  // Play clock: milliseconds accumulated while the tab was visible, plus the
+  // start of the current visible segment (null while paused).
+  const playedMsRef = useRef(0);
+  const segmentStartRef = useRef(null);
+  const [clockRunning, setClockRunning] = useState(false);
+
+  const elapsedMs = useCallback(() => {
+    const segment = segmentStartRef.current ? Date.now() - segmentStartRef.current : 0;
+    return playedMsRef.current + segment;
+  }, []);
+  const getElapsedSeconds = useCallback(() => Math.floor(elapsedMs() / 1000), [elapsedMs]);
+
+  const startClock = useCallback((fromMs = 0) => {
+    playedMsRef.current = fromMs;
+    segmentStartRef.current = typeof document !== 'undefined' && document.hidden ? null : Date.now();
+    setClockRunning(true);
+  }, []);
+  const stopClock = useCallback(() => {
+    playedMsRef.current = elapsedMs();
+    segmentStartRef.current = null;
+    setClockRunning(false);
+  }, [elapsedMs]);
+
+  // Pause while the tab is hidden, resume when it comes back.
+  useEffect(() => {
+    if (!clockRunning || typeof document === 'undefined') return undefined;
+    const onVisibility = () => {
+      if (document.hidden) {
+        playedMsRef.current = elapsedMs();
+        segmentStartRef.current = null;
+      } else if (segmentStartRef.current === null) {
+        segmentStartRef.current = Date.now();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [clockRunning, elapsedMs]);
+
+  const noteHintUsed = useCallback(() => setHintsUsed((n) => n + 1), []);
 
   // Keep callbacks fresh without retriggering effects
   const onSolvedRef = useRef(onSolved);
@@ -190,6 +234,7 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
         );
       }
       commit(newGrid);
+      setHintsUsed((n) => n + 1);
     },
     [grid, commit]
   );
@@ -237,8 +282,10 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
     setPuzzleDifficulty(meta?.difficulty ?? null);
     setStartTime(Date.now());
     setRejectedInput(null);
+    setHintsUsed(0);
+    startClock(0);
     return { ok: true };
-  }, []);
+  }, [startClock]);
 
   // Rejected-input feedback is transient: drop it once the animation has
   // had time to play. Keyed on the rejection id so rapid repeats each
@@ -264,7 +311,10 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
     setPuzzleDifficulty(null);
     setStartTime(null);
     setRejectedInput(null);
-  }, [persistKey]);
+    setHintsUsed(0);
+    stopClock();
+    playedMsRef.current = 0;
+  }, [persistKey, stopClock]);
 
   /**
    * Restore a game saved by this hook (see persistKey). Returns true when a
@@ -300,25 +350,52 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
     setPuzzleName(saved.puzzleName ?? null);
     setPuzzleDifficulty(saved.puzzleDifficulty ?? null);
     setStartTime(saved.startTime || Date.now());
+    setHintsUsed(saved.hintsUsed || 0);
+    // Resume the play clock from where it stopped, never from wall time.
+    startClock(typeof saved.playedMs === 'number' ? saved.playedMs : 0);
     return true;
-  }, [persistKey]);
+  }, [persistKey, startClock]);
 
   // Persist the in-progress game so a reload (or a return tomorrow) resumes
   // where the player left off instead of rolling a new random puzzle.
+  const snapshotRef = useRef(null);
+  snapshotRef.current = () => ({
+    v: 2,
+    givens: grid.map((c) => (c.isFixed ? c.value : 0)),
+    cells: grid.map((c) => (c.isFixed ? null : { value: c.value, candidates: c.candidates })),
+    puzzleName,
+    puzzleDifficulty,
+    startTime,
+    errorCount,
+    hintsUsed,
+    playedMs: elapsedMs(),
+    completed,
+    savedAt: Date.now(),
+  });
   useEffect(() => {
     if (!persistKey || !solution) return;
-    writeSavedGame(persistKey, {
-      v: 1,
-      givens: grid.map((c) => (c.isFixed ? c.value : 0)),
-      cells: grid.map((c) => (c.isFixed ? null : { value: c.value, candidates: c.candidates })),
-      puzzleName,
-      puzzleDifficulty,
-      startTime,
-      errorCount,
-      completed,
-      savedAt: Date.now(),
-    });
-  }, [persistKey, grid, solution, puzzleName, puzzleDifficulty, startTime, errorCount, completed]);
+    writeSavedGame(persistKey, snapshotRef.current());
+  }, [persistKey, grid, solution, puzzleName, puzzleDifficulty, startTime, errorCount, hintsUsed, completed, elapsedMs]);
+
+  // The play clock advances without grid changes, so also save when the
+  // tab is hidden, when the page is about to go away, and when this hook
+  // unmounts (route change).
+  const solutionRef = useRef(solution);
+  solutionRef.current = solution;
+  useEffect(() => {
+    if (!persistKey || !solution || typeof document === 'undefined') return undefined;
+    const save = () => writeSavedGame(persistKey, snapshotRef.current());
+    const onVisibility = () => { if (document.hidden) save(); };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pagehide', save);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pagehide', save);
+      // Unmount or a new puzzle: keep the latest clock. A cleared grid has
+      // no solution any more and must stay cleared.
+      if (solutionRef.current) save();
+    };
+  }, [persistKey, solution]);
 
   // Latched completion detection: fires onSolved exactly once per load.
   // Without the latch, any later grid-identity change (highlight stamping,
@@ -331,13 +408,16 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
     if (!isSolved) return;
 
     setCompleted(true);
+    const timeInSeconds = getElapsedSeconds();
+    stopClock();
     onSolvedRef.current?.({
-      timeInSeconds: Math.floor((Date.now() - startTime) / 1000),
+      timeInSeconds,
       errorCount,
+      hintsUsed,
       puzzleName,
       puzzleDifficulty,
     });
-  }, [grid, solution, startTime, completed, errorCount, puzzleName, puzzleDifficulty]);
+  }, [grid, solution, startTime, completed, errorCount, hintsUsed, puzzleName, puzzleDifficulty, getElapsedSeconds, stopClock]);
 
   const solvedCount = useMemo(
     () => grid.filter((c) => c.value !== null).length,
@@ -351,6 +431,9 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
     validationErrors,
     rejectedInput, // { cellIndex, digit, id } for ~1s after a wrong entry
     errorCount,
+    hintsUsed,
+    noteHintUsed,
+    getElapsedSeconds,
     completed,
     puzzleName,
     puzzleDifficulty,

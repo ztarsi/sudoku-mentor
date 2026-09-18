@@ -4,16 +4,11 @@ import UnifiedPuzzleLoader from '@/components/sudoku/UnifiedPuzzleLoader';
 import ColorSettings from '@/components/sudoku/ColorSettings';
 import CompletionModal from '@/components/sudoku/CompletionModal';
 import CandidateNumpad from '@/components/sudoku/CandidateNumpad';
-import {
-  fetchAllPuzzleEntries,
-  pickRandomPuzzleEntry,
-  pickStarterPuzzleEntry,
-  hasOnboarded,
-  markOnboarded,
-} from '@/components/sudoku/puzzleSources';
+import { markOnboarded } from '@/components/sudoku/puzzleSources';
 import WelcomeTour from '@/components/sudoku/WelcomeTour';
 import { useSudokuGame } from '@/hooks/useSudokuGame';
 import { useSudokuPlayer } from '@/hooks/useSudokuPlayer';
+import { usePuzzleBootstrap } from '@/hooks/usePuzzleBootstrap';
 import { base44 } from '@/api/base44Client';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Undo2, Eraser } from 'lucide-react';
@@ -48,12 +43,14 @@ export default function SudokuMentorMobile() {
         `${digit} conflicts with the solution at row ${Math.floor(cellIndex / 9) + 1}, column ${(cellIndex % 9) + 1}`
       );
     },
-    onSolved: ({ timeInSeconds, errorCount, puzzleName, puzzleDifficulty }) => {
+    onSolved: ({ timeInSeconds, errorCount, hintsUsed, puzzleName, puzzleDifficulty }) => {
       setCompletionStats({ timeInSeconds, errorCount });
       setShowCompletion(true);
 
+      // The mobile page has no hints, but a game resumed from the desktop
+      // page may have used some: only clean solves are recorded.
       const user = playerRef.current?.user;
-      if (user && puzzleName && puzzleDifficulty) {
+      if (user && hintsUsed === 0 && puzzleName && puzzleDifficulty) {
         playerRef.current?.saveSolveRecord({
           puzzle_name: puzzleName,
           difficulty: puzzleDifficulty,
@@ -115,6 +112,7 @@ export default function SudokuMentorMobile() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.solvedCount, game.clearGrid]);
 
+  const markUserLoadRef = useRef(() => {});
   const handleLoadPuzzle = useCallback(
     (puzzle, puzzleMeta = null) => {
       // Mobile starts with a bare grid - players add their own pencil marks
@@ -123,6 +121,7 @@ export default function SudokuMentorMobile() {
         toast({ title: 'Invalid puzzle', description: 'This puzzle has no valid solution.', variant: 'destructive' });
         return;
       }
+      markUserLoadRef.current();
       setShowPuzzleLoader(false);
       setHighlightedDigit(null);
       setFocusedDigit(null);
@@ -220,39 +219,14 @@ export default function SudokuMentorMobile() {
 
   // On mount: resume a saved game; otherwise a gentle starter puzzle for
   // first-time visitors (plus the welcome tour); otherwise a random one.
-  useEffect(() => {
-    let cancelled = false;
-
-    if (game.restoreSavedGame()) {
-      toast({ title: 'Resumed your puzzle', description: 'Picked up where you left off. Load a new one any time.' });
-      return undefined;
-    }
-
-    if (!hasOnboarded()) {
-      const starter = pickStarterPuzzleEntry();
-      if (starter) {
-        handleLoadPuzzle(starter.puzzle, { name: starter.name, difficulty: starter.difficulty });
-      }
-      setShowTour(true);
-      return undefined;
-    }
-
-    (async () => {
-      try {
-        const entries = await fetchAllPuzzleEntries(playerRef.current?.user ?? null);
-        const entry = pickRandomPuzzleEntry(entries);
-        if (entry && !cancelled) {
-          handleLoadPuzzle(entry.puzzle, { name: entry.name, difficulty: entry.difficulty });
-        }
-      } catch (error) {
-        console.error('Failed to load random puzzle:', error);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const { markUserLoad } = usePuzzleBootstrap({
+    restoreSavedGame: game.restoreSavedGame,
+    loadPuzzle: handleLoadPuzzle,
+    user,
+    onResumed: () => toast({ title: 'Resumed your puzzle', description: 'Picked up where you left off. Load a new one any time.' }),
+    onFirstVisit: () => setShowTour(true),
+  });
+  markUserLoadRef.current = markUserLoad;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">

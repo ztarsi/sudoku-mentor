@@ -5,8 +5,8 @@
 // duplicate onSolved firing, broken redo, history writes inside setState
 // updaters (StrictMode double-commit), and stale-grid validation.
 import React, { StrictMode } from 'react';
-import { describe, it, expect, vi, afterEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { renderHook, act, cleanup } from '@testing-library/react';
 import { useSudokuGame, REJECTED_INPUT_TTL_MS } from '../useSudokuGame';
 import { PUZZLES } from '@/components/sudoku/puzzles';
 import { solveSudoku } from '@/components/sudoku/solver';
@@ -333,5 +333,123 @@ describe('useSudokuGame persistence', () => {
       restored = hook.result.current.restoreSavedGame();
     });
     expect(restored).toBe(false);
+  });
+});
+
+describe('useSudokuGame assistance and play clock', () => {
+  const KEY = 'test:sudoku-clock';
+
+  beforeEach(() => {
+    cleanup();
+  });
+
+  const setHidden = (hidden) => {
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden });
+    document.dispatchEvent(new Event('visibilitychange'));
+  };
+
+  afterEach(() => {
+    cleanup(); // unmount hooks from earlier tests so their listeners are gone
+    vi.useRealTimers();
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+  });
+
+  it('counts hints shown and steps applied, and reports them on solve', () => {
+    const onSolved = vi.fn();
+    const { result } = setup({ onSolved });
+    act(() => {
+      result.current.loadPuzzle(PUZZLE);
+    });
+    expect(result.current.hintsUsed).toBe(0);
+    act(() => {
+      result.current.noteHintUsed();
+    });
+    expect(result.current.hintsUsed).toBe(1);
+
+    const solved = solveSudoku(PUZZLE.map((v) => ({ value: v || null, candidates: [] })));
+    const idx = firstEmptyCell(result.current.grid);
+    act(() => {
+      result.current.applyStep({ placement: { cell: idx, digit: solved[idx].value }, eliminations: [] });
+    });
+    expect(result.current.hintsUsed).toBe(2);
+
+    for (let i = 0; i < 81; i++) {
+      if (result.current.grid[i].value === null) {
+        act(() => {
+          result.current.handleCellInput(i, solved[i].value);
+        });
+      }
+    }
+    expect(onSolved).toHaveBeenCalledTimes(1);
+    expect(onSolved.mock.calls[0][0].hintsUsed).toBe(2);
+
+    // A new puzzle starts clean
+    act(() => {
+      result.current.loadPuzzle(PUZZLE);
+    });
+    expect(result.current.hintsUsed).toBe(0);
+  });
+
+  it('play time excludes time while the tab is hidden and survives a reload', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-01T10:00:00Z'));
+    window.localStorage.removeItem(KEY);
+    const first = renderHook(() => useSudokuGame({ persistKey: KEY }), { wrapper: strictWrapper });
+    act(() => {
+      first.result.current.loadPuzzle(PUZZLE, { name: 'Clock' });
+    });
+    act(() => {
+      vi.advanceTimersByTime(30_000); // 30s of play
+    });
+    expect(first.result.current.getElapsedSeconds()).toBe(30);
+
+    act(() => {
+      setHidden(true);
+    });
+    act(() => {
+      vi.advanceTimersByTime(3_600_000); // an hour away
+    });
+    expect(first.result.current.getElapsedSeconds()).toBe(30);
+    act(() => {
+      setHidden(false);
+    });
+    act(() => {
+      vi.advanceTimersByTime(15_000); // 15s more play
+    });
+    expect(first.result.current.getElapsedSeconds()).toBe(45);
+    first.unmount();
+
+    // "Days later": the resumed game continues from 45s, not from wall time
+    vi.setSystemTime(new Date('2026-01-05T10:00:00Z'));
+    const second = renderHook(() => useSudokuGame({ persistKey: KEY }), { wrapper: strictWrapper });
+    act(() => {
+      second.result.current.restoreSavedGame();
+    });
+    expect(second.result.current.getElapsedSeconds()).toBe(45);
+    act(() => {
+      vi.advanceTimersByTime(5_000);
+    });
+    expect(second.result.current.getElapsedSeconds()).toBe(50);
+  });
+
+  it('solve time reported to onSolved is play time', () => {
+    vi.useFakeTimers();
+    const onSolved = vi.fn();
+    const { result } = setup({ onSolved });
+    act(() => {
+      result.current.loadPuzzle(PUZZLE);
+    });
+    act(() => {
+      vi.advanceTimersByTime(12_000);
+    });
+    const solved = solveSudoku(PUZZLE.map((v) => ({ value: v || null, candidates: [] })));
+    for (let i = 0; i < 81; i++) {
+      if (result.current.grid[i].value === null) {
+        act(() => {
+          result.current.handleCellInput(i, solved[i].value);
+        });
+      }
+    }
+    expect(onSolved.mock.calls[0][0].timeInSeconds).toBe(12);
   });
 });

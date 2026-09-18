@@ -13,17 +13,13 @@ import {
   buildRemovalMap,
   buildFocusedCandidates,
 } from '@/components/sudoku/stepHighlights';
-import {
-  fetchAllPuzzleEntries,
-  pickRandomPuzzleEntry,
-  pickStarterPuzzleEntry,
-  hasOnboarded,
-  markOnboarded,
-} from '@/components/sudoku/puzzleSources';
+import { markOnboarded } from '@/components/sudoku/puzzleSources';
 import WelcomeTour from '@/components/sudoku/WelcomeTour';
 import { FolderOpen } from 'lucide-react';
 import { useSudokuGame } from '@/hooks/useSudokuGame';
 import { useSudokuPlayer } from '@/hooks/useSudokuPlayer';
+import { usePuzzleBootstrap } from '@/hooks/usePuzzleBootstrap';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { base44 } from '@/api/base44Client';
 import { AnimatePresence, motion } from 'framer-motion';
 import { createPageUrl } from '@/utils';
@@ -49,7 +45,6 @@ export default function SudokuMentor() {
   const [showCopyConfirmation, setShowCopyConfirmation] = useState(false);
   const [noAssistMode, setNoAssistMode] = useState(false);
   const [showNoAssistModal, setShowNoAssistModal] = useState(false);
-  const [noAssistStartTime, setNoAssistStartTime] = useState(null);
   const [candidatesVisible, setCandidatesVisible] = useState(true);
   const [showTour, setShowTour] = useState(false);
 
@@ -57,8 +52,17 @@ export default function SudokuMentor() {
   const [srAnnouncement, setSrAnnouncement] = useState('');
 
   // Values the onSolved callback needs that live outside the game hook
-  const noAssistRef = useRef({ noAssistMode, noAssistStartTime });
-  noAssistRef.current = { noAssistMode, noAssistStartTime };
+  const noAssistRef = useRef({ noAssistMode });
+  noAssistRef.current = { noAssistMode };
+
+  // Touch-first devices get the dedicated mobile page (decided once, before
+  // any puzzle is loaded, so this page never writes a saved game the mobile
+  // page then "resumes").
+  const [redirecting] = useState(
+    () => typeof window !== 'undefined'
+      && window.matchMedia('(pointer: coarse)').matches
+      && window.innerWidth < 1024
+  );
 
   const playerRef = useRef(null);
 
@@ -73,18 +77,19 @@ export default function SudokuMentor() {
         `${digit} conflicts with the solution at row ${Math.floor(cellIndex / 9) + 1}, column ${(cellIndex % 9) + 1}`
       );
     },
-    onSolved: ({ timeInSeconds, errorCount, puzzleName, puzzleDifficulty }) => {
+    onSolved: ({ timeInSeconds, errorCount, hintsUsed, puzzleName, puzzleDifficulty }) => {
       setCompletionStats({ timeInSeconds, errorCount });
       setShowCompletion(true);
 
-      const { noAssistMode: na, noAssistStartTime: naStart } = noAssistRef.current;
+      // A clean solve: No Assist on at the finish AND no hint shown or
+      // applied at any point on this puzzle. Time is play time.
+      const { noAssistMode: na } = noAssistRef.current;
       const user = playerRef.current?.user;
-      if (na && naStart && user && puzzleName && puzzleDifficulty) {
-        const noAssistTime = Math.floor((Date.now() - naStart) / 1000);
+      if (na && hintsUsed === 0 && user && puzzleName && puzzleDifficulty) {
         playerRef.current?.saveSolveRecord({
           puzzle_name: puzzleName,
           difficulty: puzzleDifficulty,
-          time_seconds: noAssistTime,
+          time_seconds: timeInSeconds,
           no_assist: true,
           error_count: errorCount,
         });
@@ -96,15 +101,11 @@ export default function SudokuMentor() {
   playerRef.current = player;
   const { user, colors } = player;
 
-  // Touch-first devices get the dedicated mobile page. Feature detection
-  // (coarse pointer + narrow viewport) instead of user-agent sniffing.
   useEffect(() => {
-    const isTouchDevice =
-      window.matchMedia('(pointer: coarse)').matches && window.innerWidth < 1024;
-    if (isTouchDevice) {
-      window.location.href = createPageUrl('SudokuMentorMobile');
-    }
-  }, []);
+    if (redirecting) window.location.href = createPageUrl('SudokuMentorMobile');
+  }, [redirecting]);
+
+  const isLargeScreen = useMediaQuery('(min-width: 1024px)');
 
   const clearHighlights = useCallback(() => {
     setHighlightedSteps([]);
@@ -146,8 +147,9 @@ export default function SudokuMentor() {
       setFocusedDigit(null);
       setRemovalCandidates(buildRemovalMap(step));
       setFocusedCandidates(buildFocusedCandidates(step, game.grid, colors));
+      game.noteHintUsed();
     },
-    [game.grid, colors]
+    [game.grid, game.noteHintUsed, colors]
   );
 
   const highlightSteps = useCallback((steps) => {
@@ -222,6 +224,7 @@ export default function SudokuMentor() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.solvedCount, game.clearGrid]);
 
+  const markUserLoadRef = useRef(() => {});
   const handleLoadPuzzle = useCallback(
     (puzzle, puzzleMeta = null) => {
       const result = game.loadPuzzle(puzzle, puzzleMeta);
@@ -229,9 +232,7 @@ export default function SudokuMentor() {
         toast({ title: 'Invalid puzzle', description: 'This puzzle has no valid solution.', variant: 'destructive' });
         return;
       }
-      if (noAssistRef.current.noAssistMode) {
-        setNoAssistStartTime(Date.now());
-      }
+      markUserLoadRef.current();
       setShowPuzzleLoader(false);
       setCurrentStep(null);
       setHighlightedSteps([]);
@@ -468,40 +469,16 @@ export default function SudokuMentor() {
 
   // On mount: resume a saved game; otherwise a gentle starter puzzle for
   // first-time visitors (plus the welcome tour); otherwise a random one.
-  useEffect(() => {
-    let cancelled = false;
-
-    if (game.restoreSavedGame()) {
-      toast({ title: 'Resumed your puzzle', description: 'Picked up where you left off. Load a new one any time.' });
-      return undefined;
-    }
-
-    if (!hasOnboarded()) {
-      const starter = pickStarterPuzzleEntry();
-      if (starter) {
-        handleLoadPuzzle(starter.puzzle, { name: starter.name, difficulty: starter.difficulty });
-      }
-      setShowTour(true);
-      return undefined;
-    }
-
-    (async () => {
-      try {
-        const entries = await fetchAllPuzzleEntries(playerRef.current?.user ?? null);
-        const entry = pickRandomPuzzleEntry(entries);
-        if (entry && !cancelled) {
-          handleLoadPuzzle(entry.puzzle, { name: entry.name, difficulty: entry.difficulty });
-        }
-      } catch (error) {
-        console.error('Failed to load random puzzle:', error);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
+  // A puzzle the player loads meanwhile always wins over the random pick.
+  const { markUserLoad } = usePuzzleBootstrap({
+    restoreSavedGame: game.restoreSavedGame,
+    loadPuzzle: handleLoadPuzzle,
+    user,
+    enabled: !redirecting,
+    onResumed: () => toast({ title: 'Resumed your puzzle', description: 'Picked up where you left off. Load a new one any time.' }),
+    onFirstVisit: () => setShowTour(true),
+  });
+  markUserLoadRef.current = markUserLoad;
 
   // Calculate ghost grid for chain visualization
   const ghostGrid = useMemo(() => {
@@ -626,7 +603,6 @@ export default function SudokuMentor() {
                     setShowNoAssistModal(true);
                   } else {
                     setNoAssistMode(false);
-                    setNoAssistStartTime(null);
                   }
                 }}
                 className={`hidden lg:block p-2 rounded-xl transition-all duration-200 ${
@@ -782,40 +758,45 @@ export default function SudokuMentor() {
             />
           </div>
 
-          {/* Right Column - Logic Panel (Desktop only) */}
-          <div className="hidden lg:block">
-            <LogicPanel
-              currentStep={currentStep}
-              focusedDigit={focusedDigit}
-              grid={game.grid}
-              noAssistMode={noAssistMode}
-              onApplyStep={handleApplyStep}
-              onNextStep={handleNextStep}
-              onChainPlaybackChange={setChainPlaybackIndex}
-              chainPlaybackIndex={chainPlaybackIndex}
-              onHighlightTechnique={handleHighlightTechnique}
-            />
-          </div>
+          {/* Right Column - Logic Panel (one instance; it lives in the
+              drawer below the desktop breakpoint) */}
+          {isLargeScreen && (
+            <div>
+              <LogicPanel
+                currentStep={currentStep}
+                focusedDigit={focusedDigit}
+                grid={game.grid}
+                noAssistMode={noAssistMode}
+                onApplyStep={handleApplyStep}
+                onNextStep={handleNextStep}
+                onChainPlaybackChange={setChainPlaybackIndex}
+                chainPlaybackIndex={chainPlaybackIndex}
+                onHighlightTechnique={handleHighlightTechnique}
+              />
+            </div>
+          )}
         </div>
       </main>
 
       {/* Drawer with the Logic Panel for narrow screens */}
-      <MobileDrawer isOpen={drawerOpen} onClose={() => setDrawerOpen(false)}>
-        <LogicPanel
-          currentStep={currentStep}
-          focusedDigit={focusedDigit}
-          grid={game.grid}
-          noAssistMode={noAssistMode}
-          onApplyStep={handleApplyStep}
-          onNextStep={handleNextStep}
-          onChainPlaybackChange={setChainPlaybackIndex}
-          chainPlaybackIndex={chainPlaybackIndex}
-          onHighlightTechnique={(instances) => {
-            handleHighlightTechnique(instances);
-            setDrawerOpen(false);
-          }}
-        />
-      </MobileDrawer>
+      {!isLargeScreen && (
+        <MobileDrawer isOpen={drawerOpen} onClose={() => setDrawerOpen(false)}>
+          <LogicPanel
+            currentStep={currentStep}
+            focusedDigit={focusedDigit}
+            grid={game.grid}
+            noAssistMode={noAssistMode}
+            onApplyStep={handleApplyStep}
+            onNextStep={handleNextStep}
+            onChainPlaybackChange={setChainPlaybackIndex}
+            chainPlaybackIndex={chainPlaybackIndex}
+            onHighlightTechnique={(instances) => {
+              handleHighlightTechnique(instances);
+              setDrawerOpen(false);
+            }}
+          />
+        </MobileDrawer>
+      )}
 
       <WelcomeTour
         open={showTour}
@@ -1050,7 +1031,6 @@ export default function SudokuMentor() {
                 <button
                   onClick={() => {
                     setNoAssistMode(true);
-                    setNoAssistStartTime(Date.now());
                     setShowNoAssistModal(false);
                   }}
                   className="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"

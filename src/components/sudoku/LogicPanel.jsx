@@ -56,6 +56,19 @@ export default function LogicPanel({
   const [isPlayingChain, setIsPlayingChain] = useState(false);
   const playIntervalRef = useRef(null);
 
+  // Always call the LATEST page callbacks from timers. Auto-play used to
+  // capture onNextStep before applying a step, so the "next" search ran on
+  // the pre-apply grid and re-found the step it had just applied.
+  const onNextStepRef = useRef(onNextStep);
+  onNextStepRef.current = onNextStep;
+  const onApplyStepRef = useRef(onApplyStep);
+  onApplyStepRef.current = onApplyStep;
+
+  // Ultimate scan counts describe one grid; drop them when it changes.
+  useEffect(() => {
+    setScanResults({});
+  }, [grid]);
+
   // Count occurrences of each technique (excluding ultimate for performance).
   // Only scan while the hierarchy section is actually visible - these 11
   // full-grid scans used to run on every candidate toggle even collapsed,
@@ -151,9 +164,9 @@ export default function LogicPanel({
 
   const handleSkipStep = () => {
     if (currentStep) {
-      onApplyStep?.();
+      onApplyStepRef.current?.();
     }
-    setTimeout(() => onNextStep?.(), 50);
+    setTimeout(() => onNextStepRef.current?.(), 50);
   };
 
   useEffect(() => {
@@ -197,8 +210,8 @@ export default function LogicPanel({
 
     if (currentStep) {
       playIntervalRef.current = setTimeout(() => {
-        onApplyStep?.();
-        setTimeout(() => onNextStep?.(), 100);
+        onApplyStepRef.current?.();
+        setTimeout(() => onNextStepRef.current?.(), 100);
       }, playSpeed);
     } else {
       // Playing but no step: give onNextStep a moment to produce one,
