@@ -48,6 +48,35 @@ const computeConflicts = (grid) => {
   return errors;
 };
 
+const readSavedGame = (key) => {
+  if (!key) return null;
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed?.v !== 1 || !Array.isArray(parsed.givens) || parsed.givens.length !== 81) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+};
+
+const writeSavedGame = (key, snapshot) => {
+  try {
+    window.localStorage.setItem(key, JSON.stringify(snapshot));
+  } catch {
+    // Private mode / quota: playing still works, resuming won't.
+  }
+};
+
+const clearSavedGame = (key) => {
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // ignore
+  }
+};
+
 /**
  * Shared Sudoku game state: grid, solution, undo/redo history, input
  * validation, error counting, and latched completion detection.
@@ -59,9 +88,9 @@ const computeConflicts = (grid) => {
  * - onSolved({ timeInSeconds, errorCount, puzzleName, puzzleDifficulty }):
  *   fired exactly once per loaded puzzle when the grid is complete+correct
  *
- * @param {{ onSolved?: Function, onWrongInput?: Function }} [callbacks]
+ * @param {{ onSolved?: Function, onWrongInput?: Function, persistKey?: string }} [options]
  */
-export function useSudokuGame({ onSolved, onWrongInput } = {}) {
+export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}) {
   const [grid, setGrid] = useState(createEmptyGrid);
   const [solution, setSolution] = useState(null);
   const [history, setHistory] = useState({ stack: [], index: -1 });
@@ -203,6 +232,7 @@ export function useSudokuGame({ onSolved, onWrongInput } = {}) {
   }, []);
 
   const clearGrid = useCallback(() => {
+    if (persistKey) clearSavedGame(persistKey);
     loadSeq.current++;
     const empty = createEmptyGrid();
     setGrid(empty);
@@ -213,7 +243,61 @@ export function useSudokuGame({ onSolved, onWrongInput } = {}) {
     setPuzzleName(null);
     setPuzzleDifficulty(null);
     setStartTime(null);
-  }, []);
+  }, [persistKey]);
+
+  /**
+   * Restore a game saved by this hook (see persistKey). Returns true when a
+   * usable, unfinished game was restored.
+   */
+  const restoreSavedGame = useCallback(() => {
+    const saved = readSavedGame(persistKey);
+    if (!saved || saved.completed) return false;
+
+    const givensGrid = createEmptyGrid();
+    saved.givens.forEach((value, index) => {
+      if (value !== 0) givensGrid[index] = { ...givensGrid[index], value, isFixed: true };
+    });
+    const solved = solveSudoku(givensGrid);
+    if (!solved) return false;
+
+    const restored = givensGrid.map((cell, i) => {
+      if (cell.isFixed) return cell;
+      const savedCell = saved.cells[i] || {};
+      return {
+        ...cell,
+        value: savedCell.value ?? null,
+        candidates: Array.isArray(savedCell.candidates) ? savedCell.candidates : [],
+      };
+    });
+
+    loadSeq.current++;
+    setSolution(solved);
+    setGrid(restored);
+    setHistory({ stack: [restored], index: 0 });
+    setErrorCount(saved.errorCount || 0);
+    setCompleted(false);
+    setPuzzleName(saved.puzzleName ?? null);
+    setPuzzleDifficulty(saved.puzzleDifficulty ?? null);
+    setStartTime(saved.startTime || Date.now());
+    return true;
+  }, [persistKey]);
+
+  // Persist the in-progress game so a reload (or a return tomorrow) resumes
+  // where the player left off instead of rolling a new random puzzle.
+  useEffect(() => {
+    if (!persistKey || !solution) return;
+    writeSavedGame(persistKey, {
+      v: 1,
+      givens: grid.map((c) => (c.isFixed ? c.value : 0)),
+      cells: grid.map((c) => (c.isFixed ? null : { value: c.value, candidates: c.candidates })),
+      puzzleName,
+      puzzleDifficulty,
+      startTime,
+      errorCount,
+      completed,
+      savedAt: Date.now(),
+    });
+  }, [persistKey, grid, solution, puzzleName, puzzleDifficulty, startTime, errorCount, completed]);
 
   // Latched completion detection: fires onSolved exactly once per load.
   // Without the latch, any later grid-identity change (highlight stamping,
@@ -260,5 +344,6 @@ export function useSudokuGame({ onSolved, onWrongInput } = {}) {
     canRedo,
     loadPuzzle,
     clearGrid,
+    restoreSavedGame,
   };
 }
