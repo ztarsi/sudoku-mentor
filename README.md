@@ -4,7 +4,7 @@
 
 Built on [Base44](https://base44.com) for hosting, auth, data persistence (solve records, uploaded puzzles), and OCR-based puzzle import.
 
-What the product is, who it is for, and where it is going is defined in [docs/PRODUCT.md](docs/PRODUCT.md). This README covers how it is built.
+What the product is, who it is for, and where it is going is defined in [docs/PRODUCT.md](docs/PRODUCT.md). How the code is organised, and the invariants the tests hold, is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). This README covers how to work on it.
 
 ## Key Features
 

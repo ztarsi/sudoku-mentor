@@ -950,7 +950,9 @@ export const applyLogicStep = (grid, step) => {
     isTargetCell: false
   }));
   
-  // Apply placement if any
+  // Apply placement if any, and clear the digit from its peers: a grid
+  // that keeps the placed digit as a peer candidate makes every later
+  // technique reason from a lie. (Callers used to have to remember this.)
   if (step.placement) {
     const { cell, digit } = step.placement;
     newGrid[cell] = {
@@ -958,6 +960,8 @@ export const applyLogicStep = (grid, step) => {
       value: digit,
       candidates: []
     };
+    const cleared = eliminateCandidatesFromPeers(newGrid, cell, digit);
+    for (let i = 0; i < 81; i++) newGrid[i] = cleared[i];
   }
   
   // Apply eliminations (handle both array and potentially undefined)

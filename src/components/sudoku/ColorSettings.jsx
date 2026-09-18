@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Palette, X, Check, Save, Trash2 } from 'lucide-react';
 import { toast } from "@/components/ui/use-toast";
 import { useDialog } from '@/hooks/useDialog';
+import { DEFAULT_COLORS } from './colors';
 
 const PRESET_COLORS = [
   { name: 'White', value: '#ffffff' },
@@ -95,13 +96,7 @@ export default function ColorSettings({ colors, onColorsChange, onClose }) {
   };
 
   const handleReset = () => {
-    onColorsChange({
-      focusDigit: '#10b981',
-      candidate: '#ffffff',
-      cellNumber: '#3b82f6',
-      gridLines: '#475569',
-      cellBg: '#020617',
-    });
+    onColorsChange({ ...DEFAULT_COLORS });
   };
 
   return (

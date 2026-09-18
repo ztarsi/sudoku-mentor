@@ -19,6 +19,7 @@ export default function CellContextMenu({ isOpen, position, onClose, onClear, on
           <div
             className="fixed inset-0 z-40"
             onClick={onClose}
+            aria-hidden="true"
           />
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}

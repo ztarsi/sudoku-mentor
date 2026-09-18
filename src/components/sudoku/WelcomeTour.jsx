@@ -74,7 +74,6 @@ export default function WelcomeTour({ open, variant = 'desktop', onClose }) {
             <div className="p-6 pt-0">
               <button
                 onClick={onClose}
-                autoFocus
                 className="w-full py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors"
               >
                 Start solving

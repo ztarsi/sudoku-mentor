@@ -4,7 +4,7 @@ import { Lightbulb, Eye, Sparkles, Check } from 'lucide-react';
 import { LEVEL_COLORS, TECHNIQUE_INFO } from '../techniqueCatalog';
 import { explainStep, readExplainLevel, writeExplainLevel, CELL_LEGEND } from '../explainStep';
 
-const cellRef = (index) => `R${Math.floor(index / 9) + 1}C${(index % 9) + 1}`;
+import { cellName as cellRef } from '../gridUnits';
 
 /**
  * Beginner / Expert switch for the explanation text. The selected option is

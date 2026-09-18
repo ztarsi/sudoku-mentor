@@ -78,8 +78,9 @@ export default function TextPuzzleUpload({ onClose, onPuzzleLoaded, embedded = f
     return (
       <div className="space-y-4">
         <div>
-          <label className="block text-white font-medium mb-2">Puzzle Name:</label>
+          <label htmlFor="text-puzzle-name" className="block text-white font-medium mb-2">Puzzle Name:</label>
           <input
+            id="text-puzzle-name"
             type="text"
             value={puzzleName}
             onChange={(e) => setPuzzleName(e.target.value)}
@@ -88,8 +89,9 @@ export default function TextPuzzleUpload({ onClose, onPuzzleLoaded, embedded = f
         </div>
         
         <div>
-          <label className="block text-white font-medium mb-2">Paste or type your puzzle:</label>
+          <label htmlFor="text-puzzle-body" className="block text-white font-medium mb-2">Paste or type your puzzle:</label>
           <textarea
+            id="text-puzzle-body"
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="Line format:&#10;131&#10;155&#10;273...&#10;&#10;OR compact format:&#10;100007090030020008009600500..."
@@ -98,8 +100,9 @@ export default function TextPuzzleUpload({ onClose, onPuzzleLoaded, embedded = f
         </div>
 
         <div>
-          <label className="block text-white font-medium mb-2">Or upload a file:</label>
+          <label htmlFor="text-puzzle-file" className="block text-white font-medium mb-2">Or upload a file:</label>
           <input
+            id="text-puzzle-file"
             type="file"
             accept=".txt"
             onChange={handleFileUpload}
@@ -200,10 +203,11 @@ export default function TextPuzzleUpload({ onClose, onPuzzleLoaded, embedded = f
 
           {/* Text Area */}
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <label htmlFor="text-puzzle-body-modal" className="block text-sm font-medium text-slate-300 mb-2">
               Or paste text here:
             </label>
             <textarea
+              id="text-puzzle-body-modal"
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder="Line format:&#10;131&#10;155&#10;273&#10;...&#10;&#10;OR compact:&#10;100007090030020008009600500..."

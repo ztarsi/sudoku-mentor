@@ -1,18 +1,20 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, Suspense } from 'react';
 import SudokuGrid from '@/components/sudoku/SudokuGrid';
-import UnifiedPuzzleLoader from '@/components/sudoku/UnifiedPuzzleLoader';
-import ColorSettings from '@/components/sudoku/ColorSettings';
-import CompletionModal from '@/components/sudoku/CompletionModal';
 import CandidateNumpad from '@/components/sudoku/CandidateNumpad';
+import AccountMenu from '@/components/sudoku/AccountMenu';
+import { playErrorTone } from '@/components/sudoku/errorSound';
+import { resolveShortcut, isTypingTarget } from '@/components/sudoku/keyboardShortcuts';
 import { markOnboarded } from '@/components/sudoku/puzzleSources';
 import WelcomeTour from '@/components/sudoku/WelcomeTour';
 import { useSudokuGame } from '@/hooks/useSudokuGame';
 import { useSudokuPlayer } from '@/hooks/useSudokuPlayer';
 import { usePuzzleBootstrap } from '@/hooks/usePuzzleBootstrap';
-import { base44 } from '@/api/base44Client';
-import { AnimatePresence, motion } from 'framer-motion';
 import { Undo2, Eraser } from 'lucide-react';
 import { toast } from "@/components/ui/use-toast";
+
+const UnifiedPuzzleLoader = React.lazy(() => import('@/components/sudoku/UnifiedPuzzleLoader'));
+const ColorSettings = React.lazy(() => import('@/components/sudoku/ColorSettings'));
+const CompletionModal = React.lazy(() => import('@/components/sudoku/CompletionModal'));
 
 export default function SudokuMentorMobile() {
   const [selectedCell, setSelectedCell] = useState(null);
@@ -23,11 +25,8 @@ export default function SudokuMentorMobile() {
   const [showColorSettings, setShowColorSettings] = useState(false);
   const [showCompletion, setShowCompletion] = useState(false);
   const [completionStats, setCompletionStats] = useState({ timeInSeconds: 0, errorCount: 0 });
-  const [showAccountMenu, setShowAccountMenu] = useState(false);
-  const [showCopyConfirmation, setShowCopyConfirmation] = useState(false);
   const [showTour, setShowTour] = useState(false);
 
-  const errorAudioRef = useRef(null);
   const [srAnnouncement, setSrAnnouncement] = useState('');
   const playerRef = useRef(null);
 
@@ -50,10 +49,7 @@ export default function SudokuMentorMobile() {
   const game = useSudokuGame({
     persistKey: 'sudoku-mentor:game',
     onWrongInput: (cellIndex, digit) => {
-      if (errorAudioRef.current) {
-        errorAudioRef.current.currentTime = 0;
-        errorAudioRef.current.play();
-      }
+      playErrorTone();
       setSrAnnouncement(
         `${digit} conflicts with the solution at row ${Math.floor(cellIndex / 9) + 1}, column ${(cellIndex % 9) + 1}`
       );
@@ -150,56 +146,80 @@ export default function SudokuMentorMobile() {
   // and state through a ref instead of re-subscribing on every change.
   const keyHandlersRef = useRef({ onKeyDown: (e) => {}, onKeyUp: (e) => {} });
   keyHandlersRef.current.onKeyDown = (e) => {
-      const isModalOpen =
-        showPuzzleLoader || showColorSettings || showCompletion || showAccountMenu || showCopyConfirmation || showTour;
-      if (isModalOpen) return;
+    if (isTypingTarget(e.target)) return;
+    const isModalOpen =
+      showPuzzleLoader || showColorSettings || showCompletion || showTour ||
+      !!document.querySelector('[role="dialog"]');
+    if (isModalOpen) return;
 
-      if (e.key === 'Shift' && !e.repeat) {
-        setCandidateMode(true);
-      }
+    if (e.key === 'Shift' && !e.repeat) {
+      setCandidateMode(true);
+      return;
+    }
 
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+    const action = resolveShortcut(e, { hasSelection: selectedCell !== null });
+    if (!action) return;
+
+    switch (action.type) {
+      case 'move': {
         e.preventDefault();
-        if (selectedCell !== null) {
-          const row = Math.floor(selectedCell / 9);
-          const col = selectedCell % 9;
-          let newRow = row;
-          let newCol = col;
-
-          if (e.key === 'ArrowUp') newRow = Math.max(0, row - 1);
-          if (e.key === 'ArrowDown') newRow = Math.min(8, row + 1);
-          if (e.key === 'ArrowLeft') newCol = Math.max(0, col - 1);
-          if (e.key === 'ArrowRight') newCol = Math.min(8, col + 1);
-
-          setSelectedCell(newRow * 9 + newCol);
-        } else {
+        if (selectedCell === null) {
           setSelectedCell(0);
+          return;
+        }
+        const row = Math.floor(selectedCell / 9);
+        const col = selectedCell % 9;
+        const next = {
+          up: [Math.max(0, row - 1), col],
+          down: [Math.min(8, row + 1), col],
+          left: [row, Math.max(0, col - 1)],
+          right: [row, Math.min(8, col + 1)],
+        }[action.direction];
+        setSelectedCell(next[0] * 9 + next[1]);
+        return;
+      }
+      // The phone is digit-first: a bare digit always picks the digit, and
+      // the next tap (or an already selected cell) places it.
+      case 'focus-digit':
+      case 'input':
+        e.preventDefault();
+        handleDigitSelect(action.digit);
+        return;
+      case 'toggle-candidate': {
+        e.preventDefault();
+        if (selectedCell === null) return;
+        const cell = game.grid[selectedCell];
+        if (!cell.isFixed && cell.value === null) {
+          game.handleToggleCandidate(selectedCell, action.digit);
         }
         return;
       }
-
-      if (e.key >= '1' && e.key <= '9') {
-        e.preventDefault();
-        handleDigitSelect(parseInt(e.key));
-      } else if (e.key === 'Backspace' || e.key === 'Delete') {
-        if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') {
-          return;
-        }
+      case 'clear-cell':
         e.preventDefault();
         handleEraseCell();
-      } else if (e.key === 'Escape') {
+        return;
+      case 'escape':
         e.preventDefault();
         setFocusedDigit(null);
         setHighlightedDigit(null);
         setSelectedCell(null);
-      } else if (e.key.toLowerCase() === 'z' && (e.ctrlKey || e.metaKey)) {
+        return;
+      case 'undo':
         e.preventDefault();
         game.undo();
-      } else if (e.key.toLowerCase() === 'c' && !e.ctrlKey && !e.metaKey) {
+        return;
+      case 'redo':
+        e.preventDefault();
+        game.redo();
+        return;
+      case 'clear-grid':
         e.preventDefault();
         handleClearGrid();
-      }
-    };
+        return;
+      default:
+        return; // hint / apply: the phone page has no hints
+    }
+  };
 
   keyHandlersRef.current.onKeyUp = (e) => {
       if (e.key === 'Shift') {
@@ -218,12 +238,6 @@ export default function SudokuMentorMobile() {
     };
   }, []);
 
-  const handleCopyPuzzle = () => {
-    const puzzleString = game.grid.map((cell) => (cell.isFixed ? cell.value : 0)).join('');
-    navigator.clipboard.writeText(puzzleString);
-    setShowCopyConfirmation(true);
-    setTimeout(() => setShowCopyConfirmation(false), 2000);
-  };
 
   // On mount: resume a saved game; otherwise a gentle starter puzzle for
   // first-time visitors (plus the welcome tour); otherwise a random one.
@@ -242,9 +256,6 @@ export default function SudokuMentorMobile() {
       <div aria-live="polite" role="status" className="sr-only">
         {srAnnouncement}
       </div>
-
-      {/* Error sound */}
-      <audio ref={errorAudioRef} src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIF2i777edTRALUKXi8LljHAU2jdTwzIUsBS2Ayv=="  preload="auto"></audio>
 
       {/* Header */}
       <header className="bg-slate-900/90 backdrop-blur-md border-b border-slate-700/60 sticky top-0 z-50 safe-area-inset-top">
@@ -289,47 +300,7 @@ export default function SudokuMentorMobile() {
                 </svg>
               </button>
 
-              <div className="relative">
-                {user ? (
-                  <>
-                    <button
-                      onClick={() => setShowAccountMenu(!showAccountMenu)}
-                      className="p-2 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 transition-all duration-200 flex items-center justify-center"
-                      title={user.email}
-                      aria-label="Account menu"
-                    >
-                      <svg className="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                      </svg>
-                    </button>
-
-                    {showAccountMenu && (
-                      <div className="absolute right-0 mt-2 w-56 bg-slate-800 rounded-lg shadow-xl border border-slate-700 overflow-hidden z-50">
-                        <div className="px-4 py-3 border-b border-slate-700">
-                          <p className="text-sm text-slate-400">Signed in as</p>
-                          <p className="text-sm font-medium text-white truncate">{user.email}</p>
-                        </div>
-                        <button
-                          onClick={() => {
-                            base44.auth.logout();
-                            setShowAccountMenu(false);
-                          }}
-                          className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 transition-colors"
-                        >
-                          Sign out
-                        </button>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <button
-                    onClick={() => base44.auth.redirectToLogin(window.location.href)}
-                    className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-all duration-200 font-medium text-sm whitespace-nowrap"
-                  >
-                    Sign in
-                  </button>
-                )}
-              </div>
+              <AccountMenu user={user} />
             </div>
           </div>
         </div>
@@ -485,55 +456,39 @@ export default function SudokuMentorMobile() {
       />
 
       {/* Unified Puzzle Loader Modal */}
-      <UnifiedPuzzleLoader
-        user={user}
-        isOpen={showPuzzleLoader}
-        onClose={() => setShowPuzzleLoader(false)}
-        onPuzzleLoaded={handleLoadPuzzle}
-      />
+      {showPuzzleLoader && (
+        <Suspense fallback={null}>
+          <UnifiedPuzzleLoader
+            user={user}
+            isOpen={showPuzzleLoader}
+            onClose={() => setShowPuzzleLoader(false)}
+            onPuzzleLoaded={handleLoadPuzzle}
+          />
+        </Suspense>
+      )}
 
       {/* Color Settings Modal */}
       {showColorSettings && (
-        <ColorSettings
-          colors={colors}
-          onColorsChange={player.saveColors}
-          onClose={() => setShowColorSettings(false)}
-        />
+        <Suspense fallback={null}>
+          <ColorSettings
+            colors={colors}
+            onColorsChange={player.saveColors}
+            onClose={() => setShowColorSettings(false)}
+          />
+        </Suspense>
       )}
 
       {/* Completion Modal */}
-      <CompletionModal
-        isOpen={showCompletion}
-        onClose={() => setShowCompletion(false)}
-        stats={completionStats}
-      />
-
-      {/* Click outside to close account menu */}
-      {showAccountMenu && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => setShowAccountMenu(false)}
-        />
+      {showCompletion && (
+        <Suspense fallback={null}>
+          <CompletionModal
+            isOpen={showCompletion}
+            onClose={() => setShowCompletion(false)}
+            stats={completionStats}
+          />
+        </Suspense>
       )}
 
-      {/* Copy Confirmation Toast */}
-      <AnimatePresence>
-        {showCopyConfirmation && (
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50 bg-slate-800 text-white px-6 py-3 rounded-lg shadow-xl border border-slate-700"
-          >
-            <div className="flex items-center gap-2">
-              <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <span className="font-medium">Puzzle copied to clipboard!</span>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

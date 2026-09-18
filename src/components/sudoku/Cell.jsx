@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
+import { DEFAULT_COLORS } from './colors';
 
 // Seconds the rejected-entry flash plays; shorter than the hook's TTL so
 // the overlay finishes fading before it unmounts.
@@ -10,7 +11,6 @@ function Cell({
   cell, 
   isSelected, 
   isFocusedDigit,
-  isFocusCandidate,
   isDimmed,
   isHighlightedNumber,
   hasError,
@@ -64,7 +64,7 @@ function Cell({
 
   const hasGhostConflict = ghostValue && value && value !== ghostValue;
 
-  let bgColor = colors?.cellBg || '#020617';
+  let bgColor = colors?.cellBg || DEFAULT_COLORS.cellBg;
   let textColor = isFixed ? 'text-slate-100' : 'text-blue-400';
   let useCustomBg = false;
   let borderStyle = '';
@@ -98,10 +98,10 @@ function Cell({
     useCustomBg = true;
   }
 
-  const focusDigitColor = colors?.focusDigit || '#10b981';
-  const candidateColor = colors?.candidate || '#ffffff';
-  const cellNumberColor = colors?.cellNumber || '#3b82f6';
-  const gridLineColor = colors?.gridLines || '#475569';
+  const focusDigitColor = colors?.focusDigit || DEFAULT_COLORS.focusDigit;
+  const candidateColor = colors?.candidate || DEFAULT_COLORS.candidate;
+  const cellNumberColor = colors?.cellNumber || DEFAULT_COLORS.cellNumber;
+  const gridLineColor = colors?.gridLines || DEFAULT_COLORS.gridLines;
 
   // Proportional font sizes when cellSize is available (mobile).
   // Fallback to Tailwind breakpoint classes on desktop (cellSize undefined).
@@ -203,6 +203,7 @@ function Cell({
               return (
                 <div
                   key={num}
+                  aria-hidden="true"
                   onClick={(e) => {
                     if (!hasCandidate) return; // let the cell handle selection
                     e.stopPropagation();
