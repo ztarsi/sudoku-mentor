@@ -117,9 +117,10 @@ Ordered by value to the improver. "Now" is committed; "Next" is agreed in princi
 
 ### Now
 
+- UX/UI pass across desktop, laptop, tablet and phone, before any new capability. The audit and the proposed target experience are in [the UX review](reviews/2026-09-18-ux-review.md); the founder's answers to its decisions turn into specs, in the order the review proposes (lesson visible on every width; hint card states; one adaptive page; header, tour, library, completion).
 - Analytics on the five measures above, privacy-respecting and off by default for signed-out players until we decide otherwise.
-- Graduated hints: a nudge ("look at box 4") before the full step, so the player gets a chance to find it themselves.
-- Mobile hints: bring Hint, Apply, and the explanation card to the phone as a bottom sheet. Today the phone is play-only.
+- Graduated hints: a nudge ("look at box 4") before the full step, so the player gets a chance to find it themselves. Designed as a state of the hint card in the UX pass.
+- Mobile hints: bring Hint, Apply, and the explanation card to the phone as a bottom sheet. Today the phone is play-only. Folded into the UX pass (one adaptive page).
 
 ### Next
 
@@ -156,6 +157,8 @@ Ordered by value to the improver. "Now" is committed; "Next" is agreed in princi
 
 Short record of product decisions and why, newest first.
 
+- 2026-09-18: A full UX/UI pass comes before any new capability, and nothing in the current layout is protected. Reason: the first product review found the lesson off-screen on the most common laptop size and the phone unable to teach; the founder chose to fix the experience as a whole rather than patch it feature by feature. See the UX review.
+- 2026-09-18: First product review recorded (docs/reviews/2026-09-18-product-review.md). Top finding: the hint explanation is below the fold at 1366x768 and cut off at 1920x1080. Recommendation to the developer: make the lesson visible without scrolling on every desktop width.
 - 2026-09-18: Beginner explanations are the default and use R5C3 notation with a legend. Reason: long-form "row 5, column 3" made explanations harder to scan, and the notation is learnable in one line.
 - 2026-09-18: Wrong entries flash the refused digit in red. Reason: sound-off players had no feedback at all.
 - 2026-09-18: New visitors get an easy or medium starter puzzle and a three-step tour. Reason: the previous random first puzzle was often too hard and the first hint was often a what-if search, which taught nothing.
