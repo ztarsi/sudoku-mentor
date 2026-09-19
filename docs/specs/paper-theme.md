@@ -27,3 +27,7 @@ Two complete, designed themes, dark and paper (light), switchable in one tap and
 
 - Screenshots of the hint states on both themes, checked by eye and with a contrast checker.
 - Once analytics exist: the share of players on Paper tells us whether the option mattered; if it is under a few percent after a month, stop investing in themes.
+
+## Outcome
+
+Shipped in PR #51 to `staging` on 2026-09-19; verified the same day by the product manager on a production build identical to the staging bundle (`index-DZL13nsI.js`). Paper repaints at once from the menu, is remembered across a reload, and keeps the givens, player digits and hint colours distinct; Dark, Paper and Match my device are radio items. Done.

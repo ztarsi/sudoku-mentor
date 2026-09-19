@@ -20,7 +20,7 @@ Each situation the player can be in has its own clear card, and the card always 
 | Searching | "Looking for a what-if chain..." with Cancel, inside the same card. |
 | No Assist | The card shows the timer and "Hints are off in No Assist." |
 | Solved | The techniques this puzzle used, marking the ones the player placed themselves. Time and errors. "Next puzzle on this shelf" and "Try the shelf above". |
-| Nothing left | "Every remaining cell is a single. You can finish this one." |
+| Only singles left | Appears only when every remaining empty cell shows exactly one pencil mark, and never before the player has seen at least one single lesson on this puzzle. Wording: "Only singles left. Every empty cell now shows a single pencil mark; write them in to finish." Button "Show me the next one" behaves as a normal hint. Until then, Hint keeps explaining Naked and Hidden Singles as lessons like any other technique. (Amended 2026-09-19, issue #54: the first version fired on Easy puzzles from the first hint.) |
 
 - Graduated hints (roadmap) will add a Nudge state later; the design leaves room for it but this spec does not build it.
 - Beginner remains the default level; the choice is remembered as today.
@@ -37,3 +37,7 @@ Each situation the player can be in has its own clear card, and the card always 
 - A reader who has never used the product can tell a deduction card from a what-if card from across the room.
 - Every pair and triple hint on the library shelves shows all of its digits (checkable with the solution-oracle test run).
 - Once analytics exist: hint-to-apply ratio should rise; "Next hint" presses replace repeated H presses.
+
+## Outcome
+
+Shipped in PR #48 to `staging` on 2026-09-19; verified the same day by the product manager on a production build identical to the staging bundle (`index-DZL13nsI.js`). Idle, found (all digits as chips, Apply, Next hint, per-hint legend), No Assist (clock, no hint button) and solved (techniques used, next puzzle on this shelf, try the shelf above) verified as specified. Open: the "nothing left" state fired on Easy puzzles from the first hint and hid the singles lesson; the state's rules were amended below and the change is #54.

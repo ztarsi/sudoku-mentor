@@ -54,6 +54,8 @@ Sudoku Mentor promises four things. If a change breaks any of them, it is the wr
 
 ## 7. What the product is today
 
+This section describes the product players have, which is what is on `main`. The UX pass on `staging` (roadmap section 10) changes much of it; this section is rewritten when that is released.
+
 ### 7.1 Playing
 
 - A 9x9 board with pencil marks (candidates) that are filled in automatically when a puzzle loads and maintained as digits are placed.
@@ -119,13 +121,14 @@ Ordered by value to the improver. "Now" is committed; "Next" is agreed in princi
 
 The UX pass, in order. Audit and target experience: [the UX review](reviews/2026-09-18-ux-review.md). One spec per item in `docs/specs/`.
 
-1. [Lesson-first panel](specs/lesson-first-panel.md): the hint card first in the column, Techniques collapsed under it, Auto-Solve removed, shortcuts to the menu.
-2. [One digit strip](specs/digit-strip.md): one input strip under the board on every device; absorbs Focus Mode and the phone pad.
-3. [Hint card states](specs/hint-card-states.md): a designed card for idle, found, what-if, searching, No Assist, solved and nothing-left.
-4. [One adaptive page](specs/one-adaptive-page.md): wide, medium, stacked and phone arrangements of one page; the mobile page goes.
-5. [Header and menu](specs/header-and-menu.md): puzzle, progress and errors on every width; No Assist as a labelled switch; everything secondary behind a hamburger menu.
-6. [Paper theme](specs/paper-theme.md): a light theme next to dark, switchable and remembered.
-7. [Inline onboarding](specs/inline-onboarding.md): three in-context prompts instead of the tour modal.
+1. [Lesson-first panel](specs/lesson-first-panel.md): the hint card first in the column, Techniques collapsed under it, Auto-Solve removed, shortcuts to the menu. Shipped to staging and verified 2026-09-19.
+2. [One digit strip](specs/digit-strip.md): one input strip under the board on every device; absorbs Focus Mode and the phone pad. Shipped and verified 2026-09-19; follow-ups #53, #55.
+3. [Hint card states](specs/hint-card-states.md): a designed card for idle, found, what-if, searching, No Assist, solved and only-singles-left. Shipped and verified 2026-09-19; the only-singles state amended, follow-up #54.
+4. [One adaptive page](specs/one-adaptive-page.md): wide, medium, stacked and phone arrangements of one page; the mobile page goes. Shipped and verified 2026-09-19; follow-up #55.
+5. [Header and menu](specs/header-and-menu.md): puzzle, progress and errors on every width; No Assist as a labelled switch; everything secondary behind a hamburger menu. Shipped and verified 2026-09-19.
+6. [Paper theme](specs/paper-theme.md): a light theme next to dark, switchable and remembered. Shipped and verified 2026-09-19.
+7. [Inline onboarding](specs/inline-onboarding.md): three in-context prompts instead of the tour modal. In progress.
+8. UX pass follow-ups from verification: #53 tour click falls through to the board and arms a digit; #54 the only-singles state fires on Easy puzzles; #55 the strip and Hint sit below the fold on laptops and medium windows. Then the first release of the UX pass from `staging` to `main`.
 
 Then:
 
@@ -171,6 +174,8 @@ Then:
 
 Short record of product decisions and why, newest first.
 
+- 2026-09-19: Six of the seven UX-pass specs shipped to `staging` in one evening (PRs #46 to #51) and were verified from the player's side on a build identical to the staging bundle. Verified: the lesson is on screen without scrolling at 1366x768; one digit strip everywhere; designed hint card states; one adaptive page with side and bottom sheets; a header in words with one menu; the paper theme. Three follow-ups filed (#53 tour click-through arms a digit, #54 only-singles state on Easy puzzles, #55 strip below the fold). Section 7 still describes the released product on `main`; it is rewritten at the first release of the UX pass.
+- 2026-09-19: The "nothing left" hint state is narrowed to "only singles left": it appears only when every remaining empty cell shows exactly one pencil mark, and never before the player has seen a single lesson on the puzzle. Reason: the first version told a learner on an Easy puzzle there was nothing to teach at the first press of Hint, while the board showed cells with three pencil marks. Singles are the learner's lesson.
 - 2026-09-19: Staging is live at https://sdm.pilia.net and verified from the product manager's session. Finding on the way: startup waits on the platform with no time limit, so a hanging connection leaves the player on a spinner; filed as issue #42 with the fix expected before the UX pass lands on staging.
 - 2026-09-19: A staging server, without Base44, becomes where work integrates and is verified; `main` only receives releases. Reason: the developer session was blocked on Base44 permissions for everyday work, and half-finished work was landing on the deploy branch. The builder stays in the cloud; the server is a passive deploy target that pulls `staging`. Rules in docs/STAGING.md.
 - 2026-09-18: One adaptive page replaces the separate desktop and mobile pages. Reason: only the wide desktop page teaches today; tablets and narrow windows get the least. Spec: docs/specs/one-adaptive-page.md.
