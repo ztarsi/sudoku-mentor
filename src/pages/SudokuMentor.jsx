@@ -3,6 +3,8 @@ import SudokuGrid from '@/components/sudoku/SudokuGrid';
 import DigitStrip from '@/components/sudoku/DigitStrip';
 import LogicPanel from '@/components/sudoku/LogicPanel';
 import LessonSheet, { SIDE_SHEET_WIDTH } from '@/components/sudoku/LessonSheet';
+import HeaderMenu from '@/components/sudoku/HeaderMenu';
+import ConfirmDialog from '@/components/sudoku/ConfirmDialog';
 import AccountMenu from '@/components/sudoku/AccountMenu';
 import KeyboardShortcutsDialog from '@/components/sudoku/panel/KeyboardShortcutsDialog';
 import { playErrorTone } from '@/components/sudoku/errorSound';
@@ -15,7 +17,7 @@ import {
 } from '@/components/sudoku/stepHighlights';
 import { markOnboarded, fetchAllPuzzleEntries, pickNextOnShelf, shelfAbove } from '@/components/sudoku/puzzleSources';
 import WelcomeTour from '@/components/sudoku/WelcomeTour';
-import { FolderOpen } from 'lucide-react';
+import { FolderOpen, HelpCircle, Keyboard, Palette, Printer, Copy, Trash2, Info } from 'lucide-react';
 import { useSudokuGame } from '@/hooks/useSudokuGame';
 import { useSudokuPlayer } from '@/hooks/useSudokuPlayer';
 import { usePuzzleBootstrap } from '@/hooks/usePuzzleBootstrap';
@@ -101,7 +103,7 @@ export default function SudokuMentor() {
   // mentor applied it or the player placed the digit themselves.
   const [lessonLog, setLessonLog] = useState([]);
   const [nothingLeft, setNothingLeft] = useState(false);
-  const [showCopyConfirmation, setShowCopyConfirmation] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [noAssistMode, setNoAssistMode] = useState(false);
   // The phone keeps No Assist on for now (founder decision, 18 Sep 2026):
   // no lesson fits, so every phone solve is timed and hint-free.
@@ -182,16 +184,24 @@ export default function SudokuMentor() {
     return () => observer.disconnect();
   }, [stripFixed]);
 
-  // The phone shows the No Assist clock in its status strip.
+  // The No Assist clock: in the header switch, and in the phone's status strip.
   const [clock, setClock] = useState(0);
   useEffect(() => {
-    if (!phone) return undefined;
+    if (!effectiveNoAssist) return undefined;
     const tick = () => setClock(game.getElapsedSeconds?.() ?? 0);
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phone, game.getElapsedSeconds]);
+  }, [effectiveNoAssist, game.getElapsedSeconds]);
+
+  // Toasts sit above the fixed strip bar, never over the board.
+  useEffect(() => {
+    document.documentElement.style.setProperty('--bottom-bar-height', `${bottomBarHeight}px`);
+    return () => {
+      document.documentElement.style.removeProperty('--bottom-bar-height');
+    };
+  }, [bottomBarHeight]);
 
   const clearHighlights = useCallback(() => {
     setHighlightedSteps([]);
@@ -474,16 +484,21 @@ export default function SudokuMentor() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.canRedo, game.redo, clearHighlights]);
 
-  const handleClearGrid = useCallback(() => {
-    if (game.solvedCount > 0 && !window.confirm('Clear the entire grid?')) return;
+  const doClearGrid = useCallback(() => {
+    setShowClearConfirm(false);
     game.clearGrid();
     setCurrentStep(null);
     setHighlightedSteps([]);
     setFocusedCandidates(null);
     setRemovalCandidates(null);
     setHighlightedDigit(null);
+    setNothingLeft(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [game.solvedCount, game.clearGrid]);
+  }, [game.clearGrid]);
+  const handleClearGrid = useCallback(() => {
+    if (game.solvedCount > 0) setShowClearConfirm(true);
+    else doClearGrid();
+  }, [game.solvedCount, doClearGrid]);
 
   const markUserLoadRef = useRef(() => {});
   const handleLoadPuzzle = useCallback(
@@ -527,7 +542,7 @@ export default function SudokuMentor() {
         showColorSettings ||
         showCompletion ||
         showAppInfo ||
-        showCopyConfirmation ||
+        showClearConfirm ||
         showTour ||
         !!document.querySelector('[role="dialog"]');
       if (isModalOpen) return;
@@ -651,8 +666,7 @@ export default function SudokuMentor() {
       : Promise.reject(new Error('Clipboard unavailable'));
     write
       .then(() => {
-        setShowCopyConfirmation(true);
-        setTimeout(() => setShowCopyConfirmation(false), 2000);
+        toast({ title: 'Puzzle copied', description: 'The givens are on your clipboard as 81 digits.' });
       })
       .catch(() => {
         toast({ title: 'Could not copy', description: `Copy this by hand: ${puzzleString}`, variant: 'destructive' });
@@ -740,7 +754,6 @@ export default function SudokuMentor() {
     restoreSavedGame: game.restoreSavedGame,
     loadPuzzle: handleLoadPuzzle,
     user,
-    onResumed: () => toast({ title: 'Resumed your puzzle', description: 'Picked up where you left off. Load a new one any time.' }),
     onFirstVisit: () => setShowTour(true),
   });
   markUserLoadRef.current = markUserLoad;
@@ -808,6 +821,8 @@ export default function SudokuMentor() {
       }
       rejected={game.rejectedInput}
       touch={touchInput}
+      marksVisible={candidatesVisible}
+      onMarksVisibleChange={setCandidatesVisible}
       hint={
         sheetMode
           ? { onClick: handleHintButton, disabled: effectiveNoAssist, searching: searchingHint, onCancel: cancelHintSearch }
@@ -818,6 +833,21 @@ export default function SudokuMentor() {
   const stripCard = (
     <div className="bg-slate-900/90 backdrop-blur-sm rounded-2xl shadow-lg shadow-black/50 p-3 sm:p-4 border border-slate-700">
       {strip}
+    </div>
+  );
+
+  // Progress and errors on every width, in the quiet style the phone had.
+  const statusStrip = (
+    <div className="flex items-center justify-between gap-3 text-xs sm:text-sm text-slate-400 px-1" data-testid="status-strip">
+      <span>
+        {game.progress}% complete · {game.errorCount === 0 ? 'No errors' : `${game.errorCount} error${game.errorCount === 1 ? '' : 's'}`}
+      </span>
+      {phone && (
+        <span className="flex items-center gap-2 shrink-0" aria-live="off">
+          <span className="text-red-300 font-medium">No Assist: timed, no hints</span>
+          <span className="tabular-nums text-slate-200" aria-label="Time">{formatClock(clock)}</span>
+        </span>
+      )}
     </div>
   );
 
@@ -852,167 +882,102 @@ export default function SudokuMentor() {
         {srAnnouncement}
       </div>
 
-      {/* Header */}
+      {/* Header: where you are, how you are doing, one primary action,
+          everything secondary behind the menu (header-and-menu spec) */}
       <header ref={headerRef} className="bg-slate-900/90 backdrop-blur-md border-b border-slate-700/60 sticky top-0 z-50 safe-area-inset-top">
-        <div className="max-w-7xl mx-auto px-2 lg:px-8 py-2 lg:py-4">
-          <div className="flex items-center justify-between">
-            {/* Logo and Puzzle Info - Desktop */}
-            <div className="hidden lg:flex items-center gap-6 min-w-0">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-2 lg:py-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 lg:gap-4 min-w-0">
               <div className="flex items-center gap-3 shrink-0">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
-                  <span className="text-white font-bold text-lg">9</span>
+                <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-lg lg:rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
+                  <span className="text-white font-bold text-sm lg:text-lg">9</span>
                 </div>
-                <h1 className="text-xl font-semibold text-white tracking-tight whitespace-nowrap">Sudoku Mentor</h1>
+                {arrangement === 'wide' && (
+                  <h1 className="text-xl font-semibold text-white tracking-tight whitespace-nowrap">Sudoku Mentor</h1>
+                )}
               </div>
 
-              {/* Puzzle Info */}
               {game.puzzleName ? (
-                <div className="flex items-center gap-3 min-w-0">
-                  <p className="text-lg font-medium text-white truncate max-w-[260px]" title={game.puzzleName}>
+                <button
+                  type="button"
+                  onClick={() => setShowPuzzleLoader(true)}
+                  className="flex items-center gap-2 min-w-0 rounded-lg px-2 py-1 hover:bg-slate-800 transition-colors text-left"
+                  title="Change puzzle"
+                  aria-label={`${game.puzzleName}${game.puzzleDifficulty ? `, ${game.puzzleDifficulty}` : ''}. Change puzzle`}
+                >
+                  <span className="text-sm lg:text-lg font-medium text-white truncate max-w-[110px] sm:max-w-[200px] lg:max-w-[260px]">
                     {game.puzzleName}
-                  </p>
+                  </span>
                   {game.puzzleDifficulty && (
-                    <span className="px-3 py-1 bg-slate-800 rounded-full text-sm capitalize text-slate-300">{game.puzzleDifficulty}</span>
+                    <span className="px-2 py-0.5 bg-slate-800 rounded-full text-xs lg:text-sm capitalize text-slate-300 shrink-0">{game.puzzleDifficulty}</span>
                   )}
-                  {player.bestTime && (
-                    <span className="px-3 py-1 bg-emerald-900/50 border border-emerald-600/30 rounded-full text-sm text-emerald-400 flex items-center gap-1.5" title="Your best no-assist time">
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  {player.bestTime && !phone && (
+                    <span className="hidden sm:flex px-2 py-0.5 bg-emerald-900/50 border border-emerald-600/30 rounded-full text-xs lg:text-sm text-emerald-400 items-center gap-1 shrink-0" title="Your best No Assist time">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      {Math.floor(player.bestTime / 60)}:{String(player.bestTime % 60).padStart(2, '0')}
+                      best {formatClock(player.bestTime)}
                     </span>
                   )}
-                  {effectiveNoAssist && (
-                    <span className="px-3 py-1 bg-red-600 rounded-full text-sm font-medium text-white">No Assist</span>
-                  )}
-                </div>
+                </button>
               ) : (
-                <p className="text-base text-slate-400">Learn logic-based solving</p>
-              )}
-            </div>
-
-            {/* Narrow screens - just icon */}
-            <div className="lg:hidden flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-                <span className="text-white font-bold text-sm">9</span>
-              </div>
-              {game.puzzleName && (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-sm font-medium text-white truncate max-w-[120px]">{game.puzzleName}</span>
-                  {game.puzzleDifficulty && (
-                    <span className="px-2 py-0.5 bg-slate-800 rounded-full text-xs capitalize text-slate-300">{game.puzzleDifficulty}</span>
-                  )}
-                </div>
-              )}
-              {effectiveNoAssist && !phone && (
-                <span className="px-2 py-0.5 bg-red-600 rounded-full text-xs font-medium text-white whitespace-nowrap">No Assist</span>
+                <p className="hidden lg:block text-base text-slate-400">Learn logic-based solving</p>
               )}
             </div>
 
             <div className="flex items-center gap-2 lg:gap-3 shrink-0">
-              {/* Progress - desktop only */}
-              <div className="hidden xl:flex items-center gap-2 bg-slate-800 rounded-full px-4 py-2">
-                <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                <span className="text-base text-slate-300 whitespace-nowrap">{game.progress}% Complete</span>
-              </div>
-
-              {/* Color settings */}
+              {!phone && (
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={noAssistMode}
+                  onClick={() => {
+                    if (!noAssistMode) setShowNoAssistModal(true);
+                    else setNoAssistMode(false);
+                  }}
+                  title="No Assist: hints off, every solve timed and recorded"
+                  className={`flex items-center gap-2 px-2.5 py-2 rounded-lg lg:rounded-xl text-sm font-medium transition-colors ${
+                    noAssistMode ? 'bg-red-600/90 text-white hover:bg-red-600' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`relative w-8 h-4 rounded-full transition-colors shrink-0 ${noAssistMode ? 'bg-white/90' : 'bg-slate-600'}`}
+                  >
+                    <span
+                      className={`absolute top-0.5 w-3 h-3 rounded-full transition-all ${
+                        noAssistMode ? 'left-[18px] bg-red-600' : 'left-0.5 bg-slate-300'
+                      }`}
+                    />
+                  </span>
+                  <span className="whitespace-nowrap">No Assist: {noAssistMode ? 'on' : 'off'}</span>
+                  {noAssistMode && <span className="tabular-nums text-xs opacity-90" aria-label="Time">{formatClock(clock)}</span>}
+                </button>
+              )}
               <button
-                onClick={() => setShowColorSettings(true)}
-                className="p-2 bg-slate-800 text-slate-300 rounded-lg lg:rounded-xl hover:bg-slate-700 transition-all duration-200 flex items-center justify-center"
-                title="Color Settings" aria-label="Color Settings"
-              >
-                <svg className="w-4 h-4 lg:w-5 lg:h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-                </svg>
-              </button>
-
-              {/* Desktop-only buttons */}
-              <button
-                onClick={() => setShowShortcuts(true)}
-                className="hidden lg:block p-2 bg-slate-800 text-slate-300 rounded-xl hover:bg-slate-700 transition-all duration-200"
-                title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <rect x="3" y="6" width="18" height="12" rx="2" strokeWidth={2} />
-                  <path strokeLinecap="round" strokeWidth={2} d="M7 10h.01M11 10h.01M15 10h.01M7 14h10" />
-                </svg>
-              </button>
-              <button
-                onClick={() => setShowAppInfo(true)}
-                className="hidden lg:block p-2 bg-slate-800 text-slate-300 rounded-xl hover:bg-slate-700 transition-all duration-200"
-                title="About Sudoku Mentor" aria-label="About Sudoku Mentor"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </button>
-              <button
-                onClick={() => {
-                  if (!noAssistMode) {
-                    setShowNoAssistModal(true);
-                  } else {
-                    setNoAssistMode(false);
-                  }
-                }}
-                className={`hidden lg:block p-2 rounded-xl transition-all duration-200 ${
-                  noAssistMode
-                    ? 'bg-red-600 text-white hover:bg-red-700'
-                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                }`}
-                title={noAssistMode ? "Disable No Assist Mode" : "Enable No Assist Mode"}
-                aria-label={noAssistMode ? "Disable No Assist Mode" : "Enable No Assist Mode"}
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                </svg>
-              </button>
-              <button
-                onClick={() => setCandidatesVisible(!candidatesVisible)}
-                className={`hidden lg:block p-2 rounded-xl transition-all duration-200 ${
-                  candidatesVisible
-                    ? 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                    : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
-                }`}
-                title={candidatesVisible ? "Hide Candidates" : "Show Candidates"}
-                aria-label={candidatesVisible ? "Hide candidates" : "Show candidates"}
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  {candidatesVisible ? (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                  ) : (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                  )}
-                </svg>
-              </button>
-              <button
-                onClick={handlePrintPuzzle}
-                className="hidden lg:block p-2 bg-slate-800 text-slate-300 rounded-xl hover:bg-slate-700 transition-all duration-200"
-                title="Print Puzzle" aria-label="Print Puzzle"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                </svg>
-              </button>
-              <button
-                onClick={handleCopyPuzzle}
-                className="hidden lg:block p-2 bg-slate-800 text-slate-300 rounded-xl hover:bg-slate-700 transition-all duration-200"
-                title="Copy Puzzle" aria-label="Copy Puzzle"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-              </button>
-              <button
+                type="button"
                 onClick={() => setShowPuzzleLoader(true)}
-                className="px-2.5 lg:px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-lg lg:rounded-xl transition-all duration-200 flex items-center justify-center gap-2 font-medium text-sm"
-                title="Load Puzzle" aria-label="Load Puzzle"
+                className="px-2.5 lg:px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-lg lg:rounded-xl transition-all duration-200 flex items-center justify-center gap-1.5 font-medium text-sm"
+                title="Load puzzle" aria-label="Load Puzzle"
               >
-                <FolderOpen className="w-4 h-4 lg:w-5 lg:h-5 pointer-events-none" />
-                <span className="hidden lg:inline whitespace-nowrap">Load puzzle</span>
+                <FolderOpen className="w-4 h-4 lg:w-5 lg:h-5 pointer-events-none" aria-hidden="true" />
+                <span className="whitespace-nowrap">{arrangement === 'wide' ? 'Load puzzle' : 'Load'}</span>
               </button>
 
               <AccountMenu user={user} />
+              <HeaderMenu
+                items={[
+                  { id: 'how', label: 'How to play', icon: HelpCircle, onSelect: () => setShowTour(true) },
+                  { id: 'keys', label: 'Keyboard shortcuts', icon: Keyboard, hint: '?', onSelect: () => setShowShortcuts(true) },
+                  { id: 'colours', label: 'Colours', icon: Palette, onSelect: () => setShowColorSettings(true) },
+                  null,
+                  { id: 'print', label: 'Print puzzle', icon: Printer, onSelect: handlePrintPuzzle },
+                  { id: 'copy', label: 'Copy puzzle', icon: Copy, onSelect: handleCopyPuzzle },
+                  { id: 'clear', label: 'Clear the board', icon: Trash2, danger: true, onSelect: handleClearGrid },
+                  null,
+                  { id: 'about', label: 'About Sudoku Mentor', icon: Info, onSelect: () => setShowAppInfo(true) },
+                ]}
+              />
             </div>
           </div>
         </div>
@@ -1027,7 +992,8 @@ export default function SudokuMentor() {
       >
         {lesson === 'column' ? (
           <div className={`grid gap-6 xl:gap-8 ${arrangement === 'wide' ? 'grid-cols-[1fr,380px]' : 'grid-cols-[1fr,300px]'}`}>
-            <div className="space-y-6 min-w-0">
+            <div className="space-y-4 min-w-0">
+              {statusStrip}
               {board}
               {stripCard}
             </div>
@@ -1037,19 +1003,7 @@ export default function SudokuMentor() {
           </div>
         ) : (
           <div className="mx-auto w-full max-w-[600px] space-y-4">
-            {stripFixed && (
-              <div className="flex items-center justify-between gap-3 text-xs text-slate-400" data-testid="status-strip">
-                <span>
-                  {game.progress}% complete · {game.errorCount === 0 ? 'No errors' : `${game.errorCount} error${game.errorCount === 1 ? '' : 's'}`}
-                </span>
-                {phone && (
-                  <span className="flex items-center gap-2 shrink-0" aria-live="off">
-                    <span className="text-red-300 font-medium">No Assist: timed, no hints</span>
-                    <span className="tabular-nums text-slate-200" aria-label="Time">{formatClock(clock)}</span>
-                  </span>
-                )}
-              </div>
-            )}
+            {statusStrip}
             {board}
             {!stripFixed && stripCard}
           </div>
@@ -1215,24 +1169,14 @@ export default function SudokuMentor() {
         )}
       </AnimatePresence>
 
-      {/* Copy Confirmation Toast */}
-      <AnimatePresence>
-        {showCopyConfirmation && (
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50 bg-slate-800 text-white px-6 py-3 rounded-lg shadow-xl border border-slate-700"
-          >
-            <div className="flex items-center gap-2">
-              <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <span className="font-medium">Puzzle copied to clipboard!</span>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <ConfirmDialog
+        open={showClearConfirm}
+        title="Clear the board?"
+        body="Every digit and pencil mark you placed goes; the givens stay. Undo cannot bring them back."
+        confirmLabel="Clear the board"
+        onConfirm={doClearGrid}
+        onCancel={() => setShowClearConfirm(false)}
+      />
 
       {/* No Assist Mode Modal */}
       <AnimatePresence>
@@ -1279,10 +1223,6 @@ export default function SudokuMentor() {
                     <li className="flex items-start gap-2">
                       <span className="text-red-400 mt-1">✕</span>
                       <span><strong className="text-white">Technique Hierarchy</strong> - Pattern browser hidden</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-red-400 mt-1">✕</span>
-                      <span><strong className="text-white">Auto-Solve</strong> - No automated solving</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <span className="text-red-400 mt-1">✕</span>

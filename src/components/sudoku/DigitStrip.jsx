@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pencil, Undo2, Redo2, Eraser, Lightbulb, Loader2 } from 'lucide-react';
+import { Pencil, Undo2, Redo2, Eraser, Lightbulb, Loader2, Eye, EyeOff } from 'lucide-react';
 import { cellName } from './gridUnits';
 
 /**
@@ -17,6 +17,8 @@ import { cellName } from './gridUnits';
  * least 44px tall. When the lesson lives in a sheet rather than a column,
  * the page passes `hint` and the strip carries the Hint button too
  * (one-adaptive-page spec): `{ onClick, disabled, searching, onCancel }`.
+ * Showing or hiding pencil marks lives next to Pencil (header-and-menu
+ * spec) when the page passes `marksVisible` and `onMarksVisibleChange`.
  */
 export default function DigitStrip({
   grid,
@@ -33,6 +35,8 @@ export default function DigitStrip({
   rejected = null,
   touch = false,
   hint = null,
+  marksVisible = null,
+  onMarksVisibleChange = null,
 }) {
   const counts = {};
   for (let d = 1; d <= 9; d++) counts[d] = 0;
@@ -126,6 +130,21 @@ export default function DigitStrip({
           <Pencil className="w-4 h-4" aria-hidden="true" />
           Pencil
         </button>
+        {marksVisible !== null && onMarksVisibleChange && (
+          <button
+            type="button"
+            onClick={() => onMarksVisibleChange(!marksVisible)}
+            aria-pressed={marksVisible}
+            aria-label={marksVisible ? 'Hide pencil marks' : 'Show pencil marks'}
+            title={marksVisible ? 'Hide pencil marks' : 'Show pencil marks'}
+            className={`flex-1 rounded-lg text-sm font-medium flex items-center justify-center gap-1.5 transition-colors ${controlSize} ${
+              marksVisible ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
+            }`}
+          >
+            {marksVisible ? <Eye className="w-4 h-4" aria-hidden="true" /> : <EyeOff className="w-4 h-4" aria-hidden="true" />}
+            Marks
+          </button>
+        )}
         <button
           type="button"
           onClick={onUndo}
