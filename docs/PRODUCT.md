@@ -171,6 +171,7 @@ Then:
 
 Short record of product decisions and why, newest first.
 
+- 2026-09-19: Staging is live at https://sdm.pilia.net and verified from the product manager's session. Finding on the way: startup waits on the platform with no time limit, so a hanging connection leaves the player on a spinner; filed as issue #42 with the fix expected before the UX pass lands on staging.
 - 2026-09-19: A staging server, without Base44, becomes where work integrates and is verified; `main` only receives releases. Reason: the developer session was blocked on Base44 permissions for everyday work, and half-finished work was landing on the deploy branch. The builder stays in the cloud; the server is a passive deploy target that pulls `staging`. Rules in docs/STAGING.md.
 - 2026-09-18: One adaptive page replaces the separate desktop and mobile pages. Reason: only the wide desktop page teaches today; tablets and narrow windows get the least. Spec: docs/specs/one-adaptive-page.md.
 - 2026-09-18: The phone keeps No Assist (timed, no hints) for now. Reason: learning on a phone may need different capabilities than a shrunken hint card; we will find better ways to teach on the phone as we go rather than force the desktop lesson onto a small screen. Open question in section 12.

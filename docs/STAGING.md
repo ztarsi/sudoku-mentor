@@ -21,6 +21,8 @@ How work gets from a pull request to players. Decided 2026-09-19; see the decisi
 
 https://sdm.pilia.net (Cloudflare tunnel to the founder's local server; the tunnel is created during server setup).
 
+Verified live on 2026-09-19 from the product manager's cloud session: the production build is served, the app starts signed out, a starter puzzle loads, the service worker file is served. Verification from a cloud session goes through that session's egress proxy, which can stall the platform call; a normal visitor gets a fast 404 from the static server. When a headless check from the cloud stalls on the spinner, that is the startup wait in issue #42, not the server.
+
 ## Letting the cloud sessions see the server
 
 Claude Code on the web sessions run in a cloud environment with a network policy. To let the developer and product manager sessions open the staging URL:
