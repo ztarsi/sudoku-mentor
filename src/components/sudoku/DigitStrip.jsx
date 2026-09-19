@@ -112,7 +112,7 @@ export default function DigitStrip({
             className={`flex-1 rounded-lg text-sm font-medium flex items-center justify-center gap-1.5 transition-colors ${controlSize} ${
               hint.disabled
                 ? 'bg-slate-800/60 text-slate-600 cursor-not-allowed'
-                : 'bg-amber-500/90 text-slate-950 hover:bg-amber-400'
+                : 'bg-amber-500/90 text-black hover:bg-amber-400'
             }`}
           >
             <Lightbulb className="w-4 h-4" aria-hidden="true" />

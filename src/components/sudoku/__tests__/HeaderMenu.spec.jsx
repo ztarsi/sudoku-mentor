@@ -35,6 +35,26 @@ describe('HeaderMenu', () => {
     expect(queryByRole('menu')).toBeNull();
   });
 
+  it('shows a heading and radio items with the checked one marked', () => {
+    const onPaper = vi.fn();
+    const { getByRole, getByText } = render(
+      <HeaderMenu
+        items={[
+          { heading: 'Theme' },
+          { id: 'dark', label: 'Dark', checked: true, onSelect: vi.fn() },
+          { id: 'paper', label: 'Paper', checked: false, onSelect: onPaper },
+        ]}
+      />
+    );
+    fireEvent.click(getByRole('button', { name: 'Menu' }));
+    expect(getByText('Theme')).toBeTruthy();
+    expect(getByRole('menuitemradio', { name: 'Dark' }).getAttribute('aria-checked')).toBe('true');
+    const paper = getByRole('menuitemradio', { name: 'Paper' });
+    expect(paper.getAttribute('aria-checked')).toBe('false');
+    fireEvent.click(paper);
+    expect(onPaper).toHaveBeenCalledTimes(1);
+  });
+
   it('closes on Escape and on a click outside', () => {
     const { getByRole, queryByRole } = render(
       <div>

@@ -26,7 +26,7 @@ const PRESET_COLORS = [
   { name: 'Pink', value: '#ec4899' },
 ];
 
-export default function ColorSettings({ colors, onColorsChange, onClose }) {
+export default function ColorSettings({ colors, onColorsChange, onClose, defaults = DEFAULT_COLORS }) {
   const [customHex, setCustomHex] = useState('');
   const [activeSection, setActiveSection] = useState('focusDigit');
   const [presets, setPresets] = useState([]);
@@ -96,7 +96,7 @@ export default function ColorSettings({ colors, onColorsChange, onClose }) {
   };
 
   const handleReset = () => {
-    onColorsChange({ ...DEFAULT_COLORS });
+    onColorsChange({ ...defaults });
   };
 
   return (

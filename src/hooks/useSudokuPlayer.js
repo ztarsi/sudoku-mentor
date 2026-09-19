@@ -2,47 +2,80 @@ import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 import { bestNoAssistTime, createSolveRecord, saveColors as persistColors } from '@/api/playerData';
 import { toast } from '@/components/ui/use-toast';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { applyTheme, readThemeChoice, resolveTheme, writeThemeChoice } from '@/lib/theme';
 
-import { DEFAULT_COLORS } from '@/components/sudoku/colors';
+import { DEFAULT_COLORS, PAPER_COLORS, defaultColorsFor, normalizeColorPrefs, serializeColorPrefs } from '@/components/sudoku/colors';
 
 export { DEFAULT_COLORS };
 
 /**
- * Shared account-facing state: current user, persisted color settings, and
- * the best no-assist time for the current puzzle. All async effects are
- * cancellation-guarded so late responses can't overwrite newer state.
+ * Shared account-facing state: current user, the theme and the persisted
+ * board colours (one set per theme), and the best no-assist time for the
+ * current puzzle. All async effects are cancellation-guarded so late
+ * responses can't overwrite newer state.
  */
 export function useSudokuPlayer(puzzleName) {
   const [user, setUser] = useState(null);
-  const [colors, setColors] = useState(DEFAULT_COLORS);
+  const [prefs, setPrefs] = useState(() => ({
+    theme: readThemeChoice(),
+    colors: { dark: { ...DEFAULT_COLORS }, paper: { ...PAPER_COLORS } },
+  }));
   const [bestTime, setBestTime] = useState(null);
   const [bestTimeVersion, setBestTimeVersion] = useState(0);
 
-  // The signed-in user comes from AuthContext (resolved before any page
-  // mounts), so there is one source of truth and no second request.
+  // The theme in force: the choice, or the device's preference when the
+  // choice is "system". Painted on the document whenever it changes.
+  const prefersLight = useMediaQuery('(prefers-color-scheme: light)');
+  const theme = resolveTheme(prefs.theme, prefersLight);
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
+
+  // The signed-in user comes from AuthContext, so there is one source of
+  // truth and no second request. The account's theme and colours win over
+  // the local copy when they arrive, and the local copy follows.
   const { user: authUser } = useAuth();
   useEffect(() => {
     setUser(authUser ?? null);
-    if (authUser?.sudoku_colors) setColors(authUser.sudoku_colors);
+    if (authUser?.sudoku_colors) {
+      const next = normalizeColorPrefs(authUser.sudoku_colors, readThemeChoice());
+      setPrefs(next);
+      writeThemeChoice(next.theme);
+    }
   }, [authUser]);
 
-  // Persist color changes to the account (if signed in)
-  const saveColors = useCallback(
-    async (newColors) => {
-      setColors(newColors);
+  const persist = useCallback(
+    async (next, failureTitle) => {
+      setPrefs(next);
       if (!user) return;
       try {
-        await persistColors(user, newColors);
+        await persistColors(user, serializeColorPrefs(next));
       } catch (error) {
-        console.error('Failed to save colors:', error);
+        console.error('Failed to save preferences:', error);
         toast({
-          title: 'Colours not saved',
-          description: 'They apply for this visit, but could not be saved to your account.',
+          title: failureTitle,
+          description: 'It applies for this visit, but could not be saved to your account.',
           variant: 'destructive',
         });
       }
     },
     [user]
+  );
+
+  // The current theme's five colours; saving edits that theme's set.
+  const colors = prefs.colors[theme] || defaultColorsFor(theme);
+  const saveColors = useCallback(
+    (newColors) => persist({ ...prefs, colors: { ...prefs.colors, [theme]: newColors } }, 'Colours not saved'),
+    [persist, prefs, theme]
+  );
+
+  const setThemeChoice = useCallback(
+    (choice) => {
+      writeThemeChoice(choice);
+      return persist({ ...prefs, theme: choice }, 'Theme not saved');
+    },
+    [persist, prefs]
   );
 
   // Best no-assist time for the current puzzle
@@ -92,5 +125,16 @@ export function useSudokuPlayer(puzzleName) {
     [user]
   );
 
-  return { user, colors, saveColors, bestTime, refreshBestTime, saveSolveRecord };
+  return {
+    user,
+    colors,
+    saveColors,
+    defaultColors: defaultColorsFor(theme),
+    theme,
+    themeChoice: prefs.theme,
+    setThemeChoice,
+    bestTime,
+    refreshBestTime,
+    saveSolveRecord,
+  };
 }

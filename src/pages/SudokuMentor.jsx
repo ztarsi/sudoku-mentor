@@ -17,7 +17,7 @@ import {
 } from '@/components/sudoku/stepHighlights';
 import { markOnboarded, fetchAllPuzzleEntries, pickNextOnShelf, shelfAbove } from '@/components/sudoku/puzzleSources';
 import WelcomeTour from '@/components/sudoku/WelcomeTour';
-import { FolderOpen, HelpCircle, Keyboard, Palette, Printer, Copy, Trash2, Info } from 'lucide-react';
+import { FolderOpen, HelpCircle, Keyboard, Palette, Printer, Copy, Trash2, Info, Moon, Sun, MonitorSmartphone } from 'lucide-react';
 import { useSudokuGame } from '@/hooks/useSudokuGame';
 import { useSudokuPlayer } from '@/hooks/useSudokuPlayer';
 import { usePuzzleBootstrap } from '@/hooks/usePuzzleBootstrap';
@@ -153,7 +153,7 @@ export default function SudokuMentor() {
 
   const player = useSudokuPlayer(game.puzzleName);
   playerRef.current = player;
-  const { user, colors } = player;
+  const { user, colors, themeChoice, setThemeChoice } = player;
 
   // The sticky header and the fixed strip bar are measured so the sheets
   // sit between them and scroll padding keeps the hint's cells in view.
@@ -969,6 +969,11 @@ export default function SudokuMentor() {
                 items={[
                   { id: 'how', label: 'How to play', icon: HelpCircle, onSelect: () => setShowTour(true) },
                   { id: 'keys', label: 'Keyboard shortcuts', icon: Keyboard, hint: '?', onSelect: () => setShowShortcuts(true) },
+                  null,
+                  { heading: 'Theme' },
+                  { id: 'theme-dark', label: 'Dark', icon: Moon, checked: themeChoice === 'dark', onSelect: () => setThemeChoice('dark') },
+                  { id: 'theme-paper', label: 'Paper', icon: Sun, checked: themeChoice === 'paper', onSelect: () => setThemeChoice('paper') },
+                  { id: 'theme-system', label: 'Match my device', icon: MonitorSmartphone, checked: themeChoice === 'system', onSelect: () => setThemeChoice('system') },
                   { id: 'colours', label: 'Colours', icon: Palette, onSelect: () => setShowColorSettings(true) },
                   null,
                   { id: 'print', label: 'Print puzzle', icon: Printer, onSelect: handlePrintPuzzle },
@@ -1065,6 +1070,7 @@ export default function SudokuMentor() {
         <Suspense fallback={null}>
           <ColorSettings
             colors={colors}
+            defaults={player.defaultColors}
             onColorsChange={player.saveColors}
             onClose={() => setShowColorSettings(false)}
           />
