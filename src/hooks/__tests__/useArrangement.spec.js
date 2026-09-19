@@ -41,11 +41,11 @@ describe('useArrangement', () => {
   });
 
   const stubWidth = (width, coarse = false) => {
-    window.matchMedia = (query) => {
+    window.matchMedia = /** @type {any} */ ((query) => {
       const min = /min-width:\s*(\d+)px/.exec(query);
       const matches = min ? width >= Number(min[1]) : query.includes('coarse') ? coarse : false;
       return { matches, media: query, addEventListener() {}, removeEventListener() {} };
-    };
+    });
   };
 
   it('reads the four width queries and the pointer', () => {

@@ -19,12 +19,12 @@ export default function LessonSheet({
   side = 'right',
   open,
   pinned = false,
-  onPinnedChange,
-  onClose,
+  onPinnedChange = null,
+  onClose = null,
   topOffset = 0,
   bottomOffset = 0,
-  onHeightChange,
-  children,
+  onHeightChange = null,
+  children = null,
 }) {
   const panelRef = useRef(/** @type {HTMLElement | null} */ (null));
 
