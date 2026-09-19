@@ -332,13 +332,18 @@ export default function SudokuMentor() {
 
     const gridAtStart = game.grid;
     let step = findNextLogicStep(game.logicGrid, null);
-    // Only singles left: say so instead of spelling out the obvious, unless
-    // the player asks to see one anyway.
+    // Only singles left (issue #54): every empty cell on the player's board
+    // shows one pencil mark, and this puzzle has already taught at least one
+    // single. Until both hold, singles are lessons like any other technique.
+    // "Show me the next one" asks with force and gets a normal hint.
+    const taughtASingle = lessonLog.some((e) => e.technique === 'Naked Single' || e.technique === 'Hidden Single');
     if (
       step &&
       !force &&
       (step.technique === 'Naked Single' || step.technique === 'Hidden Single') &&
-      onlySinglesRemain(game.logicGrid)
+      taughtASingle &&
+      candidatesVisible &&
+      onlySinglesRemain(game.grid)
     ) {
       setNothingLeft(true);
       game.noteAssistUsed();
@@ -379,7 +384,7 @@ export default function SudokuMentor() {
       highlightSteps([step]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [game.grid, game.logicGrid, game.noteAssistUsed, effectiveNoAssist, presentStep, highlightSteps]);
+  }, [game.grid, game.logicGrid, game.noteAssistUsed, effectiveNoAssist, presentStep, highlightSteps, lessonLog, candidatesVisible]);
   const gridRef = useRef(game.grid);
   gridRef.current = game.grid;
 

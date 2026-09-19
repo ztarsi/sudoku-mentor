@@ -514,14 +514,16 @@ export default function CurrentStepCard({
     );
   }
 
-  // ---------- Nothing left to teach
+  // ---------- Only singles left
   if (nothingLeft) {
     return (
-      <CardShell icon={Sprout} title="Nothing left to teach" subtitle="Every remaining cell is a single.">
+      <CardShell icon={Sprout} title="Only singles left" subtitle="The pencil marks say the rest.">
         <div className="p-4 space-y-3">
-          <p className="text-base text-slate-200">You can finish this one: every empty cell now has exactly one number that fits.</p>
+          <p className="text-base text-slate-200">Every empty cell now shows a single pencil mark; write them in to finish.</p>
           <ActionRow>
-            <QuietButton onClick={onShowSingle}>Show me one anyway</QuietButton>
+            <PrimaryButton onClick={onShowSingle} aria-keyshortcuts="H">
+              <Lightbulb className="w-4 h-4" aria-hidden="true" /> Show me the next one
+            </PrimaryButton>
           </ActionRow>
         </div>
       </CardShell>
