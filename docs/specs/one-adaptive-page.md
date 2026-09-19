@@ -29,3 +29,7 @@ One page that arranges itself by width and pointer, so that everything the deskt
 
 - Walk the improver journey (load a Hard puzzle, ask for a hint, read it, place the digit yourself) on a laptop at 1366x768, a tablet in both orientations and a phone; every step works without scrolling to find the lesson, except on the phone where the lesson is not offered.
 - Once analytics exist: the share of sessions on tablets that use a hint should approach the desktop share.
+
+## Outcome
+
+Shipped in PR #49 to `staging` on 2026-09-19; verified the same day by the product manager on a production build identical to the staging bundle (`index-DZL13nsI.js`). Wide (two columns), medium 900x800 (side sheet on Hint, board shrinks clear of it), stacked 768x1024 touch (Hint on the fixed strip, bottom sheet), iPad portrait (side sheet) and phone 390 (no lesson, "No Assist: timed, no hints" with a timer, pencil marks on load, no horizontal scroll, H inert) verified. Open: at 900x800 the strip's Hint button is below the fold (#55).

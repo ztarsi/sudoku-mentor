@@ -30,3 +30,7 @@ A header that says where you are and how you are doing, with one primary action,
 - A first-time visitor can name what every header control does without hovering.
 - The error count is visible while playing on desktop at 1366x768.
 - Once analytics exist: wrong-entry rate per puzzle (section 9) becomes measurable and visible to the player at the same time.
+
+## Outcome
+
+Shipped in PR #50 to `staging` on 2026-09-19; verified the same day by the product manager on a production build identical to the staging bundle (`index-DZL13nsI.js`). Header is puzzle name and shelf (opens the library), a "No Assist: off/on" switch with the timer when on, Load puzzle, Sign in and one menu; the menu holds How to play, Keyboard shortcuts, the theme choices, Colours, Print puzzle, Copy puzzle, Clear the board and About; progress and errors show on every width. Open: the No Assist explainer still names Technique Hierarchy and Focus Mode (#55).

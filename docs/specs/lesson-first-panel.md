@@ -29,3 +29,7 @@ When a hint fires on any desktop or laptop width, the player reads Look, Why it 
 
 - Repeat the fold measurement from the UX review at the four sizes above: three sections visible, zero scrolling.
 - Once analytics exist: hint-to-apply ratio (section 9 of PRODUCT.md) should rise, because players who can read the hint place the digit themselves.
+
+## Outcome
+
+Shipped in PR #46 to `staging` on 2026-09-19; verified the same day by the product manager on a production build identical to the staging bundle (`index-DZL13nsI.js`). Pressing H at 1366x768 shows Look, Why it works and What to do with no page scroll; the hint card is first in the column, Techniques is collapsed under it and remembered, Auto-Solve and the shortcuts card are gone, Apply and Next hint sit on the card and the legend names a cell from the hint. Done.
