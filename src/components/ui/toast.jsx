@@ -3,14 +3,16 @@ import { cva } from "class-variance-authority";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// The stack container. Below lg the bottom edge belongs to the action bars,
-// so toasts stack under the header instead. The container itself never
-// takes pointer events - only the toasts inside it do - so it can't block
-// whatever sits underneath.
+// The stack container: bottom of the window on desktop, and above the fixed
+// strip bar where there is one (the page sets --bottom-bar-height), so a
+// toast never covers the board (header-and-menu spec). The container itself
+// never takes pointer events - only the toasts inside it do - so it can't
+// block whatever sits underneath.
 const ToastProvider = React.forwardRef((/** @type {any} */ { ...props }, ref) => (
   <div
     ref={ref}
-    className="pointer-events-none fixed z-[100] flex max-h-screen w-full flex-col items-center gap-2 p-4 top-14 left-0 right-0 lg:top-auto lg:left-auto lg:bottom-0 lg:right-0 lg:items-end lg:max-w-[440px]"
+    className="pointer-events-none fixed z-[100] flex max-h-screen w-full flex-col items-center gap-2 p-4 left-0 right-0 lg:left-auto lg:right-0 lg:items-end lg:max-w-[440px]"
+    style={{ bottom: 'var(--bottom-bar-height, 0px)' }}
     {...props}
   />
 ));
@@ -23,7 +25,7 @@ const ToastViewport = React.forwardRef(() => null);
 ToastViewport.displayName = "ToastViewport";
 
 const toastVariants = cva(
-  "group pointer-events-auto relative flex w-full max-w-[420px] items-center justify-between space-x-4 overflow-hidden rounded-xl border p-4 pr-9 shadow-xl transition-all data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=move]:transition-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[swipe=end]:animate-out data-[state=closed]:fade-out-80 data-[state=closed]:slide-out-to-right-full data-[state=open]:slide-in-from-top-full data-[state=open]:sm:slide-in-from-bottom-full",
+  "group pointer-events-auto relative flex w-full max-w-[420px] items-center justify-between space-x-4 overflow-hidden rounded-xl border p-4 pr-9 shadow-xl transition-all data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=move]:transition-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[swipe=end]:animate-out data-[state=closed]:fade-out-80 data-[state=closed]:slide-out-to-right-full data-[state=open]:slide-in-from-bottom-full",
   {
     variants: {
       variant: {

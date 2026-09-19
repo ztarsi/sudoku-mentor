@@ -26,6 +26,8 @@ const renderStrip = (props = {}) => {
       rejected={props.rejected ?? null}
       touch={props.touch ?? false}
       hint={props.hint ?? null}
+      marksVisible={props.marksVisible ?? null}
+      onMarksVisibleChange={props.onMarksVisibleChange ?? null}
       {...handlers}
     />
   );
@@ -99,6 +101,18 @@ describe('DigitStrip', () => {
     expect(searching.queryByRole('button', { name: 'Get a hint' })).toBeNull();
     fireEvent.click(searching.getByRole('button', { name: 'Cancel the hint search' }));
     expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows or hides pencil marks from the pencil control area', () => {
+    const none = renderStrip();
+    expect(none.queryByRole('button', { name: /pencil marks/ })).toBeNull();
+    cleanup();
+    const onMarksVisibleChange = vi.fn();
+    const { getByRole } = renderStrip({ marksVisible: true, onMarksVisibleChange });
+    const toggle = getByRole('button', { name: 'Hide pencil marks' });
+    expect(toggle.getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(toggle);
+    expect(onMarksVisibleChange).toHaveBeenCalledWith(false);
   });
 
   it('uses 44px-tall targets on touch devices', () => {
