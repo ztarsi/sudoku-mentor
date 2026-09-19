@@ -111,6 +111,12 @@ export default function SudokuMentor() {
   const [bottomBarHeight, setBottomBarHeight] = useState(0);
   const headerRef = useRef(null);
   const bottomBarRef = useRef(null);
+  // The board's height budget: what is left between its top and the strip
+  // (issue #55). Measured, so board and strip share the viewport on every
+  // width instead of the strip falling below the fold.
+  const boardAreaRef = useRef(/** @type {HTMLDivElement | null} */ (null));
+  const stripCardRef = useRef(/** @type {HTMLDivElement | null} */ (null));
+  const [boardMax, setBoardMax] = useState(null);
   const [chainPlaybackIndex, setChainPlaybackIndex] = useState(0);
   const [showAppInfo, setShowAppInfo] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -200,6 +206,30 @@ export default function SudokuMentor() {
     observer.observe(el);
     return () => observer.disconnect();
   }, [stripFixed]);
+
+  useEffect(() => {
+    const measure = () => {
+      const area = boardAreaRef.current;
+      if (!area || typeof window === 'undefined') return;
+      const top = area.getBoundingClientRect().top + window.scrollY;
+      const stripRoom = stripFixed
+        ? bottomBarHeight + 12
+        : (stripCardRef.current?.getBoundingClientRect().height ?? 130) + 16 + 16;
+      // The board card's own padding, plus a little slack so the page never scrolls.
+      const chrome = stripFixed ? 8 : 24 + 8;
+      const room = window.innerHeight - top - stripRoom - chrome;
+      setBoardMax(Math.max(320, Math.floor(room)));
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    if (observer && stripCardRef.current) observer.observe(stripCardRef.current);
+    if (observer && headerRef.current) observer.observe(headerRef.current);
+    return () => {
+      window.removeEventListener('resize', measure);
+      observer?.disconnect();
+    };
+  }, [stripFixed, bottomBarHeight, arrangement]);
 
   // The No Assist clock: in the header switch, and in the phone's status strip.
   const [clock, setClock] = useState(0);
@@ -358,7 +388,7 @@ export default function SudokuMentor() {
         step = await search.promise;
       } catch (error) {
         if (isTimedOut(error)) {
-          toast({ title: 'No quick hint', description: `The what-if search ran out of time (${HINT_TIME_BUDGET_MS / 1000} s). The Search button in the Technique Hierarchy looks longer and deeper.` });
+          toast({ title: 'No quick hint', description: `The what-if search ran out of time (${HINT_TIME_BUDGET_MS / 1000} s). The Search button under Techniques looks longer and deeper.` });
         } else if (!isCancelled(error)) {
           console.error('What-if search failed', error);
           toast({ title: 'Hint search failed', description: String(error?.message || error), variant: 'destructive' });
@@ -374,7 +404,7 @@ export default function SudokuMentor() {
       // the player no longer has.
       if (gridRef.current !== gridAtStart) return;
       if (!step) {
-        toast({ title: 'No hint found', description: `No technique or what-if chain within ${HINT_SEARCH_DEPTH} steps. Try the Search button in the Technique Hierarchy for a deeper look.` });
+        toast({ title: 'No hint found', description: `No technique or what-if chain within ${HINT_SEARCH_DEPTH} steps. Try the Search button under Techniques for a deeper look.` });
         return;
       }
     }
@@ -829,8 +859,9 @@ export default function SudokuMentor() {
   ) : null;
 
   const board = (
-    <div className="flex justify-center">
+    <div className="flex justify-center" ref={boardAreaRef}>
       <SudokuGrid
+        maxSize={boardMax}
         grid={ghostGrid}
         selectedCell={selectedCell}
         focusedDigit={focusedDigit}
@@ -875,6 +906,7 @@ export default function SudokuMentor() {
       touch={touchInput}
       marksVisible={candidatesVisible}
       onMarksVisibleChange={setCandidatesVisible}
+      inline={arrangement === 'wide'}
       hint={
         sheetMode
           ? {
@@ -889,7 +921,7 @@ export default function SudokuMentor() {
     />
   );
   const stripCard = (
-    <div className="bg-slate-900/90 backdrop-blur-sm rounded-2xl shadow-lg shadow-black/50 p-3 sm:p-4 border border-slate-700">
+    <div ref={stripCardRef} className="bg-slate-900/90 backdrop-blur-sm rounded-2xl shadow-lg shadow-black/50 p-2 sm:p-3 border border-slate-700">
       {strip}
     </div>
   );
@@ -1049,7 +1081,7 @@ export default function SudokuMentor() {
       </header>
 
       <main
-        className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-4 lg:pt-8 pb-8 transition-[padding] duration-300"
+        className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-4 pb-4 transition-[padding] duration-300"
         style={{
           paddingRight: lesson === 'side' && sheetOpen ? SIDE_SHEET_WIDTH + 16 : undefined,
           paddingBottom: stripFixed ? bottomBarHeight + bottomSheetHeight + 16 : undefined,
@@ -1283,7 +1315,7 @@ export default function SudokuMentor() {
                     </li>
                     <li className="flex items-start gap-2">
                       <span className="text-red-400 mt-1">✕</span>
-                      <span><strong className="text-white">Technique Hierarchy</strong> - Pattern browser hidden</span>
+                      <span><strong className="text-white">Techniques</strong> - The technique browser and its counts are hidden</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <span className="text-red-400 mt-1">✕</span>
@@ -1297,11 +1329,11 @@ export default function SudokuMentor() {
                   <ul className="text-sm space-y-2">
                     <li className="flex items-start gap-2">
                       <span className="text-green-400 mt-1">✓</span>
-                      <span><strong className="text-white">Focus Mode</strong> - Digit highlighting remains available</span>
+                      <span><strong className="text-white">Digit highlighting on the strip</strong> - Pick a digit to see where it is</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <span className="text-green-400 mt-1">✓</span>
-                      <span><strong className="text-white">Candidate Mode</strong> - Manual pencil marks still work</span>
+                      <span><strong className="text-white">Pencil marks</strong> - Your own pencil marks still work</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <span className="text-green-400 mt-1">✓</span>
