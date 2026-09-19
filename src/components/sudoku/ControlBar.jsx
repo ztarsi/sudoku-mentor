@@ -1,5 +1,5 @@
 import React from 'react';
-import { Lightbulb, Play, Undo2, Redo2, Trash2, PanelRight, Loader2 } from 'lucide-react';
+import { Lightbulb, Play, Trash2, PanelRight, Loader2 } from 'lucide-react';
 
 const ActionButton = ({ onClick, disabled = false, label, icon: Icon, tone = 'neutral', spin = false }) => {
   const tones = {
@@ -33,12 +33,8 @@ const ActionButton = ({ onClick, disabled = false, label, icon: Icon, tone = 'ne
 export default function ControlBar({
   onNextStep,
   onApplyStep,
-  onUndo,
-  onRedo,
   onClear,
   onOpenDrawer,
-  canUndo,
-  canRedo,
   hasStep,
   hintsDisabled = false,
   searching = false,
@@ -57,8 +53,6 @@ export default function ControlBar({
           <ActionButton onClick={onNextStep} disabled={hintsDisabled} label="Hint" icon={Lightbulb} tone="primary" />
         )}
         <ActionButton onClick={onApplyStep} disabled={!hasStep || hintsDisabled} label="Apply" icon={Play} tone="success" />
-        <ActionButton onClick={onUndo} disabled={!canUndo} label="Undo" icon={Undo2} />
-        <ActionButton onClick={onRedo} disabled={!canRedo} label="Redo" icon={Redo2} />
         <ActionButton onClick={onClear} label="Clear" icon={Trash2} tone="danger" />
         <ActionButton onClick={onOpenDrawer} label="Logic" icon={PanelRight} />
       </div>
