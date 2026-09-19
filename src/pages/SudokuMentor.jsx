@@ -5,6 +5,7 @@ import LogicPanel from '@/components/sudoku/LogicPanel';
 import ControlBar from '@/components/sudoku/ControlBar';
 import MobileDrawer from '@/components/sudoku/MobileDrawer';
 import AccountMenu from '@/components/sudoku/AccountMenu';
+import KeyboardShortcutsDialog from '@/components/sudoku/panel/KeyboardShortcutsDialog';
 import { playErrorTone } from '@/components/sudoku/errorSound';
 import { resolveShortcut, isTypingTarget } from '@/components/sudoku/keyboardShortcuts';
 import { findNextLogicStep } from '@/components/sudoku/logicEngine';
@@ -47,6 +48,7 @@ export default function SudokuMentor() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [chainPlaybackIndex, setChainPlaybackIndex] = useState(0);
   const [showAppInfo, setShowAppInfo] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
   const [showCopyConfirmation, setShowCopyConfirmation] = useState(false);
   const [noAssistMode, setNoAssistMode] = useState(false);
   const [showNoAssistModal, setShowNoAssistModal] = useState(false);
@@ -398,6 +400,10 @@ export default function SudokuMentor() {
           e.preventDefault();
           handleClearGrid();
           return;
+        case 'shortcuts':
+          e.preventDefault();
+          setShowShortcuts(true);
+          return;
         default:
           return;
       }
@@ -633,6 +639,16 @@ export default function SudokuMentor() {
 
               {/* Desktop-only buttons */}
               <button
+                onClick={() => setShowShortcuts(true)}
+                className="hidden lg:block p-2 bg-slate-800 text-slate-300 rounded-xl hover:bg-slate-700 transition-all duration-200"
+                title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="3" y="6" width="18" height="12" rx="2" strokeWidth={2} />
+                  <path strokeLinecap="round" strokeWidth={2} d="M7 10h.01M11 10h.01M15 10h.01M7 14h10" />
+                </svg>
+              </button>
+              <button
                 onClick={() => setShowAppInfo(true)}
                 className="hidden lg:block p-2 bg-slate-800 text-slate-300 rounded-xl hover:bg-slate-700 transition-all duration-200"
                 title="About Sudoku Mentor" aria-label="About Sudoku Mentor"
@@ -766,14 +782,13 @@ export default function SudokuMentor() {
           {/* Right Column - Logic Panel (one instance; it lives in the
               drawer below the desktop breakpoint) */}
           {isLargeScreen && (
-            <div>
+            <div className="lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto lg:pr-1">
               <LogicPanel
                 currentStep={currentStep}
                 focusedDigit={focusedDigit}
                 grid={game.logicGrid}
                 onAssistUsed={game.noteAssistUsed}
                 noAssistMode={noAssistMode}
-                onApplyStep={handleApplyStep}
                 onNextStep={handleNextStep}
                 searchingHint={searchingHint}
                 onCancelHintSearch={cancelHintSearch}
@@ -795,7 +810,6 @@ export default function SudokuMentor() {
             grid={game.logicGrid}
             onAssistUsed={game.noteAssistUsed}
             noAssistMode={noAssistMode}
-            onApplyStep={handleApplyStep}
             onNextStep={handleNextStep}
             searchingHint={searchingHint}
             onCancelHintSearch={cancelHintSearch}
@@ -808,6 +822,8 @@ export default function SudokuMentor() {
           />
         </MobileDrawer>
       )}
+
+      <KeyboardShortcutsDialog open={showShortcuts} onClose={() => setShowShortcuts(false)} />
 
       <WelcomeTour
         open={showTour}

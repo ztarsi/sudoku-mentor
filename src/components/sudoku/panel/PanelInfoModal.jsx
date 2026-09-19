@@ -5,12 +5,8 @@ import { useDialog } from '@/hooks/useDialog';
 
 const CONTENT = {
   techniques: {
-    title: 'Technique Hierarchy',
+    title: 'Techniques',
     body: 'Browse all Sudoku solving techniques organized by difficulty. Click on technique names to learn how they work, or click the counter badges to see live examples in your current puzzle. Use the Scan button to find advanced techniques.',
-  },
-  shortcuts: {
-    title: 'Keyboard Shortcuts',
-    body: 'Speed up your solving with keyboard shortcuts. Navigate the grid with arrow keys, enter numbers directly, and use Shift for candidate mode. Press H for hints and A to apply the current step. All shortcuts work seamlessly together for efficient solving.',
   },
 };
 
