@@ -64,6 +64,8 @@ export default function LogicPanel({
   nothingLeft = false,
   onShowSingle,
   getElapsedSeconds,
+  hintPrompt = null,
+  cardPrompt = null,
 }) {
   const [selectedTechnique, setSelectedTechnique] = useState(null);
   // The lesson comes first; the technique browser is an expert tool,
@@ -260,6 +262,8 @@ export default function LogicPanel({
         nothingLeft={nothingLeft}
         onShowSingle={onShowSingle}
         getElapsedSeconds={getElapsedSeconds}
+        hintPrompt={hintPrompt}
+        cardPrompt={cardPrompt}
         onSelectTechnique={setSelectedTechnique}
         chainPlaybackIndex={chainPlaybackIndex}
         onChainPlaybackChange={onChainPlaybackChange}

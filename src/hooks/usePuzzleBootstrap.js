@@ -9,7 +9,7 @@ import {
 /**
  * What to show when a page mounts, in order:
  *   1. the saved game, if there is an unfinished one;
- *   2. a gentle starter puzzle for a first-time visitor (caller shows the tour);
+ *   2. a gentle starter puzzle for a first-time visitor (caller starts the inline prompts);
  *   3. otherwise a random puzzle from the library plus the player's uploads.
  *
  * The random pick is asynchronous. If the player loads a puzzle themselves

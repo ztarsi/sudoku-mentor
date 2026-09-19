@@ -16,7 +16,19 @@ import {
   buildFocusedCandidates,
 } from '@/components/sudoku/stepHighlights';
 import { markOnboarded, fetchAllPuzzleEntries, pickNextOnShelf, shelfAbove } from '@/components/sudoku/puzzleSources';
-import WelcomeTour from '@/components/sudoku/WelcomeTour';
+import HowToPlayDialog from '@/components/sudoku/HowToPlayDialog';
+import Callout from '@/components/sudoku/Callout';
+import {
+  startOnboarding,
+  onFirstPlacement,
+  onHintDelay,
+  onHintAsked,
+  onStepShown,
+  onStepCleared,
+  dismissPrompt,
+  visiblePrompts,
+  HINT_PROMPT_DELAY_MS,
+} from '@/lib/onboarding';
 import { FolderOpen, HelpCircle, Keyboard, Palette, Printer, Copy, Trash2, Info, Moon, Sun, MonitorSmartphone } from 'lucide-react';
 import { useSudokuGame } from '@/hooks/useSudokuGame';
 import { useSudokuPlayer } from '@/hooks/useSudokuPlayer';
@@ -57,6 +69,9 @@ const stepCells = (step) => {
   ].filter((c) => typeof c === 'number');
   return [...new Set(cells)];
 };
+
+const HINT_PROMPT = 'Stuck? Ask for a hint.';
+const CARD_PROMPT = 'Apply it, or place the digit yourself to practise.';
 
 const formatClock = (seconds) => {
   const s = Math.max(0, Math.floor(seconds || 0));
@@ -112,7 +127,9 @@ export default function SudokuMentor() {
   const appInfoDialog = useDialog({ open: showAppInfo, onClose: () => setShowAppInfo(false) });
   const noAssistDialog = useDialog({ open: showNoAssistModal, onClose: () => setShowNoAssistModal(false) });
   const [candidatesVisible, setCandidatesVisible] = useState(true);
-  const [showTour, setShowTour] = useState(false);
+  const [showHowToPlay, setShowHowToPlay] = useState(false);
+  // The first visit's three in-context prompts; null for a returning visitor.
+  const [onboarding, setOnboarding] = useState(null);
 
   const [srAnnouncement, setSrAnnouncement] = useState('');
 
@@ -310,6 +327,7 @@ export default function SudokuMentor() {
     if (hintSearchRef.current) return; // a search is already running
     setChainPlaybackIndex(0); // Reset playback for new hint
     setSheetOpen(true); // the lesson sheet, where the lesson is not a column
+    setOnboarding(onHintAsked);
 
     const gridAtStart = game.grid;
     let step = findNextLogicStep(game.logicGrid, null);
@@ -543,7 +561,7 @@ export default function SudokuMentor() {
         showCompletion ||
         showAppInfo ||
         showClearConfirm ||
-        showTour ||
+        showHowToPlay ||
         !!document.querySelector('[role="dialog"]');
       if (isModalOpen) return;
 
@@ -754,7 +772,12 @@ export default function SudokuMentor() {
     restoreSavedGame: game.restoreSavedGame,
     loadPuzzle: handleLoadPuzzle,
     user,
-    onFirstVisit: () => setShowTour(true),
+    // No modal on arrival: the board is live at once and the three ideas
+    // arrive as prompts, each on the control it concerns, once.
+    onFirstVisit: () => {
+      markOnboarded();
+      setOnboarding(startOnboarding());
+    },
   });
   markUserLoadRef.current = markUserLoad;
 
@@ -775,6 +798,29 @@ export default function SudokuMentor() {
       return cell;
     });
   }, [game.grid, currentStep, chainPlaybackIndex]);
+
+  // The first visit's prompts: which are on screen now, and what moves them on.
+  const prompts = visiblePrompts(onboarding, { hasStep: currentStep !== null, canHint: !effectiveNoAssist && !phone });
+  // The first digit the player placed (givens do not count).
+  const playerPlaced = useMemo(() => game.grid.some((c) => !c.isFixed && c.value !== null), [game.grid]);
+  useEffect(() => {
+    if (onboarding && playerPlaced) setOnboarding(onFirstPlacement);
+  }, [onboarding, playerPlaced]);
+  useEffect(() => {
+    if (!onboarding || onboarding.hint !== 'pending') return undefined;
+    const id = setTimeout(() => setOnboarding(onHintDelay), HINT_PROMPT_DELAY_MS);
+    return () => clearTimeout(id);
+  }, [onboarding]);
+  useEffect(() => {
+    setOnboarding(currentStep ? onStepShown : onStepCleared);
+  }, [currentStep]);
+  const boardPrompt = prompts.board ? (
+    <div className="flex justify-center">
+      <Callout arrow="down" onDismiss={() => setOnboarding((s) => dismissPrompt(s, 'board'))} testId="prompt-board">
+        {touchInput ? 'Pick a digit, then tap cells' : 'Tap a cell, then a digit'}
+      </Callout>
+    </div>
+  ) : null;
 
   const board = (
     <div className="flex justify-center">
@@ -825,7 +871,13 @@ export default function SudokuMentor() {
       onMarksVisibleChange={setCandidatesVisible}
       hint={
         sheetMode
-          ? { onClick: handleHintButton, disabled: effectiveNoAssist, searching: searchingHint, onCancel: cancelHintSearch }
+          ? {
+              onClick: handleHintButton,
+              disabled: effectiveNoAssist,
+              searching: searchingHint,
+              onCancel: cancelHintSearch,
+              prompt: prompts.hint ? { text: HINT_PROMPT, onDismiss: () => setOnboarding((s) => dismissPrompt(s, 'hint')) } : null,
+            }
           : null
       }
     />
@@ -867,6 +919,8 @@ export default function SudokuMentor() {
       nothingLeft={nothingLeft}
       onShowSingle={() => handleNextStep(true)}
       getElapsedSeconds={game.getElapsedSeconds}
+      hintPrompt={lesson === 'column' && prompts.hint ? { text: HINT_PROMPT, onDismiss: () => setOnboarding((s) => dismissPrompt(s, 'hint')) } : null}
+      cardPrompt={prompts.card ? { text: CARD_PROMPT, onDismiss: () => setOnboarding((s) => dismissPrompt(s, 'card')) } : null}
       searchingHint={searchingHint}
       onCancelHintSearch={cancelHintSearch}
       onChainPlaybackChange={setChainPlaybackIndex}
@@ -967,7 +1021,7 @@ export default function SudokuMentor() {
               <AccountMenu user={user} />
               <HeaderMenu
                 items={[
-                  { id: 'how', label: 'How to play', icon: HelpCircle, onSelect: () => setShowTour(true) },
+                  { id: 'how', label: 'How to play', icon: HelpCircle, onSelect: () => setShowHowToPlay(true) },
                   { id: 'keys', label: 'Keyboard shortcuts', icon: Keyboard, hint: '?', onSelect: () => setShowShortcuts(true) },
                   null,
                   { heading: 'Theme' },
@@ -999,6 +1053,7 @@ export default function SudokuMentor() {
           <div className={`grid gap-6 xl:gap-8 ${arrangement === 'wide' ? 'grid-cols-[1fr,380px]' : 'grid-cols-[1fr,300px]'}`}>
             <div className="space-y-4 min-w-0">
               {statusStrip}
+              {boardPrompt}
               {board}
               {stripCard}
             </div>
@@ -1009,6 +1064,7 @@ export default function SudokuMentor() {
         ) : (
           <div className="mx-auto w-full max-w-[600px] space-y-4">
             {statusStrip}
+            {boardPrompt}
             {board}
             {!stripFixed && stripCard}
           </div>
@@ -1044,14 +1100,7 @@ export default function SudokuMentor() {
 
       <KeyboardShortcutsDialog open={showShortcuts} onClose={() => setShowShortcuts(false)} />
 
-      <WelcomeTour
-        open={showTour}
-        variant={touchInput ? 'mobile' : 'desktop'}
-        onClose={() => {
-          markOnboarded();
-          setShowTour(false);
-        }}
-      />
+      <HowToPlayDialog open={showHowToPlay} variant={touchInput ? 'mobile' : 'desktop'} onClose={() => setShowHowToPlay(false)} />
 
       {/* Unified Puzzle Loader Modal */}
       {showPuzzleLoader && (

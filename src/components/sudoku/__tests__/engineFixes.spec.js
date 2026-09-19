@@ -277,8 +277,11 @@ describe('BUG+1', () => {
 });
 
 describe('onlySinglesRemain', () => {
-  it('is false at the start of a puzzle that needs more than singles, true near the end', async () => {
+  it('is false at the start of an Easy puzzle (singles are still worth teaching), true near the end', async () => {
     const { onlySinglesRemain, findNextLogicStep, applyLogicStep } = await import('../logicEngine');
+    const easy = PUZZLES.easy[0];
+    const easyGrid = generateCandidates(easy.puzzle.map((v, i) => ({ cellIndex: i, value: v || null, isFixed: !!v, candidates: [] })));
+    expect(onlySinglesRemain(easyGrid)).toBe(false);
     const entry = PUZZLES.medium[0];
     let grid = generateCandidates(entry.puzzle.map((v, i) => ({ cellIndex: i, value: v || null, isFixed: !!v, candidates: [] })));
     expect(onlySinglesRemain(grid)).toBe(false);

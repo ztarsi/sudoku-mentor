@@ -1004,18 +1004,22 @@ export const applyLogicStep = (grid, step) => {
 };
 
 /**
- * True when every remaining cell falls to Naked or Hidden Singles alone,
- * so the mentor has nothing left to teach here ("nothing left" hint state).
- * Bounded by the number of empty cells; each pass is a singles scan.
+ * True when every empty cell is a single right now - one candidate left, or
+ * the only place for some digit in one of its units - so the mentor has
+ * nothing left to teach here ("nothing left" hint state). Deliberately the
+ * narrow reading: an Easy puzzle at its start still has singles to teach,
+ * one at a time; only a board that is all singles at once is "finished".
  */
 export const onlySinglesRemain = (grid) => {
-  let g = grid;
-  for (let n = 0; n < 82; n++) {
-    if (g.every((c) => c.value !== null)) return true;
-    const step = findNextLogicStep(g, null);
-    if (!step) return false;
-    if (step.technique !== 'Naked Single' && step.technique !== 'Hidden Single') return false;
-    g = applyLogicStep(g, step);
-  }
-  return false;
+  const empties = grid.map((c, i) => (c.value === null ? i : -1)).filter((i) => i !== -1);
+  if (empties.length === 0) return true;
+  const isHiddenSingle = (index, digit) =>
+    [getRowIndices(getRow(index)), getColIndices(getCol(index)), getBoxIndices(getBox(index))].some((unit) =>
+      unit.every((j) => j === index || grid[j].value !== null || !grid[j].candidates.includes(digit))
+    );
+  return empties.every((index) => {
+    const cands = grid[index].candidates;
+    if (cands.length === 1) return true;
+    return cands.some((digit) => isHiddenSingle(index, digit));
+  });
 };

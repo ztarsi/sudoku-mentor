@@ -5,6 +5,7 @@ import { LEVEL_COLORS, TECHNIQUE_INFO } from '../techniqueCatalog';
 import { explainStep, readExplainLevel, writeExplainLevel, legendFor } from '../explainStep';
 
 import { cellName as cellRef } from '../gridUnits';
+import Callout from '../Callout';
 
 /**
  * Beginner / Expert switch for the explanation text. The selected option is
@@ -327,6 +328,8 @@ export default function CurrentStepCard({
   nothingLeft = false,
   onShowSingle,
   getElapsedSeconds,
+  hintPrompt = null,
+  cardPrompt = null,
 }) {
   const techniqueInfo = currentStep ? TECHNIQUE_INFO[currentStep.technique] : null;
   const [explainLevel, setExplainLevel] = useState(readExplainLevel);
@@ -492,6 +495,11 @@ export default function CurrentStepCard({
               </div>
             )}
 
+            {cardPrompt && (
+              <div className="pb-1">
+                <Callout arrow="down" onDismiss={cardPrompt.onDismiss} testId="prompt-card">{cardPrompt.text}</Callout>
+              </div>
+            )}
             <ActionRow>
               <PrimaryButton onClick={onApplyStep} tone={isWhatIf ? 'amber' : 'emerald'} aria-keyshortcuts="A">
                 <Play className="w-4 h-4" aria-hidden="true" /> Apply
@@ -523,7 +531,12 @@ export default function CurrentStepCard({
   // ---------- Idle
   return (
     <CardShell icon={Lightbulb} title="Stuck? Ask for a hint." subtitle="The mentor finds the next logical step and explains it.">
-      <div className="p-4">
+      <div className="p-4 space-y-3">
+        {hintPrompt && (
+          <div>
+            <Callout arrow="down" onDismiss={hintPrompt.onDismiss} testId="prompt-hint">{hintPrompt.text}</Callout>
+          </div>
+        )}
         <PrimaryButton onClick={onNextStep} aria-label="Get a hint" aria-keyshortcuts="H">
           <Lightbulb className="w-4 h-4" aria-hidden="true" /> Hint
         </PrimaryButton>

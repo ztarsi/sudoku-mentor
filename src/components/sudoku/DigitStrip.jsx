@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pencil, Undo2, Redo2, Eraser, Lightbulb, Loader2, Eye, EyeOff } from 'lucide-react';
 import { cellName } from './gridUnits';
+import Callout from './Callout';
 
 /**
  * The one input strip under the board, on every width (digit-strip spec).
@@ -16,7 +17,9 @@ import { cellName } from './gridUnits';
  * (desktop) or a fixed bar (touch). `touch` enlarges every target to at
  * least 44px tall. When the lesson lives in a sheet rather than a column,
  * the page passes `hint` and the strip carries the Hint button too
- * (one-adaptive-page spec): `{ onClick, disabled, searching, onCancel }`.
+ * (one-adaptive-page spec): `{ onClick, disabled, searching, onCancel,
+ * prompt? }`; `prompt` is the first visit's "Stuck?" callout, floated
+ * above the button (inline-onboarding spec).
  * Showing or hiding pencil marks lives next to Pencil (header-and-menu
  * spec) when the page passes `marksVisible` and `onMarksVisibleChange`.
  */
@@ -104,20 +107,27 @@ export default function DigitStrip({
             Cancel
           </button>
         ) : (
-          <button
-            type="button"
-            onClick={hint.onClick}
-            disabled={!!hint.disabled}
-            aria-label="Get a hint"
-            className={`flex-1 rounded-lg text-sm font-medium flex items-center justify-center gap-1.5 transition-colors ${controlSize} ${
-              hint.disabled
-                ? 'bg-slate-800/60 text-slate-600 cursor-not-allowed'
-                : 'bg-amber-500/90 text-black hover:bg-amber-400'
-            }`}
-          >
-            <Lightbulb className="w-4 h-4" aria-hidden="true" />
-            Hint
-          </button>
+          <div className="relative flex-1 flex">
+            {hint.prompt && (
+              <div className="absolute bottom-full left-0 mb-2 z-10 whitespace-nowrap">
+                <Callout arrow="down" onDismiss={hint.prompt.onDismiss} testId="prompt-hint">{hint.prompt.text}</Callout>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={hint.onClick}
+              disabled={!!hint.disabled}
+              aria-label="Get a hint"
+              className={`flex-1 rounded-lg text-sm font-medium flex items-center justify-center gap-1.5 transition-colors ${controlSize} ${
+                hint.disabled
+                  ? 'bg-slate-800/60 text-slate-600 cursor-not-allowed'
+                  : 'bg-amber-500/90 text-black hover:bg-amber-400'
+              }`}
+            >
+              <Lightbulb className="w-4 h-4" aria-hidden="true" />
+              Hint
+            </button>
+          </div>
         ))}
         <button
           type="button"
