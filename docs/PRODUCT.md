@@ -54,41 +54,49 @@ Sudoku Mentor promises four things. If a change breaks any of them, it is the wr
 
 ## 7. What the product is today
 
-This section describes the product players have, which is what is on `main`. The UX pass on `staging` (roadmap section 10) changes much of it; this section is rewritten when that is released.
+As of the UX pass on `staging` (2026-09-19). It reaches players with the first release from `staging` to `main`; until then `main` still carries the previous layout (a separate phone page, a technique hierarchy above the hint, a Focus Mode card, Auto-Solve).
 
-### 7.1 Playing
+### 7.1 One page, four arrangements
 
-- A 9x9 board with pencil marks (candidates) that are filled in automatically when a puzzle loads and maintained as digits are placed.
-- Desktop input: click a cell, type a digit; click a pencil mark to place it; hold Shift to work on pencil marks; keyboard shortcuts for every action.
-- Mobile input: pick a digit, tap cells; a candidate mode with a numpad; undo and erase within reach of a thumb.
-- Wrong entries are refused with a red flash of the refused digit, a sound, a screen-reader announcement, and an error count.
+- One page that arranges itself by width and pointer. Wide (about 1200px and up): board on the left, the lesson panel on the right. Medium (800 to 1199px): the same, or a side sheet that opens on Hint where both do not fit. Stacked (600 to 799px, tablets in portrait): board over the strip, the lesson as a bottom sheet. Phone (under 600px): board and strip only, always No Assist, labelled "No Assist: timed, no hints" with a visible timer.
+- The board keeps its size within the viewport so the digit strip is always on screen with it.
+- The game in progress, the explanation level, the theme and the Techniques choice are saved locally and survive a reload, a resize and a rotation.
+
+### 7.2 Playing
+
+- A 9x9 board with pencil marks filled in automatically when a puzzle loads and maintained as digits are placed.
+- One digit strip under the board on every width: digits 1 to 9 with placed counts (a completed digit greys out), Pencil, Marks (show or hide pencil marks), Undo, Redo, Erase, and Hint wherever the lesson lives in a sheet. Both habits work everywhere: pick a digit then tap cells, or select a cell then tap or type a digit. A digit picked with no cell selected is highlighted on the board. Keyboard shortcuts cover every action; "?" opens the reference.
+- Wrong entries are refused with a red flash, named on the strip ("4 can't go in R2C1"), announced to screen readers and counted. Progress and the error count sit above the board on every width.
 - Undo and redo across every move, including applied hints.
-- The game in progress is saved locally and resumed on the next visit.
 
-### 7.2 Learning
+### 7.3 Learning
 
-- **Hint** finds the easiest technique that applies right now, highlights its cells, and explains it. Explanations come in two levels, Beginner (plain words, Look / Why it works / What to do) and Expert (standard terminology plus a glossary), and the choice is remembered.
-- **Apply** performs the hinted step as a single undoable move.
-- **Technique hierarchy** shows every technique the mentor knows, in teaching order, with live counts of how many instances are on the current board. Any instance can be highlighted.
-- **Learn this technique** opens a reference for each technique: in plain words, the formal version, how to find it, and an example.
-- **Scan** searches the board for the expert-level patterns that are too slow to check on every move.
-- **What-if search** (forcing chains and hypothesis testing) is available when no named technique applies, clearly labelled as reasoning by search rather than by pattern, with a step-by-step replay of the chain.
-- **Focus a digit** to see only where it can go.
+- The hint card is the first thing in the lesson panel. Its states: idle ("Stuck? Ask for a hint"); found (technique name and tier, chips for every digit involved, Look / Why it works / What to do at the Beginner or Expert level, a legend naming a cell from this hint, Apply and Next hint); what-if (a distinct heading and colour, with the chain replay); searching (with Cancel); No Assist (the timer, no hint); only singles left (only when every remaining empty cell shows one pencil mark and a single has already been taught on this puzzle; "Show me the next one" gives a lesson); solved (the techniques the puzzle used, time and errors, "Next puzzle on this shelf", "Try the shelf above").
+- Beginner explanations are the default and use R5C3 notation with a legend; the Expert level adds standard terminology and a glossary. The choice is remembered.
+- **Techniques**, collapsed under the hint card and remembered: every technique the mentor knows in teaching order, with live counts on the current board, click-to-highlight, a reference dialog per technique (plain words, formal version, how to find it, example), Scan for the expert-level patterns, and Search for what-if chains, clearly labelled as reasoning by search.
+- First visit: no dialog. Three prompts, each once and in place: on the board until the first digit, on the Hint button after the first placement, on the first hint card. "How to play" in the menu repeats them with the one-line rules.
 
-### 7.3 Puzzles
+### 7.4 Puzzles
 
-- A built-in library of vetted puzzles on six shelves: Easy, Medium, Hard, Expert, Diabolical, Ultimate. Each shelf is calibrated against the techniques the mentor can actually explain, and the Ultimate shelf is labelled as needing what-if search.
-- New visitors start on an easy or medium puzzle with a short welcome tour.
+- A built-in library on six shelves: Easy, Medium, Hard, Expert, Diabolical, Ultimate, calibrated against the techniques the mentor can explain; the Ultimate shelf is labelled as needing what-if search. Opened from the puzzle name in the header or from Load puzzle.
+- New visitors start on an easy or medium starter puzzle.
 - Any puzzle can be pasted as 81 digits. Signed-in players can also photograph a puzzle, and their puzzles are kept in a personal library.
 
-### 7.4 Competing
+### 7.5 Competing
 
-- **No Assist mode** disables all help and records a clean solve time per puzzle for signed-in players. Best times appear in the library.
-- The mobile page is always No Assist: it is the "just play" surface.
+- **No Assist** is a labelled switch in the header ("No Assist: off" / "No Assist: on" with the timer). It disables hints, the Techniques counts, Scan and Search; a solve counts as clean only if nothing assisted at any point, and clean solves are recorded for signed-in players with best times in the library.
+- The phone is always No Assist: it is the "just play" surface for now.
 
-### 7.5 Account
+### 7.6 Header, menu and appearance
 
-- Optional sign-in. Adds: saved puzzles, solve records, and personal colour preferences.
+- Header: puzzle name and shelf (opens the library), the No Assist switch, Load puzzle, Sign in or the account, and one menu. Nothing in the header is icon-only except the menu.
+- Menu: How to play, Keyboard shortcuts, Theme (Dark, Paper, Match my device), Colours, Print puzzle, Copy puzzle, Clear the board (with a confirm), About.
+- Two themes, dark and paper, remembered without an account and synced with the account when signed in; the colour editor adjusts the current theme's five board colours.
+- Toasts appear at the bottom on desktop and above the strip on touch devices, never over the board.
+
+### 7.7 Account
+
+- Optional sign-in. Adds: saved puzzles, solve records and best times, and theme and colour preferences across devices. Everything else works signed out, including when the platform is unreachable: the board never waits on it.
 
 ## 8. Quality bar
 
@@ -127,8 +135,8 @@ The UX pass, in order. Audit and target experience: [the UX review](reviews/2026
 4. [One adaptive page](specs/one-adaptive-page.md): wide, medium, stacked and phone arrangements of one page; the mobile page goes. Shipped and verified 2026-09-19; follow-up #55.
 5. [Header and menu](specs/header-and-menu.md): puzzle, progress and errors on every width; No Assist as a labelled switch; everything secondary behind a hamburger menu. Shipped and verified 2026-09-19.
 6. [Paper theme](specs/paper-theme.md): a light theme next to dark, switchable and remembered. Shipped and verified 2026-09-19.
-7. [Inline onboarding](specs/inline-onboarding.md): three in-context prompts instead of the tour modal. In progress.
-8. UX pass follow-ups from verification: #53 tour click falls through to the board and arms a digit; #54 the only-singles state fires on Easy puzzles; #55 the strip and Hint sit below the fold on laptops and medium windows. Then the first release of the UX pass from `staging` to `main`.
+7. [Inline onboarding](specs/inline-onboarding.md): three in-context prompts instead of the tour modal. Shipped and verified 2026-09-19.
+8. UX pass follow-ups from verification (#53, #54, #55): shipped and verified 2026-09-19. Next: the first release of the UX pass from `staging` to `main`, on the founder's go, with the release checklist in docs/STAGING.md.
 
 Then:
 
@@ -174,6 +182,7 @@ Then:
 
 Short record of product decisions and why, newest first.
 
+- 2026-09-19: The UX pass is complete on `staging` and verified: all seven specs and the three follow-ups shipped (PRs #46 to #52 and #57 to #59), each verified from the player's side on a build identical to the staging bundle. Section 7 now describes this product. Ready for the first release from `staging` to `main` on the founder's go; the checklist in docs/STAGING.md applies (CI green, play-and-learn loop verified on staging, the five Base44-dependent features spot-checked on the live app after deploy).
 - 2026-09-19: Six of the seven UX-pass specs shipped to `staging` in one evening (PRs #46 to #51) and were verified from the player's side on a build identical to the staging bundle. Verified: the lesson is on screen without scrolling at 1366x768; one digit strip everywhere; designed hint card states; one adaptive page with side and bottom sheets; a header in words with one menu; the paper theme. Three follow-ups filed (#53 tour click-through arms a digit, #54 only-singles state on Easy puzzles, #55 strip below the fold). Section 7 still describes the released product on `main`; it is rewritten at the first release of the UX pass.
 - 2026-09-19: The "nothing left" hint state is narrowed to "only singles left": it appears only when every remaining empty cell shows exactly one pencil mark, and never before the player has seen a single lesson on the puzzle. Reason: the first version told a learner on an Easy puzzle there was nothing to teach at the first press of Hint, while the board showed cells with three pencil marks. Singles are the learner's lesson.
 - 2026-09-19: Staging is live at https://sdm.pilia.net and verified from the product manager's session. Finding on the way: startup waits on the platform with no time limit, so a hanging connection leaves the player on a spinner; filed as issue #42 with the fix expected before the UX pass lands on staging.

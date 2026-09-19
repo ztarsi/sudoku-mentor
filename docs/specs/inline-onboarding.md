@@ -34,3 +34,7 @@ A new visitor is playing within seconds, and each of the three ideas arrives at 
 
 - First placement on a fresh visit under ten seconds, measured the same way as the quality bar.
 - Once analytics exist: return rate (section 9, measure 1) for first-time visitors, compared before and after; and the share of first sessions that ask for at least one hint.
+
+## Outcome
+
+Shipped in PR #52 to `staging` on 2026-09-19; verified the same day by the product manager on a production build identical to the staging bundle (`index-C2ikdHtv.js`). No dialog on arrival; "Tap a cell, then a digit" above the board ("Pick a digit, then tap cells" on the phone); the hint prompt after the first placement; "Apply it, or place the digit yourself to practise" on the first hint card; nothing for a returning visitor; How to play in the menu with the one-line rules. Done.
