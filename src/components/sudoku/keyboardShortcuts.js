@@ -55,6 +55,7 @@ export const resolveShortcut = (e, { hasSelection }) => {
   if (lower === 'z' && !e.shiftKey) return { type: 'undo' };
   if (lower === 'z' && e.shiftKey) return { type: 'redo' };
   if (lower === 'y' && mod) return { type: 'redo' };
+  if (key === '?') return { type: 'shortcuts' };
   return null;
 };
 
@@ -72,4 +73,5 @@ export const SHORTCUT_REFERENCE = [
   { label: 'Clear cell', keys: 'Delete / Backspace' },
   { label: 'Clear grid', keys: 'C' },
   { label: 'Clear selection and focus', keys: 'Esc' },
+  { label: 'This list', keys: '?' },
 ];

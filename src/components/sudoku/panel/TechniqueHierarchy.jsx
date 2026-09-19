@@ -28,7 +28,7 @@ export default function TechniqueHierarchy({
           aria-expanded={expanded && !noAssistMode}
           className="flex-1 min-w-0 p-5 pr-2 flex items-center justify-between gap-2 text-left disabled:cursor-not-allowed"
         >
-          <h4 className="text-lg font-semibold">Technique Hierarchy</h4>
+          <h4 className="text-lg font-semibold">Techniques</h4>
           {expanded ? (
             <ChevronUp className="w-5 h-5 text-slate-400" />
           ) : (
@@ -39,7 +39,7 @@ export default function TechniqueHierarchy({
           onClick={onShowInfo}
           className="p-2 mr-3 hover:bg-slate-700 rounded-lg transition-colors"
           title="Learn more"
-          aria-label="About the technique hierarchy"
+          aria-label="About techniques"
         >
           <Info className="w-4 h-4 text-slate-400" />
         </button>

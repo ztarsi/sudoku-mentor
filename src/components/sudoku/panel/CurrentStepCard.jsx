@@ -85,9 +85,9 @@ const Explanation = ({ explanation }) => {
   ].filter(Boolean);
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       {blocks.map(({ key, icon: Icon, label, text, tone }) => (
-        <div key={key} className="bg-slate-800 rounded-xl p-4 flex gap-3">
+        <div key={key} className="bg-slate-800 rounded-xl px-4 py-3 flex gap-3">
           <Icon className={`w-5 h-5 mt-0.5 shrink-0 ${tone}`} aria-hidden="true" />
           <div className="min-w-0">
             <p className={`text-xs font-semibold uppercase tracking-wide ${tone} mb-1`}>{label}</p>
@@ -260,10 +260,10 @@ export default function CurrentStepCard({
     <motion.div
       className="bg-slate-900 rounded-2xl shadow-lg shadow-black/50 overflow-hidden border border-slate-700"
     >
-      <div className="p-5 border-b border-slate-800">
+      <div className="px-5 py-4 border-b border-slate-800">
         <div className="flex items-center gap-3">
           <div className={`
-            w-10 h-10 rounded-xl flex items-center justify-center
+            w-9 h-9 rounded-xl flex items-center justify-center
             ${currentStep
               ? `bg-gradient-to-br ${LEVEL_COLORS[techniqueInfo?.color || 'emerald']} shadow-lg`
               : 'bg-slate-800'
@@ -293,7 +293,7 @@ export default function CurrentStepCard({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="p-5 space-y-4"
+            className="p-4 space-y-3"
           >
             {/* Technique Name */}
             <div className="flex items-center gap-2 flex-wrap">
