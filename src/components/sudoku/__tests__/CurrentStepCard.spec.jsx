@@ -89,11 +89,12 @@ describe('CurrentStepCard states', () => {
     expect(queryByRole('button', { name: 'Try the shelf above' })).toBeNull();
   });
 
-  it('nothing left: says so and can still show a single', () => {
+  it('only singles left: says the marks say the rest and still shows the next one', () => {
     const onShowSingle = vi.fn();
     const { getByText, getByRole } = show({ nothingLeft: true, onShowSingle });
-    expect(getByText('Every remaining cell is a single.')).toBeTruthy();
-    fireEvent.click(getByRole('button', { name: 'Show me one anyway' }));
+    expect(getByText('Only singles left')).toBeTruthy();
+    expect(getByText('Every empty cell now shows a single pencil mark; write them in to finish.')).toBeTruthy();
+    fireEvent.click(getByRole('button', { name: 'Show me the next one' }));
     expect(onShowSingle).toHaveBeenCalled();
   });
 });

@@ -277,6 +277,16 @@ describe('BUG+1', () => {
 });
 
 describe('onlySinglesRemain', () => {
+  it('is true only when every empty cell shows exactly one pencil mark', async () => {
+    const { onlySinglesRemain } = await import('../logicEngine');
+    const grid = Array.from({ length: 81 }, (_, i) => ({ value: i < 79 ? (i % 9) + 1 : null, isFixed: true, candidates: [] }));
+    grid[79].candidates = [4];
+    grid[80].candidates = [4, 5]; // a hidden single, maybe, but two marks on screen
+    expect(onlySinglesRemain(grid)).toBe(false);
+    grid[80].candidates = [5];
+    expect(onlySinglesRemain(grid)).toBe(true);
+  });
+
   it('is false at the start of an Easy puzzle (singles are still worth teaching), true near the end', async () => {
     const { onlySinglesRemain, findNextLogicStep, applyLogicStep } = await import('../logicEngine');
     const easy = PUZZLES.easy[0];

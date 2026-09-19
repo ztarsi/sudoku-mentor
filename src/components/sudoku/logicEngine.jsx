@@ -1004,22 +1004,12 @@ export const applyLogicStep = (grid, step) => {
 };
 
 /**
- * True when every empty cell is a single right now - one candidate left, or
- * the only place for some digit in one of its units - so the mentor has
- * nothing left to teach here ("nothing left" hint state). Deliberately the
- * narrow reading: an Easy puzzle at its start still has singles to teach,
- * one at a time; only a board that is all singles at once is "finished".
+ * True when every empty cell shows exactly one pencil mark, so the board
+ * the player is looking at says the rest by itself ("only singles left"
+ * hint state, amended for issue #54). Pass the player's grid, not the
+ * repaired one: the wording must be true of the marks on screen. Hidden
+ * singles do not count; until the marks say it, Hint keeps teaching
+ * singles as lessons.
  */
-export const onlySinglesRemain = (grid) => {
-  const empties = grid.map((c, i) => (c.value === null ? i : -1)).filter((i) => i !== -1);
-  if (empties.length === 0) return true;
-  const isHiddenSingle = (index, digit) =>
-    [getRowIndices(getRow(index)), getColIndices(getCol(index)), getBoxIndices(getBox(index))].some((unit) =>
-      unit.every((j) => j === index || grid[j].value !== null || !grid[j].candidates.includes(digit))
-    );
-  return empties.every((index) => {
-    const cands = grid[index].candidates;
-    if (cands.length === 1) return true;
-    return cands.some((digit) => isHiddenSingle(index, digit));
-  });
-};
+export const onlySinglesRemain = (grid) =>
+  grid.every((c) => c.value !== null || (Array.isArray(c.candidates) && c.candidates.length === 1));
