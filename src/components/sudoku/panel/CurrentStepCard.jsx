@@ -1,8 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Lightbulb, Eye, Sparkles, Check } from 'lucide-react';
+import { Lightbulb, Eye, Sparkles, Check, FlaskConical, Timer, Trophy, Play, ChevronRight, Loader2, X, Sprout } from 'lucide-react';
 import { LEVEL_COLORS, TECHNIQUE_INFO } from '../techniqueCatalog';
-import { explainStep, readExplainLevel, writeExplainLevel, CELL_LEGEND } from '../explainStep';
+import { explainStep, readExplainLevel, writeExplainLevel, legendFor } from '../explainStep';
 
 import { cellName as cellRef } from '../gridUnits';
 
@@ -45,7 +45,7 @@ const LevelToggle = ({ level, onChange }) => (
  * "Do" so a beginner can follow it one idea at a time; detailed mode shows
  * the engine's own text with a glossary for its terms.
  */
-const Explanation = ({ explanation }) => {
+const Explanation = ({ explanation, legend }) => {
   if (!explanation) return null;
   const { level, look, why, extra, action, terms } = explanation;
 
@@ -96,7 +96,7 @@ const Explanation = ({ explanation }) => {
         </div>
       ))}
       {extra && <p className="text-xs text-slate-500 px-1">{extra}</p>}
-      <p className="text-xs text-slate-500 px-1">{CELL_LEGEND}</p>
+      <p className="text-xs text-slate-500 px-1">{legend}</p>
     </div>
   );
 };
@@ -231,12 +231,88 @@ const ChainTrace = ({
  * The "current hint" card: technique badge, explanation, chain trace,
  * eliminations, and placement summary - or the hint prompt when idle.
  */
+
+const WHAT_IF_TECHNIQUES = new Set(['Hypothesis Mode', 'Cell Forcing Chain', 'Deep Forcing Chain']);
+
+const formatTime = (seconds) => {
+  const s = Math.max(0, Math.floor(seconds || 0));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
+
+/** Every digit a step is about: placed, paired, or erased. */
+const digitsOf = (step) => {
+  const placed = step.placement ? [step.placement.digit] : [];
+  const paired = Array.isArray(step.pairDigits) ? step.pairDigits : [];
+  const erased = (step.eliminations ?? []).map((e) => e.digit);
+  const involved = [...new Set([...placed, ...paired, ...(paired.length || placed.length ? [] : erased)])].sort((a, b) => a - b);
+  const removed = [...new Set(erased)].sort((a, b) => a - b);
+  return { involved, removed };
+};
+
+const CardShell = ({ tone = 'slate', icon: Icon, title, subtitle, children }) => {
+  const tones = {
+    slate: { icon: 'bg-slate-800 text-slate-500', title: 'text-white' },
+    found: { icon: 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg', title: 'text-white' },
+    whatif: { icon: 'bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-lg', title: 'text-amber-100' },
+    solved: { icon: 'bg-gradient-to-br from-yellow-400 to-amber-500 text-slate-900 shadow-lg', title: 'text-white' },
+  };
+  const t = tones[tone] || tones.slate;
+  return (
+    <motion.div
+      data-tone={tone}
+      className={`rounded-2xl shadow-lg shadow-black/50 overflow-hidden border ${
+        tone === 'whatif' ? 'bg-amber-950/30 border-amber-700/60' : 'bg-slate-900 border-slate-700'
+      }`}
+    >
+      <div className={`px-5 py-4 border-b ${tone === 'whatif' ? 'border-amber-800/50' : 'border-slate-800'}`}>
+        <div className="flex items-center gap-3">
+          <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${t.icon}`}>
+            <Icon className="w-5 h-5" aria-hidden="true" />
+          </div>
+          <div className="min-w-0">
+            <h3 className={`text-lg font-semibold leading-tight ${t.title}`}>{title}</h3>
+            {subtitle && <p className="text-sm text-slate-400">{subtitle}</p>}
+          </div>
+        </div>
+      </div>
+      {children}
+    </motion.div>
+  );
+};
+
+const ActionRow = ({ children }) => <div className="flex flex-wrap gap-2 pt-1">{children}</div>;
+const PrimaryButton = ({ onClick, children, tone = 'blue', ...rest }) => (
+  <button
+    onClick={onClick}
+    {...rest}
+    className={`px-4 py-2 rounded-lg font-medium text-sm text-white transition-colors flex items-center gap-1.5 ${
+      tone === 'emerald' ? 'bg-emerald-600 hover:bg-emerald-500' : tone === 'amber' ? 'bg-amber-600 hover:bg-amber-500' : 'bg-blue-600 hover:bg-blue-500'
+    }`}
+  >
+    {children}
+  </button>
+);
+const QuietButton = ({ onClick, children, ...rest }) => (
+  <button
+    onClick={onClick}
+    {...rest}
+    className="px-4 py-2 rounded-lg font-medium text-sm bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors flex items-center gap-1.5"
+  >
+    {children}
+  </button>
+);
+
+/**
+ * The hint card, one designed state per situation (hint-card-states spec):
+ * idle, found, what-if, searching, No Assist, solved, nothing left. The
+ * same component appears wherever the card appears.
+ */
 export default function CurrentStepCard({
   currentStep,
   grid = null,
-  focusedDigit,
   noAssistMode,
   onNextStep,
+  onApplyStep,
   searching = false,
   onCancelSearch,
   onSelectTechnique,
@@ -244,6 +320,13 @@ export default function CurrentStepCard({
   onChainPlaybackChange,
   isPlayingChain,
   onToggleChainPlayback,
+  solved = null,
+  lessonLog = [],
+  onNextPuzzle,
+  canGoUp = true,
+  nothingLeft = false,
+  onShowSingle,
+  getElapsedSeconds,
 }) {
   const techniqueInfo = currentStep ? TECHNIQUE_INFO[currentStep.technique] : null;
   const [explainLevel, setExplainLevel] = useState(readExplainLevel);
@@ -256,80 +339,122 @@ export default function CurrentStepCard({
     [currentStep, grid, explainLevel]
   );
 
-  return (
-    <motion.div
-      className="bg-slate-900 rounded-2xl shadow-lg shadow-black/50 overflow-hidden border border-slate-700"
-    >
-      <div className="px-5 py-4 border-b border-slate-800">
-        <div className="flex items-center gap-3">
-          <div className={`
-            w-9 h-9 rounded-xl flex items-center justify-center
-            ${currentStep
-              ? `bg-gradient-to-br ${LEVEL_COLORS[techniqueInfo?.color || 'emerald']} shadow-lg`
-              : 'bg-slate-800'
-            }
-          `}>
-            <Lightbulb className={`w-6 h-6 ${currentStep ? 'text-white' : 'text-slate-500'}`} />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-white">
-              {currentStep ? 'Technique Found!' : searching ? 'Searching...' : 'Ready for a Hint?'}
-            </h3>
-            <p className="text-base text-slate-400">
-              {currentStep
-                ? techniqueInfo?.level
-                : searching
-                ? 'No named technique applies; trying what-if chains'
-                : 'Click "Hint" to analyze the board'}
-            </p>
-          </div>
-        </div>
-      </div>
+  // No Assist shows the play clock; it ticks once a second while visible.
+  const [clock, setClock] = useState(() => (getElapsedSeconds ? getElapsedSeconds() : 0));
+  useEffect(() => {
+    if (!noAssistMode || solved || !getElapsedSeconds) return undefined;
+    setClock(getElapsedSeconds());
+    const id = setInterval(() => setClock(getElapsedSeconds()), 1000);
+    return () => clearInterval(id);
+  }, [noAssistMode, solved, getElapsedSeconds]);
 
-      <AnimatePresence mode="wait">
-        {currentStep ? (
+  const isWhatIf = !!currentStep && WHAT_IF_TECHNIQUES.has(currentStep.technique);
+  const legendCell = currentStep ? (currentStep.placement?.cell ?? currentStep.baseCells?.[0] ?? currentStep.targetCells?.[0]) : null;
+
+  // ---------- Solved
+  if (solved) {
+    const seen = new Map();
+    for (const entry of lessonLog) {
+      const prev = seen.get(entry.technique) || { count: 0, byPlayer: 0 };
+      seen.set(entry.technique, { count: prev.count + 1, byPlayer: prev.byPlayer + (entry.byPlayer ? 1 : 0) });
+    }
+    return (
+      <CardShell tone="solved" icon={Trophy} title="Solved" subtitle={`${formatTime(solved.timeInSeconds)} · ${solved.errorCount === 0 ? 'no errors' : `${solved.errorCount} error${solved.errorCount === 1 ? '' : 's'}`}`}>
+        <div className="p-4 space-y-3">
+          {seen.size > 0 ? (
+            <div>
+              <p className="text-base font-medium text-slate-300 mb-1">Techniques this puzzle used</p>
+              <ul className="space-y-1">
+                {[...seen.entries()].map(([technique, { count, byPlayer }]) => (
+                  <li key={technique} className="flex items-center justify-between gap-2 text-sm bg-slate-800 rounded-lg px-3 py-2">
+                    <button onClick={() => onSelectTechnique?.(technique)} className="text-blue-300 hover:underline text-left">
+                      {technique}{count > 1 ? ` ×${count}` : ''}
+                    </button>
+                    {byPlayer > 0 && (
+                      <span className="text-emerald-300 text-xs flex items-center gap-1"><Check className="w-3 h-3" aria-hidden="true" />you placed {byPlayer === count ? 'it' : `${byPlayer} of ${count}`} yourself</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <p className="text-slate-300 text-base">No hints needed. Every digit was yours.</p>
+          )}
+          <ActionRow>
+            <PrimaryButton onClick={() => onNextPuzzle?.('same')} tone="emerald">
+              Next puzzle on this shelf <ChevronRight className="w-4 h-4" aria-hidden="true" />
+            </PrimaryButton>
+            {canGoUp && (
+              <QuietButton onClick={() => onNextPuzzle?.('above')}>Try the shelf above</QuietButton>
+            )}
+          </ActionRow>
+        </div>
+      </CardShell>
+    );
+  }
+
+  // ---------- No Assist
+  if (noAssistMode) {
+    return (
+      <CardShell icon={Timer} title={formatTime(clock)} subtitle="Hints are off in No Assist.">
+        <div className="p-4 text-sm text-slate-400">Every solve is timed and recorded when it is clean. Switch No Assist off in the header to get hints again.</div>
+      </CardShell>
+    );
+  }
+
+  // ---------- Searching
+  if (searching) {
+    return (
+      <CardShell tone="whatif" icon={Loader2} title="Looking for a what-if chain..." subtitle="No named technique applies here.">
+        <div className="p-4 space-y-3" role="status" aria-live="polite">
+          <p className="text-sm text-slate-300">The board stays usable. Changing it stops the search.</p>
+          <ActionRow>
+            <QuietButton onClick={onCancelSearch}><X className="w-4 h-4" aria-hidden="true" /> Cancel</QuietButton>
+          </ActionRow>
+        </div>
+      </CardShell>
+    );
+  }
+
+  // ---------- Found (deduction) or what-if
+  if (currentStep) {
+    const { involved, removed } = digitsOf(currentStep);
+    return (
+      <CardShell
+        tone={isWhatIf ? 'whatif' : 'found'}
+        icon={isWhatIf ? FlaskConical : Lightbulb}
+        title={isWhatIf ? 'Reasoning by trial' : currentStep.technique}
+        subtitle={isWhatIf ? 'No named technique applies. This hint tests a value and follows where it leads.' : techniqueInfo?.level}
+      >
+        <AnimatePresence mode="wait">
           <motion.div
-            key="step"
-            initial={{ opacity: 0, y: 20 }}
+            key={currentStep.technique + (currentStep.placement?.cell ?? '') + (currentStep.eliminations?.length ?? 0)}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
+            exit={{ opacity: 0, y: -12 }}
             className="p-4 space-y-3"
           >
-            {/* Technique Name */}
             <div className="flex items-center gap-2 flex-wrap">
               <button
                 onClick={() => onSelectTechnique(currentStep.technique)}
                 title="Learn how this technique works"
-                className={`
-                  px-3 py-1 rounded-full text-base font-medium
-                  bg-gradient-to-r ${LEVEL_COLORS[techniqueInfo?.color || 'emerald']} text-white
-                  hover:shadow-lg transition-all cursor-pointer
-                `}
+                className={`px-3 py-1 rounded-full text-sm font-medium bg-gradient-to-r ${LEVEL_COLORS[techniqueInfo?.color || 'emerald']} text-white hover:shadow-lg transition-all cursor-pointer`}
               >
-                {currentStep.technique}
+                {isWhatIf ? currentStep.technique : 'How to spot it'}
               </button>
-              {currentStep.digit && (
-                <span className="px-2 py-1 bg-slate-800 rounded-lg text-base font-medium text-slate-300">
-                  Digit: {currentStep.digit}
-                </span>
-              )}
+              {involved.map((d) => (
+                <span key={`d${d}`} className="px-2 py-1 bg-slate-800 rounded-lg text-sm font-semibold text-slate-100" aria-label={`digit ${d}`}>{d}</span>
+              ))}
+              {removed.map((d) => (
+                <span key={`e${d}`} className="px-2 py-1 bg-red-950/60 border border-red-800/50 rounded-lg text-sm font-semibold text-red-300" aria-label={`erases ${d}`}>−{d}</span>
+              ))}
               <div className="ml-auto">
                 <LevelToggle level={explainLevel} onChange={changeLevel} />
               </div>
             </div>
 
-            {currentStep.technique === 'Hypothesis Mode' && (
-              <p className="text-sm text-amber-200 bg-amber-950/40 border border-amber-800/50 rounded-xl px-4 py-3">
-                No deductive technique in the mentor's toolkit applies to this position, so this hint
-                uses what-if search: assume a value, follow the consequences, and rule it out if it
-                breaks the puzzle.
-              </p>
-            )}
+            <Explanation explanation={explanation} legend={legendFor(legendCell)} />
 
-            {/* Explanation, at the reader's chosen level */}
-            <Explanation explanation={explanation} />
-
-            {/* Step-by-step breakdown for Deep Forcing Chains and Hypothesis Mode */}
             {(currentStep.technique === 'Deep Forcing Chain' || currentStep.technique === 'Hypothesis Mode') && currentStep.chain && (
               <ChainTrace
                 currentStep={currentStep}
@@ -340,7 +465,6 @@ export default function CurrentStepCard({
               />
             )}
 
-            {/* Both paths of a Cell Forcing Chain, so the convergence is visible */}
             {currentStep.technique === 'Cell Forcing Chain' && Array.isArray(currentStep.chains) && (
               <div className="space-y-2">
                 <p className="text-base font-medium text-slate-300">Both paths:</p>
@@ -357,79 +481,53 @@ export default function CurrentStepCard({
               </div>
             )}
 
-            {/* Action Summary */}
             {currentStep.eliminations && currentStep.eliminations.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-base font-medium text-slate-300">Eliminations:</p>
-                <div className="flex flex-wrap gap-2">
-                  {currentStep.eliminations.slice(0, 6).map((elim, idx) => (
-                    <span
-                      key={idx}
-                      className="px-2 py-1 bg-red-950/50 text-red-400 text-base rounded-lg"
-                    >
-                      {cellRef(elim.cell)}: -{elim.digit}
-                    </span>
-                  ))}
-                  {currentStep.eliminations.length > 6 && (
-                    <span className="px-2 py-1 bg-slate-800 text-slate-400 text-base rounded-lg">
-                      +{currentStep.eliminations.length - 6} more
-                    </span>
-                  )}
-                </div>
+              <div className="flex flex-wrap gap-2">
+                {currentStep.eliminations.slice(0, 6).map((elim, idx) => (
+                  <span key={idx} className="px-2 py-1 bg-red-950/50 text-red-400 text-sm rounded-lg">{cellRef(elim.cell)}: −{elim.digit}</span>
+                ))}
+                {currentStep.eliminations.length > 6 && (
+                  <span className="px-2 py-1 bg-slate-800 text-slate-400 text-sm rounded-lg">+{currentStep.eliminations.length - 6} more</span>
+                )}
               </div>
             )}
 
+            <ActionRow>
+              <PrimaryButton onClick={onApplyStep} tone={isWhatIf ? 'amber' : 'emerald'} aria-keyshortcuts="A">
+                <Play className="w-4 h-4" aria-hidden="true" /> Apply
+              </PrimaryButton>
+              <QuietButton onClick={onNextStep} aria-keyshortcuts="H">
+                Next hint <ChevronRight className="w-4 h-4" aria-hidden="true" />
+              </QuietButton>
+            </ActionRow>
           </motion.div>
-        ) : (
-          <motion.div
-            key="empty"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="p-5 text-center"
-          >
-            {noAssistMode ? (
-              <div className="py-8">
-                <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-slate-800 flex items-center justify-center opacity-50">
-                  <Lightbulb className="w-8 h-8 text-slate-600" />
-                </div>
-                <p className="text-slate-500 text-sm">
-                  Hints disabled in No Assist Mode
-                </p>
-              </div>
-            ) : searching ? (
-              <div className="py-6" role="status" aria-live="polite">
-                <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-slate-800 flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400" aria-hidden="true"></div>
-                </div>
-                <p className="text-slate-300 text-base">Searching what-if chains in the background</p>
-                <p className="text-slate-500 text-sm mt-1 mb-3">The board stays usable. Changing it stops the search.</p>
-                <button
-                  onClick={onCancelSearch}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-sm font-medium transition-colors"
-                >
-                  Cancel search
-                </button>
-              </div>
-            ) : (
-              <>
-                <button
-                  onClick={onNextStep}
-                  aria-label="Get a hint"
-                  className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 flex items-center justify-center transition-all shadow-lg hover:shadow-xl"
-                >
-                  <Lightbulb className="w-8 h-8 text-white" />
-                </button>
-                {focusedDigit && (
-                  <p className="text-slate-400 text-base">
-                    Filtering for digit {focusedDigit}. Click above to find patterns.
-                  </p>
-                )}
-              </>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
+        </AnimatePresence>
+      </CardShell>
+    );
+  }
+
+  // ---------- Nothing left to teach
+  if (nothingLeft) {
+    return (
+      <CardShell icon={Sprout} title="Nothing left to teach" subtitle="Every remaining cell is a single.">
+        <div className="p-4 space-y-3">
+          <p className="text-base text-slate-200">You can finish this one: every empty cell now has exactly one number that fits.</p>
+          <ActionRow>
+            <QuietButton onClick={onShowSingle}>Show me one anyway</QuietButton>
+          </ActionRow>
+        </div>
+      </CardShell>
+    );
+  }
+
+  // ---------- Idle
+  return (
+    <CardShell icon={Lightbulb} title="Stuck? Ask for a hint." subtitle="The mentor finds the next logical step and explains it.">
+      <div className="p-4">
+        <PrimaryButton onClick={onNextStep} aria-label="Get a hint" aria-keyshortcuts="H">
+          <Lightbulb className="w-4 h-4" aria-hidden="true" /> Hint
+        </PrimaryButton>
+      </div>
+    </CardShell>
   );
 }
