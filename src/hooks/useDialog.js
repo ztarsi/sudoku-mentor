@@ -14,6 +14,18 @@ function focusableIn(root) {
 // so a confirmation opened on top of the puzzle loader closes alone.
 const openStack = [];
 
+// When the last dialog closed. A press that closes a dialog can be followed
+// by a second press, or the same press's release, landing on the board
+// where the button was (issue #53): for a moment after a close, a board
+// click only selects and never places.
+let lastClosedAt = 0;
+export const BOARD_SHIELD_MS = 700;
+export const dialogJustClosed = (now = Date.now()) => now - lastClosedAt < BOARD_SHIELD_MS;
+/** For tests: forget the last close. */
+export const resetDialogShield = () => {
+  lastClosedAt = 0;
+};
+
 /**
  * Shared modal behaviour for every dialog in the app: Escape closes it,
  * Tab cycles inside it, focus moves into it when it opens, and focus goes
@@ -41,6 +53,7 @@ export function useDialog({ open, onClose, initialFocus }) {
     if (!open) return undefined;
 
     const previouslyFocused = document.activeElement;
+    const panel = ref.current; // for the cleanup: React clears the ref before it runs
     const restoreTarget =
       previouslyFocused instanceof HTMLElement ? previouslyFocused : null;
     openStack.push(ref);
@@ -99,6 +112,20 @@ export function useDialog({ open, onClose, initialFocus }) {
       document.removeEventListener('keydown', onKeyDown, true);
       const at = openStack.lastIndexOf(ref);
       if (at !== -1) openStack.splice(at, 1);
+      // The shield counts from when the dialog actually leaves the page: a
+      // dialog animates out for a while after `open` flips, and the stray
+      // click lands only once its overlay (the fixed backdrop) is gone.
+      lastClosedAt = Date.now();
+      const overlay = panel instanceof Element ? panel.closest('.fixed') || panel : null;
+      let frames = 0;
+      const watch = () => {
+        if (!overlay || !overlay.isConnected || frames++ > 180) {
+          lastClosedAt = Date.now();
+          return;
+        }
+        requestAnimationFrame(watch);
+      };
+      if (typeof requestAnimationFrame === 'function') watch();
       if (restoreTarget && restoreTarget.isConnected) {
         restoreTarget.focus({ preventScroll: true });
       }

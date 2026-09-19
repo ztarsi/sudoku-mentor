@@ -5,6 +5,7 @@ import { buildHighlightSets } from './stepHighlights';
 import { commonUnit } from './gridUnits';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { isTypingTarget } from './keyboardShortcuts';
+import { dialogJustClosed } from '@/hooks/useDialog';
 
 export default function SudokuGrid({
   grid,
@@ -133,7 +134,9 @@ export default function SudokuGrid({
       longPressFiredRef.current = false;
       return;
     }
-    onCellClick(index);
+    // A click that arrives right after a dialog closed is the same press,
+    // or a second one, landing where the button was: select, never place.
+    onCellClick(index, { selectOnly: dialogJustClosed() });
   };
 
   // Per-cell callbacks are created once and read the latest page handlers
