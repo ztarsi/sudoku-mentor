@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, fireEvent, cleanup, act } from '@testing-library/react';
-import { useDialog } from '../useDialog';
+import { useDialog, dialogJustClosed, resetDialogShield, BOARD_SHIELD_MS } from '../useDialog';
 
 function Dialog({ open, onClose, children, initialFocus = undefined }) {
   const dialog = useDialog({ open, onClose, initialFocus });
@@ -45,6 +45,19 @@ const flushFrame = async () => {
 afterEach(() => cleanup());
 
 describe('useDialog', () => {
+  it('shields the board for a moment after a dialog closes (issue #53)', async () => {
+    resetDialogShield();
+    expect(dialogJustClosed()).toBe(false);
+    const { getByTestId } = render(<Harness />);
+    fireEvent.click(getByTestId('opener'));
+    await flushFrame();
+    expect(dialogJustClosed()).toBe(false);
+    fireEvent.keyDown(document.activeElement, { key: 'Escape' });
+    expect(dialogJustClosed()).toBe(true);
+    expect(dialogJustClosed(Date.now() + BOARD_SHIELD_MS)).toBe(false);
+    resetDialogShield();
+  });
+
   it('moves focus into the dialog on open and restores it on close', async () => {
     const { getByTestId, queryByTestId } = render(<Harness />);
     const opener = getByTestId('opener');

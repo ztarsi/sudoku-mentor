@@ -229,14 +229,15 @@ export default function SudokuMentor() {
   }, []);
 
   const handleCellClick = useCallback(
-    (cellIndex) => {
+    (cellIndex, { selectOnly = false } = {}) => {
       setSelectedCell(cellIndex);
       clearHighlights();
 
       const cell = game.grid[cellIndex];
       // Digit-first: an armed digit goes into the empty cell that was tapped
-      // (or toggles as a pencil mark). The digit stays armed.
-      if (focusedDigit !== null && !cell.isFixed && cell.value === null) {
+      // (or toggles as a pencil mark). The digit stays armed. Right after a
+      // dialog closed the click only selects (issue #53).
+      if (focusedDigit !== null && !selectOnly && !cell.isFixed && cell.value === null) {
         if (candidateMode) game.handleToggleCandidate(cellIndex, focusedDigit);
         else game.handleCellInput(cellIndex, focusedDigit);
         setHighlightedDigit(null);

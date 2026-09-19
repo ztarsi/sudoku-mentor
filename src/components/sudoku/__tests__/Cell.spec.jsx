@@ -7,6 +7,16 @@ import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/react';
 import Cell from '../Cell';
+import { resetDialogShield } from '@/hooks/useDialog';
+
+// A dialog that closes leaves the shield up for a moment.
+const closeADialog = async () => {
+  const { useDialog } = await import('@/hooks/useDialog');
+  const { renderHook } = await import('@testing-library/react');
+  const { rerender, unmount } = renderHook(({ open }) => useDialog({ open, onClose: () => {} }), { initialProps: { open: true } });
+  rerender({ open: false });
+  unmount();
+};
 
 const baseCell = (overrides = {}) => ({
   value: null,
@@ -77,6 +87,16 @@ describe('Cell click handling', () => {
     fireEvent.click(slots[4]);
     expect(onInput).toHaveBeenCalledWith(5);
     expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it('only selects when a slot is clicked right after a dialog closed (issue #53)', async () => {
+    await closeADialog();
+    const { container, onClick, onInput } = renderCell({ cell: { candidates: [5] } });
+    const slots = container.querySelectorAll('[aria-hidden="true"] > div');
+    fireEvent.click(slots[4]);
+    expect(onInput).not.toHaveBeenCalled();
+    expect(onClick).toHaveBeenCalledTimes(1);
+    resetDialogShield();
   });
 
   it('toggles a candidate when its slot is clicked in candidate mode (desktop)', () => {
