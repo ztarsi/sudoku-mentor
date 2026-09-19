@@ -54,7 +54,7 @@ Sudoku Mentor promises four things. If a change breaks any of them, it is the wr
 
 ## 7. What the product is today
 
-As of the first release of the UX pass (2026-09-19, PR #RELEASE from `staging` to `main`). Players see it once the Base44 checkpoint for that commit is deployed; the previous layout (a separate phone page, a technique hierarchy above the hint, a Focus Mode card, Auto-Solve) is gone.
+As of the first release of the UX pass (2026-09-19, PR #61 from `staging` to `main`). Players see it once the Base44 checkpoint for that commit is deployed; the previous layout (a separate phone page, a technique hierarchy above the hint, a Focus Mode card, Auto-Solve) is gone.
 
 ### 7.1 One page, four arrangements
 
@@ -137,7 +137,7 @@ The UX pass, in order. Audit and target experience: [the UX review](reviews/2026
 6. [Paper theme](specs/paper-theme.md): a light theme next to dark, switchable and remembered. Shipped and verified 2026-09-19.
 7. [Inline onboarding](specs/inline-onboarding.md): three in-context prompts instead of the tour modal. Shipped and verified 2026-09-19.
 8. UX pass follow-ups from verification (#53, #54, #55): shipped and verified 2026-09-19.
-9. First release of the UX pass from `staging` to `main`: merged 2026-09-19 (PR #RELEASE) on the founder's go. Remaining from the release checklist in docs/STAGING.md: deploy the Base44 checkpoint, then spot-check sign-in, saved puzzles, solve records, best times and photo import on the live app.
+9. First release of the UX pass from `staging` to `main`: merged 2026-09-19 (PR #61) on the founder's go. Remaining from the release checklist in docs/STAGING.md: deploy the Base44 checkpoint, then spot-check sign-in, saved puzzles, solve records, best times and photo import on the live app.
 
 Then:
 
@@ -183,7 +183,7 @@ Then:
 
 Short record of product decisions and why, newest first.
 
-- 2026-09-19: First release of the UX pass from `staging` to `main` (PR #RELEASE), on the founder's "release". `main` had not moved since `staging` branched, so nothing from the platform bot had to be folded in first. What it carries: the seven UX-pass specs (#28 to #34), the three follow-ups (#53 to #55), the startup fix (#42), the staging plumbing (#40) and the docs. Merging to `main` does not publish: the Base44 checkpoint is deployed as a separate step, and the five Base44-dependent features are spot-checked on the live app after that. Section 7 now describes what is on `main`.
+- 2026-09-19: First release of the UX pass from `staging` to `main` (PR #61), on the founder's "release". `main` had not moved since `staging` branched, so nothing from the platform bot had to be folded in first. What it carries: the seven UX-pass specs (#28 to #34), the three follow-ups (#53 to #55), the startup fix (#42), the staging plumbing (#40) and the docs. Merging to `main` does not publish: the Base44 checkpoint is deployed as a separate step, and the five Base44-dependent features are spot-checked on the live app after that. Section 7 now describes what is on `main`.
 - 2026-09-19: The UX pass is complete on `staging` and verified: all seven specs and the three follow-ups shipped (PRs #46 to #52 and #57 to #59), each verified from the player's side on a build identical to the staging bundle. Section 7 now describes this product. Ready for the first release from `staging` to `main` on the founder's go; the checklist in docs/STAGING.md applies (CI green, play-and-learn loop verified on staging, the five Base44-dependent features spot-checked on the live app after deploy).
 - 2026-09-19: Six of the seven UX-pass specs shipped to `staging` in one evening (PRs #46 to #51) and were verified from the player's side on a build identical to the staging bundle. Verified: the lesson is on screen without scrolling at 1366x768; one digit strip everywhere; designed hint card states; one adaptive page with side and bottom sheets; a header in words with one menu; the paper theme. Three follow-ups filed (#53 tour click-through arms a digit, #54 only-singles state on Easy puzzles, #55 strip below the fold). Section 7 still describes the released product on `main`; it is rewritten at the first release of the UX pass.
 - 2026-09-19: The "nothing left" hint state is narrowed to "only singles left": it appears only when every remaining empty cell shows exactly one pencil mark, and never before the player has seen a single lesson on the puzzle. Reason: the first version told a learner on an Easy puzzle there was nothing to teach at the first press of Hint, while the board showed cells with three pencil marks. Singles are the learner's lesson.
