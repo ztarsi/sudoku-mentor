@@ -8,7 +8,8 @@ import AutoSolveControls from './panel/AutoSolveControls';
 import KeyboardShortcutsCard from './panel/KeyboardShortcutsCard';
 import PanelInfoModal from './panel/PanelInfoModal';
 import { findAllTechniqueInstances } from './logicEngine';
-import { searchWhatIf, isCancelled } from './whatIfSearch';
+import { searchWhatIf, isCancelled, isTimedOut, DEEP_TIME_BUDGET_MS } from './whatIfSearch';
+import { toast } from '@/components/ui/use-toast';
 
 const SCANNABLE_TECHNIQUES = [
   'Naked Single', 'Hidden Single',
@@ -135,14 +136,18 @@ export default function LogicPanel({
   const performDeepSearch = async (depth) => {
     onAssistUsedRef.current?.();
     searchRef.current?.cancel();
-    const search = searchWhatIf(grid, depth);
+    const search = searchWhatIf(grid, depth, { timeBudgetMs: DEEP_TIME_BUDGET_MS });
     searchRef.current = search;
     setSearchingForcingChain(true);
     try {
       return await search.promise;
     } catch (error) {
-      if (!isCancelled(error)) console.error('What-if search failed', error);
-      return undefined; // cancelled or failed: caller does nothing
+      if (isTimedOut(error)) {
+        toast({ title: 'Search ran out of time', description: `No chain found within ${DEEP_TIME_BUDGET_MS / 1000} s at depth ${depth}. The board is unusually hard for what-if search from here.` });
+      } else if (!isCancelled(error)) {
+        console.error('What-if search failed', error);
+      }
+      return undefined; // cancelled, timed out or failed: caller does nothing
     } finally {
       if (searchRef.current === search) {
         searchRef.current = null;
