@@ -275,3 +275,34 @@ describe('BUG+1', () => {
     // correct, safe answer - the test asserts soundness, not detection.)
   });
 });
+
+describe('onlySinglesRemain', () => {
+  it('is true only when every empty cell shows exactly one pencil mark', async () => {
+    const { onlySinglesRemain } = await import('../logicEngine');
+    const grid = Array.from({ length: 81 }, (_, i) => ({ value: i < 79 ? (i % 9) + 1 : null, isFixed: true, candidates: [] }));
+    grid[79].candidates = [4];
+    grid[80].candidates = [4, 5]; // a hidden single, maybe, but two marks on screen
+    expect(onlySinglesRemain(grid)).toBe(false);
+    grid[80].candidates = [5];
+    expect(onlySinglesRemain(grid)).toBe(true);
+  });
+
+  it('is false at the start of an Easy puzzle (singles are still worth teaching), true near the end', async () => {
+    const { onlySinglesRemain, findNextLogicStep, applyLogicStep } = await import('../logicEngine');
+    const easy = PUZZLES.easy[0];
+    const easyGrid = generateCandidates(easy.puzzle.map((v, i) => ({ cellIndex: i, value: v || null, isFixed: !!v, candidates: [] })));
+    expect(onlySinglesRemain(easyGrid)).toBe(false);
+    const entry = PUZZLES.medium[0];
+    let grid = generateCandidates(entry.puzzle.map((v, i) => ({ cellIndex: i, value: v || null, isFixed: !!v, candidates: [] })));
+    expect(onlySinglesRemain(grid)).toBe(false);
+    // Play it out with the engine until only singles are left.
+    for (let n = 0; n < 200; n++) {
+      const step = findNextLogicStep(grid, null);
+      if (!step) break;
+      grid = applyLogicStep(grid, step);
+      if (onlySinglesRemain(grid)) break;
+    }
+    expect(onlySinglesRemain(grid)).toBe(true);
+    expect(grid.some((c) => c.value === null)).toBe(true);
+  });
+});

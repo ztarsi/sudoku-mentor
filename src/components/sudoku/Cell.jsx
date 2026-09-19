@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { DEFAULT_COLORS } from './colors';
+import { dialogJustClosed } from '@/hooks/useDialog';
 
 // Seconds the rejected-entry flash plays; shorter than the hook's TTL so
 // the overlay finishes fading before it unmounts.
@@ -206,6 +207,8 @@ function Cell({
                   aria-hidden="true"
                   onClick={(e) => {
                     if (!hasCandidate) return; // let the cell handle selection
+                    // Right after a dialog closed, a click only selects (issue #53).
+                    if (dialogJustClosed()) return;
                     e.stopPropagation();
                     if (candidateMode) onToggleCandidate(num);
                     else onInput(num);

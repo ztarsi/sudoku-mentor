@@ -14,7 +14,7 @@
 //
 // Both levels are derived per step, so they always describe the actual
 // pattern on the board rather than a generic textbook case.
-import { getRow, getCol, getBox, arePeers, getPeers, getRowIndices, getColIndices, getBoxIndices } from './gridUnits';
+import { cellName, getRow, getCol, getBox, arePeers, getPeers, getRowIndices, getColIndices, getBoxIndices } from './gridUnits';
 
 export const EXPLAIN_LEVELS = ['simple', 'detailed'];
 export const EXPLAIN_LEVEL_KEY = 'sudoku-mentor:explain-level';
@@ -100,6 +100,12 @@ export const plainCell = (i) => `row ${r1(i)}, column ${c1(i)}`;
 export const shortCell = (i) => `R${r1(i)}C${c1(i)}`;
 /** The legend shown under beginner explanations. */
 export const CELL_LEGEND = 'R5C3 means row 5, column 3.';
+
+/** The legend, naming a cell this hint is about (falls back to the generic one). */
+export const legendFor = (cellIndex) =>
+  typeof cellIndex === 'number' && cellIndex >= 0 && cellIndex < 81
+    ? `${cellName(cellIndex)} means row ${getRow(cellIndex) + 1}, column ${getCol(cellIndex) + 1}.`
+    : CELL_LEGEND;
 
 const listWords = (items) => {
   const arr = items.map(String);

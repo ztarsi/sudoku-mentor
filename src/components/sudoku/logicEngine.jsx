@@ -1002,3 +1002,14 @@ export const applyLogicStep = (grid, step) => {
   // This preserves any manual candidate toggles the user made
   return newGrid;
 };
+
+/**
+ * True when every empty cell shows exactly one pencil mark, so the board
+ * the player is looking at says the rest by itself ("only singles left"
+ * hint state, amended for issue #54). Pass the player's grid, not the
+ * repaired one: the wording must be true of the marks on screen. Hidden
+ * singles do not count; until the marks say it, Hint keeps teaching
+ * singles as lessons.
+ */
+export const onlySinglesRemain = (grid) =>
+  grid.every((c) => c.value !== null || (Array.isArray(c.candidates) && c.candidates.length === 1));

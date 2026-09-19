@@ -58,3 +58,22 @@ export const markOnboarded = () => {
     // ignore
   }
 };
+
+/** Shelves in order of difficulty, as the library labels them. */
+export const SHELVES = ['easy', 'medium', 'hard', 'expert', 'diabolical', 'ultimate'];
+
+/** The shelf above `difficulty`, or null on the top shelf. */
+export const shelfAbove = (difficulty) => {
+  const i = SHELVES.indexOf(difficulty);
+  return i >= 0 && i < SHELVES.length - 1 ? SHELVES[i + 1] : null;
+};
+
+/**
+ * Another puzzle on `difficulty`, never the one named `excludeName` when
+ * there is a choice. Null when the shelf is empty.
+ */
+export const pickNextOnShelf = (entries, difficulty, excludeName = null) => {
+  const shelf = entries.filter((e) => e.difficulty === difficulty);
+  const others = shelf.filter((e) => e.name !== excludeName);
+  return pickRandomPuzzleEntry(others.length > 0 ? others : shelf);
+};

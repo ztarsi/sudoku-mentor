@@ -4,12 +4,26 @@ import UltimateTechniqueScanModal from './UltimateTechniqueScanModal';
 import DeepSearchModal from './DeepSearchModal';
 import TechniqueHierarchy from './panel/TechniqueHierarchy';
 import CurrentStepCard from './panel/CurrentStepCard';
-import AutoSolveControls from './panel/AutoSolveControls';
-import KeyboardShortcutsCard from './panel/KeyboardShortcutsCard';
 import PanelInfoModal from './panel/PanelInfoModal';
 import { findAllTechniqueInstances } from './logicEngine';
 import { searchWhatIf, isCancelled, isTimedOut, DEEP_TIME_BUDGET_MS } from './whatIfSearch';
 import { toast } from '@/components/ui/use-toast';
+
+const TECHNIQUES_OPEN_KEY = 'sudoku-mentor:techniques-open';
+const readTechniquesOpen = () => {
+  try {
+    return window.localStorage.getItem(TECHNIQUES_OPEN_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
+const writeTechniquesOpen = (open) => {
+  try {
+    window.localStorage.setItem(TECHNIQUES_OPEN_KEY, open ? '1' : '0');
+  } catch {
+    // remembering is a courtesy
+  }
+};
 
 const SCANNABLE_TECHNIQUES = [
   'Naked Single', 'Hidden Single',
@@ -33,20 +47,36 @@ const ULTIMATE_TECHNIQUES = [
  */
 export default function LogicPanel({
   currentStep,
-  focusedDigit,
   grid,
   noAssistMode,
   onHighlightTechnique,
-  onApplyStep,
   onNextStep,
   onChainPlaybackChange,
   chainPlaybackIndex,
   searchingHint = false,
   onCancelHintSearch,
   onAssistUsed,
+  onApplyStep,
+  solved = null,
+  lessonLog = [],
+  onNextPuzzle,
+  canGoUp = true,
+  nothingLeft = false,
+  onShowSingle,
+  getElapsedSeconds,
+  hintPrompt = null,
+  cardPrompt = null,
 }) {
   const [selectedTechnique, setSelectedTechnique] = useState(null);
-  const [techniqueExpanded, setTechniqueExpanded] = useState(true);
+  // The lesson comes first; the technique browser is an expert tool,
+  // collapsed by default and remembered per player.
+  const [techniqueExpanded, setTechniqueExpanded] = useState(readTechniquesOpen);
+  const toggleTechniques = () => {
+    setTechniqueExpanded((v) => {
+      writeTechniquesOpen(!v);
+      return !v;
+    });
+  };
   const [techniqueIndices, setTechniqueIndices] = useState({});
   const [showInfoModal, setShowInfoModal] = useState(null);
   const [showUltimateScan, setShowUltimateScan] = useState(false);
@@ -55,18 +85,7 @@ export default function LogicPanel({
   const [searchingForcingChain, setSearchingForcingChain] = useState(false);
   const [showDeepSearchModal, setShowDeepSearchModal] = useState(false);
   const [currentSearchDepth, setCurrentSearchDepth] = useState(10);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [playSpeed, setPlaySpeed] = useState(1000); // milliseconds per step
   const [isPlayingChain, setIsPlayingChain] = useState(false);
-  const playIntervalRef = useRef(null);
-
-  // Always call the LATEST page callbacks from timers. Auto-play used to
-  // capture onNextStep before applying a step, so the "next" search ran on
-  // the pre-apply grid and re-found the step it had just applied.
-  const onNextStepRef = useRef(onNextStep);
-  onNextStepRef.current = onNextStep;
-  const onApplyStepRef = useRef(onApplyStep);
-  onApplyStepRef.current = onApplyStep;
 
   // Ultimate scan counts describe one grid; drop them when it changes, and
   // let a scan still running for the old grid know it is stale.
@@ -185,36 +204,6 @@ export default function LogicPanel({
     // else: keep the modal open so the user can go even deeper
   };
 
-  const handlePlayPause = () => {
-    if (isPlaying) {
-      setIsPlaying(false);
-      if (playIntervalRef.current) {
-        clearTimeout(playIntervalRef.current);
-        playIntervalRef.current = null;
-      }
-    } else {
-      setIsPlaying(true);
-      if (!currentStep) {
-        onNextStep?.();
-      }
-    }
-  };
-
-  const handleSkipStep = () => {
-    if (currentStep) {
-      onApplyStepRef.current?.();
-    }
-    setTimeout(() => onNextStepRef.current?.(), 50);
-  };
-
-  useEffect(() => {
-    return () => {
-      if (playIntervalRef.current) {
-        clearTimeout(playIntervalRef.current);
-      }
-    };
-  }, []);
-
   // Chain playback animation
   useEffect(() => {
     if (isPlayingChain && currentStep?.chain) {
@@ -235,39 +224,6 @@ export default function LogicPanel({
     onChainPlaybackChange?.(0);
     setIsPlayingChain(false);
   }, [currentStep, onChainPlaybackChange]);
-
-  // Track the live currentStep so timeouts can check the CURRENT value.
-  // (Checking the closure's `currentStep` inside a timeout always saw the
-  // step captured when the effect ran, so auto-play could never detect
-  // "no more steps" and kept spinning forever.)
-  const currentStepRef = useRef(currentStep);
-  currentStepRef.current = currentStep;
-
-  useEffect(() => {
-    if (!isPlaying) return undefined;
-
-    if (currentStep) {
-      playIntervalRef.current = setTimeout(() => {
-        onApplyStepRef.current?.();
-        setTimeout(() => onNextStepRef.current?.(), 100);
-      }, playSpeed);
-    } else {
-      // Playing but no step: give onNextStep a moment to produce one,
-      // then stop if the engine is out of moves.
-      playIntervalRef.current = setTimeout(() => {
-        if (!currentStepRef.current) {
-          setIsPlaying(false);
-        }
-      }, Math.max(playSpeed, 800));
-    }
-
-    return () => {
-      if (playIntervalRef.current) {
-        clearTimeout(playIntervalRef.current);
-      }
-    };
-     
-  }, [isPlaying, currentStep, playSpeed]);
 
   const handleTechniqueClick = (techniqueName) => {
     const instances = findAllTechniqueInstances(grid, techniqueName);
@@ -291,27 +247,23 @@ export default function LogicPanel({
 
   return (
     <div className="space-y-4">
-      <TechniqueHierarchy
-        expanded={techniqueExpanded}
-        onToggleExpanded={() => setTechniqueExpanded((v) => !v)}
-        noAssistMode={noAssistMode}
-        techniqueCounts={techniqueCounts}
-        searchingForcingChain={searchingForcingChain}
-        onSelectTechnique={setSelectedTechnique}
-        onTechniqueClick={handleTechniqueClick}
-        onUltimateScan={handleUltimateScan}
-        onWhatIfSearch={handleWhatIfSearch}
-        onShowInfo={() => setShowInfoModal('techniques')}
-      />
-
       <CurrentStepCard
         currentStep={currentStep}
         grid={grid}
-        focusedDigit={focusedDigit}
         noAssistMode={noAssistMode}
         onNextStep={onNextStep}
+        onApplyStep={onApplyStep}
         searching={searchingHint}
         onCancelSearch={onCancelHintSearch}
+        solved={solved}
+        lessonLog={lessonLog}
+        onNextPuzzle={onNextPuzzle}
+        canGoUp={canGoUp}
+        nothingLeft={nothingLeft}
+        onShowSingle={onShowSingle}
+        getElapsedSeconds={getElapsedSeconds}
+        hintPrompt={hintPrompt}
+        cardPrompt={cardPrompt}
         onSelectTechnique={setSelectedTechnique}
         chainPlaybackIndex={chainPlaybackIndex}
         onChainPlaybackChange={onChainPlaybackChange}
@@ -326,16 +278,19 @@ export default function LogicPanel({
         }}
       />
 
-      <AutoSolveControls
-        isPlaying={isPlaying}
-        onPlayPause={handlePlayPause}
-        onSkipStep={handleSkipStep}
-        playSpeed={playSpeed}
-        onSpeedChange={setPlaySpeed}
+      <TechniqueHierarchy
+        expanded={techniqueExpanded}
+        onToggleExpanded={toggleTechniques}
         noAssistMode={noAssistMode}
+        techniqueCounts={techniqueCounts}
+        searchingForcingChain={searchingForcingChain}
+        onSelectTechnique={setSelectedTechnique}
+        onTechniqueClick={handleTechniqueClick}
+        onUltimateScan={handleUltimateScan}
+        onWhatIfSearch={handleWhatIfSearch}
+        onShowInfo={() => setShowInfoModal('techniques')}
       />
 
-      <KeyboardShortcutsCard onShowInfo={() => setShowInfoModal('shortcuts')} />
 
       {selectedTechnique && (
         <TechniqueModal

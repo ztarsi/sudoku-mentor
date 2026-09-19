@@ -1,28 +1,41 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo, Suspense } from 'react';
 import SudokuGrid from '@/components/sudoku/SudokuGrid';
-import DigitFilter from '@/components/sudoku/DigitFilter';
+import DigitStrip from '@/components/sudoku/DigitStrip';
 import LogicPanel from '@/components/sudoku/LogicPanel';
-import ControlBar from '@/components/sudoku/ControlBar';
-import MobileDrawer from '@/components/sudoku/MobileDrawer';
+import LessonSheet, { SIDE_SHEET_WIDTH } from '@/components/sudoku/LessonSheet';
+import HeaderMenu from '@/components/sudoku/HeaderMenu';
+import ConfirmDialog from '@/components/sudoku/ConfirmDialog';
 import AccountMenu from '@/components/sudoku/AccountMenu';
+import KeyboardShortcutsDialog from '@/components/sudoku/panel/KeyboardShortcutsDialog';
 import { playErrorTone } from '@/components/sudoku/errorSound';
 import { resolveShortcut, isTypingTarget } from '@/components/sudoku/keyboardShortcuts';
-import { findNextLogicStep } from '@/components/sudoku/logicEngine';
+import { findNextLogicStep, onlySinglesRemain } from '@/components/sudoku/logicEngine';
 import { searchWhatIf, isCancelled, isTimedOut, HINT_SEARCH_DEPTH, HINT_TIME_BUDGET_MS } from '@/components/sudoku/whatIfSearch';
 import {
   buildRemovalMap,
   buildFocusedCandidates,
 } from '@/components/sudoku/stepHighlights';
-import { markOnboarded } from '@/components/sudoku/puzzleSources';
-import WelcomeTour from '@/components/sudoku/WelcomeTour';
-import { FolderOpen } from 'lucide-react';
+import { markOnboarded, fetchAllPuzzleEntries, pickNextOnShelf, shelfAbove } from '@/components/sudoku/puzzleSources';
+import HowToPlayDialog from '@/components/sudoku/HowToPlayDialog';
+import Callout from '@/components/sudoku/Callout';
+import {
+  startOnboarding,
+  onFirstPlacement,
+  onHintDelay,
+  onHintAsked,
+  onStepShown,
+  onStepCleared,
+  dismissPrompt,
+  visiblePrompts,
+  HINT_PROMPT_DELAY_MS,
+} from '@/lib/onboarding';
+import { FolderOpen, HelpCircle, Keyboard, Palette, Printer, Copy, Trash2, Info, Moon, Sun, MonitorSmartphone } from 'lucide-react';
 import { useSudokuGame } from '@/hooks/useSudokuGame';
 import { useSudokuPlayer } from '@/hooks/useSudokuPlayer';
 import { usePuzzleBootstrap } from '@/hooks/usePuzzleBootstrap';
-import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { useArrangement } from '@/hooks/useArrangement';
 import { useDialog } from '@/hooks/useDialog';
 import { AnimatePresence, motion } from 'framer-motion';
-import { createPageUrl } from '@/utils';
 import { toast } from "@/components/ui/use-toast";
 
 // Dialogs that carry their own weight (OCR, colour presets, confetti) load
@@ -30,6 +43,45 @@ import { toast } from "@/components/ui/use-toast";
 const UnifiedPuzzleLoader = React.lazy(() => import('@/components/sudoku/UnifiedPuzzleLoader'));
 const ColorSettings = React.lazy(() => import('@/components/sudoku/ColorSettings'));
 const CompletionModal = React.lazy(() => import('@/components/sudoku/CompletionModal'));
+
+const LESSON_PINNED_KEY = 'sudoku-mentor:lesson-pinned';
+const readLessonPinned = () => {
+  try {
+    return window.localStorage.getItem(LESSON_PINNED_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
+const writeLessonPinned = (pinned) => {
+  try {
+    window.localStorage.setItem(LESSON_PINNED_KEY, pinned ? '1' : '0');
+  } catch {
+    // remembering is a courtesy
+  }
+};
+
+/** Every cell a step touches, for keeping them in view above a bottom sheet. */
+const stepCells = (step) => {
+  const cells = [
+    ...(step?.placement ? [step.placement.cell] : []),
+    ...(Array.isArray(step?.targetCells) ? step.targetCells : []),
+    ...(Array.isArray(step?.baseCells) ? step.baseCells : []),
+  ].filter((c) => typeof c === 'number');
+  return [...new Set(cells)];
+};
+
+const HINT_PROMPT = 'Stuck? Ask for a hint.';
+const CARD_PROMPT = 'Apply it, or place the digit yourself to practise.';
+
+const formatClock = (seconds) => {
+  const s = Math.max(0, Math.floor(seconds || 0));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const rest = s % 60;
+  return h > 0
+    ? `${h}:${String(m).padStart(2, '0')}:${String(rest).padStart(2, '0')}`
+    : `${m}:${String(rest).padStart(2, '0')}`;
+};
 
 export default function SudokuMentor() {
   const [selectedCell, setSelectedCell] = useState(null);
@@ -40,35 +92,56 @@ export default function SudokuMentor() {
   const [highlightedSteps, setHighlightedSteps] = useState([]);
   const [showPuzzleLoader, setShowPuzzleLoader] = useState(false);
   const [highlightedDigit, setHighlightedDigit] = useState(null);
-  const [candidateMode, setCandidateMode] = useState(false);
+  // Pencil marks: the strip's toggle is sticky; Shift adds to it while held.
+  const [pencilMode, setPencilMode] = useState(false);
+  const [shiftHeld, setShiftHeld] = useState(false);
+  const candidateMode = pencilMode || shiftHeld;
   const [showColorSettings, setShowColorSettings] = useState(false);
   const [showCompletion, setShowCompletion] = useState(false);
   const [completionStats, setCompletionStats] = useState({ timeInSeconds: 0, errorCount: 0 });
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  // Where the lesson lives depends on the width (one-adaptive-page spec):
+  // a column, a side sheet, a bottom sheet, or nowhere on a phone.
+  const { arrangement, lesson, stripFixed, touch: touchInput } = useArrangement();
+  const phone = arrangement === 'phone';
+  const sheetMode = lesson === 'side' || lesson === 'bottom';
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetPinned, setSheetPinned] = useState(readLessonPinned);
+  const [sheetHeight, setSheetHeight] = useState(0);
+  const [headerHeight, setHeaderHeight] = useState(56);
+  const [bottomBarHeight, setBottomBarHeight] = useState(0);
+  const headerRef = useRef(null);
+  const bottomBarRef = useRef(null);
+  // The board's height budget: what is left between its top and the strip
+  // (issue #55). Measured, so board and strip share the viewport on every
+  // width instead of the strip falling below the fold.
+  const boardAreaRef = useRef(/** @type {HTMLDivElement | null} */ (null));
+  const stripCardRef = useRef(/** @type {HTMLDivElement | null} */ (null));
+  const [boardMax, setBoardMax] = useState(null);
   const [chainPlaybackIndex, setChainPlaybackIndex] = useState(0);
   const [showAppInfo, setShowAppInfo] = useState(false);
-  const [showCopyConfirmation, setShowCopyConfirmation] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  // What this puzzle taught: one entry per presented hint, marked when the
+  // mentor applied it or the player placed the digit themselves.
+  const [lessonLog, setLessonLog] = useState([]);
+  const [nothingLeft, setNothingLeft] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [noAssistMode, setNoAssistMode] = useState(false);
+  // The phone keeps No Assist on for now (founder decision, 18 Sep 2026):
+  // no lesson fits, so every phone solve is timed and hint-free.
+  const effectiveNoAssist = noAssistMode || phone;
   const [showNoAssistModal, setShowNoAssistModal] = useState(false);
   const appInfoDialog = useDialog({ open: showAppInfo, onClose: () => setShowAppInfo(false) });
   const noAssistDialog = useDialog({ open: showNoAssistModal, onClose: () => setShowNoAssistModal(false) });
   const [candidatesVisible, setCandidatesVisible] = useState(true);
-  const [showTour, setShowTour] = useState(false);
+  const [showHowToPlay, setShowHowToPlay] = useState(false);
+  // The first visit's three in-context prompts; null for a returning visitor.
+  const [onboarding, setOnboarding] = useState(null);
 
   const [srAnnouncement, setSrAnnouncement] = useState('');
 
   // Values the onSolved callback needs that live outside the game hook
-  const noAssistRef = useRef({ noAssistMode });
-  noAssistRef.current = { noAssistMode };
-
-  // Touch-first devices get the dedicated mobile page (decided once, before
-  // any puzzle is loaded, so this page never writes a saved game the mobile
-  // page then "resumes").
-  const [redirecting] = useState(
-    () => typeof window !== 'undefined'
-      && window.matchMedia('(pointer: coarse)').matches
-      && window.innerWidth < 1024
-  );
+  const noAssistRef = useRef({ noAssistMode: effectiveNoAssist });
+  noAssistRef.current = { noAssistMode: effectiveNoAssist };
 
   const playerRef = useRef(null);
 
@@ -103,37 +176,138 @@ export default function SudokuMentor() {
 
   const player = useSudokuPlayer(game.puzzleName);
   playerRef.current = player;
-  const { user, colors } = player;
+  const { user, colors, themeChoice, setThemeChoice } = player;
+
+  // The sticky header and the fixed strip bar are measured so the sheets
+  // sit between them and scroll padding keeps the hint's cells in view.
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return undefined;
+    setHeaderHeight(Math.ceil(el.getBoundingClientRect().height));
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) setHeaderHeight(Math.ceil(entry.contentRect.height));
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
-    if (redirecting) window.location.href = createPageUrl('SudokuMentorMobile');
-  }, [redirecting]);
+    const el = bottomBarRef.current;
+    if (!stripFixed || !el) {
+      setBottomBarHeight(0);
+      return undefined;
+    }
+    setBottomBarHeight(Math.ceil(el.getBoundingClientRect().height));
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) setBottomBarHeight(Math.ceil(entry.contentRect.height));
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [stripFixed]);
 
-  const isLargeScreen = useMediaQuery('(min-width: 1024px)');
+  useEffect(() => {
+    const measure = () => {
+      const area = boardAreaRef.current;
+      if (!area || typeof window === 'undefined') return;
+      const top = area.getBoundingClientRect().top + window.scrollY;
+      const stripRoom = stripFixed
+        ? bottomBarHeight + 12
+        : (stripCardRef.current?.getBoundingClientRect().height ?? 130) + 16 + 16;
+      // The board card's own padding, plus a little slack so the page never scrolls.
+      const chrome = stripFixed ? 8 : 24 + 8;
+      const room = window.innerHeight - top - stripRoom - chrome;
+      setBoardMax(Math.max(320, Math.floor(room)));
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    if (observer && stripCardRef.current) observer.observe(stripCardRef.current);
+    if (observer && headerRef.current) observer.observe(headerRef.current);
+    return () => {
+      window.removeEventListener('resize', measure);
+      observer?.disconnect();
+    };
+  }, [stripFixed, bottomBarHeight, arrangement]);
+
+  // The No Assist clock: in the header switch, and in the phone's status strip.
+  const [clock, setClock] = useState(0);
+  useEffect(() => {
+    if (!effectiveNoAssist) return undefined;
+    const tick = () => setClock(game.getElapsedSeconds?.() ?? 0);
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveNoAssist, game.getElapsedSeconds]);
+
+  // Toasts sit above the fixed strip bar, never over the board.
+  useEffect(() => {
+    document.documentElement.style.setProperty('--bottom-bar-height', `${bottomBarHeight}px`);
+    return () => {
+      document.documentElement.style.removeProperty('--bottom-bar-height');
+    };
+  }, [bottomBarHeight]);
 
   const clearHighlights = useCallback(() => {
     setHighlightedSteps([]);
     setCurrentStep(null);
     setFocusedCandidates(null);
     setRemovalCandidates(null);
+    setNothingLeft(false);
   }, []);
 
   const handleCellClick = useCallback(
-    (cellIndex) => {
+    (cellIndex, { selectOnly = false } = {}) => {
       setSelectedCell(cellIndex);
+      clearHighlights();
+
+      const cell = game.grid[cellIndex];
+      // Digit-first: an armed digit goes into the empty cell that was tapped
+      // (or toggles as a pencil mark). The digit stays armed. Right after a
+      // dialog closed the click only selects (issue #53).
+      if (focusedDigit !== null && !selectOnly && !cell.isFixed && cell.value === null) {
+        if (candidateMode) game.handleToggleCandidate(cellIndex, focusedDigit);
+        else game.handleCellInput(cellIndex, focusedDigit);
+        setHighlightedDigit(null);
+        return;
+      }
 
       // If clicking a solved cell, highlight all instances of that number
-      const clickedValue = game.grid[cellIndex].value;
+      const clickedValue = cell.value;
       if (clickedValue !== null) {
         setHighlightedDigit((prev) => (prev === clickedValue ? null : clickedValue));
       } else {
         setHighlightedDigit(null);
       }
-
-      clearHighlights();
     },
-    [game.grid, clearHighlights]
+    [game, focusedDigit, candidateMode, clearHighlights]
   );
+
+  // The strip: cell-first when an editable cell is selected (the digit goes
+  // straight in), digit-first otherwise (the digit is armed for the next
+  // cell taps, and highlighted on the board meanwhile).
+  const handleDigitSelect = useCallback(
+    (digit) => {
+      clearHighlights();
+      const cell = selectedCell !== null ? game.grid[selectedCell] : null;
+      if (cell && !cell.isFixed && cell.value === null) {
+        if (candidateMode) game.handleToggleCandidate(selectedCell, digit);
+        else game.handleCellInput(selectedCell, digit);
+        return;
+      }
+      setFocusedDigit((prev) => (prev === digit ? null : digit));
+    },
+    [game, selectedCell, candidateMode, clearHighlights]
+  );
+
+  const handleErase = useCallback(() => {
+    if (selectedCell === null) return;
+    const cell = game.grid[selectedCell];
+    if (cell.isFixed) return;
+    game.handleCellInput(selectedCell, null);
+  }, [game, selectedCell]);
 
   const handleDigitFilter = useCallback(
     (digit) => {
@@ -152,6 +326,12 @@ export default function SudokuMentor() {
       setRemovalCandidates(buildRemovalMap(step));
       setFocusedCandidates(buildFocusedCandidates(step, game.grid, colors));
       game.noteHintUsed();
+      setNothingLeft(false);
+      setSheetOpen(true);
+      setLessonLog((log) => [
+        ...log,
+        { id: log.length + 1, technique: step.technique, placement: step.placement, byPlayer: null },
+      ]);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [game.grid, game.noteHintUsed, colors]
@@ -173,13 +353,32 @@ export default function SudokuMentor() {
   }, []);
   useEffect(() => () => hintSearchRef.current?.cancel(), []);
 
-  const handleNextStep = useCallback(async () => {
-    if (noAssistMode) return; // Block hints in no assist mode
+  const handleNextStep = useCallback(async (force = false) => {
+    if (effectiveNoAssist) return; // Block hints in no assist mode
     if (hintSearchRef.current) return; // a search is already running
     setChainPlaybackIndex(0); // Reset playback for new hint
+    setSheetOpen(true); // the lesson sheet, where the lesson is not a column
+    setOnboarding(onHintAsked);
 
     const gridAtStart = game.grid;
     let step = findNextLogicStep(game.logicGrid, null);
+    // Only singles left (issue #54): every empty cell on the player's board
+    // shows one pencil mark, and this puzzle has already taught at least one
+    // single. Until both hold, singles are lessons like any other technique.
+    // "Show me the next one" asks with force and gets a normal hint.
+    const taughtASingle = lessonLog.some((e) => e.technique === 'Naked Single' || e.technique === 'Hidden Single');
+    if (
+      step &&
+      !force &&
+      (step.technique === 'Naked Single' || step.technique === 'Hidden Single') &&
+      taughtASingle &&
+      candidatesVisible &&
+      onlySinglesRemain(game.grid)
+    ) {
+      setNothingLeft(true);
+      game.noteAssistUsed();
+      return;
+    }
     if (!step) {
       // No regular technique applies: what-if search, off the main thread.
       const search = searchWhatIf(game.logicGrid, HINT_SEARCH_DEPTH, { timeBudgetMs: HINT_TIME_BUDGET_MS });
@@ -189,7 +388,7 @@ export default function SudokuMentor() {
         step = await search.promise;
       } catch (error) {
         if (isTimedOut(error)) {
-          toast({ title: 'No quick hint', description: `The what-if search ran out of time (${HINT_TIME_BUDGET_MS / 1000} s). The Search button in the Technique Hierarchy looks longer and deeper.` });
+          toast({ title: 'No quick hint', description: `The what-if search ran out of time (${HINT_TIME_BUDGET_MS / 1000} s). The Search button under Techniques looks longer and deeper.` });
         } else if (!isCancelled(error)) {
           console.error('What-if search failed', error);
           toast({ title: 'Hint search failed', description: String(error?.message || error), variant: 'destructive' });
@@ -205,7 +404,7 @@ export default function SudokuMentor() {
       // the player no longer has.
       if (gridRef.current !== gridAtStart) return;
       if (!step) {
-        toast({ title: 'No hint found', description: `No technique or what-if chain within ${HINT_SEARCH_DEPTH} steps. Try the Search button in the Technique Hierarchy for a deeper look.` });
+        toast({ title: 'No hint found', description: `No technique or what-if chain within ${HINT_SEARCH_DEPTH} steps. Try the Search button under Techniques for a deeper look.` });
         return;
       }
     }
@@ -214,19 +413,72 @@ export default function SudokuMentor() {
       presentStep(step);
       highlightSteps([step]);
     }
-  }, [game.grid, game.logicGrid, noAssistMode, presentStep, highlightSteps]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game.grid, game.logicGrid, game.noteAssistUsed, effectiveNoAssist, presentStep, highlightSteps, lessonLog, candidatesVisible]);
   const gridRef = useRef(game.grid);
   gridRef.current = game.grid;
+
+  // The strip's Hint button: reopen a closed sheet that still holds a
+  // lesson rather than logging the same hint twice.
+  const handleHintButton = useCallback(() => {
+    if (currentStep && !sheetOpen) {
+      setSheetOpen(true);
+      return;
+    }
+    handleNextStep();
+  }, [currentStep, sheetOpen, handleNextStep]);
+
+  const handlePinnedChange = useCallback((pinned) => {
+    setSheetPinned(pinned);
+    writeLessonPinned(pinned);
+  }, []);
+
+  // A sheet that is not pinned closes on its own once there is nothing to
+  // show: the lesson was applied, the board was touched, a new puzzle
+  // loaded. The solved card keeps it open.
+  useEffect(() => {
+    if (!sheetMode || sheetPinned) return;
+    if (currentStep === null && !searchingHint && !nothingLeft && !game.completed) setSheetOpen(false);
+  }, [sheetMode, sheetPinned, currentStep, searchingHint, nothingLeft, game.completed]);
+  useEffect(() => {
+    if (sheetMode && game.completed) setSheetOpen(true);
+  }, [sheetMode, game.completed]);
+
+  // A bottom sheet covers the lower part of the page: pad the document so
+  // the board can scroll clear of it, and bring the hint's cells into view.
+  const bottomSheetHeight = lesson === 'bottom' ? sheetHeight : 0;
+  useEffect(() => {
+    if (lesson !== 'bottom' || !sheetOpen) return undefined;
+    const root = document.documentElement;
+    root.style.scrollPaddingTop = `${headerHeight + 8}px`;
+    root.style.scrollPaddingBottom = `${bottomBarHeight + bottomSheetHeight + 8}px`;
+    return () => {
+      root.style.scrollPaddingTop = '';
+      root.style.scrollPaddingBottom = '';
+    };
+  }, [lesson, sheetOpen, headerHeight, bottomBarHeight, bottomSheetHeight]);
+  useEffect(() => {
+    if (lesson !== 'bottom' || !sheetOpen || !currentStep || bottomSheetHeight === 0) return;
+    const cells = stepCells(currentStep);
+    if (cells.length === 0) return;
+    const byRow = [...cells].sort((a, b) => Math.floor(a / 9) - Math.floor(b / 9));
+    // Bottom-most first, then top-most: 'nearest' plus the scroll padding
+    // set above leaves both between the header and the sheet.
+    document.getElementById(`sudoku-cell-${byRow[byRow.length - 1]}`)?.scrollIntoView({ block: 'nearest' });
+    document.getElementById(`sudoku-cell-${byRow[0]}`)?.scrollIntoView({ block: 'nearest' });
+  }, [lesson, sheetOpen, currentStep, bottomSheetHeight]);
 
   useEffect(() => {
     if (hintSearchRef.current) cancelHintSearch();
   }, [game.grid, cancelHintSearch]);
 
   const handleApplyStep = useCallback(() => {
-    if (noAssistMode) return; // Block apply in no assist mode
+    if (effectiveNoAssist) return; // Block apply in no assist mode
     if (!currentStep) return;
 
-    game.applyStep(currentStep);
+    if (game.applyStep(currentStep)) {
+      setLessonLog((log) => log.map((e, i) => (i === log.length - 1 && e.byPlayer === null ? { ...e, byPlayer: false } : e)));
+    }
     setCurrentStep(null);
     setHighlightedSteps([]);
     setFocusedDigit(null);
@@ -234,7 +486,33 @@ export default function SudokuMentor() {
     setRemovalCandidates(null);
     setFocusedCandidates(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep, noAssistMode, game.applyStep]);
+  }, [currentStep, effectiveNoAssist, game.applyStep]);
+
+  // The player placed the digit the last hint pointed at: theirs, not the mentor's.
+  useEffect(() => {
+    setLessonLog((log) => {
+      const last = log[log.length - 1];
+      if (!last || last.byPlayer !== null || !last.placement) return log;
+      const cell = game.grid[last.placement.cell];
+      if (cell && cell.value === last.placement.digit) {
+        return log.map((e, i) => (i === log.length - 1 ? { ...e, byPlayer: true } : e));
+      }
+      return log;
+    });
+  }, [game.grid]);
+
+  // Solved card actions: another puzzle on this shelf, or the shelf above.
+  const handleNextPuzzle = useCallback(
+    async (kind) => {
+      const current = game.puzzleDifficulty || 'easy';
+      const shelf = kind === 'above' ? shelfAbove(current) || current : current;
+      const entries = await fetchAllPuzzleEntries(playerRef.current?.user ?? null);
+      const entry = pickNextOnShelf(entries, shelf, game.puzzleName);
+      if (entry) handleLoadPuzzle(entry.puzzle, { name: entry.name, difficulty: entry.difficulty });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [game.puzzleDifficulty, game.puzzleName]
+  );
 
   const handleHighlightTechnique = useCallback(
     (instances) => {
@@ -260,16 +538,21 @@ export default function SudokuMentor() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.canRedo, game.redo, clearHighlights]);
 
-  const handleClearGrid = useCallback(() => {
-    if (game.solvedCount > 0 && !window.confirm('Clear the entire grid?')) return;
+  const doClearGrid = useCallback(() => {
+    setShowClearConfirm(false);
     game.clearGrid();
     setCurrentStep(null);
     setHighlightedSteps([]);
     setFocusedCandidates(null);
     setRemovalCandidates(null);
     setHighlightedDigit(null);
+    setNothingLeft(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [game.solvedCount, game.clearGrid]);
+  }, [game.clearGrid]);
+  const handleClearGrid = useCallback(() => {
+    if (game.solvedCount > 0) setShowClearConfirm(true);
+    else doClearGrid();
+  }, [game.solvedCount, doClearGrid]);
 
   const markUserLoadRef = useRef(() => {});
   const handleLoadPuzzle = useCallback(
@@ -291,6 +574,8 @@ export default function SudokuMentor() {
       setRemovalCandidates(null);
       setHighlightedDigit(null);
       setChainPlaybackIndex(0);
+      setLessonLog([]);
+      setNothingLeft(false);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [game.loadPuzzle]
@@ -310,16 +595,15 @@ export default function SudokuMentor() {
         showPuzzleLoader ||
         showColorSettings ||
         showCompletion ||
-        drawerOpen ||
         showAppInfo ||
-        showCopyConfirmation ||
-        showTour ||
+        showClearConfirm ||
+        showHowToPlay ||
         !!document.querySelector('[role="dialog"]');
       if (isModalOpen) return;
 
       // Holding Shift switches to candidate mode for mouse clicks too
       if (e.key === 'Shift' && !e.repeat) {
-        setCandidateMode(true);
+        setShiftHeld(true);
         return;
       }
 
@@ -345,12 +629,12 @@ export default function SudokuMentor() {
           return;
         }
         case 'hint':
-          if (noAssistMode) return;
+          if (effectiveNoAssist) return;
           e.preventDefault();
           handleNextStep();
           return;
         case 'apply':
-          if (noAssistMode || !currentStep) return;
+          if (effectiveNoAssist || !currentStep) return;
           e.preventDefault();
           handleApplyStep();
           return;
@@ -398,6 +682,10 @@ export default function SudokuMentor() {
           e.preventDefault();
           handleClearGrid();
           return;
+        case 'shortcuts':
+          e.preventDefault();
+          setShowShortcuts(true);
+          return;
         default:
           return;
       }
@@ -405,7 +693,7 @@ export default function SudokuMentor() {
 
   keyHandlersRef.current.onKeyUp = (e) => {
       if (e.key === 'Shift') {
-        setCandidateMode(false);
+        setShiftHeld(false);
       }
     };
 
@@ -413,7 +701,7 @@ export default function SudokuMentor() {
     const handleKeyDown = (e) => keyHandlersRef.current.onKeyDown(e);
     const handleKeyUp = (e) => keyHandlersRef.current.onKeyUp(e);
     // Shift released while the window was not focused never sends keyup.
-    const handleBlur = () => setCandidateMode(false);
+    const handleBlur = () => setShiftHeld(false);
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     window.addEventListener('blur', handleBlur);
@@ -432,8 +720,7 @@ export default function SudokuMentor() {
       : Promise.reject(new Error('Clipboard unavailable'));
     write
       .then(() => {
-        setShowCopyConfirmation(true);
-        setTimeout(() => setShowCopyConfirmation(false), 2000);
+        toast({ title: 'Puzzle copied', description: 'The givens are on your clipboard as 81 digits.' });
       })
       .catch(() => {
         toast({ title: 'Could not copy', description: `Copy this by hand: ${puzzleString}`, variant: 'destructive' });
@@ -521,9 +808,12 @@ export default function SudokuMentor() {
     restoreSavedGame: game.restoreSavedGame,
     loadPuzzle: handleLoadPuzzle,
     user,
-    enabled: !redirecting,
-    onResumed: () => toast({ title: 'Resumed your puzzle', description: 'Picked up where you left off. Load a new one any time.' }),
-    onFirstVisit: () => setShowTour(true),
+    // No modal on arrival: the board is live at once and the three ideas
+    // arrive as prompts, each on the control it concerns, once.
+    onFirstVisit: () => {
+      markOnboarded();
+      setOnboarding(startOnboarding());
+    },
   });
   markUserLoadRef.current = markUserLoad;
 
@@ -545,6 +835,138 @@ export default function SudokuMentor() {
     });
   }, [game.grid, currentStep, chainPlaybackIndex]);
 
+  // The first visit's prompts: which are on screen now, and what moves them on.
+  const prompts = visiblePrompts(onboarding, { hasStep: currentStep !== null, canHint: !effectiveNoAssist && !phone });
+  // The first digit the player placed (givens do not count).
+  const playerPlaced = useMemo(() => game.grid.some((c) => !c.isFixed && c.value !== null), [game.grid]);
+  useEffect(() => {
+    if (onboarding && playerPlaced) setOnboarding(onFirstPlacement);
+  }, [onboarding, playerPlaced]);
+  useEffect(() => {
+    if (!onboarding || onboarding.hint !== 'pending') return undefined;
+    const id = setTimeout(() => setOnboarding(onHintDelay), HINT_PROMPT_DELAY_MS);
+    return () => clearTimeout(id);
+  }, [onboarding]);
+  useEffect(() => {
+    setOnboarding(currentStep ? onStepShown : onStepCleared);
+  }, [currentStep]);
+  const boardPrompt = prompts.board ? (
+    <div className="flex justify-center">
+      <Callout arrow="down" onDismiss={() => setOnboarding((s) => dismissPrompt(s, 'board'))} testId="prompt-board">
+        {touchInput ? 'Pick a digit, then tap cells' : 'Tap a cell, then a digit'}
+      </Callout>
+    </div>
+  ) : null;
+
+  const board = (
+    <div className="flex justify-center" ref={boardAreaRef}>
+      <SudokuGrid
+        maxSize={boardMax}
+        grid={ghostGrid}
+        selectedCell={selectedCell}
+        focusedDigit={focusedDigit}
+        focusedCandidates={focusedCandidates}
+        removalCandidates={removalCandidates}
+        highlightedDigit={highlightedDigit}
+        validationErrors={game.validationErrors}
+        candidateMode={candidateMode}
+        candidatesVisible={candidatesVisible}
+        colors={colors}
+        currentStep={currentStep}
+        highlightedSteps={highlightedSteps}
+        playbackIndex={chainPlaybackIndex}
+        rejectedInput={game.rejectedInput}
+        onCellClick={handleCellClick}
+        onCellInput={game.handleCellInput}
+        onToggleCandidate={game.handleToggleCandidate}
+      />
+    </div>
+  );
+
+  // The digit strip: one input model on every width. Where the lesson is a
+  // sheet, Hint lives on the strip too.
+  const strip = (
+    <DigitStrip
+      grid={game.grid}
+      focusedDigit={focusedDigit}
+      onDigitSelect={handleDigitSelect}
+      pencilMode={pencilMode}
+      onPencilModeChange={setPencilMode}
+      onUndo={handleUndo}
+      onRedo={handleRedo}
+      onErase={handleErase}
+      canUndo={game.canUndo}
+      canRedo={game.canRedo}
+      canErase={
+        selectedCell !== null &&
+        !game.grid[selectedCell].isFixed &&
+        (game.grid[selectedCell].value !== null || game.grid[selectedCell].candidates.length > 0)
+      }
+      rejected={game.rejectedInput}
+      touch={touchInput}
+      marksVisible={candidatesVisible}
+      onMarksVisibleChange={setCandidatesVisible}
+      inline={arrangement === 'wide'}
+      hint={
+        sheetMode
+          ? {
+              onClick: handleHintButton,
+              disabled: effectiveNoAssist,
+              searching: searchingHint,
+              onCancel: cancelHintSearch,
+              prompt: prompts.hint ? { text: HINT_PROMPT, onDismiss: () => setOnboarding((s) => dismissPrompt(s, 'hint')) } : null,
+            }
+          : null
+      }
+    />
+  );
+  const stripCard = (
+    <div ref={stripCardRef} className="bg-slate-900/90 backdrop-blur-sm rounded-2xl shadow-lg shadow-black/50 p-2 sm:p-3 border border-slate-700">
+      {strip}
+    </div>
+  );
+
+  // Progress and errors on every width, in the quiet style the phone had.
+  const statusStrip = (
+    <div className="flex items-center justify-between gap-3 text-xs sm:text-sm text-slate-400 px-1" data-testid="status-strip">
+      <span>
+        {game.progress}% complete · {game.errorCount === 0 ? 'No errors' : `${game.errorCount} error${game.errorCount === 1 ? '' : 's'}`}
+      </span>
+      {phone && (
+        <span className="flex items-center gap-2 shrink-0" aria-live="off">
+          <span className="text-red-300 font-medium">No Assist: timed, no hints</span>
+          <span className="tabular-nums text-slate-200" aria-label="Time">{formatClock(clock)}</span>
+        </span>
+      )}
+    </div>
+  );
+
+  // One lesson panel, rendered in the column or in the sheet.
+  const lessonPanel = phone ? null : (
+    <LogicPanel
+      currentStep={currentStep}
+      grid={game.logicGrid}
+      onAssistUsed={game.noteAssistUsed}
+      noAssistMode={effectiveNoAssist}
+      onNextStep={() => handleNextStep()}
+      onApplyStep={handleApplyStep}
+      solved={game.completed ? completionStats : null}
+      lessonLog={lessonLog}
+      onNextPuzzle={handleNextPuzzle}
+      canGoUp={shelfAbove(game.puzzleDifficulty || 'easy') !== null}
+      nothingLeft={nothingLeft}
+      onShowSingle={() => handleNextStep(true)}
+      getElapsedSeconds={game.getElapsedSeconds}
+      hintPrompt={lesson === 'column' && prompts.hint ? { text: HINT_PROMPT, onDismiss: () => setOnboarding((s) => dismissPrompt(s, 'hint')) } : null}
+      cardPrompt={prompts.card ? { text: CARD_PROMPT, onDismiss: () => setOnboarding((s) => dismissPrompt(s, 'card')) } : null}
+      searchingHint={searchingHint}
+      onCancelHintSearch={cancelHintSearch}
+      onChainPlaybackChange={setChainPlaybackIndex}
+      chainPlaybackIndex={chainPlaybackIndex}
+      onHighlightTechnique={handleHighlightTechnique}
+    />
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
       {/* Screen-reader announcements (rejected inputs) */}
@@ -552,271 +974,171 @@ export default function SudokuMentor() {
         {srAnnouncement}
       </div>
 
-      {/* Header */}
-      <header className="bg-slate-900/90 backdrop-blur-md border-b border-slate-700/60 sticky top-0 z-50 safe-area-inset-top">
-        <div className="max-w-7xl mx-auto px-2 lg:px-8 py-2 lg:py-4">
-          <div className="flex items-center justify-between">
-            {/* Logo and Puzzle Info - Desktop */}
-            <div className="hidden lg:flex items-center gap-6 min-w-0">
+      {/* Header: where you are, how you are doing, one primary action,
+          everything secondary behind the menu (header-and-menu spec) */}
+      <header ref={headerRef} className="bg-slate-900/90 backdrop-blur-md border-b border-slate-700/60 sticky top-0 z-50 safe-area-inset-top">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-2 lg:py-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 lg:gap-4 min-w-0">
               <div className="flex items-center gap-3 shrink-0">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
-                  <span className="text-white font-bold text-lg">9</span>
+                <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-lg lg:rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
+                  <span className="text-white font-bold text-sm lg:text-lg">9</span>
                 </div>
-                <h1 className="text-xl font-semibold text-white tracking-tight whitespace-nowrap">Sudoku Mentor</h1>
+                {arrangement === 'wide' && (
+                  <h1 className="text-xl font-semibold text-white tracking-tight whitespace-nowrap">Sudoku Mentor</h1>
+                )}
               </div>
 
-              {/* Puzzle Info */}
               {game.puzzleName ? (
-                <div className="flex items-center gap-3 min-w-0">
-                  <p className="text-lg font-medium text-white truncate max-w-[260px]" title={game.puzzleName}>
+                <button
+                  type="button"
+                  onClick={() => setShowPuzzleLoader(true)}
+                  className="flex items-center gap-2 min-w-0 rounded-lg px-2 py-1 hover:bg-slate-800 transition-colors text-left"
+                  title="Change puzzle"
+                  aria-label={`${game.puzzleName}${game.puzzleDifficulty ? `, ${game.puzzleDifficulty}` : ''}. Change puzzle`}
+                >
+                  <span className="text-sm lg:text-lg font-medium text-white truncate max-w-[110px] sm:max-w-[200px] lg:max-w-[260px]">
                     {game.puzzleName}
-                  </p>
+                  </span>
                   {game.puzzleDifficulty && (
-                    <span className="px-3 py-1 bg-slate-800 rounded-full text-sm capitalize text-slate-300">{game.puzzleDifficulty}</span>
+                    <span className="px-2 py-0.5 bg-slate-800 rounded-full text-xs lg:text-sm capitalize text-slate-300 shrink-0">{game.puzzleDifficulty}</span>
                   )}
-                  {player.bestTime && (
-                    <span className="px-3 py-1 bg-emerald-900/50 border border-emerald-600/30 rounded-full text-sm text-emerald-400 flex items-center gap-1.5" title="Your best no-assist time">
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  {player.bestTime && !phone && (
+                    <span className="hidden sm:flex px-2 py-0.5 bg-emerald-900/50 border border-emerald-600/30 rounded-full text-xs lg:text-sm text-emerald-400 items-center gap-1 shrink-0" title="Your best No Assist time">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      {Math.floor(player.bestTime / 60)}:{String(player.bestTime % 60).padStart(2, '0')}
+                      best {formatClock(player.bestTime)}
                     </span>
                   )}
-                  {noAssistMode && (
-                    <span className="px-3 py-1 bg-red-600 rounded-full text-sm font-medium text-white">No Assist</span>
-                  )}
-                </div>
+                </button>
               ) : (
-                <p className="text-base text-slate-400">Learn logic-based solving</p>
-              )}
-            </div>
-
-            {/* Narrow screens - just icon */}
-            <div className="lg:hidden flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-                <span className="text-white font-bold text-sm">9</span>
-              </div>
-              {game.puzzleName && (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-sm font-medium text-white truncate max-w-[120px]">{game.puzzleName}</span>
-                  {game.puzzleDifficulty && (
-                    <span className="px-2 py-0.5 bg-slate-800 rounded-full text-xs capitalize text-slate-300">{game.puzzleDifficulty}</span>
-                  )}
-                </div>
-              )}
-              {noAssistMode && (
-                <div className="px-2 py-1 bg-red-600 rounded-full flex items-center gap-1" title="No Assist Mode">
-                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                  </svg>
-                </div>
+                <p className="hidden lg:block text-base text-slate-400">Learn logic-based solving</p>
               )}
             </div>
 
             <div className="flex items-center gap-2 lg:gap-3 shrink-0">
-              {/* Progress - desktop only */}
-              <div className="hidden xl:flex items-center gap-2 bg-slate-800 rounded-full px-4 py-2">
-                <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                <span className="text-base text-slate-300 whitespace-nowrap">{game.progress}% Complete</span>
-              </div>
-
-              {/* Color settings */}
+              {!phone && (
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={noAssistMode}
+                  onClick={() => {
+                    if (!noAssistMode) setShowNoAssistModal(true);
+                    else setNoAssistMode(false);
+                  }}
+                  title="No Assist: hints off, every solve timed and recorded"
+                  className={`flex items-center gap-2 px-2.5 py-2 rounded-lg lg:rounded-xl text-sm font-medium transition-colors ${
+                    noAssistMode ? 'bg-red-600/90 text-white hover:bg-red-600' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`relative w-8 h-4 rounded-full transition-colors shrink-0 ${noAssistMode ? 'bg-white/90' : 'bg-slate-600'}`}
+                  >
+                    <span
+                      className={`absolute top-0.5 w-3 h-3 rounded-full transition-all ${
+                        noAssistMode ? 'left-[18px] bg-red-600' : 'left-0.5 bg-slate-300'
+                      }`}
+                    />
+                  </span>
+                  <span className="whitespace-nowrap">No Assist: {noAssistMode ? 'on' : 'off'}</span>
+                  {noAssistMode && <span className="tabular-nums text-xs opacity-90" aria-label="Time">{formatClock(clock)}</span>}
+                </button>
+              )}
               <button
-                onClick={() => setShowColorSettings(true)}
-                className="p-2 bg-slate-800 text-slate-300 rounded-lg lg:rounded-xl hover:bg-slate-700 transition-all duration-200 flex items-center justify-center"
-                title="Color Settings" aria-label="Color Settings"
-              >
-                <svg className="w-4 h-4 lg:w-5 lg:h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-                </svg>
-              </button>
-
-              {/* Desktop-only buttons */}
-              <button
-                onClick={() => setShowAppInfo(true)}
-                className="hidden lg:block p-2 bg-slate-800 text-slate-300 rounded-xl hover:bg-slate-700 transition-all duration-200"
-                title="About Sudoku Mentor" aria-label="About Sudoku Mentor"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </button>
-              <button
-                onClick={() => {
-                  if (!noAssistMode) {
-                    setShowNoAssistModal(true);
-                  } else {
-                    setNoAssistMode(false);
-                  }
-                }}
-                className={`hidden lg:block p-2 rounded-xl transition-all duration-200 ${
-                  noAssistMode
-                    ? 'bg-red-600 text-white hover:bg-red-700'
-                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                }`}
-                title={noAssistMode ? "Disable No Assist Mode" : "Enable No Assist Mode"}
-                aria-label={noAssistMode ? "Disable No Assist Mode" : "Enable No Assist Mode"}
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                </svg>
-              </button>
-              <button
-                onClick={() => setCandidatesVisible(!candidatesVisible)}
-                className={`hidden lg:block p-2 rounded-xl transition-all duration-200 ${
-                  candidatesVisible
-                    ? 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                    : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
-                }`}
-                title={candidatesVisible ? "Hide Candidates" : "Show Candidates"}
-                aria-label={candidatesVisible ? "Hide candidates" : "Show candidates"}
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  {candidatesVisible ? (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                  ) : (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                  )}
-                </svg>
-              </button>
-              <button
-                onClick={handlePrintPuzzle}
-                className="hidden lg:block p-2 bg-slate-800 text-slate-300 rounded-xl hover:bg-slate-700 transition-all duration-200"
-                title="Print Puzzle" aria-label="Print Puzzle"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                </svg>
-              </button>
-              <button
-                onClick={handleCopyPuzzle}
-                className="hidden lg:block p-2 bg-slate-800 text-slate-300 rounded-xl hover:bg-slate-700 transition-all duration-200"
-                title="Copy Puzzle" aria-label="Copy Puzzle"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-              </button>
-              <button
+                type="button"
                 onClick={() => setShowPuzzleLoader(true)}
-                className="px-2.5 lg:px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-lg lg:rounded-xl transition-all duration-200 flex items-center justify-center gap-2 font-medium text-sm"
-                title="Load Puzzle" aria-label="Load Puzzle"
+                className="px-2.5 lg:px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-lg lg:rounded-xl transition-all duration-200 flex items-center justify-center gap-1.5 font-medium text-sm"
+                title="Load puzzle" aria-label="Load Puzzle"
               >
-                <FolderOpen className="w-4 h-4 lg:w-5 lg:h-5 pointer-events-none" />
-                <span className="hidden lg:inline whitespace-nowrap">Load puzzle</span>
+                <FolderOpen className="w-4 h-4 lg:w-5 lg:h-5 pointer-events-none" aria-hidden="true" />
+                <span className="whitespace-nowrap">{arrangement === 'wide' ? 'Load puzzle' : 'Load'}</span>
               </button>
 
               <AccountMenu user={user} />
+              <HeaderMenu
+                items={[
+                  { id: 'how', label: 'How to play', icon: HelpCircle, onSelect: () => setShowHowToPlay(true) },
+                  { id: 'keys', label: 'Keyboard shortcuts', icon: Keyboard, hint: '?', onSelect: () => setShowShortcuts(true) },
+                  null,
+                  { heading: 'Theme' },
+                  { id: 'theme-dark', label: 'Dark', icon: Moon, checked: themeChoice === 'dark', onSelect: () => setThemeChoice('dark') },
+                  { id: 'theme-paper', label: 'Paper', icon: Sun, checked: themeChoice === 'paper', onSelect: () => setThemeChoice('paper') },
+                  { id: 'theme-system', label: 'Match my device', icon: MonitorSmartphone, checked: themeChoice === 'system', onSelect: () => setThemeChoice('system') },
+                  { id: 'colours', label: 'Colours', icon: Palette, onSelect: () => setShowColorSettings(true) },
+                  null,
+                  { id: 'print', label: 'Print puzzle', icon: Printer, onSelect: handlePrintPuzzle },
+                  { id: 'copy', label: 'Copy puzzle', icon: Copy, onSelect: handleCopyPuzzle },
+                  { id: 'clear', label: 'Clear the board', icon: Trash2, danger: true, onSelect: handleClearGrid },
+                  null,
+                  { id: 'about', label: 'About Sudoku Mentor', icon: Info, onSelect: () => setShowAppInfo(true) },
+                ]}
+              />
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-28 lg:pb-8 pt-6 lg:pt-8">
-        <div className="grid lg:grid-cols-[1fr,380px] gap-8">
-          {/* Left Column - Grid & Controls */}
-          <div className="space-y-6">
-            {/* Action bar (fixed bottom bar below lg; hidden on desktop) */}
-            <ControlBar
-              onNextStep={handleNextStep}
-              onApplyStep={handleApplyStep}
-              onUndo={handleUndo}
-              onRedo={handleRedo}
-              onClear={handleClearGrid}
-              onOpenDrawer={() => setDrawerOpen(true)}
-              hasStep={currentStep !== null}
-              canUndo={game.canUndo}
-              canRedo={game.canRedo}
-              hintsDisabled={noAssistMode}
-              searching={searchingHint}
-              onCancelSearch={cancelHintSearch}
-            />
-
-            {/* Sudoku Grid */}
-            <div className="flex justify-center">
-              <SudokuGrid
-                grid={ghostGrid}
-                selectedCell={selectedCell}
-                focusedDigit={focusedDigit}
-                focusedCandidates={focusedCandidates}
-                removalCandidates={removalCandidates}
-                highlightedDigit={highlightedDigit}
-                validationErrors={game.validationErrors}
-                candidateMode={candidateMode}
-                candidatesVisible={candidatesVisible}
-                colors={colors}
-                currentStep={currentStep}
-                highlightedSteps={highlightedSteps}
-                playbackIndex={chainPlaybackIndex}
-                rejectedInput={game.rejectedInput}
-                onCellClick={handleCellClick}
-                onCellInput={game.handleCellInput}
-                onToggleCandidate={game.handleToggleCandidate}
-              />
+      <main
+        className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-4 pb-4 transition-[padding] duration-300"
+        style={{
+          paddingRight: lesson === 'side' && sheetOpen ? SIDE_SHEET_WIDTH + 16 : undefined,
+          paddingBottom: stripFixed ? bottomBarHeight + bottomSheetHeight + 16 : undefined,
+        }}
+      >
+        {lesson === 'column' ? (
+          <div className={`grid gap-6 xl:gap-8 ${arrangement === 'wide' ? 'grid-cols-[1fr,380px]' : 'grid-cols-[1fr,300px]'}`}>
+            <div className="space-y-4 min-w-0">
+              {statusStrip}
+              {boardPrompt}
+              {board}
+              {stripCard}
             </div>
-
-            {/* Digit Filter */}
-            <DigitFilter
-              focusedDigit={focusedDigit}
-              onDigitClick={handleDigitFilter}
-              grid={game.grid}
-            />
+            <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto pr-1 min-w-0">
+              {lessonPanel}
+            </div>
           </div>
-
-          {/* Right Column - Logic Panel (one instance; it lives in the
-              drawer below the desktop breakpoint) */}
-          {isLargeScreen && (
-            <div>
-              <LogicPanel
-                currentStep={currentStep}
-                focusedDigit={focusedDigit}
-                grid={game.logicGrid}
-                onAssistUsed={game.noteAssistUsed}
-                noAssistMode={noAssistMode}
-                onApplyStep={handleApplyStep}
-                onNextStep={handleNextStep}
-                searchingHint={searchingHint}
-                onCancelHintSearch={cancelHintSearch}
-                onChainPlaybackChange={setChainPlaybackIndex}
-                chainPlaybackIndex={chainPlaybackIndex}
-                onHighlightTechnique={handleHighlightTechnique}
-              />
-            </div>
-          )}
-        </div>
+        ) : (
+          <div className="mx-auto w-full max-w-[600px] space-y-4">
+            {statusStrip}
+            {boardPrompt}
+            {board}
+            {!stripFixed && stripCard}
+          </div>
+        )}
       </main>
 
-      {/* Drawer with the Logic Panel for narrow screens */}
-      {!isLargeScreen && (
-        <MobileDrawer isOpen={drawerOpen} onClose={() => setDrawerOpen(false)}>
-          <LogicPanel
-            currentStep={currentStep}
-            focusedDigit={focusedDigit}
-            grid={game.logicGrid}
-            onAssistUsed={game.noteAssistUsed}
-            noAssistMode={noAssistMode}
-            onApplyStep={handleApplyStep}
-            onNextStep={handleNextStep}
-            searchingHint={searchingHint}
-            onCancelHintSearch={cancelHintSearch}
-            onChainPlaybackChange={setChainPlaybackIndex}
-            chainPlaybackIndex={chainPlaybackIndex}
-            onHighlightTechnique={(instances) => {
-              handleHighlightTechnique(instances);
-              setDrawerOpen(false);
-            }}
-          />
-        </MobileDrawer>
+      {/* Stacked and phone: the strip is a fixed bar under the thumbs */}
+      {stripFixed && (
+        <div
+          ref={bottomBarRef}
+          className="fixed left-0 right-0 bottom-0 bg-slate-900/95 backdrop-blur-md border-t border-slate-700 z-40"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        >
+          <div className="px-2 pt-1 pb-1.5">{strip}</div>
+        </div>
       )}
 
-      <WelcomeTour
-        open={showTour}
-        variant="desktop"
-        onClose={() => {
-          markOnboarded();
-          setShowTour(false);
-        }}
-      />
+      {/* Medium without room for two columns, and stacked: the lesson is a sheet */}
+      {sheetMode && (
+        <LessonSheet
+          side={lesson === 'side' ? 'right' : 'bottom'}
+          open={sheetOpen}
+          pinned={sheetPinned}
+          onPinnedChange={handlePinnedChange}
+          onClose={() => setSheetOpen(false)}
+          topOffset={headerHeight}
+          bottomOffset={bottomBarHeight}
+          onHeightChange={lesson === 'bottom' ? setSheetHeight : undefined}
+        >
+          {lessonPanel}
+        </LessonSheet>
+      )}
+
+      <KeyboardShortcutsDialog open={showShortcuts} onClose={() => setShowShortcuts(false)} />
+
+      <HowToPlayDialog open={showHowToPlay} variant={touchInput ? 'mobile' : 'desktop'} onClose={() => setShowHowToPlay(false)} />
 
       {/* Unified Puzzle Loader Modal */}
       {showPuzzleLoader && (
@@ -835,6 +1157,7 @@ export default function SudokuMentor() {
         <Suspense fallback={null}>
           <ColorSettings
             colors={colors}
+            defaults={player.defaultColors}
             onColorsChange={player.saveColors}
             onClose={() => setShowColorSettings(false)}
           />
@@ -939,24 +1262,14 @@ export default function SudokuMentor() {
         )}
       </AnimatePresence>
 
-      {/* Copy Confirmation Toast */}
-      <AnimatePresence>
-        {showCopyConfirmation && (
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50 bg-slate-800 text-white px-6 py-3 rounded-lg shadow-xl border border-slate-700"
-          >
-            <div className="flex items-center gap-2">
-              <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <span className="font-medium">Puzzle copied to clipboard!</span>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <ConfirmDialog
+        open={showClearConfirm}
+        title="Clear the board?"
+        body="Every digit and pencil mark you placed goes; the givens stay. Undo cannot bring them back."
+        confirmLabel="Clear the board"
+        onConfirm={doClearGrid}
+        onCancel={() => setShowClearConfirm(false)}
+      />
 
       {/* No Assist Mode Modal */}
       <AnimatePresence>
@@ -1002,11 +1315,7 @@ export default function SudokuMentor() {
                     </li>
                     <li className="flex items-start gap-2">
                       <span className="text-red-400 mt-1">✕</span>
-                      <span><strong className="text-white">Technique Hierarchy</strong> - Pattern browser hidden</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-red-400 mt-1">✕</span>
-                      <span><strong className="text-white">Auto-Solve</strong> - No automated solving</span>
+                      <span><strong className="text-white">Techniques</strong> - The technique browser and its counts are hidden</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <span className="text-red-400 mt-1">✕</span>
@@ -1020,11 +1329,11 @@ export default function SudokuMentor() {
                   <ul className="text-sm space-y-2">
                     <li className="flex items-start gap-2">
                       <span className="text-green-400 mt-1">✓</span>
-                      <span><strong className="text-white">Focus Mode</strong> - Digit highlighting remains available</span>
+                      <span><strong className="text-white">Digit highlighting on the strip</strong> - Pick a digit to see where it is</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <span className="text-green-400 mt-1">✓</span>
-                      <span><strong className="text-white">Candidate Mode</strong> - Manual pencil marks still work</span>
+                      <span><strong className="text-white">Pencil marks</strong> - Your own pencil marks still work</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <span className="text-green-400 mt-1">✓</span>

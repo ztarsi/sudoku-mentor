@@ -31,3 +31,7 @@ One strip of the nine digits under the board on every device. It is the way to e
 - A first-time visitor places a digit within ten seconds on phone and desktop without reading anything (quality bar, section 8).
 - The desktop and phone tours (or their replacement) describe one input model, not two.
 - Once analytics exist: wrong-entry rate per puzzle should not rise after the change.
+
+## Outcome
+
+Shipped in PR #47 to `staging` on 2026-09-19; verified the same day by the product manager on a production build identical to the staging bundle (`index-DZL13nsI.js`). One strip with placed counts, Pencil, Undo, Redo and Erase on every width; 44px-tall targets on the phone; the Focus Mode card, the phone pad and the mode switch are gone; a refused digit is named on the strip. Open: the strip sits below the fold on laptops and medium windows (#55), and a pencil-mark click arms a digit with no visible sign (#53). Follow-ups closed 2026-09-19: the strip now fits the viewport with the board (#55, PR #59), a first click never places or arms anything (#53, PR #57).

@@ -6,7 +6,19 @@
     <title>Sudoku Mentor</title>
     <meta name="description" content="A Sudoku tutor that finds the next logical step on your board and explains it in plain words, from singles to forcing chains." />
     <meta name="theme-color" content="#0f172a" />
-    <meta name="color-scheme" content="dark" />
+    <meta name="color-scheme" content="dark light" />
+    <script>
+      // The remembered theme, before the first paint, so a paper player
+      // never sees a dark flash. Kept in step with src/lib/theme.js.
+      (function () {
+        try {
+          var choice = localStorage.getItem('sudoku-mentor:theme');
+          var light = choice === 'paper' || (choice === 'system' && matchMedia('(prefers-color-scheme: light)').matches);
+          document.documentElement.dataset.theme = light ? 'paper' : 'dark';
+          document.documentElement.style.colorScheme = light ? 'light' : 'dark';
+        } catch (e) { /* default dark */ }
+      })();
+    </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />

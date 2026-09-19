@@ -5,6 +5,7 @@ import { buildHighlightSets } from './stepHighlights';
 import { commonUnit } from './gridUnits';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { isTypingTarget } from './keyboardShortcuts';
+import { dialogJustClosed } from '@/hooks/useDialog';
 
 export default function SudokuGrid({
   grid,
@@ -21,6 +22,7 @@ export default function SudokuGrid({
   highlightedSteps = [],
   playbackIndex,
   rejectedInput = null,
+  maxSize = null,
   onCellClick,
   onCellInput,
   onToggleCandidate
@@ -75,17 +77,20 @@ export default function SudokuGrid({
     return () => observer.disconnect();
   }, []);
 
-  // Grid sizing: mobile uses measured container width, constrained for landscape
+  // Grid sizing. The page passes `maxSize`, the height left for the board
+  // once the header, the status strip and the digit strip have their room
+  // (issue #55): board and strip fit the viewport together on every width.
+  // Narrow layouts size from the measured container width as well.
+  const heightCap = maxSize ?? (typeof window !== 'undefined' ? window.innerHeight - 120 : Infinity);
   const gridSize = isMobile && measuredWidth > 0
-    ? (() => {
-        const maxDimension = typeof window !== 'undefined'
-          ? Math.min(measuredWidth, window.innerHeight - 120)
-          : measuredWidth;
-        return Math.floor(maxDimension / 9) * 9;
-      })()
+    ? Math.floor(Math.min(measuredWidth, heightCap) / 9) * 9
     : null;
+  const desktopSize = maxSize ? `min(90vw, 600px, ${Math.floor(maxSize / 9) * 9}px)` : 'min(90vw, 600px)';
 
-  const cellSize = gridSize ? gridSize / 9 : null;
+  // Cells size their digits and pencil marks from the real cell size on
+  // every layout; the fluid desktop grid is measured (overlaySize), so a
+  // board capped by the viewport (issue #55) never clips its marks.
+  const cellSize = gridSize ? gridSize / 9 : overlaySize > 0 ? overlaySize / 9 : null;
 
   // Overlay geometry follows the measured on-screen grid, not the mobile
   // sizing model, so it works on the fluid desktop grid too.
@@ -133,7 +138,9 @@ export default function SudokuGrid({
       longPressFiredRef.current = false;
       return;
     }
-    onCellClick(index);
+    // A click that arrives right after a dialog closed is the same press,
+    // or a second one, landing where the button was: select, never place.
+    onCellClick(index, { selectOnly: dialogJustClosed() });
   };
 
   // Per-cell callbacks are created once and read the latest page handlers
@@ -230,7 +237,7 @@ export default function SudokuGrid({
     <>
       <div ref={gridWrapperRef} className={`relative ${isMobile ? 'w-full flex justify-center' : ''}`}>
         {!isMobile && <div className="absolute inset-0 bg-gradient-to-br from-blue-500/30 to-indigo-500/30 rounded-2xl blur-xl" />}
-        <div className={`relative ${isMobile ? '' : 'bg-slate-900 rounded-2xl shadow-2xl shadow-black/50 p-3 sm:p-4 border border-slate-700'}`}>
+        <div className={`relative ${isMobile ? '' : 'bg-slate-900 rounded-2xl shadow-2xl shadow-black/50 p-3 border border-slate-700'}`}>
           <div
             ref={gridContainerRef}
             role="group"
@@ -247,8 +254,8 @@ export default function SudokuGrid({
                   }
                 : !isMobile
                 ? {
-                    width: 'min(90vw, 600px)',
-                    height: 'min(90vw, 600px)',
+                    width: desktopSize,
+                    height: desktopSize,
                     gridTemplateColumns: 'repeat(9, 1fr)',
                     gridTemplateRows: 'repeat(9, 1fr)',
                   }

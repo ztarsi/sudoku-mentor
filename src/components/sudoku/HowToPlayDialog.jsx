@@ -1,23 +1,27 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MousePointerClick, Lightbulb, Play, Hand, Pencil, RotateCcw } from 'lucide-react';
+import { MousePointerClick, Lightbulb, Play, Hand } from 'lucide-react';
 import { useDialog } from '@/hooks/useDialog';
 
+// The same three ideas the first visit's inline prompts teach, plus the
+// rules in one line, reachable from the menu any time (inline-onboarding spec).
 const STEPS = {
   desktop: [
-    { icon: MousePointerClick, title: 'Pick a cell, type a digit', body: 'Click any empty cell and press 1-9. Shift + digit toggles a pencil mark. Wrong digits are rejected, so you can experiment freely.' },
-    { icon: Lightbulb, title: 'Ask for a hint', body: 'Press H (or the lightbulb) and the mentor finds the next logical technique, highlights the cells involved, and explains why it works.' },
-    { icon: Play, title: 'Apply it - or do it yourself', body: 'Press A to apply the step, or place the digit yourself to practice. Click any technique name to learn how to spot it.' },
+    { icon: MousePointerClick, title: 'Tap a cell, then a digit', body: 'Click any empty cell and press 1-9, or pick a digit on the strip first. Pencil (or Shift) makes it a pencil mark. Wrong digits are refused, so experiment freely.' },
+    { icon: Lightbulb, title: 'Stuck? Ask for a hint', body: 'Press H or the Hint button. The mentor finds the next logical technique, colours the cells involved and explains why it works.' },
+    { icon: Play, title: 'Apply it, or place the digit yourself', body: 'Press A to apply the step, or place the digit yourself to practise. Tap any technique name to learn how to spot it.' },
   ],
   mobile: [
-    { icon: Hand, title: 'Pick a digit, then tap cells', body: 'Choose a digit in the bottom bar, then tap the cells where it belongs. Wrong digits are rejected, so you can experiment freely.' },
-    { icon: Pencil, title: 'Pencil marks', body: 'Switch to Candidate mode to note possible digits. Tap a cell to open the candidate pad.' },
-    { icon: RotateCcw, title: 'Fix mistakes', body: 'Undo and Erase live next to the mode switch. Long-press a cell for more options.' },
+    { icon: Hand, title: 'Pick a digit, then tap cells', body: 'Choose a digit on the strip, then tap the cells where it belongs. Pencil makes it a pencil mark. Wrong digits are refused, so experiment freely.' },
+    { icon: Lightbulb, title: 'Stuck? Ask for a hint', body: 'Tap Hint on the strip. The mentor finds the next logical technique, colours the cells involved and explains why it works.' },
+    { icon: Play, title: 'Apply it, or place the digit yourself', body: 'Apply the step from the lesson, or place the digit yourself to practise. Tap any technique name to learn how to spot it.' },
   ],
 };
 
-/** One-time orientation shown to first-time visitors. */
-export default function WelcomeTour({ open, variant = 'desktop', onClose }) {
+export const RULES_LINE = 'Fill the grid so every row, every column and every 3x3 box holds the digits 1 to 9 exactly once.';
+
+/** "How to play", from the menu. */
+export default function HowToPlayDialog({ open, variant = 'desktop', onClose }) {
   const dialog = useDialog({ open, onClose });
 
   const steps = STEPS[variant] || STEPS.desktop;
@@ -48,8 +52,8 @@ export default function WelcomeTour({ open, variant = 'desktop', onClose }) {
                   <span className="text-white font-bold text-lg">9</span>
                 </div>
                 <div>
-                  <h2 id="welcome-title" className="text-xl font-semibold text-white">Welcome to Sudoku Mentor</h2>
-                  <p className="text-slate-400 text-sm">A tutor, not just a solver. Three things to know:</p>
+                  <h2 id="welcome-title" className="text-xl font-semibold text-white">How to play</h2>
+                  <p className="text-slate-400 text-sm">{RULES_LINE}</p>
                 </div>
               </div>
             </div>
@@ -76,7 +80,7 @@ export default function WelcomeTour({ open, variant = 'desktop', onClose }) {
                 onClick={onClose}
                 className="w-full py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors"
               >
-                Start solving
+                Back to the puzzle
               </button>
             </div>
           </motion.div>
