@@ -12,14 +12,14 @@ Base44 platform services reached through the SDK.
 ```
 src/
   main.jsx, App.jsx        boot, router, auth gate, toast host
-  pages.config.js          the two routed pages (lazy-loaded)
+  pages.config.js          the one routed page (lazy-loaded)
   pages/
-    SudokuMentor.jsx       desktop page: grid + Logic Panel + hints
-    SudokuMentorMobile.jsx phone page: digit-first input, always timed
+    SudokuMentor.jsx       the page: grid, digit strip, lesson panel, dialogs
   hooks/
     useSudokuGame.js       the game: grid, history, clock, saves, rejects
     useSudokuPlayer.js     the player: user, colours, best time, records
     usePuzzleBootstrap.js  what to load on arrival (saved game, starter, random)
+    useArrangement.js      wide / medium / stacked / phone, from width and pointer
     useDialog.js           modal behaviour every dialog shares
     useMediaQuery.js
   api/
@@ -29,6 +29,26 @@ src/
     engines (below), grid, panel, dialogs, loaders
   components/ui/           button and the toast implementation
 ```
+
+## One page, four arrangements
+
+There is one page. `useArrangement` maps the viewport to an arrangement
+and says where the lesson panel lives:
+
+| Width | Arrangement | Lesson | Digit strip |
+| --- | --- | --- | --- |
+| 1200px and up | wide | right column (380px) | card under the board |
+| 960px to 1199px | medium | right column (300px) | card under the board |
+| 800px to 959px | medium | side sheet (`LessonSheet`), opens on Hint, pinnable | card under the board |
+| 600px to 799px | stacked | bottom sheet above the strip bar | fixed bar at the bottom |
+| under 600px | phone | none; No Assist stays on with the timer in the status strip | fixed bar at the bottom |
+
+The sheets are not dialogs: the board stays live and shortcuts keep
+working. A bottom sheet reports its height and the page sets scroll
+padding so the hint's cells scroll clear of it. Where the lesson is a
+sheet, the Hint button sits on the digit strip. All state is React state
+on the one page, so resizing or rotating never loses anything. The old
+`/SudokuMentorMobile` URL redirects to `/`.
 
 ## The engines
 

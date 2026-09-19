@@ -25,6 +25,7 @@ const renderStrip = (props = {}) => {
       canErase={props.canErase ?? false}
       rejected={props.rejected ?? null}
       touch={props.touch ?? false}
+      hint={props.hint ?? null}
       {...handlers}
     />
   );
@@ -76,6 +77,28 @@ describe('DigitStrip', () => {
   it('names a refused digit and where it was refused', () => {
     const { getByRole } = renderStrip({ rejected: { cellIndex: 9, digit: 4, id: 1 } });
     expect(getByRole('status').textContent).toBe("4 can't go in R2C1");
+  });
+
+  it('carries the Hint button only where the lesson is a sheet', () => {
+    const none = renderStrip();
+    expect(none.queryByRole('button', { name: 'Get a hint' })).toBeNull();
+    cleanup();
+
+    const onClick = vi.fn();
+    const withHint = renderStrip({ hint: { onClick, disabled: false, searching: false } });
+    fireEvent.click(withHint.getByRole('button', { name: 'Get a hint' }));
+    expect(onClick).toHaveBeenCalledTimes(1);
+    cleanup();
+
+    const noAssist = renderStrip({ hint: { onClick, disabled: true } });
+    expect(noAssist.getByRole('button', { name: 'Get a hint' }).hasAttribute('disabled')).toBe(true);
+    cleanup();
+
+    const onCancel = vi.fn();
+    const searching = renderStrip({ hint: { onClick, searching: true, onCancel } });
+    expect(searching.queryByRole('button', { name: 'Get a hint' })).toBeNull();
+    fireEvent.click(searching.getByRole('button', { name: 'Cancel the hint search' }));
+    expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
   it('uses 44px-tall targets on touch devices', () => {

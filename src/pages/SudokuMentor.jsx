@@ -2,8 +2,7 @@ import React, { useState, useCallback, useEffect, useRef, useMemo, Suspense } fr
 import SudokuGrid from '@/components/sudoku/SudokuGrid';
 import DigitStrip from '@/components/sudoku/DigitStrip';
 import LogicPanel from '@/components/sudoku/LogicPanel';
-import ControlBar from '@/components/sudoku/ControlBar';
-import MobileDrawer from '@/components/sudoku/MobileDrawer';
+import LessonSheet, { SIDE_SHEET_WIDTH } from '@/components/sudoku/LessonSheet';
 import AccountMenu from '@/components/sudoku/AccountMenu';
 import KeyboardShortcutsDialog from '@/components/sudoku/panel/KeyboardShortcutsDialog';
 import { playErrorTone } from '@/components/sudoku/errorSound';
@@ -20,10 +19,9 @@ import { FolderOpen } from 'lucide-react';
 import { useSudokuGame } from '@/hooks/useSudokuGame';
 import { useSudokuPlayer } from '@/hooks/useSudokuPlayer';
 import { usePuzzleBootstrap } from '@/hooks/usePuzzleBootstrap';
-import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { useArrangement } from '@/hooks/useArrangement';
 import { useDialog } from '@/hooks/useDialog';
 import { AnimatePresence, motion } from 'framer-motion';
-import { createPageUrl } from '@/utils';
 import { toast } from "@/components/ui/use-toast";
 
 // Dialogs that carry their own weight (OCR, colour presets, confetti) load
@@ -31,6 +29,42 @@ import { toast } from "@/components/ui/use-toast";
 const UnifiedPuzzleLoader = React.lazy(() => import('@/components/sudoku/UnifiedPuzzleLoader'));
 const ColorSettings = React.lazy(() => import('@/components/sudoku/ColorSettings'));
 const CompletionModal = React.lazy(() => import('@/components/sudoku/CompletionModal'));
+
+const LESSON_PINNED_KEY = 'sudoku-mentor:lesson-pinned';
+const readLessonPinned = () => {
+  try {
+    return window.localStorage.getItem(LESSON_PINNED_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
+const writeLessonPinned = (pinned) => {
+  try {
+    window.localStorage.setItem(LESSON_PINNED_KEY, pinned ? '1' : '0');
+  } catch {
+    // remembering is a courtesy
+  }
+};
+
+/** Every cell a step touches, for keeping them in view above a bottom sheet. */
+const stepCells = (step) => {
+  const cells = [
+    ...(step?.placement ? [step.placement.cell] : []),
+    ...(Array.isArray(step?.targetCells) ? step.targetCells : []),
+    ...(Array.isArray(step?.baseCells) ? step.baseCells : []),
+  ].filter((c) => typeof c === 'number');
+  return [...new Set(cells)];
+};
+
+const formatClock = (seconds) => {
+  const s = Math.max(0, Math.floor(seconds || 0));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const rest = s % 60;
+  return h > 0
+    ? `${h}:${String(m).padStart(2, '0')}:${String(rest).padStart(2, '0')}`
+    : `${m}:${String(rest).padStart(2, '0')}`;
+};
 
 export default function SudokuMentor() {
   const [selectedCell, setSelectedCell] = useState(null);
@@ -48,7 +82,18 @@ export default function SudokuMentor() {
   const [showColorSettings, setShowColorSettings] = useState(false);
   const [showCompletion, setShowCompletion] = useState(false);
   const [completionStats, setCompletionStats] = useState({ timeInSeconds: 0, errorCount: 0 });
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  // Where the lesson lives depends on the width (one-adaptive-page spec):
+  // a column, a side sheet, a bottom sheet, or nowhere on a phone.
+  const { arrangement, lesson, stripFixed, touch: touchInput } = useArrangement();
+  const phone = arrangement === 'phone';
+  const sheetMode = lesson === 'side' || lesson === 'bottom';
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetPinned, setSheetPinned] = useState(readLessonPinned);
+  const [sheetHeight, setSheetHeight] = useState(0);
+  const [headerHeight, setHeaderHeight] = useState(56);
+  const [bottomBarHeight, setBottomBarHeight] = useState(0);
+  const headerRef = useRef(null);
+  const bottomBarRef = useRef(null);
   const [chainPlaybackIndex, setChainPlaybackIndex] = useState(0);
   const [showAppInfo, setShowAppInfo] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -58,6 +103,9 @@ export default function SudokuMentor() {
   const [nothingLeft, setNothingLeft] = useState(false);
   const [showCopyConfirmation, setShowCopyConfirmation] = useState(false);
   const [noAssistMode, setNoAssistMode] = useState(false);
+  // The phone keeps No Assist on for now (founder decision, 18 Sep 2026):
+  // no lesson fits, so every phone solve is timed and hint-free.
+  const effectiveNoAssist = noAssistMode || phone;
   const [showNoAssistModal, setShowNoAssistModal] = useState(false);
   const appInfoDialog = useDialog({ open: showAppInfo, onClose: () => setShowAppInfo(false) });
   const noAssistDialog = useDialog({ open: showNoAssistModal, onClose: () => setShowNoAssistModal(false) });
@@ -67,17 +115,8 @@ export default function SudokuMentor() {
   const [srAnnouncement, setSrAnnouncement] = useState('');
 
   // Values the onSolved callback needs that live outside the game hook
-  const noAssistRef = useRef({ noAssistMode });
-  noAssistRef.current = { noAssistMode };
-
-  // Touch-first devices get the dedicated mobile page (decided once, before
-  // any puzzle is loaded, so this page never writes a saved game the mobile
-  // page then "resumes").
-  const [redirecting] = useState(
-    () => typeof window !== 'undefined'
-      && window.matchMedia('(pointer: coarse)').matches
-      && window.innerWidth < 1024
-  );
+  const noAssistRef = useRef({ noAssistMode: effectiveNoAssist });
+  noAssistRef.current = { noAssistMode: effectiveNoAssist };
 
   const playerRef = useRef(null);
 
@@ -114,18 +153,52 @@ export default function SudokuMentor() {
   playerRef.current = player;
   const { user, colors } = player;
 
+  // The sticky header and the fixed strip bar are measured so the sheets
+  // sit between them and scroll padding keeps the hint's cells in view.
   useEffect(() => {
-    if (redirecting) window.location.href = createPageUrl('SudokuMentorMobile');
-  }, [redirecting]);
+    const el = headerRef.current;
+    if (!el) return undefined;
+    setHeaderHeight(Math.ceil(el.getBoundingClientRect().height));
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) setHeaderHeight(Math.ceil(entry.contentRect.height));
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
-  const isLargeScreen = useMediaQuery('(min-width: 1024px)');
-  const touchInput = useMediaQuery('(pointer: coarse)');
+  useEffect(() => {
+    const el = bottomBarRef.current;
+    if (!stripFixed || !el) {
+      setBottomBarHeight(0);
+      return undefined;
+    }
+    setBottomBarHeight(Math.ceil(el.getBoundingClientRect().height));
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) setBottomBarHeight(Math.ceil(entry.contentRect.height));
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [stripFixed]);
+
+  // The phone shows the No Assist clock in its status strip.
+  const [clock, setClock] = useState(0);
+  useEffect(() => {
+    if (!phone) return undefined;
+    const tick = () => setClock(game.getElapsedSeconds?.() ?? 0);
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phone, game.getElapsedSeconds]);
 
   const clearHighlights = useCallback(() => {
     setHighlightedSteps([]);
     setCurrentStep(null);
     setFocusedCandidates(null);
     setRemovalCandidates(null);
+    setNothingLeft(false);
   }, []);
 
   const handleCellClick = useCallback(
@@ -196,6 +269,7 @@ export default function SudokuMentor() {
       setFocusedCandidates(buildFocusedCandidates(step, game.grid, colors));
       game.noteHintUsed();
       setNothingLeft(false);
+      setSheetOpen(true);
       setLessonLog((log) => [
         ...log,
         { id: log.length + 1, technique: step.technique, placement: step.placement, byPlayer: null },
@@ -222,9 +296,10 @@ export default function SudokuMentor() {
   useEffect(() => () => hintSearchRef.current?.cancel(), []);
 
   const handleNextStep = useCallback(async (force = false) => {
-    if (noAssistMode) return; // Block hints in no assist mode
+    if (effectiveNoAssist) return; // Block hints in no assist mode
     if (hintSearchRef.current) return; // a search is already running
     setChainPlaybackIndex(0); // Reset playback for new hint
+    setSheetOpen(true); // the lesson sheet, where the lesson is not a column
 
     const gridAtStart = game.grid;
     let step = findNextLogicStep(game.logicGrid, null);
@@ -275,16 +350,66 @@ export default function SudokuMentor() {
       highlightSteps([step]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [game.grid, game.logicGrid, game.noteAssistUsed, noAssistMode, presentStep, highlightSteps]);
+  }, [game.grid, game.logicGrid, game.noteAssistUsed, effectiveNoAssist, presentStep, highlightSteps]);
   const gridRef = useRef(game.grid);
   gridRef.current = game.grid;
+
+  // The strip's Hint button: reopen a closed sheet that still holds a
+  // lesson rather than logging the same hint twice.
+  const handleHintButton = useCallback(() => {
+    if (currentStep && !sheetOpen) {
+      setSheetOpen(true);
+      return;
+    }
+    handleNextStep();
+  }, [currentStep, sheetOpen, handleNextStep]);
+
+  const handlePinnedChange = useCallback((pinned) => {
+    setSheetPinned(pinned);
+    writeLessonPinned(pinned);
+  }, []);
+
+  // A sheet that is not pinned closes on its own once there is nothing to
+  // show: the lesson was applied, the board was touched, a new puzzle
+  // loaded. The solved card keeps it open.
+  useEffect(() => {
+    if (!sheetMode || sheetPinned) return;
+    if (currentStep === null && !searchingHint && !nothingLeft && !game.completed) setSheetOpen(false);
+  }, [sheetMode, sheetPinned, currentStep, searchingHint, nothingLeft, game.completed]);
+  useEffect(() => {
+    if (sheetMode && game.completed) setSheetOpen(true);
+  }, [sheetMode, game.completed]);
+
+  // A bottom sheet covers the lower part of the page: pad the document so
+  // the board can scroll clear of it, and bring the hint's cells into view.
+  const bottomSheetHeight = lesson === 'bottom' ? sheetHeight : 0;
+  useEffect(() => {
+    if (lesson !== 'bottom' || !sheetOpen) return undefined;
+    const root = document.documentElement;
+    root.style.scrollPaddingTop = `${headerHeight + 8}px`;
+    root.style.scrollPaddingBottom = `${bottomBarHeight + bottomSheetHeight + 8}px`;
+    return () => {
+      root.style.scrollPaddingTop = '';
+      root.style.scrollPaddingBottom = '';
+    };
+  }, [lesson, sheetOpen, headerHeight, bottomBarHeight, bottomSheetHeight]);
+  useEffect(() => {
+    if (lesson !== 'bottom' || !sheetOpen || !currentStep || bottomSheetHeight === 0) return;
+    const cells = stepCells(currentStep);
+    if (cells.length === 0) return;
+    const byRow = [...cells].sort((a, b) => Math.floor(a / 9) - Math.floor(b / 9));
+    // Bottom-most first, then top-most: 'nearest' plus the scroll padding
+    // set above leaves both between the header and the sheet.
+    document.getElementById(`sudoku-cell-${byRow[byRow.length - 1]}`)?.scrollIntoView({ block: 'nearest' });
+    document.getElementById(`sudoku-cell-${byRow[0]}`)?.scrollIntoView({ block: 'nearest' });
+  }, [lesson, sheetOpen, currentStep, bottomSheetHeight]);
 
   useEffect(() => {
     if (hintSearchRef.current) cancelHintSearch();
   }, [game.grid, cancelHintSearch]);
 
   const handleApplyStep = useCallback(() => {
-    if (noAssistMode) return; // Block apply in no assist mode
+    if (effectiveNoAssist) return; // Block apply in no assist mode
     if (!currentStep) return;
 
     if (game.applyStep(currentStep)) {
@@ -297,7 +422,7 @@ export default function SudokuMentor() {
     setRemovalCandidates(null);
     setFocusedCandidates(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep, noAssistMode, game.applyStep]);
+  }, [currentStep, effectiveNoAssist, game.applyStep]);
 
   // The player placed the digit the last hint pointed at: theirs, not the mentor's.
   useEffect(() => {
@@ -401,7 +526,6 @@ export default function SudokuMentor() {
         showPuzzleLoader ||
         showColorSettings ||
         showCompletion ||
-        drawerOpen ||
         showAppInfo ||
         showCopyConfirmation ||
         showTour ||
@@ -436,12 +560,12 @@ export default function SudokuMentor() {
           return;
         }
         case 'hint':
-          if (noAssistMode) return;
+          if (effectiveNoAssist) return;
           e.preventDefault();
           handleNextStep();
           return;
         case 'apply':
-          if (noAssistMode || !currentStep) return;
+          if (effectiveNoAssist || !currentStep) return;
           e.preventDefault();
           handleApplyStep();
           return;
@@ -616,7 +740,6 @@ export default function SudokuMentor() {
     restoreSavedGame: game.restoreSavedGame,
     loadPuzzle: handleLoadPuzzle,
     user,
-    enabled: !redirecting,
     onResumed: () => toast({ title: 'Resumed your puzzle', description: 'Picked up where you left off. Load a new one any time.' }),
     onFirstVisit: () => setShowTour(true),
   });
@@ -640,6 +763,88 @@ export default function SudokuMentor() {
     });
   }, [game.grid, currentStep, chainPlaybackIndex]);
 
+  const board = (
+    <div className="flex justify-center">
+      <SudokuGrid
+        grid={ghostGrid}
+        selectedCell={selectedCell}
+        focusedDigit={focusedDigit}
+        focusedCandidates={focusedCandidates}
+        removalCandidates={removalCandidates}
+        highlightedDigit={highlightedDigit}
+        validationErrors={game.validationErrors}
+        candidateMode={candidateMode}
+        candidatesVisible={candidatesVisible}
+        colors={colors}
+        currentStep={currentStep}
+        highlightedSteps={highlightedSteps}
+        playbackIndex={chainPlaybackIndex}
+        rejectedInput={game.rejectedInput}
+        onCellClick={handleCellClick}
+        onCellInput={game.handleCellInput}
+        onToggleCandidate={game.handleToggleCandidate}
+      />
+    </div>
+  );
+
+  // The digit strip: one input model on every width. Where the lesson is a
+  // sheet, Hint lives on the strip too.
+  const strip = (
+    <DigitStrip
+      grid={game.grid}
+      focusedDigit={focusedDigit}
+      onDigitSelect={handleDigitSelect}
+      pencilMode={pencilMode}
+      onPencilModeChange={setPencilMode}
+      onUndo={handleUndo}
+      onRedo={handleRedo}
+      onErase={handleErase}
+      canUndo={game.canUndo}
+      canRedo={game.canRedo}
+      canErase={
+        selectedCell !== null &&
+        !game.grid[selectedCell].isFixed &&
+        (game.grid[selectedCell].value !== null || game.grid[selectedCell].candidates.length > 0)
+      }
+      rejected={game.rejectedInput}
+      touch={touchInput}
+      hint={
+        sheetMode
+          ? { onClick: handleHintButton, disabled: effectiveNoAssist, searching: searchingHint, onCancel: cancelHintSearch }
+          : null
+      }
+    />
+  );
+  const stripCard = (
+    <div className="bg-slate-900/90 backdrop-blur-sm rounded-2xl shadow-lg shadow-black/50 p-3 sm:p-4 border border-slate-700">
+      {strip}
+    </div>
+  );
+
+  // One lesson panel, rendered in the column or in the sheet.
+  const lessonPanel = phone ? null : (
+    <LogicPanel
+      currentStep={currentStep}
+      grid={game.logicGrid}
+      onAssistUsed={game.noteAssistUsed}
+      noAssistMode={effectiveNoAssist}
+      onNextStep={() => handleNextStep()}
+      onApplyStep={handleApplyStep}
+      solved={game.completed ? completionStats : null}
+      lessonLog={lessonLog}
+      onNextPuzzle={handleNextPuzzle}
+      canGoUp={shelfAbove(game.puzzleDifficulty || 'easy') !== null}
+      nothingLeft={nothingLeft}
+      onShowSingle={() => handleNextStep(true)}
+      getElapsedSeconds={game.getElapsedSeconds}
+      searchingHint={searchingHint}
+      onCancelHintSearch={cancelHintSearch}
+      onChainPlaybackChange={setChainPlaybackIndex}
+      chainPlaybackIndex={chainPlaybackIndex}
+      onHighlightTechnique={handleHighlightTechnique}
+    />
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
       {/* Screen-reader announcements (rejected inputs) */}
@@ -648,7 +853,7 @@ export default function SudokuMentor() {
       </div>
 
       {/* Header */}
-      <header className="bg-slate-900/90 backdrop-blur-md border-b border-slate-700/60 sticky top-0 z-50 safe-area-inset-top">
+      <header ref={headerRef} className="bg-slate-900/90 backdrop-blur-md border-b border-slate-700/60 sticky top-0 z-50 safe-area-inset-top">
         <div className="max-w-7xl mx-auto px-2 lg:px-8 py-2 lg:py-4">
           <div className="flex items-center justify-between">
             {/* Logo and Puzzle Info - Desktop */}
@@ -677,7 +882,7 @@ export default function SudokuMentor() {
                       {Math.floor(player.bestTime / 60)}:{String(player.bestTime % 60).padStart(2, '0')}
                     </span>
                   )}
-                  {noAssistMode && (
+                  {effectiveNoAssist && (
                     <span className="px-3 py-1 bg-red-600 rounded-full text-sm font-medium text-white">No Assist</span>
                   )}
                 </div>
@@ -699,12 +904,8 @@ export default function SudokuMentor() {
                   )}
                 </div>
               )}
-              {noAssistMode && (
-                <div className="px-2 py-1 bg-red-600 rounded-full flex items-center gap-1" title="No Assist Mode">
-                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                  </svg>
-                </div>
+              {effectiveNoAssist && !phone && (
+                <span className="px-2 py-0.5 bg-red-600 rounded-full text-xs font-medium text-white whitespace-nowrap">No Assist</span>
               )}
             </div>
 
@@ -817,132 +1018,76 @@ export default function SudokuMentor() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-28 lg:pb-8 pt-6 lg:pt-8">
-        <div className="grid lg:grid-cols-[1fr,380px] gap-8">
-          {/* Left Column - Grid & Controls */}
-          <div className="space-y-6">
-            {/* Action bar (fixed bottom bar below lg; hidden on desktop) */}
-            <ControlBar
-              onNextStep={() => handleNextStep()}
-              onApplyStep={handleApplyStep}
-              onClear={handleClearGrid}
-              onOpenDrawer={() => setDrawerOpen(true)}
-              hasStep={currentStep !== null}
-              hintsDisabled={noAssistMode}
-              searching={searchingHint}
-              onCancelSearch={cancelHintSearch}
-            />
-
-            {/* Sudoku Grid */}
-            <div className="flex justify-center">
-              <SudokuGrid
-                grid={ghostGrid}
-                selectedCell={selectedCell}
-                focusedDigit={focusedDigit}
-                focusedCandidates={focusedCandidates}
-                removalCandidates={removalCandidates}
-                highlightedDigit={highlightedDigit}
-                validationErrors={game.validationErrors}
-                candidateMode={candidateMode}
-                candidatesVisible={candidatesVisible}
-                colors={colors}
-                currentStep={currentStep}
-                highlightedSteps={highlightedSteps}
-                playbackIndex={chainPlaybackIndex}
-                rejectedInput={game.rejectedInput}
-                onCellClick={handleCellClick}
-                onCellInput={game.handleCellInput}
-                onToggleCandidate={game.handleToggleCandidate}
-              />
+      <main
+        className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-4 lg:pt-8 pb-8 transition-[padding] duration-300"
+        style={{
+          paddingRight: lesson === 'side' && sheetOpen ? SIDE_SHEET_WIDTH + 16 : undefined,
+          paddingBottom: stripFixed ? bottomBarHeight + bottomSheetHeight + 16 : undefined,
+        }}
+      >
+        {lesson === 'column' ? (
+          <div className={`grid gap-6 xl:gap-8 ${arrangement === 'wide' ? 'grid-cols-[1fr,380px]' : 'grid-cols-[1fr,300px]'}`}>
+            <div className="space-y-6 min-w-0">
+              {board}
+              {stripCard}
             </div>
-
-            {/* The digit strip: one input model on every width */}
-            <div className="bg-slate-900/90 backdrop-blur-sm rounded-2xl shadow-lg shadow-black/50 p-3 sm:p-4 border border-slate-700">
-              <DigitStrip
-                grid={game.grid}
-                focusedDigit={focusedDigit}
-                onDigitSelect={handleDigitSelect}
-                pencilMode={pencilMode}
-                onPencilModeChange={setPencilMode}
-                onUndo={handleUndo}
-                onRedo={handleRedo}
-                onErase={handleErase}
-                canUndo={game.canUndo}
-                canRedo={game.canRedo}
-                canErase={
-                  selectedCell !== null &&
-                  !game.grid[selectedCell].isFixed &&
-                  (game.grid[selectedCell].value !== null || game.grid[selectedCell].candidates.length > 0)
-                }
-                rejected={game.rejectedInput}
-                touch={touchInput}
-              />
+            <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto pr-1 min-w-0">
+              {lessonPanel}
             </div>
           </div>
-
-          {/* Right Column - Logic Panel (one instance; it lives in the
-              drawer below the desktop breakpoint) */}
-          {isLargeScreen && (
-            <div className="lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto lg:pr-1">
-              <LogicPanel
-                currentStep={currentStep}
-                grid={game.logicGrid}
-                onAssistUsed={game.noteAssistUsed}
-                noAssistMode={noAssistMode}
-                onNextStep={() => handleNextStep()}
-                onApplyStep={handleApplyStep}
-                solved={game.completed ? completionStats : null}
-                lessonLog={lessonLog}
-                onNextPuzzle={handleNextPuzzle}
-                canGoUp={shelfAbove(game.puzzleDifficulty || 'easy') !== null}
-                nothingLeft={nothingLeft}
-                onShowSingle={() => handleNextStep(true)}
-                getElapsedSeconds={game.getElapsedSeconds}
-                searchingHint={searchingHint}
-                onCancelHintSearch={cancelHintSearch}
-                onChainPlaybackChange={setChainPlaybackIndex}
-                chainPlaybackIndex={chainPlaybackIndex}
-                onHighlightTechnique={handleHighlightTechnique}
-              />
-            </div>
-          )}
-        </div>
+        ) : (
+          <div className="mx-auto w-full max-w-[600px] space-y-4">
+            {stripFixed && (
+              <div className="flex items-center justify-between gap-3 text-xs text-slate-400" data-testid="status-strip">
+                <span>
+                  {game.progress}% complete · {game.errorCount === 0 ? 'No errors' : `${game.errorCount} error${game.errorCount === 1 ? '' : 's'}`}
+                </span>
+                {phone && (
+                  <span className="flex items-center gap-2 shrink-0" aria-live="off">
+                    <span className="text-red-300 font-medium">No Assist: timed, no hints</span>
+                    <span className="tabular-nums text-slate-200" aria-label="Time">{formatClock(clock)}</span>
+                  </span>
+                )}
+              </div>
+            )}
+            {board}
+            {!stripFixed && stripCard}
+          </div>
+        )}
       </main>
 
-      {/* Drawer with the Logic Panel for narrow screens */}
-      {!isLargeScreen && (
-        <MobileDrawer isOpen={drawerOpen} onClose={() => setDrawerOpen(false)}>
-          <LogicPanel
-            currentStep={currentStep}
-            grid={game.logicGrid}
-            onAssistUsed={game.noteAssistUsed}
-            noAssistMode={noAssistMode}
-            onNextStep={() => handleNextStep()}
-            onApplyStep={handleApplyStep}
-            solved={game.completed ? completionStats : null}
-            lessonLog={lessonLog}
-            onNextPuzzle={handleNextPuzzle}
-            canGoUp={shelfAbove(game.puzzleDifficulty || 'easy') !== null}
-            nothingLeft={nothingLeft}
-            onShowSingle={() => handleNextStep(true)}
-            getElapsedSeconds={game.getElapsedSeconds}
-            searchingHint={searchingHint}
-            onCancelHintSearch={cancelHintSearch}
-            onChainPlaybackChange={setChainPlaybackIndex}
-            chainPlaybackIndex={chainPlaybackIndex}
-            onHighlightTechnique={(instances) => {
-              handleHighlightTechnique(instances);
-              setDrawerOpen(false);
-            }}
-          />
-        </MobileDrawer>
+      {/* Stacked and phone: the strip is a fixed bar under the thumbs */}
+      {stripFixed && (
+        <div
+          ref={bottomBarRef}
+          className="fixed left-0 right-0 bottom-0 bg-slate-900/95 backdrop-blur-md border-t border-slate-700 z-40"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        >
+          <div className="px-2 pt-1 pb-1.5">{strip}</div>
+        </div>
+      )}
+
+      {/* Medium without room for two columns, and stacked: the lesson is a sheet */}
+      {sheetMode && (
+        <LessonSheet
+          side={lesson === 'side' ? 'right' : 'bottom'}
+          open={sheetOpen}
+          pinned={sheetPinned}
+          onPinnedChange={handlePinnedChange}
+          onClose={() => setSheetOpen(false)}
+          topOffset={headerHeight}
+          bottomOffset={bottomBarHeight}
+          onHeightChange={lesson === 'bottom' ? setSheetHeight : undefined}
+        >
+          {lessonPanel}
+        </LessonSheet>
       )}
 
       <KeyboardShortcutsDialog open={showShortcuts} onClose={() => setShowShortcuts(false)} />
 
       <WelcomeTour
         open={showTour}
-        variant="desktop"
+        variant={touchInput ? 'mobile' : 'desktop'}
         onClose={() => {
           markOnboarded();
           setShowTour(false);
