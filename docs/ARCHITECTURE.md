@@ -50,6 +50,24 @@ sheet, the Hint button sits on the digit strip. All state is React state
 on the one page, so resizing or rotating never loses anything. The old
 `/SudokuMentorMobile` URL redirects to `/`.
 
+## Themes
+
+Two complete themes, dark and paper, from one set of class names. In
+`tailwind.config.js` every shade of slate and of the accent palettes is a
+CSS variable (`--c-blue-400` and so on) that a Tailwind plugin defines on
+`:root` (Tailwind's own values) and again under `[data-theme="paper"]`
+with the scale turned over (50 <-> 950, 400 <-> 600, ...), a warm paper
+scale for slate, and `white` as ink. So `bg-slate-900 text-white` is a
+dark card with white text on dark and a cream card with ink text on paper,
+and nothing in the components knows which theme is on.
+
+`src/lib/theme.js` holds the choice (dark, paper or system), remembered
+in localStorage and painted on `<html data-theme>` by an inline script in
+`index.html` before the first frame. `useSudokuPlayer` owns the choice and
+the board colours, one set per theme, and saves both to the account as
+`sudoku_colors` (`{ theme, dark, paper }`; a flat legacy set is the dark
+one). The board's five colours come from `colors.js`, per theme.
+
 ## The engines
 
 Everything that reasons about a board is pure and synchronous, takes a grid

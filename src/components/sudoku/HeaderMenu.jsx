@@ -1,15 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Menu } from 'lucide-react';
+import { Menu, Check } from 'lucide-react';
 
 /**
  * The one overflow menu in the header (header-and-menu spec). Everything
  * secondary lives here, each item labelled with words. The hamburger is
  * the only icon-only control in the header.
  *
- * `items` is a list of `{ id, label, icon, onSelect, danger? }`; a `null`
- * entry draws a divider. The menu closes on Escape, on a click outside and
- * after any selection, and returns focus to its button. Arrow keys move
- * between items.
+ * `items` is a list of `{ id, label, icon, onSelect, danger?, checked? }`;
+ * an item with `checked` set is a radio item (a theme choice), a `null`
+ * entry draws a divider and `{ heading }` labels the group that follows.
+ * The menu closes on Escape, on a click outside and after any selection,
+ * and returns focus to its button. Arrow keys move between items.
  */
 export default function HeaderMenu({ items, label = 'Menu' }) {
   const [open, setOpen] = useState(false);
@@ -32,7 +33,7 @@ export default function HeaderMenu({ items, label = 'Menu' }) {
       if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
       const list = listRef.current;
       if (!list) return;
-      const entries = Array.from(list.querySelectorAll('[role="menuitem"]'));
+      const entries = Array.from(list.querySelectorAll('[role="menuitem"], [role="menuitemradio"]'));
       if (entries.length === 0) return;
       e.preventDefault();
       const at = entries.indexOf(/** @type {any} */ (document.activeElement));
@@ -43,7 +44,7 @@ export default function HeaderMenu({ items, label = 'Menu' }) {
     document.addEventListener('keydown', onKey, true);
     // Focus the first item so the keyboard lands inside the menu.
     const raf = requestAnimationFrame(() => {
-      const first = listRef.current?.querySelector('[role="menuitem"]');
+      const first = listRef.current?.querySelector('[role="menuitem"], [role="menuitemradio"]');
       if (first instanceof HTMLElement) first.focus();
     });
     return () => {
@@ -76,12 +77,21 @@ export default function HeaderMenu({ items, label = 'Menu' }) {
         >
           {items.map((item, i) => {
             if (!item) return <div key={`divider-${i}`} role="separator" className="my-1 border-t border-slate-700" />;
+            if (item.heading) {
+              return (
+                <div key={`heading-${i}`} role="presentation" className="px-4 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  {item.heading}
+                </div>
+              );
+            }
             const Icon = item.icon;
+            const radio = typeof item.checked === 'boolean';
             return (
               <button
                 key={item.id}
                 type="button"
-                role="menuitem"
+                role={radio ? 'menuitemradio' : 'menuitem'}
+                aria-checked={radio ? item.checked : undefined}
                 onClick={() => {
                   setOpen(false);
                   buttonRef.current?.focus();
@@ -94,6 +104,7 @@ export default function HeaderMenu({ items, label = 'Menu' }) {
                 {Icon && <Icon className="w-4 h-4 shrink-0 text-slate-400" aria-hidden="true" />}
                 <span>{item.label}</span>
                 {item.hint && <span className="ml-auto text-xs text-slate-500 font-mono">{item.hint}</span>}
+                {radio && item.checked && <Check className="ml-auto w-4 h-4 text-blue-400" aria-hidden="true" />}
               </button>
             );
           })}
