@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo, Suspense } from 'react';
 import SudokuGrid from '@/components/sudoku/SudokuGrid';
-import DigitFilter from '@/components/sudoku/DigitFilter';
+import DigitStrip from '@/components/sudoku/DigitStrip';
 import LogicPanel from '@/components/sudoku/LogicPanel';
 import ControlBar from '@/components/sudoku/ControlBar';
 import MobileDrawer from '@/components/sudoku/MobileDrawer';
@@ -41,7 +41,10 @@ export default function SudokuMentor() {
   const [highlightedSteps, setHighlightedSteps] = useState([]);
   const [showPuzzleLoader, setShowPuzzleLoader] = useState(false);
   const [highlightedDigit, setHighlightedDigit] = useState(null);
-  const [candidateMode, setCandidateMode] = useState(false);
+  // Pencil marks: the strip's toggle is sticky; Shift adds to it while held.
+  const [pencilMode, setPencilMode] = useState(false);
+  const [shiftHeld, setShiftHeld] = useState(false);
+  const candidateMode = pencilMode || shiftHeld;
   const [showColorSettings, setShowColorSettings] = useState(false);
   const [showCompletion, setShowCompletion] = useState(false);
   const [completionStats, setCompletionStats] = useState({ timeInSeconds: 0, errorCount: 0 });
@@ -112,6 +115,7 @@ export default function SudokuMentor() {
   }, [redirecting]);
 
   const isLargeScreen = useMediaQuery('(min-width: 1024px)');
+  const touchInput = useMediaQuery('(pointer: coarse)');
 
   const clearHighlights = useCallback(() => {
     setHighlightedSteps([]);
@@ -123,19 +127,52 @@ export default function SudokuMentor() {
   const handleCellClick = useCallback(
     (cellIndex) => {
       setSelectedCell(cellIndex);
+      clearHighlights();
+
+      const cell = game.grid[cellIndex];
+      // Digit-first: an armed digit goes into the empty cell that was tapped
+      // (or toggles as a pencil mark). The digit stays armed.
+      if (focusedDigit !== null && !cell.isFixed && cell.value === null) {
+        if (candidateMode) game.handleToggleCandidate(cellIndex, focusedDigit);
+        else game.handleCellInput(cellIndex, focusedDigit);
+        setHighlightedDigit(null);
+        return;
+      }
 
       // If clicking a solved cell, highlight all instances of that number
-      const clickedValue = game.grid[cellIndex].value;
+      const clickedValue = cell.value;
       if (clickedValue !== null) {
         setHighlightedDigit((prev) => (prev === clickedValue ? null : clickedValue));
       } else {
         setHighlightedDigit(null);
       }
-
-      clearHighlights();
     },
-    [game.grid, clearHighlights]
+    [game, focusedDigit, candidateMode, clearHighlights]
   );
+
+  // The strip: cell-first when an editable cell is selected (the digit goes
+  // straight in), digit-first otherwise (the digit is armed for the next
+  // cell taps, and highlighted on the board meanwhile).
+  const handleDigitSelect = useCallback(
+    (digit) => {
+      clearHighlights();
+      const cell = selectedCell !== null ? game.grid[selectedCell] : null;
+      if (cell && !cell.isFixed && cell.value === null) {
+        if (candidateMode) game.handleToggleCandidate(selectedCell, digit);
+        else game.handleCellInput(selectedCell, digit);
+        return;
+      }
+      setFocusedDigit((prev) => (prev === digit ? null : digit));
+    },
+    [game, selectedCell, candidateMode, clearHighlights]
+  );
+
+  const handleErase = useCallback(() => {
+    if (selectedCell === null) return;
+    const cell = game.grid[selectedCell];
+    if (cell.isFixed) return;
+    game.handleCellInput(selectedCell, null);
+  }, [game, selectedCell]);
 
   const handleDigitFilter = useCallback(
     (digit) => {
@@ -321,7 +358,7 @@ export default function SudokuMentor() {
 
       // Holding Shift switches to candidate mode for mouse clicks too
       if (e.key === 'Shift' && !e.repeat) {
-        setCandidateMode(true);
+        setShiftHeld(true);
         return;
       }
 
@@ -411,7 +448,7 @@ export default function SudokuMentor() {
 
   keyHandlersRef.current.onKeyUp = (e) => {
       if (e.key === 'Shift') {
-        setCandidateMode(false);
+        setShiftHeld(false);
       }
     };
 
@@ -419,7 +456,7 @@ export default function SudokuMentor() {
     const handleKeyDown = (e) => keyHandlersRef.current.onKeyDown(e);
     const handleKeyUp = (e) => keyHandlersRef.current.onKeyUp(e);
     // Shift released while the window was not focused never sends keyup.
-    const handleBlur = () => setCandidateMode(false);
+    const handleBlur = () => setShiftHeld(false);
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     window.addEventListener('blur', handleBlur);
@@ -736,13 +773,9 @@ export default function SudokuMentor() {
             <ControlBar
               onNextStep={handleNextStep}
               onApplyStep={handleApplyStep}
-              onUndo={handleUndo}
-              onRedo={handleRedo}
               onClear={handleClearGrid}
               onOpenDrawer={() => setDrawerOpen(true)}
               hasStep={currentStep !== null}
-              canUndo={game.canUndo}
-              canRedo={game.canRedo}
               hintsDisabled={noAssistMode}
               searching={searchingHint}
               onCancelSearch={cancelHintSearch}
@@ -771,12 +804,28 @@ export default function SudokuMentor() {
               />
             </div>
 
-            {/* Digit Filter */}
-            <DigitFilter
-              focusedDigit={focusedDigit}
-              onDigitClick={handleDigitFilter}
-              grid={game.grid}
-            />
+            {/* The digit strip: one input model on every width */}
+            <div className="bg-slate-900/90 backdrop-blur-sm rounded-2xl shadow-lg shadow-black/50 p-3 sm:p-4 border border-slate-700">
+              <DigitStrip
+                grid={game.grid}
+                focusedDigit={focusedDigit}
+                onDigitSelect={handleDigitSelect}
+                pencilMode={pencilMode}
+                onPencilModeChange={setPencilMode}
+                onUndo={handleUndo}
+                onRedo={handleRedo}
+                onErase={handleErase}
+                canUndo={game.canUndo}
+                canRedo={game.canRedo}
+                canErase={
+                  selectedCell !== null &&
+                  !game.grid[selectedCell].isFixed &&
+                  (game.grid[selectedCell].value !== null || game.grid[selectedCell].candidates.length > 0)
+                }
+                rejected={game.rejectedInput}
+                touch={touchInput}
+              />
+            </div>
           </div>
 
           {/* Right Column - Logic Panel (one instance; it lives in the

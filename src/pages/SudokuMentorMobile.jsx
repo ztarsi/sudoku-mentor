@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef, Suspense } from 'react';
 import SudokuGrid from '@/components/sudoku/SudokuGrid';
-import CandidateNumpad from '@/components/sudoku/CandidateNumpad';
+import DigitStrip from '@/components/sudoku/DigitStrip';
 import AccountMenu from '@/components/sudoku/AccountMenu';
 import { playErrorTone } from '@/components/sudoku/errorSound';
 import { resolveShortcut, isTypingTarget } from '@/components/sudoku/keyboardShortcuts';
@@ -9,7 +9,6 @@ import WelcomeTour from '@/components/sudoku/WelcomeTour';
 import { useSudokuGame } from '@/hooks/useSudokuGame';
 import { useSudokuPlayer } from '@/hooks/useSudokuPlayer';
 import { usePuzzleBootstrap } from '@/hooks/usePuzzleBootstrap';
-import { Undo2, Eraser } from 'lucide-react';
 import { toast } from "@/components/ui/use-toast";
 
 const UnifiedPuzzleLoader = React.lazy(() => import('@/components/sudoku/UnifiedPuzzleLoader'));
@@ -21,7 +20,10 @@ export default function SudokuMentorMobile() {
   const [focusedDigit, setFocusedDigit] = useState(null);
   const [showPuzzleLoader, setShowPuzzleLoader] = useState(false);
   const [highlightedDigit, setHighlightedDigit] = useState(null);
-  const [candidateMode, setCandidateMode] = useState(false);
+  // Pencil marks: the strip's toggle is sticky; Shift (external keyboard) adds to it while held.
+  const [pencilMode, setPencilMode] = useState(false);
+  const [shiftHeld, setShiftHeld] = useState(false);
+  const candidateMode = pencilMode || shiftHeld;
   const [showColorSettings, setShowColorSettings] = useState(false);
   const [showCompletion, setShowCompletion] = useState(false);
   const [completionStats, setCompletionStats] = useState({ timeInSeconds: 0, errorCount: 0 });
@@ -109,8 +111,16 @@ export default function SudokuMentorMobile() {
     }
   }, [game.grid, focusedDigit, candidateMode]);
 
+  // The strip: cell-first when an editable cell is selected (the digit goes
+  // straight in), digit-first otherwise (armed for the next cell taps).
   const handleDigitSelect = useCallback(
     (digit) => {
+      const cell = selectedCell !== null ? game.grid[selectedCell] : null;
+      if (cell && !cell.isFixed && cell.value === null) {
+        if (candidateMode) game.handleToggleCandidate(selectedCell, digit);
+        else game.handleCellInput(selectedCell, digit);
+        return;
+      }
       if (focusedDigit === digit) {
         setFocusedDigit(null);
         setHighlightedDigit(null);
@@ -119,7 +129,7 @@ export default function SudokuMentorMobile() {
         setHighlightedDigit(digit);
       }
     },
-    [focusedDigit]
+    [game, selectedCell, candidateMode, focusedDigit]
   );
 
   const handleEraseCell = useCallback(() => {
@@ -170,7 +180,7 @@ export default function SudokuMentorMobile() {
     if (isModalOpen) return;
 
     if (e.key === 'Shift' && !e.repeat) {
-      setCandidateMode(true);
+      setShiftHeld(true);
       return;
     }
 
@@ -240,14 +250,14 @@ export default function SudokuMentorMobile() {
 
   keyHandlersRef.current.onKeyUp = (e) => {
       if (e.key === 'Shift') {
-        setCandidateMode(false);
+        setShiftHeld(false);
       }
     };
 
   useEffect(() => {
     const handleKeyDown = (e) => keyHandlersRef.current.onKeyDown(e);
     const handleKeyUp = (e) => keyHandlersRef.current.onKeyUp(e);
-    const handleBlur = () => setCandidateMode(false);
+    const handleBlur = () => setShiftHeld(false);
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     window.addEventListener('blur', handleBlur);
@@ -364,104 +374,26 @@ export default function SudokuMentorMobile() {
           className="fixed left-0 right-0 bottom-0 bg-slate-900/95 backdrop-blur-md border-t border-slate-700 z-40"
           style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
         >
-          {/* Pencil-mark pad: stacks above the mode switch, never over it */}
-          <CandidateNumpad
-            isOpen={candidateMode && selectedCell !== null}
-            selectedCell={selectedCell}
-            grid={game.grid}
-            onToggleCandidate={(digit) => game.handleToggleCandidate(selectedCell, digit)}
-            onClose={() => setCandidateMode(false)}
-            colors={colors}
-            focusedDigit={focusedDigit}
-            removalCandidates={null}
-          />
-
-          {/* Mode toggle + undo/erase */}
-          <div className="flex items-center gap-2 px-2 py-2 border-b border-slate-800">
-            <button
-              onClick={() => setCandidateMode(false)}
-              aria-pressed={!candidateMode}
-              className={`flex-1 py-2 rounded-lg font-medium text-sm transition-all ${
-                !candidateMode
-                  ? 'bg-blue-600 text-white shadow-lg'
-                  : 'bg-slate-800 text-slate-400'
-              }`}
-            >
-              Solve
-            </button>
-            <button
-              onClick={() => setCandidateMode(true)}
-              aria-pressed={candidateMode}
-              className={`flex-1 py-2 rounded-lg font-medium text-sm transition-all ${
-                candidateMode
-                  ? 'bg-purple-600 text-white shadow-lg'
-                  : 'bg-slate-800 text-slate-400'
-              }`}
-            >
-              Candidate
-            </button>
-            <button
-              onClick={game.undo}
-              disabled={!game.canUndo}
-              className={`p-2.5 rounded-lg transition-all ${
-                game.canUndo
-                  ? 'bg-slate-800 text-slate-300 active:bg-slate-700'
-                  : 'bg-slate-800 text-slate-700'
-              }`}
-              title="Undo" aria-label="Undo"
-            >
-              <Undo2 className="w-4 h-4" />
-            </button>
-            <button
-              onClick={handleEraseCell}
-              disabled={selectedCell === null || game.grid[selectedCell]?.isFixed}
-              className={`p-2.5 rounded-lg transition-all ${
-                selectedCell !== null && !game.grid[selectedCell]?.isFixed
-                  ? 'bg-slate-800 text-red-400 active:bg-red-950'
-                  : 'bg-slate-800 text-slate-700'
-              }`}
-              title="Erase cell" aria-label="Erase cell"
-            >
-              <Eraser className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Digit Input */}
-          <div className="py-1.5 px-1">
-            <div className="flex gap-1 justify-between">
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(digit => {
-                const digitCount = game.grid.filter(cell => cell.value === digit).length;
-                const isComplete = digitCount >= 9;
-                const isSelected = focusedDigit === digit;
-
-                return (
-                  <button
-                    key={digit}
-                    onClick={() => handleDigitSelect(digit)}
-                    disabled={isComplete && !candidateMode && !isSelected}
-                    aria-pressed={isSelected}
-                    aria-label={`Digit ${digit}, ${digitCount} placed${isComplete ? ', complete' : ''}`}
-                    className={`
-                      relative flex-shrink-0 w-9 h-9 rounded-lg font-semibold text-sm
-                      transition-all duration-200
-                      ${isComplete && !candidateMode
-                        ? 'bg-emerald-900/40 text-emerald-600 cursor-not-allowed'
-                        : isSelected
-                          ? 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg'
-                          : 'bg-slate-800 text-slate-300 active:bg-slate-700'
-                      }
-                    `}
-                  >
-                    {digit}
-                    {isComplete && !candidateMode && (
-                      <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full flex items-center justify-center text-[7px] text-white">
-                        ✓
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+          <div className="px-2 pt-1 pb-1.5">
+            <DigitStrip
+              touch
+              grid={game.grid}
+              focusedDigit={focusedDigit}
+              onDigitSelect={handleDigitSelect}
+              pencilMode={pencilMode}
+              onPencilModeChange={setPencilMode}
+              onUndo={game.undo}
+              onRedo={game.redo}
+              onErase={handleEraseCell}
+              canUndo={game.canUndo}
+              canRedo={game.canRedo}
+              canErase={
+                selectedCell !== null &&
+                !game.grid[selectedCell].isFixed &&
+                (game.grid[selectedCell].value !== null || game.grid[selectedCell].candidates.length > 0)
+              }
+              rejected={game.rejectedInput}
+            />
           </div>
         </div>
       </main>
