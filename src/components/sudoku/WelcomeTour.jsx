@@ -11,8 +11,8 @@ const STEPS = {
   ],
   mobile: [
     { icon: Hand, title: 'Pick a digit, then tap cells', body: 'Choose a digit in the bottom bar, then tap the cells where it belongs. Wrong digits are rejected, so you can experiment freely.' },
-    { icon: Pencil, title: 'Pencil marks', body: 'Switch to Candidate mode to note possible digits. Tap a cell to open the candidate pad.' },
-    { icon: RotateCcw, title: 'Fix mistakes', body: 'Undo and Erase live next to the mode switch. Long-press a cell for more options.' },
+    { icon: Pencil, title: 'Pencil marks', body: 'Tap Pencil on the strip, then a digit and a cell, to note a possible digit instead of placing it.' },
+    { icon: RotateCcw, title: 'Fix mistakes', body: 'Undo and Erase sit on the strip next to Pencil. Wrong digits are refused, so nothing is ever lost.' },
   ],
 };
 

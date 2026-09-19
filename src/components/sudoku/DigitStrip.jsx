@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pencil, Undo2, Redo2, Eraser } from 'lucide-react';
+import { Pencil, Undo2, Redo2, Eraser, Lightbulb, Loader2 } from 'lucide-react';
 import { cellName } from './gridUnits';
 
 /**
@@ -14,7 +14,9 @@ import { cellName } from './gridUnits';
  *
  * The strip is layout-neutral: the page decides whether it sits in a card
  * (desktop) or a fixed bar (touch). `touch` enlarges every target to at
- * least 44px tall.
+ * least 44px tall. When the lesson lives in a sheet rather than a column,
+ * the page passes `hint` and the strip carries the Hint button too
+ * (one-adaptive-page spec): `{ onClick, disabled, searching, onCancel }`.
  */
 export default function DigitStrip({
   grid,
@@ -30,6 +32,7 @@ export default function DigitStrip({
   canErase = false,
   rejected = null,
   touch = false,
+  hint = null,
 }) {
   const counts = {};
   for (let d = 1; d <= 9; d++) counts[d] = 0;
@@ -86,6 +89,32 @@ export default function DigitStrip({
       </div>
 
       <div className="flex gap-1 sm:gap-2">
+        {hint && (hint.searching ? (
+          <button
+            type="button"
+            onClick={hint.onCancel}
+            aria-label="Cancel the hint search"
+            className={`flex-1 rounded-lg text-sm font-medium flex items-center justify-center gap-1.5 transition-colors bg-amber-900/40 text-amber-200 ${controlSize}`}
+          >
+            <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+            Cancel
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={hint.onClick}
+            disabled={!!hint.disabled}
+            aria-label="Get a hint"
+            className={`flex-1 rounded-lg text-sm font-medium flex items-center justify-center gap-1.5 transition-colors ${controlSize} ${
+              hint.disabled
+                ? 'bg-slate-800/60 text-slate-600 cursor-not-allowed'
+                : 'bg-amber-500/90 text-slate-950 hover:bg-amber-400'
+            }`}
+          >
+            <Lightbulb className="w-4 h-4" aria-hidden="true" />
+            Hint
+          </button>
+        ))}
         <button
           type="button"
           onClick={() => onPencilModeChange(!pencilMode)}
