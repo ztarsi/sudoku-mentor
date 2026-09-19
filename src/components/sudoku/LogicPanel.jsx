@@ -47,7 +47,6 @@ const ULTIMATE_TECHNIQUES = [
  */
 export default function LogicPanel({
   currentStep,
-  focusedDigit,
   grid,
   noAssistMode,
   onHighlightTechnique,
@@ -57,6 +56,14 @@ export default function LogicPanel({
   searchingHint = false,
   onCancelHintSearch,
   onAssistUsed,
+  onApplyStep,
+  solved = null,
+  lessonLog = [],
+  onNextPuzzle,
+  canGoUp = true,
+  nothingLeft = false,
+  onShowSingle,
+  getElapsedSeconds,
 }) {
   const [selectedTechnique, setSelectedTechnique] = useState(null);
   // The lesson comes first; the technique browser is an expert tool,
@@ -241,11 +248,18 @@ export default function LogicPanel({
       <CurrentStepCard
         currentStep={currentStep}
         grid={grid}
-        focusedDigit={focusedDigit}
         noAssistMode={noAssistMode}
         onNextStep={onNextStep}
+        onApplyStep={onApplyStep}
         searching={searchingHint}
         onCancelSearch={onCancelHintSearch}
+        solved={solved}
+        lessonLog={lessonLog}
+        onNextPuzzle={onNextPuzzle}
+        canGoUp={canGoUp}
+        nothingLeft={nothingLeft}
+        onShowSingle={onShowSingle}
+        getElapsedSeconds={getElapsedSeconds}
         onSelectTechnique={setSelectedTechnique}
         chainPlaybackIndex={chainPlaybackIndex}
         onChainPlaybackChange={onChainPlaybackChange}

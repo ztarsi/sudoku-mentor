@@ -8,13 +8,13 @@ import AccountMenu from '@/components/sudoku/AccountMenu';
 import KeyboardShortcutsDialog from '@/components/sudoku/panel/KeyboardShortcutsDialog';
 import { playErrorTone } from '@/components/sudoku/errorSound';
 import { resolveShortcut, isTypingTarget } from '@/components/sudoku/keyboardShortcuts';
-import { findNextLogicStep } from '@/components/sudoku/logicEngine';
+import { findNextLogicStep, onlySinglesRemain } from '@/components/sudoku/logicEngine';
 import { searchWhatIf, isCancelled, isTimedOut, HINT_SEARCH_DEPTH, HINT_TIME_BUDGET_MS } from '@/components/sudoku/whatIfSearch';
 import {
   buildRemovalMap,
   buildFocusedCandidates,
 } from '@/components/sudoku/stepHighlights';
-import { markOnboarded } from '@/components/sudoku/puzzleSources';
+import { markOnboarded, fetchAllPuzzleEntries, pickNextOnShelf, shelfAbove } from '@/components/sudoku/puzzleSources';
 import WelcomeTour from '@/components/sudoku/WelcomeTour';
 import { FolderOpen } from 'lucide-react';
 import { useSudokuGame } from '@/hooks/useSudokuGame';
@@ -52,6 +52,10 @@ export default function SudokuMentor() {
   const [chainPlaybackIndex, setChainPlaybackIndex] = useState(0);
   const [showAppInfo, setShowAppInfo] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  // What this puzzle taught: one entry per presented hint, marked when the
+  // mentor applied it or the player placed the digit themselves.
+  const [lessonLog, setLessonLog] = useState([]);
+  const [nothingLeft, setNothingLeft] = useState(false);
   const [showCopyConfirmation, setShowCopyConfirmation] = useState(false);
   const [noAssistMode, setNoAssistMode] = useState(false);
   const [showNoAssistModal, setShowNoAssistModal] = useState(false);
@@ -191,6 +195,11 @@ export default function SudokuMentor() {
       setRemovalCandidates(buildRemovalMap(step));
       setFocusedCandidates(buildFocusedCandidates(step, game.grid, colors));
       game.noteHintUsed();
+      setNothingLeft(false);
+      setLessonLog((log) => [
+        ...log,
+        { id: log.length + 1, technique: step.technique, placement: step.placement, byPlayer: null },
+      ]);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [game.grid, game.noteHintUsed, colors]
@@ -212,13 +221,25 @@ export default function SudokuMentor() {
   }, []);
   useEffect(() => () => hintSearchRef.current?.cancel(), []);
 
-  const handleNextStep = useCallback(async () => {
+  const handleNextStep = useCallback(async (force = false) => {
     if (noAssistMode) return; // Block hints in no assist mode
     if (hintSearchRef.current) return; // a search is already running
     setChainPlaybackIndex(0); // Reset playback for new hint
 
     const gridAtStart = game.grid;
     let step = findNextLogicStep(game.logicGrid, null);
+    // Only singles left: say so instead of spelling out the obvious, unless
+    // the player asks to see one anyway.
+    if (
+      step &&
+      !force &&
+      (step.technique === 'Naked Single' || step.technique === 'Hidden Single') &&
+      onlySinglesRemain(game.logicGrid)
+    ) {
+      setNothingLeft(true);
+      game.noteAssistUsed();
+      return;
+    }
     if (!step) {
       // No regular technique applies: what-if search, off the main thread.
       const search = searchWhatIf(game.logicGrid, HINT_SEARCH_DEPTH, { timeBudgetMs: HINT_TIME_BUDGET_MS });
@@ -253,7 +274,8 @@ export default function SudokuMentor() {
       presentStep(step);
       highlightSteps([step]);
     }
-  }, [game.grid, game.logicGrid, noAssistMode, presentStep, highlightSteps]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game.grid, game.logicGrid, game.noteAssistUsed, noAssistMode, presentStep, highlightSteps]);
   const gridRef = useRef(game.grid);
   gridRef.current = game.grid;
 
@@ -265,7 +287,9 @@ export default function SudokuMentor() {
     if (noAssistMode) return; // Block apply in no assist mode
     if (!currentStep) return;
 
-    game.applyStep(currentStep);
+    if (game.applyStep(currentStep)) {
+      setLessonLog((log) => log.map((e, i) => (i === log.length - 1 && e.byPlayer === null ? { ...e, byPlayer: false } : e)));
+    }
     setCurrentStep(null);
     setHighlightedSteps([]);
     setFocusedDigit(null);
@@ -274,6 +298,32 @@ export default function SudokuMentor() {
     setFocusedCandidates(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep, noAssistMode, game.applyStep]);
+
+  // The player placed the digit the last hint pointed at: theirs, not the mentor's.
+  useEffect(() => {
+    setLessonLog((log) => {
+      const last = log[log.length - 1];
+      if (!last || last.byPlayer !== null || !last.placement) return log;
+      const cell = game.grid[last.placement.cell];
+      if (cell && cell.value === last.placement.digit) {
+        return log.map((e, i) => (i === log.length - 1 ? { ...e, byPlayer: true } : e));
+      }
+      return log;
+    });
+  }, [game.grid]);
+
+  // Solved card actions: another puzzle on this shelf, or the shelf above.
+  const handleNextPuzzle = useCallback(
+    async (kind) => {
+      const current = game.puzzleDifficulty || 'easy';
+      const shelf = kind === 'above' ? shelfAbove(current) || current : current;
+      const entries = await fetchAllPuzzleEntries(playerRef.current?.user ?? null);
+      const entry = pickNextOnShelf(entries, shelf, game.puzzleName);
+      if (entry) handleLoadPuzzle(entry.puzzle, { name: entry.name, difficulty: entry.difficulty });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [game.puzzleDifficulty, game.puzzleName]
+  );
 
   const handleHighlightTechnique = useCallback(
     (instances) => {
@@ -330,6 +380,8 @@ export default function SudokuMentor() {
       setRemovalCandidates(null);
       setHighlightedDigit(null);
       setChainPlaybackIndex(0);
+      setLessonLog([]);
+      setNothingLeft(false);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [game.loadPuzzle]
@@ -771,7 +823,7 @@ export default function SudokuMentor() {
           <div className="space-y-6">
             {/* Action bar (fixed bottom bar below lg; hidden on desktop) */}
             <ControlBar
-              onNextStep={handleNextStep}
+              onNextStep={() => handleNextStep()}
               onApplyStep={handleApplyStep}
               onClear={handleClearGrid}
               onOpenDrawer={() => setDrawerOpen(true)}
@@ -834,11 +886,18 @@ export default function SudokuMentor() {
             <div className="lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto lg:pr-1">
               <LogicPanel
                 currentStep={currentStep}
-                focusedDigit={focusedDigit}
                 grid={game.logicGrid}
                 onAssistUsed={game.noteAssistUsed}
                 noAssistMode={noAssistMode}
-                onNextStep={handleNextStep}
+                onNextStep={() => handleNextStep()}
+                onApplyStep={handleApplyStep}
+                solved={game.completed ? completionStats : null}
+                lessonLog={lessonLog}
+                onNextPuzzle={handleNextPuzzle}
+                canGoUp={shelfAbove(game.puzzleDifficulty || 'easy') !== null}
+                nothingLeft={nothingLeft}
+                onShowSingle={() => handleNextStep(true)}
+                getElapsedSeconds={game.getElapsedSeconds}
                 searchingHint={searchingHint}
                 onCancelHintSearch={cancelHintSearch}
                 onChainPlaybackChange={setChainPlaybackIndex}
@@ -855,11 +914,18 @@ export default function SudokuMentor() {
         <MobileDrawer isOpen={drawerOpen} onClose={() => setDrawerOpen(false)}>
           <LogicPanel
             currentStep={currentStep}
-            focusedDigit={focusedDigit}
             grid={game.logicGrid}
             onAssistUsed={game.noteAssistUsed}
             noAssistMode={noAssistMode}
-            onNextStep={handleNextStep}
+            onNextStep={() => handleNextStep()}
+            onApplyStep={handleApplyStep}
+            solved={game.completed ? completionStats : null}
+            lessonLog={lessonLog}
+            onNextPuzzle={handleNextPuzzle}
+            canGoUp={shelfAbove(game.puzzleDifficulty || 'easy') !== null}
+            nothingLeft={nothingLeft}
+            onShowSingle={() => handleNextStep(true)}
+            getElapsedSeconds={game.getElapsedSeconds}
             searchingHint={searchingHint}
             onCancelHintSearch={cancelHintSearch}
             onChainPlaybackChange={setChainPlaybackIndex}

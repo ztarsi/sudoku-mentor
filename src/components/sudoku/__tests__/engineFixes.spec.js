@@ -275,3 +275,21 @@ describe('BUG+1', () => {
     // correct, safe answer - the test asserts soundness, not detection.)
   });
 });
+
+describe('onlySinglesRemain', () => {
+  it('is false at the start of a puzzle that needs more than singles, true near the end', async () => {
+    const { onlySinglesRemain, findNextLogicStep, applyLogicStep } = await import('../logicEngine');
+    const entry = PUZZLES.medium[0];
+    let grid = generateCandidates(entry.puzzle.map((v, i) => ({ cellIndex: i, value: v || null, isFixed: !!v, candidates: [] })));
+    expect(onlySinglesRemain(grid)).toBe(false);
+    // Play it out with the engine until only singles are left.
+    for (let n = 0; n < 200; n++) {
+      const step = findNextLogicStep(grid, null);
+      if (!step) break;
+      grid = applyLogicStep(grid, step);
+      if (onlySinglesRemain(grid)) break;
+    }
+    expect(onlySinglesRemain(grid)).toBe(true);
+    expect(grid.some((c) => c.value === null)).toBe(true);
+  });
+});

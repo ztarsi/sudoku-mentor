@@ -1002,3 +1002,20 @@ export const applyLogicStep = (grid, step) => {
   // This preserves any manual candidate toggles the user made
   return newGrid;
 };
+
+/**
+ * True when every remaining cell falls to Naked or Hidden Singles alone,
+ * so the mentor has nothing left to teach here ("nothing left" hint state).
+ * Bounded by the number of empty cells; each pass is a singles scan.
+ */
+export const onlySinglesRemain = (grid) => {
+  let g = grid;
+  for (let n = 0; n < 82; n++) {
+    if (g.every((c) => c.value !== null)) return true;
+    const step = findNextLogicStep(g, null);
+    if (!step) return false;
+    if (step.technique !== 'Naked Single' && step.technique !== 'Hidden Single') return false;
+    g = applyLogicStep(g, step);
+  }
+  return false;
+};
