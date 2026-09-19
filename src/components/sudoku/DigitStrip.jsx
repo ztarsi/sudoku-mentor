@@ -22,6 +22,9 @@ import Callout from './Callout';
  * above the button (inline-onboarding spec).
  * Showing or hiding pencil marks lives next to Pencil (header-and-menu
  * spec) when the page passes `marksVisible` and `onMarksVisibleChange`.
+ * `inline` lays the digits and the controls side by side where there is
+ * room (the wide arrangement), so the strip takes one row and the board
+ * keeps its height (issue #55).
  */
 export default function DigitStrip({
   grid,
@@ -40,6 +43,7 @@ export default function DigitStrip({
   hint = null,
   marksVisible = null,
   onMarksVisibleChange = null,
+  inline = false,
 }) {
   const counts = {};
   for (let d = 1; d <= 9; d++) counts[d] = 0;
@@ -52,13 +56,14 @@ export default function DigitStrip({
     : '';
 
   return (
-    <div className="space-y-1.5" data-testid="digit-strip">
+    <div className="space-y-1.5" data-testid="digit-strip" data-inline={inline || undefined}>
       {/* The refusal line has a fixed height so the strip never jumps. */}
       <p role="status" aria-live="polite" className="h-5 text-sm text-red-300 text-center leading-5">
         {refusal}
       </p>
 
-      <div role="group" aria-label="Digits" className="flex gap-0.5 sm:gap-1">
+      <div className={inline ? 'flex flex-wrap items-stretch gap-2' : 'space-y-1.5'}>
+      <div role="group" aria-label="Digits" className={`flex gap-0.5 sm:gap-1 ${inline ? 'flex-[4] min-w-[340px]' : ''}`}>
         {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((digit) => {
           const count = counts[digit];
           const complete = count >= 9;
@@ -95,7 +100,7 @@ export default function DigitStrip({
         })}
       </div>
 
-      <div className="flex gap-1 sm:gap-2">
+      <div className={`flex gap-1 sm:gap-2 ${inline ? 'flex-[3] min-w-[364px]' : ''}`}>
         {hint && (hint.searching ? (
           <button
             type="button"
@@ -188,6 +193,7 @@ export default function DigitStrip({
           <Eraser className="w-4 h-4" aria-hidden="true" />
           Erase
         </button>
+      </div>
       </div>
     </div>
   );
