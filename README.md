@@ -38,6 +38,8 @@ npm run build      # production build
 
 CI (GitHub Actions) runs lint, typecheck, tests, and build on every push and pull request.
 
+Branches: pull requests target `staging`, which the staging server deploys automatically. `main` is the deploy branch Base44 syncs and only receives release pull requests from `staging`. Details in [docs/STAGING.md](docs/STAGING.md).
+
 ## Project Structure
 
 | Path | Description |
