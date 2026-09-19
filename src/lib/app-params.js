@@ -61,3 +61,13 @@ const getAppParams = () => {
 export const appParams = {
 	...getAppParams()
 }
+
+/**
+ * True when this build has a platform behind it. A staging or local build
+ * has no app id (or the string "null" from an unset build variable) and
+ * must make no platform calls at all.
+ */
+export const hasPlatform = () => {
+	const id = appParams.appId;
+	return !!id && id !== 'null' && id !== 'undefined';
+};

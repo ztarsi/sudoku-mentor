@@ -1,16 +1,21 @@
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
-import { appParams } from '@/lib/app-params';
+import { appParams, hasPlatform } from '@/lib/app-params';
 
 const AuthContext = createContext(null);
+
+// A platform call that neither succeeds nor fails (captive portal, stalled
+// mobile link, flaky proxy) must not hold anything up. The board never
+// waits on this; the cap only bounds how long the request itself lives.
+export const PLATFORM_CALL_TIMEOUT_MS = 8000;
 
 // The platform's public-settings endpoint. Fetched directly (no deep import
 // into the SDK's private axios helper) and shaped like the SDK's errors:
 // { status, data, message }.
-const fetchPublicSettings = async () => {
+const fetchPublicSettings = async (signal) => {
   const headers = { 'X-App-Id': appParams.appId };
   if (appParams.token) headers.Authorization = `Bearer ${appParams.token}`;
-  const response = await fetch(`/api/apps/public/prod/public-settings/by-id/${appParams.appId}`, { headers });
+  const response = await fetch(`/api/apps/public/prod/public-settings/by-id/${appParams.appId}`, { headers, signal });
   const data = await response.json().catch(() => null);
   if (!response.ok) {
     const error = /** @type {any} */ (new Error(data?.message || `Request failed with status code ${response.status}`));
@@ -24,8 +29,11 @@ const fetchPublicSettings = async () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
-  const [isLoadingPublicSettings, setIsLoadingPublicSettings] = useState(true);
+  // "Loading" describes the sign-in state only. Nothing renders behind a
+  // spinner because of it: the board shows at once and the header updates
+  // when the answer arrives (issue #42).
+  const [isLoadingAuth, setIsLoadingAuth] = useState(hasPlatform());
+  const [isLoadingPublicSettings, setIsLoadingPublicSettings] = useState(hasPlatform());
   const [authError, setAuthError] = useState(null);
   const [appPublicSettings, setAppPublicSettings] = useState(null); // Contains only { id, public_settings }
 
@@ -52,12 +60,24 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const checkAppState = useCallback(async () => {
+    // No app id: a staging or local build with no platform behind it. Make
+    // no platform calls at all and start signed out.
+    if (!hasPlatform()) {
+      setAuthError(null);
+      setIsAuthenticated(false);
+      setIsLoadingPublicSettings(false);
+      setIsLoadingAuth(false);
+      return;
+    }
+
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer = controller ? setTimeout(() => controller.abort(), PLATFORM_CALL_TIMEOUT_MS) : null;
     try {
       setIsLoadingPublicSettings(true);
       setAuthError(null);
 
       try {
-        const publicSettings = await fetchPublicSettings();
+        const publicSettings = await fetchPublicSettings(controller?.signal);
         setAppPublicSettings(publicSettings);
 
         // If we got the app public settings successfully, check if user is authenticated
@@ -71,8 +91,8 @@ export const AuthProvider = ({ children }) => {
       } catch (appError) {
         // A platform verdict (auth required, not registered) is honoured.
         // Anything else - the network is down, the platform is unreachable,
-        // a dev server with no backend - must not brick a puzzle app that
-        // works perfectly well signed out: continue in anonymous mode.
+        // the request timed out - must not brick a puzzle app that works
+        // perfectly well signed out: continue in anonymous mode.
         if (appError.status === 403 && appError.data?.extra_data?.reason) {
           console.error('App state check failed:', appError);
           const reason = appError.data.extra_data.reason;
@@ -105,6 +125,8 @@ export const AuthProvider = ({ children }) => {
       setAuthError(null);
       setIsLoadingPublicSettings(false);
       setIsLoadingAuth(false);
+    } finally {
+      if (timer) clearTimeout(timer);
     }
   }, [checkUserAuth]);
 
