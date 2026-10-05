@@ -134,7 +134,8 @@ export default function DigitStrip({
             </button>
           </div>
         ))}
-        <button
+        {/* Touch only: on desktop, Shift+digit enters pencil marks. */}
+        {touch && <button
           type="button"
           onClick={() => onPencilModeChange(!pencilMode)}
           aria-pressed={pencilMode}
@@ -144,7 +145,7 @@ export default function DigitStrip({
         >
           <Pencil className="w-4 h-4" aria-hidden="true" />
           Pencil
-        </button>
+        </button>}
         {marksVisible !== null && onMarksVisibleChange && (
           <button
             type="button"

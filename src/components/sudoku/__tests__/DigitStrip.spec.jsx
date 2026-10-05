@@ -59,7 +59,7 @@ describe('DigitStrip', () => {
   });
 
   it('reports digit taps and the pencil toggle', () => {
-    const { getByRole, onDigitSelect, onPencilModeChange } = renderStrip();
+    const { getByRole, onDigitSelect, onPencilModeChange } = renderStrip({ touch: true });
     fireEvent.click(getByRole('button', { name: /^Digit 4/ }));
     expect(onDigitSelect).toHaveBeenCalledWith(4);
     fireEvent.click(getByRole('button', { name: 'Pencil' }));
