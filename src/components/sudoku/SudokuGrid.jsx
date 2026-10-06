@@ -3,6 +3,7 @@ import Cell from './Cell';
 import CellContextMenu from './CellContextMenu';
 import HintAnimationOverlay from './HintAnimationOverlay';
 import { useHintAnimation } from './hintAnimation';
+import HintAnimationControls from './HintAnimationControls';
 import { buildHighlightSets } from './stepHighlights';
 import { commonUnit } from './gridUnits';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
@@ -382,6 +383,8 @@ export default function SudokuGrid({
           </div>
         </div>
       </div>
+
+      <HintAnimationControls width={overlaySize ? overlaySize + (isMobile ? 0 : 30) : null} />
 
       <CellContextMenu
         isOpen={contextMenu.isOpen}

@@ -55,12 +55,6 @@ export default function HintAnimationOverlay({ size }) {
       })}
       {(f.wrongCells ?? []).map((i) => <Cross key={`x${i}`} p={c(i)} cs={cs} />)}
     </svg>
-    <div className="absolute left-2 right-2 bottom-2 z-30 pointer-events-none flex justify-center">
-      <motion.p key={anim.index} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-        className="max-w-[95%] px-3 py-2 rounded-lg bg-slate-950/90 border border-violet-500/60 text-slate-100 text-sm leading-snug shadow-lg text-center">
-        {f.caption}
-      </motion.p>
-    </div>
     </>
   );
 }
