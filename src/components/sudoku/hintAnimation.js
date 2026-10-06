@@ -52,11 +52,16 @@ export const buildXCycleFrames = (step) => {
       for (let j = i + 1; j < cells.length && !conflict; j++)
         if (arePeers(cells[i], cells[j])) conflict = [cells[i], cells[j]];
     const name = step.wrappedColor === 0 ? 'blue' : 'orange';
+    const done = { ...base, links: links.length, colored: true, conflict };
     frames.push({
-      ...base, links: links.length, colored: true, conflict, result: true,
+      ...done,
       caption: conflict
-        ? `${cellName(conflict[0])} and ${cellName(conflict[1])} are both ${name} and share a unit, so they can't both be ${d}. ${name[0].toUpperCase() + name.slice(1)} is wrong: erase ${d} from every ${name} cell.`
-        : `Two ${name} cells share a unit, so ${name} is wrong: erase ${d} from every ${name} cell.`,
+        ? `Look: ${cellName(conflict[0])} and ${cellName(conflict[1])} are both ${name} and share a unit. They can't both be ${d}.`
+        : `Two ${name} cells share a unit, so they can't both be ${d}.`,
+    });
+    frames.push({
+      ...done, wrongCells: cells,
+      caption: `So ${name} is the wrong colour: erase ${d} from every ${name} cell.`,
     });
   } else {
     const proofs = step.eliminations.map(({ cell }) => ({
@@ -64,9 +69,11 @@ export const buildXCycleFrames = (step) => {
       a: colorA.find((c) => arePeers(cell, c)),
       b: colorB.find((c) => arePeers(cell, c)),
     }));
-    frames.push({
-      ...base, links: links.length, colored: true, proofs, result: true,
-      caption: `Each red cell sees a blue ${d} and an orange ${d}. Whichever colour is right, it clashes, so erase ${d} there.`,
+    proofs.forEach((p, i) => {
+      frames.push({
+        ...base, links: links.length, colored: true, proofs: proofs.slice(0, i + 1), focus: p.cell,
+        caption: `${cellName(p.cell)} sees blue ${cellName(p.a)} and orange ${cellName(p.b)}. Whichever colour is right, ${cellName(p.cell)} can't be ${d}: erase it.`,
+      });
     });
   }
   return frames;

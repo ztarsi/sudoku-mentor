@@ -14,9 +14,8 @@ export default function HintAnimationOverlay({ size }) {
   const cs = size / 9;
   const c = (i) => ({ x: (i % 9) * cs + cs / 2, y: Math.floor(i / 9) * cs + cs / 2 });
   const colorOf = (i) => (!f.colored ? '#a78bfa' : f.colorA.includes(i) ? BLUE : ORANGE);
-  const wrongColor = f.conflict ? (f.colorA.includes(f.conflict[0]) ? f.colorA : f.colorB) : [];
-
   return (
+    <>
     <svg className="absolute inset-0 pointer-events-none z-20" width={size} height={size} style={{ overflow: 'visible' }}>
       {f.allLinks.slice(0, f.links).map((l, i) => {
         const a = c(l.from.cell); const b = c(l.to.cell);
@@ -54,8 +53,15 @@ export default function HintAnimationOverlay({ size }) {
           </g>
         );
       })}
-      {f.conflict && wrongColor.map((i) => <Cross key={`x${i}`} p={c(i)} cs={cs} />)}
+      {(f.wrongCells ?? []).map((i) => <Cross key={`x${i}`} p={c(i)} cs={cs} />)}
     </svg>
+    <div className="absolute left-2 right-2 bottom-2 z-30 pointer-events-none flex justify-center">
+      <motion.p key={anim.index} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+        className="max-w-[95%] px-3 py-2 rounded-lg bg-slate-950/90 border border-violet-500/60 text-slate-100 text-sm leading-snug shadow-lg text-center">
+        {f.caption}
+      </motion.p>
+    </div>
+    </>
   );
 }
 

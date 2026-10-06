@@ -2,6 +2,7 @@ import React, { useState, useRef, useMemo, useEffect } from 'react';
 import Cell from './Cell';
 import CellContextMenu from './CellContextMenu';
 import HintAnimationOverlay from './HintAnimationOverlay';
+import { useHintAnimation } from './hintAnimation';
 import { buildHighlightSets } from './stepHighlights';
 import { commonUnit } from './gridUnits';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
@@ -119,9 +120,12 @@ export default function SudokuGrid({
 
   // Highlight flags are derived from the presented steps at render time;
   // the grid data itself stays purely game state.
+  // While a hint animation plays, the overlay owns the picture: the step's
+  // own highlights would give the conclusion away before the animation does.
+  const animating = !!useHintAnimation();
   const highlightSets = useMemo(
-    () => buildHighlightSets(highlightedSteps ?? []),
-    [highlightedSteps]
+    () => buildHighlightSets(animating ? [] : highlightedSteps ?? []),
+    [highlightedSteps, animating]
   );
 
   const handleTouchStart = (e, cellIndex) => {
