@@ -6,6 +6,7 @@ import { explainStep, readExplainLevel, writeExplainLevel, legendFor } from '../
 
 import { cellName as cellRef } from '../gridUnits';
 import Callout from '../Callout';
+import HintAnimator, { canAnimate } from './HintAnimator';
 
 /**
  * Beginner / Expert switch for the explanation text. The selected option is
@@ -457,6 +458,8 @@ export default function CurrentStepCard({
             </div>
 
             <Explanation explanation={explanation} legend={legendFor(legendCell)} />
+
+            {explainLevel === 'simple' && canAnimate(currentStep) && <HintAnimator step={currentStep} />}
 
             {(currentStep.technique === 'Deep Forcing Chain' || currentStep.technique === 'Hypothesis Mode') && currentStep.chain && (
               <ChainTrace

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import Cell from './Cell';
 import CellContextMenu from './CellContextMenu';
+import HintAnimationOverlay from './HintAnimationOverlay';
 import { buildHighlightSets } from './stepHighlights';
 import { commonUnit } from './gridUnits';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
@@ -342,6 +343,8 @@ export default function SudokuGrid({
               );
             })}
 
+            <HintAnimationOverlay size={overlaySize} />
+
             {/* ALS-XZ link overlay */}
             {alsLinks.length > 0 && overlaySize > 0 && (
               <svg className="absolute inset-0 pointer-events-none" width={overlaySize} height={overlaySize} style={{ overflow: 'visible' }}>
@@ -388,5 +391,3 @@ export default function SudokuGrid({
     </>
   );
 }
-
-

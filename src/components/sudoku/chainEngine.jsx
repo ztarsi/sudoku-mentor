@@ -143,6 +143,10 @@ export const findXCycle = (grid, focusedDigit, returnAll = false) => {
           targetCells: eliminations.map(e => e.cell),
           chains: component,
           strongLinks: componentLinks,
+          colorA,
+          colorB,
+          rule,
+          wrappedColor: rule === 'wrap' ? wrappedColor : null,
           eliminations,
           explanation: rule === 'wrap'
             ? `Simple coloring on digit ${digit}: two cells of the same color share a unit, so that whole color is false and ${digit} can be removed from all of its cells.`
