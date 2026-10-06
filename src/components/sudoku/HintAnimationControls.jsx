@@ -13,7 +13,7 @@ const Btn = ({ label, onClick, disabled, primary, children }) => (
 );
 
 /** Caption and playback controls shown right under the board. */
-export default function HintAnimationControls({ width }) {
+export default function HintAnimationControls() {
   const anim = useHintAnimation();
   const index = anim?.index;
   const playing = anim?.playing;
@@ -28,9 +28,9 @@ export default function HintAnimationControls({ width }) {
 
   if (!anim) return null;
   return (
-    <div className="mt-3 mx-auto rounded-xl bg-slate-800 border border-violet-600/60 p-3 space-y-3" style={{ width: width || '100%', maxWidth: '100%' }}>
+    <div className="absolute inset-0 z-10 overflow-y-auto rounded-[inherit] bg-slate-900 border border-violet-600/60 p-2 sm:p-3 flex flex-col justify-center gap-2">
       <motion.p key={index} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} aria-live="polite"
-        className="text-slate-100 text-base leading-relaxed min-h-[3rem]">
+        className="text-slate-100 text-sm sm:text-base leading-snug">
         {anim.frames[index].caption}
       </motion.p>
       <div className="flex flex-wrap items-center gap-2">

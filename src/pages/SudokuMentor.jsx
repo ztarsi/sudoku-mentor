@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo, Suspense } from 'react';
 import SudokuGrid from '@/components/sudoku/SudokuGrid';
+import HintAnimationControls from '@/components/sudoku/HintAnimationControls';
 import DigitStrip from '@/components/sudoku/DigitStrip';
 import LogicPanel from '@/components/sudoku/LogicPanel';
 import LessonSheet, { SIDE_SHEET_WIDTH } from '@/components/sudoku/LessonSheet';
@@ -921,8 +922,9 @@ export default function SudokuMentor() {
     />
   );
   const stripCard = (
-    <div ref={stripCardRef} className="bg-slate-900/90 backdrop-blur-sm rounded-2xl shadow-lg shadow-black/50 p-2 sm:p-3 border border-slate-700">
+    <div ref={stripCardRef} className="relative bg-slate-900/90 backdrop-blur-sm rounded-2xl shadow-lg shadow-black/50 p-2 sm:p-3 border border-slate-700">
       {strip}
+      <HintAnimationControls />
     </div>
   );
 
@@ -1116,7 +1118,7 @@ export default function SudokuMentor() {
           className="fixed left-0 right-0 bottom-0 bg-slate-900/95 backdrop-blur-md border-t border-slate-700 z-40"
           style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
         >
-          <div className="px-2 pt-1 pb-1.5">{strip}</div>
+          <div className="relative px-2 pt-1 pb-1.5">{strip}<HintAnimationControls /></div>
         </div>
       )}
 
