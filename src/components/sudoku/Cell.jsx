@@ -112,7 +112,7 @@ function Cell({
   // Candidate font: fit within the sub-cell slot (cellSize/3), no floor —
   // overflow is worse than a small-but-contained digit.
   const slotSize = cellSize ? cellSize / 3 : null;
-  const candidateFontSize = slotSize ? `${Math.max(7, Math.floor(slotSize * 0.72))}px` : undefined;
+  const candidateFontSize = slotSize ? `${Math.max(7, Math.floor(slotSize * 0.62))}px` : undefined;
 
   return (
     <div className="relative w-full h-full">
@@ -189,7 +189,7 @@ function Cell({
           // set) the whole cell is one touch target: the page's digit-first
           // model decides what a tap means, never the 13px slot under it.
           <div
-            className={`grid grid-cols-3 gap-0 absolute inset-0 ${touchInput ? 'pointer-events-none' : ''}`}
+            className={`grid grid-cols-3 grid-rows-3 gap-px absolute inset-[6%] ${touchInput ? 'pointer-events-none' : ''}`}
             aria-hidden="true"
           >
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => {
@@ -219,8 +219,8 @@ function Cell({
                     onToggleCandidate(num);
                   }}
                   className={`
-                    flex items-center justify-center
-                    transition-all duration-200 rounded
+                    flex items-center justify-center leading-none min-w-0 min-h-0 overflow-hidden
+                    transition-all duration-200 rounded-sm
                     ${hasCandidate ? 'cursor-pointer' : ''}
                     ${!hasCandidate ? 'text-transparent' : (
                       (isRemovalCandidate || isHighlightedCandidate || ((isBaseCell || isTargetCell) && isMultiColorCandidate))
@@ -228,19 +228,19 @@ function Cell({
                         : 'text-white '
                     )}
                     ${alsSet && hasCandidate && num !== xDigit && num !== zDigit ? 'opacity-20' : ''}
-                    ${!candidateFontSize ? 'text-xs sm:text-sm' : ''}
+                    ${!candidateFontSize ? 'text-[10px] sm:text-xs' : ''}
                   `}
                   style={(() => {
                     const sizeStyle = candidateFontSize ? { fontSize: candidateFontSize } : {};
                     if (isRemovalCandidate) {
-                      return { ...sizeStyle, backgroundColor: '#ef4444E6', boxShadow: '0 0 0 2px #ef4444', color: '#000' };
+                      return { ...sizeStyle, backgroundColor: '#ef4444E6', boxShadow: 'inset 0 0 0 1px #ef4444', color: '#000' };
                     }
                     if (alsSet && hasCandidate) {
-                      if (num === xDigit) return { ...sizeStyle, backgroundColor: '#f59e0b80', boxShadow: '0 0 0 2px #f59e0b', color: '#000' };
-                      if (num === zDigit) return { ...sizeStyle, backgroundColor: '#a855f780', boxShadow: '0 0 0 2px #a855f7', color: '#000' };
+                      if (num === xDigit) return { ...sizeStyle, backgroundColor: '#f59e0b80', boxShadow: 'inset 0 0 0 1px #f59e0b', color: '#000' };
+                      if (num === zDigit) return { ...sizeStyle, backgroundColor: '#a855f780', boxShadow: 'inset 0 0 0 1px #a855f7', color: '#000' };
                     }
                     if (isHighlightedCandidate || ((isBaseCell || isTargetCell) && isMultiColorCandidate)) {
-                      return { ...sizeStyle, backgroundColor: `${candidateColorResolved}E6`, boxShadow: `0 0 0 2px ${candidateColorResolved}`, color: '#000' };
+                      return { ...sizeStyle, backgroundColor: `${candidateColorResolved}E6`, boxShadow: `inset 0 0 0 1px ${candidateColorResolved}`, color: '#000' };
                     }
                     return sizeStyle;
                   })()}
