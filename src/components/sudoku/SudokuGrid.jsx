@@ -412,7 +412,11 @@ export default function SudokuGrid({
                       />
                     ))}
                     {/* The set's digits, inside its own region and outlined
-                        so they read over a pencil mark. */}
+                        so they read over a pencil mark. Where a step says
+                        what part a region plays - the overlap, the line and
+                        the box of a Sue de Coq - it is named underneath, so
+                        three regions can be told apart without inventing a
+                        colour for each. */}
                     <text
                       x={s.x + 3}
                       y={s.y + (overlayCellSize ? overlayCellSize * 0.24 : 9)}
@@ -425,6 +429,20 @@ export default function SudokuGrid({
                     >
                       {s.digits.join('')}
                     </text>
+                    {s.label && (
+                      <text
+                        x={s.x + 3}
+                        y={s.y + (overlayCellSize ? overlayCellSize * 0.48 : 18)}
+                        fill="#60a5fa"
+                        stroke={colors?.cellBg || '#020617'}
+                        strokeWidth={3}
+                        paintOrder="stroke"
+                        fontSize={overlayCellSize ? overlayCellSize * 0.2 : 8}
+                        fontWeight="500"
+                      >
+                        {s.label}
+                      </text>
+                    )}
                   </g>
                 ))}
                 {/* A group is one node: its cells are outlined and joined,

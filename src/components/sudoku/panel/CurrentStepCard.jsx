@@ -102,11 +102,22 @@ const Explanation = ({ explanation, legend }) => {
   );
 };
 
+// What each kind of link proves, in the fewest words that are still true.
+// A chain's links are its strong and weak ones (#67); a set-based step may
+// also take one case of several, or say that two groups cannot hold the
+// same number (#73).
+const LINK_LABELS = {
+  strong: 'at least one',
+  weak: 'at most one',
+  case: 'if this, then',
+  count: 'all different',
+};
+
 /**
- * The walk through an alternating inference chain: one line per link, in
+ * The walk through a step whose proof is a sequence: one line per link, in
  * order, with the same prev / play / next controls the what-if replay uses.
- * A chain's proof is a sequence, so the player steps through it rather than
- * reading a wall of text (#67).
+ * The player steps through it rather than reading a wall of text (#67), and
+ * the almost-locked-set family walks the same way (#73).
  */
 const ChainLinkTrace = ({
   currentStep,
@@ -123,7 +134,11 @@ const ChainLinkTrace = ({
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <p className="text-base font-medium text-slate-300">
-          {currentStep.chainClosed ? 'Round the loop:' : 'The chain, link by link:'}
+          {currentStep.chainClosed
+            ? 'Round the loop:'
+            : walk.every((link) => link.kind === 'strong' || link.kind === 'weak')
+              ? 'The chain, link by link:'
+              : 'The argument, step by step:'}
         </p>
         <div className="flex gap-2">
           <button
@@ -183,7 +198,7 @@ const ChainLinkTrace = ({
                     link.strong ? 'bg-blue-950 text-blue-300' : 'bg-slate-700 text-slate-300'
                   }`}
                 >
-                  {link.strong ? 'at least one' : 'at most one'}
+                  {LINK_LABELS[link.kind] ?? (link.strong ? 'at least one' : 'at most one')}
                 </span>
                 <span className={idx === here ? 'text-white' : 'text-slate-300'}>{link.text}</span>
               </span>

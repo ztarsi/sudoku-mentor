@@ -106,7 +106,11 @@ describe('the solve path', () => {
     // Named techniques still explain most of it, and the hardest one the
     // puzzle teaches is reported even though a what-if came first.
     expect(withWhatIf.namedShare).toBeGreaterThan(0.5);
-    expect(withWhatIf.hardestTechnique).toBe('Grouped X-Chain');
+    // Grouped X-Chain until the almost-locked-set family landed (#73): the
+    // named ALS-XY-Wing now explains those positions, and it sits a rung
+    // before the general chain, so it is the hardest rung this puzzle asks
+    // for. A measurement, re-read when a rung changes, not a promise.
+    expect(withWhatIf.hardestTechnique).toBe('ALS-XY-Wing');
   });
 
   it('every tier it reports is a tier the panel knows', () => {
@@ -160,7 +164,7 @@ describe('what the library row says', () => {
     expect(teachingLabel(analyzePuzzle(puzzle('Gentle Start')))).toBe('Teaches up to Naked Single');
     expect(teachingLabel(analyzePuzzle(puzzle('Deep Waters')))).toBe('Teaches up to XY-Wing');
     expect(teachingLabel(analyzePuzzle(puzzle('Golden Nugget')))).toBe(
-      'Teaches up to Grouped X-Chain, then what-if search'
+      'Teaches up to ALS-XY-Wing, then what-if search'
     );
   });
 
