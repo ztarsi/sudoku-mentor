@@ -243,7 +243,9 @@ const formatTime = (seconds) => {
 /** Every digit a step is about: placed, paired, or erased. */
 const digitsOf = (step) => {
   const placed = step.placement ? [step.placement.digit] : [];
-  const paired = Array.isArray(step.pairDigits) ? step.pairDigits : [];
+  const paired = Array.isArray(step.subsetDigits)
+    ? step.subsetDigits
+    : Array.isArray(step.pairDigits) ? step.pairDigits : [];
   const erased = (step.eliminations ?? []).map((e) => e.digit);
   const involved = [...new Set([...placed, ...paired, ...(paired.length || placed.length ? [] : erased)])].sort((a, b) => a - b);
   const removed = [...new Set(erased)].sort((a, b) => a - b);

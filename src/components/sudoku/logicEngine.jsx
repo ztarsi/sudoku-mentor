@@ -3,7 +3,7 @@ import { findXCycle, findALSXZ, findUniqueRectangle, findBUGPlus1, findFinnedXWi
 import { makeStep } from './stepShape';
 
 // Helper functions
-import { getRow, getCol, getBox, getRowIndices, getColIndices, getBoxIndices, getPeers, unitOf } from './gridUnits';
+import { getRow, getCol, getBox, getRowIndices, getColIndices, getBoxIndices, getPeers, arePeers, unitOf, cellName, commonUnit } from './gridUnits';
 
 export const generateCandidates = (grid) => {
   return grid.map((cell, index) => {
@@ -59,9 +59,14 @@ const TECHNIQUE_ORDER = () => [
   findNakedPair,
   findHiddenPair,
   findNakedTriple,
+  findHiddenTriple,
+  findNakedQuad,
+  findHiddenQuad,
   findXWing,
   findSwordfish,
   findXYWing,
+  findXYZWing,
+  findWXYZWing,
   findXCycle,
   findFinnedXWing,
   findALSXZ,
@@ -89,9 +94,14 @@ export const findAllTechniqueInstances = (grid, techniqueName) => {
     'Naked Pair': findNakedPair,
     'Hidden Pair': findHiddenPair,
     'Naked Triple': findNakedTriple,
+    'Hidden Triple': findHiddenTriple,
+    'Naked Quad': findNakedQuad,
+    'Hidden Quad': findHiddenQuad,
     'X-Wing': findXWing,
     'Swordfish': findSwordfish,
     'XY-Wing': findXYWing,
+    'XYZ-Wing': findXYZWing,
+    'WXYZ-Wing': findWXYZWing,
     'X-Cycle': findXCycle,
     'Finned X-Wing': findFinnedXWing,
     'ALS-XZ': findALSXZ,
@@ -623,6 +633,177 @@ const findHiddenPair = (grid, focusedDigit, returnAll = false) => {
   return returnAll ? allInstances : null;
 };
 
+
+// --- Subsets of size three and four, and the XYZ/WXYZ wings -------------
+// Shared helpers for the four-cell searches. Rows, columns and boxes in
+// the shape the subset finders read.
+const subsetUnits = () => [
+  ...Array.from({ length: 9 }, (_, i) => ({ type: 'row', indices: getRowIndices(i), name: `Row ${i + 1}` })),
+  ...Array.from({ length: 9 }, (_, i) => ({ type: 'col', indices: getColIndices(i), name: `Column ${i + 1}` })),
+  ...Array.from({ length: 9 }, (_, i) => ({ type: 'box', indices: getBoxIndices(i), name: `Box ${i + 1}` }))
+];
+
+// Every combination of `size` items, in input order.
+const combinations = (items, size) => {
+  const out = [];
+  const pick = (start, chosen) => {
+    if (chosen.length === size) {
+      out.push([...chosen]);
+      return;
+    }
+    for (let i = start; i < items.length; i++) {
+      chosen.push(items[i]);
+      pick(i + 1, chosen);
+      chosen.pop();
+    }
+  };
+  pick(0, []);
+  return out;
+};
+
+// Candidates as one bit per digit. The quad and WXYZ searches union
+// thousands of candidate sets per grid; integers keep that well inside the
+// hint path's budget where Sets did not.
+const candidateMask = (cell) => cell.candidates.reduce((mask, d) => mask | (1 << d), 0);
+const bitCount = (mask) => {
+  let n = 0;
+  for (let m = mask; m !== 0; m &= m - 1) n++;
+  return n;
+};
+const maskDigits = (mask) => [1, 2, 3, 4, 5, 6, 7, 8, 9].filter(d => (mask & (1 << d)) !== 0);
+
+/**
+ * Hidden Triple and Hidden Quad: `size` digits that, within one unit, are
+ * candidates only in the same `size` cells. Those cells are reserved for
+ * those digits, so every other candidate goes from them. Hidden Pair is
+ * the two-digit case of the same idea (findHiddenPair above).
+ */
+const findHiddenSubset = (grid, focusedDigit, returnAll, size, technique) => {
+  const allInstances = [];
+
+  for (const unit of subsetUnits()) {
+    const where = normalizeUnit(unit);
+    const emptyCells = unit.indices.filter(i => grid[i].value === null);
+
+    // A digit with a single place left is a Hidden Single; one with more
+    // places than the subset has cells cannot be part of it.
+    const digitPositions = {};
+    for (const digit of [1, 2, 3, 4, 5, 6, 7, 8, 9]) {
+      const positions = emptyCells.filter(i => grid[i].candidates.includes(digit));
+      if (positions.length >= 2 && positions.length <= size) {
+        digitPositions[digit] = positions;
+      }
+    }
+
+    for (const digits of combinations(Object.keys(digitPositions).map(Number), size)) {
+      if (focusedDigit && !digits.includes(focusedDigit)) continue;
+
+      const cells = [...new Set(digits.flatMap(d => digitPositions[d]))].sort((a, b) => a - b);
+      if (cells.length !== size) continue;
+
+      const eliminations = [];
+      for (const cell of cells) {
+        for (const cand of grid[cell].candidates) {
+          if (!digits.includes(cand)) eliminations.push({ cell, digit: cand });
+        }
+      }
+      // The subset is real either way, but with nothing to erase it is not
+      // a step: the card would be a lesson with no move in it.
+      if (eliminations.length === 0) continue;
+
+      const step = {
+        technique,
+        digit: focusedDigit || digits[0],
+        unit: where,
+        subsetDigits: digits,
+        baseCells: cells,
+        targetCells: cells,
+        placement: null,
+        eliminations,
+        explanation: `In ${unit.name}, digits ${digits.join(', ')} can only appear in cells ${cells.map(cellName).join(', ')}. Other candidates can be eliminated from these cells.`
+      };
+
+      if (returnAll) {
+        allInstances.push(step);
+      } else {
+        return step;
+      }
+    }
+  }
+  return returnAll ? allInstances : null;
+};
+
+const findHiddenTriple = (grid, focusedDigit, returnAll = false) =>
+  findHiddenSubset(grid, focusedDigit, returnAll, 3, 'Hidden Triple');
+
+const findHiddenQuad = (grid, focusedDigit, returnAll = false) =>
+  findHiddenSubset(grid, focusedDigit, returnAll, 4, 'Hidden Quad');
+
+/**
+ * Naked Quad: four cells in one unit whose candidates together are only
+ * four digits. Those four digits are used up by those four cells, so they
+ * go from the rest of the unit. The pair and triple cases are above.
+ */
+const findNakedQuad = (grid, focusedDigit, returnAll = false) => {
+  const allInstances = [];
+
+  for (const unit of subsetUnits()) {
+    const where = normalizeUnit(unit);
+    const emptyCells = unit.indices.filter(i => grid[i].value === null);
+    const quadCells = emptyCells.filter(i => grid[i].candidates.length >= 2 && grid[i].candidates.length <= 4);
+    const masks = quadCells.map(i => candidateMask(grid[i]));
+
+    for (let a = 0; a < quadCells.length; a++) {
+      for (let b = a + 1; b < quadCells.length; b++) {
+        const ab = masks[a] | masks[b];
+        if (bitCount(ab) > 4) continue;
+        for (let c = b + 1; c < quadCells.length; c++) {
+          const abc = ab | masks[c];
+          if (bitCount(abc) > 4) continue;
+          for (let d = c + 1; d < quadCells.length; d++) {
+            const mask = abc | masks[d];
+            if (bitCount(mask) !== 4) continue;
+
+            const cells = [quadCells[a], quadCells[b], quadCells[c], quadCells[d]];
+            const quadDigits = maskDigits(mask);
+            if (focusedDigit && !quadDigits.includes(focusedDigit)) continue;
+
+            const eliminations = [];
+            for (const idx of emptyCells) {
+              if (cells.includes(idx)) continue;
+              for (const digit of quadDigits) {
+                if (grid[idx].candidates.includes(digit)) eliminations.push({ cell: idx, digit });
+              }
+            }
+            // Four cells holding four digits nobody else wants is real and
+            // useless; it is not reported as a step.
+            if (eliminations.length === 0) continue;
+
+            const step = {
+              technique: 'Naked Quad',
+              digit: focusedDigit || quadDigits[0],
+              unit: where,
+              subsetDigits: quadDigits,
+              baseCells: cells,
+              targetCells: [...new Set(eliminations.map(e => e.cell))],
+              placement: null,
+              eliminations,
+              explanation: `Cells ${cells.map(cellName).join(', ')} in ${unit.name} form a Naked Quad with candidates {${quadDigits.join(', ')}}. These four digits must occupy these four cells, so they can be eliminated from other cells in the ${where.type}.`
+            };
+
+            if (returnAll) {
+              allInstances.push(step);
+            } else {
+              return step;
+            }
+          }
+        }
+      }
+    }
+  }
+  return returnAll ? allInstances : null;
+};
+
 // X-Wing
 const findXWing = (grid, focusedDigit, returnAll = false) => {
   const allInstances = [];
@@ -937,6 +1118,189 @@ const findXYWing = (grid, focusedDigit, returnAll = false) => {
     }
   }
   
+  return returnAll ? allInstances : null;
+};
+
+
+/**
+ * XYZ-Wing: a pivot with three candidates {X, Y, Z} sees two bi-value
+ * wings, {X, Z} and {Y, Z}. The pivot is a third place Z could go, so the
+ * eliminations are only in cells that see ALL THREE of pivot and wings -
+ * that is the whole difference from XY-Wing.
+ */
+const findXYZWing = (grid, focusedDigit, returnAll = false) => {
+  const allInstances = [];
+
+  for (let pivot = 0; pivot < 81; pivot++) {
+    if (grid[pivot].value !== null || grid[pivot].candidates.length !== 3) continue;
+    const pivotCands = grid[pivot].candidates;
+    const pivotPeers = getPeers(pivot);
+
+    const wings = pivotPeers.filter(i =>
+      grid[i].value === null &&
+      grid[i].candidates.length === 2 &&
+      grid[i].candidates.every(d => pivotCands.includes(d))
+    );
+
+    for (let a = 0; a < wings.length; a++) {
+      for (let b = a + 1; b < wings.length; b++) {
+        const wing1 = wings[a];
+        const wing2 = wings[b];
+        const cands1 = grid[wing1].candidates;
+        const cands2 = grid[wing2].candidates;
+
+        // Two wings sharing both digits are a Naked Pair, not a wing.
+        const shared = cands1.filter(d => cands2.includes(d));
+        if (shared.length !== 1) continue;
+
+        const z = shared[0];
+        if (focusedDigit && z !== focusedDigit) continue;
+        const x = cands1.find(d => d !== z);
+        const y = cands2.find(d => d !== z);
+
+        const seesPivot = new Set(pivotPeers);
+        const seesWing1 = new Set(getPeers(wing1));
+        const seesWing2 = new Set(getPeers(wing2));
+
+        const eliminations = [];
+        for (let i = 0; i < 81; i++) {
+          if (i === pivot || i === wing1 || i === wing2) continue;
+          if (grid[i].value !== null || !grid[i].candidates.includes(z)) continue;
+          if (seesPivot.has(i) && seesWing1.has(i) && seesWing2.has(i)) {
+            eliminations.push({ cell: i, digit: z });
+          }
+        }
+
+        if (eliminations.length > 0) {
+          const step = {
+            technique: 'XYZ-Wing',
+            digit: z,
+            subsetDigits: [...new Set([x, y, z])].sort((p, q) => p - q),
+            baseCells: [pivot, wing1, wing2],
+            targetCells: eliminations.map(e => e.cell),
+            placement: null,
+            eliminations,
+            explanation: `An XYZ-Wing is formed with pivot ${cellName(pivot)} (${x},${y},${z}), and wings ${cellName(wing1)} (${x},${z}) and ${cellName(wing2)} (${y},${z}). All three cells can be ${z}, so ${z} can be eliminated only from cells seeing the pivot and both wings.`
+          };
+
+          if (returnAll) {
+            allInstances.push(step);
+          } else {
+            return step;
+          }
+        }
+      }
+    }
+  }
+  return returnAll ? allInstances : null;
+};
+
+/**
+ * WXYZ-Wing: four cells whose candidates together are exactly four digits,
+ * where every digit but Z sits only in cells of the set that all see each
+ * other. Each of those three digits can then be used at most once across
+ * the set, and three digits cannot fill four cells, so one of the four
+ * cells holds Z. Z goes from every cell that sees every Z in the set.
+ *
+ * The plain four-cell form only: the ALS reading of the same shape belongs
+ * to the almost-locked-sets batch.
+ */
+const findWXYZWing = (grid, focusedDigit, returnAll = false) => {
+  const allInstances = [];
+
+  const cells = [];
+  const masks = [];
+  for (let i = 0; i < 81; i++) {
+    if (grid[i].value !== null) continue;
+    const n = grid[i].candidates.length;
+    if (n >= 2 && n <= 4) {
+      cells.push(i);
+      masks.push(candidateMask(grid[i]));
+    }
+  }
+
+  // Every cell of the set that can hold `digit` sees every other one, so
+  // the set can use that digit at most once.
+  const restricted = (set, digit) => {
+    const holders = set.filter(i => grid[i].candidates.includes(digit));
+    for (let i = 0; i < holders.length; i++) {
+      for (let j = i + 1; j < holders.length; j++) {
+        if (!arePeers(holders[i], holders[j])) return false;
+      }
+    }
+    return true;
+  };
+
+  // One pattern, not four cells that happen to share digits: every cell
+  // reaches every other through cells that see each other.
+  const connected = (set) => {
+    const reached = [set[0]];
+    for (let head = 0; head < reached.length; head++) {
+      for (const other of set) {
+        if (!reached.includes(other) && arePeers(reached[head], other)) reached.push(other);
+      }
+    }
+    return reached.length === set.length;
+  };
+
+  for (let a = 0; a < cells.length; a++) {
+    for (let b = a + 1; b < cells.length; b++) {
+      const ab = masks[a] | masks[b];
+      if (bitCount(ab) > 4) continue;
+      for (let c = b + 1; c < cells.length; c++) {
+        const abc = ab | masks[c];
+        if (bitCount(abc) > 4) continue;
+        for (let d = c + 1; d < cells.length; d++) {
+          const mask = abc | masks[d];
+          if (bitCount(mask) !== 4) continue;
+
+          const set = [cells[a], cells[b], cells[c], cells[d]];
+          // Four cells in one unit are a Naked Quad, and three cells of the
+          // set down to three digits are a Naked Triple wearing a fourth
+          // cell. Both are taught earlier, so neither is reported here.
+          if (commonUnit(set)) continue;
+          const subMasks = [masks[a], masks[b], masks[c], masks[d]];
+          if (combinations([0, 1, 2, 3], 3).some(t => bitCount(subMasks[t[0]] | subMasks[t[1]] | subMasks[t[2]]) < 4)) continue;
+          if (!connected(set)) continue;
+
+          const digits = maskDigits(mask);
+          for (const z of digits) {
+            if (focusedDigit && z !== focusedDigit) continue;
+            const zCells = set.filter(i => grid[i].candidates.includes(z));
+            if (zCells.length < 2) continue;
+            if (!digits.every(d2 => d2 === z || restricted(set, d2))) continue;
+
+            const eliminations = [];
+            for (let i = 0; i < 81; i++) {
+              if (grid[i].value !== null || set.includes(i)) continue;
+              if (!grid[i].candidates.includes(z)) continue;
+              if (zCells.every(cell => arePeers(i, cell))) eliminations.push({ cell: i, digit: z });
+            }
+            if (eliminations.length === 0) continue;
+
+            const others = digits.filter(d2 => d2 !== z);
+            const step = {
+              technique: 'WXYZ-Wing',
+              digit: z,
+              subsetDigits: digits,
+              baseCells: set,
+              zCells,
+              targetCells: eliminations.map(e => e.cell),
+              placement: null,
+              eliminations,
+              explanation: `A WXYZ-Wing on digits {${digits.join(', ')}} is formed by cells ${set.map(cellName).join(', ')}. Each of ${others.join(', ')} is restricted to cells of the set that see each other, so three digits cover at most three of the four cells and one cell must be ${z}. The ${z} candidates sit in ${zCells.map(cellName).join(', ')}, so ${z} can be eliminated from cells seeing all of them.`
+            };
+
+            if (returnAll) {
+              allInstances.push(step);
+            } else {
+              return step;
+            }
+          }
+        }
+      }
+    }
+  }
   return returnAll ? allInstances : null;
 };
 

@@ -10,7 +10,8 @@
 //   eliminations [{ cell, digit }]
 //   explanation  the engine's own text, standard vocabulary
 //
-// Optional, technique-specific: unit, orientation, pairDigits, finCells,
+// Optional, technique-specific: unit, orientation, pairDigits,
+// subsetDigits (the digits a subset of any size is about), zCells, finCells,
 // strongLinks, chains, chain, contradiction, contradictionCell,
 // contradictoryDigit, als1, als2, xDigit, zDigit.
 //
