@@ -424,10 +424,14 @@ const proofOf = (branch, decisive) => {
   return { proof: shown, skipped: Math.max(0, branch.moves.length - shown.length) };
 };
 
+/** "2, 3 or 5", for a list of options. */
+const listOr = (items) =>
+  items.length < 2 ? `${items[0] ?? ''}` : `${items.slice(0, -1).join(', ')} or ${items[items.length - 1]}`;
+
 const originSentence = (origin) => {
-  const where = origin.cells.map(cellName).join(', ');
+  const where = listOr(origin.cells.map(cellName));
   if (origin.kind === 'cell') {
-    return `${cellName(origin.cells[0])} can only be ${origin.options.map((o) => o.digit).join(' or ')}`;
+    return `${cellName(origin.cells[0])} can only be ${listOr(origin.options.map((o) => o.digit))}`;
   }
   if (origin.kind === 'digit') {
     return `in ${origin.unit.name} the only two places for ${origin.digit} are ${where}`;
