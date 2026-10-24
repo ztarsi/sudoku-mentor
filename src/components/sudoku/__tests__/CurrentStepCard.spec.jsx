@@ -101,6 +101,68 @@ describe('CurrentStepCard states', () => {
     expect(container.querySelector('[data-tone="whatif"]')).not.toBeNull();
   });
 
+  // A chain is a deduction, not a trial, and its proof is a sequence the
+  // player steps through rather than a wall of text (#67).
+  const chainStep = {
+    technique: 'Skyscraper',
+    digit: 5,
+    baseCells: [4, 0, 54, 59],
+    targetCells: [14, 23],
+    placement: null,
+    eliminations: [{ cell: 14, digit: 5 }, { cell: 23, digit: 5 }],
+    explanation: 'Alternating inference chain (5)R1C5 = (5)R1C1 - (5)R7C1 = (5)R7C6',
+    chainNotation: '(5)R1C5 = (5)R1C1 - (5)R7C1 = (5)R7C6',
+    chainClosed: false,
+    chainNodes: [
+      { cells: [4], cell: 4, digit: 5, kind: 'cell', truth: false, endpoint: true, linkToNext: 'strong', linkVia: 'unit', linkUnit: { type: 'row', index: 0, name: 'row 1' }, linkSet: null },
+      { cells: [0], cell: 0, digit: 5, kind: 'cell', truth: true, endpoint: false, linkToNext: 'weak', linkVia: 'unit', linkUnit: { type: 'column', index: 0, name: 'column 1' }, linkSet: null },
+      { cells: [54], cell: 54, digit: 5, kind: 'cell', truth: false, endpoint: false, linkToNext: 'strong', linkVia: 'unit', linkUnit: { type: 'row', index: 6, name: 'row 7' }, linkSet: null },
+      { cells: [59], cell: 59, digit: 5, kind: 'cell', truth: true, endpoint: true, linkToNext: null, linkVia: null, linkUnit: null, linkSet: null },
+    ],
+  };
+
+  it('a chain: the deduction heading and tone, never the what-if one', () => {
+    const { getByText, queryByText, container } = show({ currentStep: chainStep });
+    expect(getByText('Skyscraper')).toBeTruthy();
+    // The tier, in the heading - 'Expert' is also the explanation toggle,
+    // so look for it where the card states the technique's tier.
+    expect(container.querySelector('h3 + p')?.textContent).toBe('Expert');
+    expect(queryByText('Reasoning by trial')).toBeNull();
+    expect(container.querySelector('[data-tone="found"]')).not.toBeNull();
+    expect(container.querySelector('[data-tone="whatif"]')).toBeNull();
+  });
+
+  it('a chain: one line per link, each labelled by what it proves', () => {
+    const { getByText, getAllByText, container } = show({ currentStep: chainStep });
+    expect(getByText('The chain, link by link:')).toBeTruthy();
+    expect(getAllByText('at least one')).toHaveLength(2);
+    expect(getAllByText('at most one')).toHaveLength(1);
+    expect(container.textContent).toContain('Link 1 of 3');
+  });
+
+  it('a chain: the player can step through it link by link', () => {
+    const onChainPlaybackChange = vi.fn();
+    const { getByRole } = show({ currentStep: chainStep, onChainPlaybackChange });
+    fireEvent.click(getByRole('button', { name: 'Next chain link' }));
+    expect(onChainPlaybackChange).toHaveBeenCalledWith(1);
+    expect(getByRole('button', { name: 'Previous chain link' }).hasAttribute('disabled')).toBe(true);
+    fireEvent.click(getByRole('button', { name: 'Walk the chain' }));
+  });
+
+  it('a continuous loop says it is a loop', () => {
+    const loop = {
+      ...chainStep,
+      technique: 'Continuous Loop',
+      chainClosed: true,
+      chainNodes: chainStep.chainNodes.map((n, i) =>
+        i === 3 ? { ...n, linkToNext: 'weak', linkVia: 'cell', endpoint: false } : { ...n, endpoint: false }
+      ),
+    };
+    const { getByText, container } = show({ currentStep: loop });
+    expect(getByText('Round the loop:')).toBeTruthy();
+    expect(container.textContent).toContain('Link 1 of 4');
+  });
+
   it('searching: the wait and a Cancel button', () => {
     const onCancelSearch = vi.fn();
     const { getByText, getByRole } = show({ searching: true, onCancelSearch });

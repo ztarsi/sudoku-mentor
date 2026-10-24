@@ -914,55 +914,93 @@ describe('the family on the real solve path of the top shelf', () => {
 });
 
 describe('the ones the library never shows, on real grids', () => {
-  // Puzzles with exactly one answer, found by generating and digging until
-  // the technique turned up. The hand-built grids above pin the exact
-  // eliminations; these pin the thing a hand-built grid cannot, and the
-  // thing every oracle test in this repo is for: on a real puzzle with a
-  // real answer, no instance may disagree with that answer. (A hand-built
-  // deadly pattern has two answers by construction - that is the point of
-  // it - so there is nothing there to compare against.)
-  const FOUND_BY_SEARCH = {
-    'Avoidable Rectangle Type 2':
-      '043000008000507000000090205070000016000003000604905000000250000061300002000070081',
-    'BUG+2':
-      '000005000000800300080432500013004700000100006008700000602000030005006008090050040',
-    'BUG+3':
-      '000120000050400000360000000605000900400005070001270030000019702007000185200000060',
-    'Unique Loop':
-      '005009000007600001000070008000004000000100030679000084400000020058060300063020000',
+  // A puzzle with exactly one answer, and the board as it stood when the
+  // technique fired on it. Both were found by generating and digging until
+  // the technique turned up, and the board is frozen here rather than
+  // re-walked: the ladder gains rungs with every batch of the programme,
+  // and what this test is about does not depend on how a player got to this
+  // position. The pencil marks are ones the mentor's own steps produced.
+  //
+  // The hand-built grids above pin the exact eliminations. These pin the
+  // thing a hand-built grid cannot, and the thing every oracle test in this
+  // repo is for: on a real puzzle with a real answer, no instance may
+  // disagree with that answer. (A hand-built deadly pattern has two answers
+  // by construction - that is the point of it - so there is nothing there
+  // to compare against.)
+  //
+  // A cell is "=5" where a digit is placed and its pencil marks otherwise.
+  const REAL_GRIDS = {
+    'Avoidable Rectangle Type 2': {
+      puzzle: '043000008000507000000090205070000016000003000604905000000250000061300002000070081',
+      board:
+        '=5 =4 =3 =1 =2 =6 79 79 =8 29 28 289 =5 =3 =7 =1 =6 =4 =7 =1 =6 48 =9 48 =2 =3 =5 39 =7 59 48 48 =2 35 =1 =6 =1 258 258 =7 =6 =3 458 45 =9 =6 38 =4 =9 =1 =5 38 =2 =7 =8 =9 =7 =2 =5 =1 =6 4 =3 =4 =6 =1 =3 8 89 57 57 =2 23 235 25 =6 =7 49 49 =8 =1',
+    },
+    'BUG+2': {
+      puzzle: '800090000000078000072000006010089503004002000050030000940000005008007900003010408',
+      board:
+        '=8 =3 56 126 =9 46 12 45 =7 14 =9 56 126 =7 =8 =3 45 12 14 =7 =2 13 =5 34 =8 =9 =6 26 =1 =7 =4 =8 =9 =5 26 =3 =3 =8 =4 =5 =6 =2 17 17 =9 26 =5 =9 =7 =3 =1 26 =8 =4 =9 =4 =1 =8 =2 36 67 37 =5 =5 26 =8 36 =4 =7 =9 13 12 =7 26 =3 =9 =1 =5 =4 26 =8',
+    },
+    'BUG+3': {
+      puzzle: '000120000050400000360000000605000900400005070001270030000019702007000185200000060',
+      board:
+        '=7 48 =9 =1 =2 368 48 =5 368 =1 =5 28 =4 68 37 268 =9 37 =3 =6 24 =5 =9 78 24 =1 78 =6 =7 =5 38 34 =1 =9 =2 48 =4 =2 =3 =9 68 =5 68 =7 =1 =8 =9 =1 =2 =7 46 =5 =3 46 =5 38 =6 38 =1 =9 =7 =4 =2 =9 34 =7 =6 34 =2 =1 =8 =5 =2 =1 48 =7 =5 48 =3 =6 =9',
+    },
+    'Unique Loop': {
+      puzzle: '005009000007600001000070008000004000000100030679000084400000020058060300063020000',
+      board:
+        '=8 =4 =5 =2 =1 =9 =6 =7 =3 39 23 =7 =6 =4 =8 259 59 =1 139 123 =6 35 =7 35 2459 459 =8 13 13 =2 =7 =8 =4 59 569 569 =5 =8 =4 =1 =9 =6 =7 =3 =2 =6 =7 =9 35 35 =2 =1 =8 =4 =4 =9 =1 358 35 357 58 =2 567 =2 =5 =8 49 =6 17 =3 149 79 =7 =6 =3 4589 =2 15 4589 1459 59',
+    },
   };
 
-  for (const [technique, digits] of Object.entries(FOUND_BY_SEARCH)) {
-    it(`${technique}: every instance on the way through agrees with the answer`, () => {
-      const puzzle = digits.split('').map(Number);
+  const readBoard = (puzzle, board) =>
+    board.split(' ').map((mark, i) => ({
+      cellIndex: i,
+      value: mark.startsWith('=') ? Number(mark.slice(1)) : null,
+      isFixed: puzzle[i] !== 0,
+      candidates: mark.startsWith('=') ? [] : mark.split('').map(Number),
+      isHighlighted: false,
+      highlightColor: null,
+      isBaseCell: false,
+      isTargetCell: false,
+    }));
+
+  for (const [technique, fixture] of Object.entries(REAL_GRIDS)) {
+    it(`${technique}: every instance on a real grid agrees with its answer`, () => {
+      const puzzle = fixture.puzzle.split('').map(Number);
       expect(establishUniqueness(puzzle).state).toBe(UNIQUENESS_ONE);
       const solution = solutionsOf(puzzle, 1)[0];
-      let grid = buildGrid(puzzle);
-      let instances = 0;
-      for (let i = 0; i < 250; i++) {
-        for (const step of findAllTechniqueInstances(grid, technique, ONE)) {
-          instances++;
-          if (step.placement) {
-            expect(step.placement.digit, `step ${i}: ${cellName(step.placement.cell)}`).toBe(
-              solution[step.placement.cell]
-            );
-          }
-          for (const e of step.eliminations) {
-            expect(
-              e.digit,
-              `step ${i}: ${technique} erases the ${e.digit} in ${cellName(e.cell)}, which is the answer there`
-            ).not.toBe(solution[e.cell]);
-          }
-        }
-        const step = findNextLogicStep(grid, null, ONE);
-        if (!step) break;
-        grid = applyLogicStep(grid, step);
-        if (step.placement) {
-          grid = eliminateCandidatesFromPeers(grid, step.placement.cell, step.placement.digit);
-        }
+      const grid = readBoard(puzzle, fixture.board);
+      expect(grid).toHaveLength(81);
+
+      // The board is honest before anything is asked of it: it keeps the
+      // puzzle's givens, every digit on it is the answer's digit, and no
+      // cell has lost the pencil mark the answer needs. A fixture that
+      // failed this would prove nothing about soundness.
+      for (let i = 0; i < 81; i++) {
+        if (puzzle[i]) expect(grid[i].value, cellName(i)).toBe(puzzle[i]);
+        if (grid[i].value !== null) expect(grid[i].value, cellName(i)).toBe(solution[i]);
+        else expect(grid[i].candidates, cellName(i)).toContain(solution[i]);
       }
-      expect(instances, `${technique} should fire somewhere on this puzzle`).toBeGreaterThan(0);
-    }, 120_000);
+
+      const found = findAllTechniqueInstances(grid, technique, ONE);
+      expect(found.length, `${technique} should fire on this grid`).toBeGreaterThan(0);
+      for (const step of found) {
+        expect(step.technique).toBe(technique);
+        if (step.placement) {
+          expect(
+            step.placement.digit,
+            `${technique} writes ${step.placement.digit} in ${cellName(step.placement.cell)}, the answer has ${solution[step.placement.cell]}`
+          ).toBe(solution[step.placement.cell]);
+        }
+        for (const e of step.eliminations) {
+          expect(
+            e.digit,
+            `${technique} erases the ${e.digit} in ${cellName(e.cell)}, which is the answer there`
+          ).not.toBe(solution[e.cell]);
+        }
+        expect(step.placement || step.eliminations.length > 0).toBeTruthy();
+      }
+    });
   }
 });
 

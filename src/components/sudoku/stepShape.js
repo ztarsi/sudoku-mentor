@@ -24,6 +24,18 @@
 // corners), loopCells (a unique loop, in the order the ring closes) and
 // bugExtras (the candidates whose removal would leave a grave).
 //
+// A chain step (the alternating-inference family) also carries:
+//   chainNodes   the nodes in order, each { cells, cell, digit, kind,
+//                truth, endpoint, linkToNext: 'strong'|'weak'|null,
+//                linkVia: 'unit'|'bivalue'|'cell'|'als'|null, linkUnit,
+//                linkSet }. `linkToNext` describes the link from this node
+//                to the next; for a closed loop the last node links back
+//                to the first.
+//   chainClosed  true for a continuous loop
+//   chainSets    the almost locked sets the chain passes through
+//   chainLoopEliminations  per weak link of a loop, what it licenses
+//   chainNotation  the Expert notation, "(5)R1C3 = (5)R1C7 - ..."
+//
 // makeStep() fills the defaults so the UI and tests can rely on every
 // field being present with the right type.
 export const makeStep = (step) => {

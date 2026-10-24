@@ -1,7 +1,7 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import Cell from './Cell';
 import CellContextMenu from './CellContextMenu';
-import { buildHighlightSets } from './stepHighlights';
+import { buildHighlightSets, buildChainOverlay } from './stepHighlights';
 import { commonUnit } from './gridUnits';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { isTypingTarget } from './keyboardShortcuts';
@@ -198,6 +198,16 @@ export default function SudokuGrid({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep, grid, overlayCellSize]);
 
+  // The chain overlay (#67): the nodes in order, strong links solid and
+  // weak links dashed, a group drawn as one outlined region so the player
+  // sees one node, and a continuous loop drawn closed. The base and target
+  // colours already in use, and nothing new. The geometry is a pure helper
+  // so the drawing can be checked without a browser.
+  const chainOverlay = useMemo(
+    () => buildChainOverlay(currentStep, overlayCellSize),
+    [currentStep, overlayCellSize]
+  );
+
   const forcingChains = useMemo(() => {
     const forcingTechniques = ['Deep Forcing Chain', 'Hypothesis Mode', 'Cell Forcing Chain'];
     if (!forcingTechniques.includes(currentStep?.technique)) return null;
@@ -361,6 +371,123 @@ export default function SudokuGrid({
                   <line key={i} x1={link.from.x} y1={link.from.y} x2={link.to.x} y2={link.to.y}
                     stroke={link.color} strokeWidth={link.strokeWidth} strokeDasharray={link.dashArray}
                     strokeLinecap="round" opacity={0.8} />
+                ))}
+              </svg>
+            )}
+
+            {/* Chain overlay: the nodes in order, strong links solid and
+                weak links dashed, groups outlined as one node, a continuous
+                loop closed. Playback reveals one link at a time. */}
+            {chainOverlay && overlaySize > 0 && (
+              <svg
+                className="absolute inset-0 pointer-events-none"
+                width={overlaySize}
+                height={overlaySize}
+                style={{ overflow: 'visible' }}
+                data-testid="chain-overlay"
+                data-chain-links={chainOverlay.links.length}
+                data-chain-groups={chainOverlay.groups.length}
+                data-chain-closed={chainOverlay.closed ? 'true' : 'false'}
+                data-chain-sets={chainOverlay.sets.length}
+              >
+                {chainOverlay.sets.map((s, i) => (
+                  <g key={`s${i}`}>
+                    {s.joins.map((j, n) => (
+                      <line key={`sj${n}`} x1={j.from.x} y1={j.from.y} x2={j.to.x} y2={j.to.y}
+                        stroke="#3b82f6" strokeWidth={1.5} strokeDasharray="4,3" opacity={0.5} />
+                    ))}
+                    {s.parts.map((p, n) => (
+                      <rect
+                        key={`sp${n}`}
+                        x={p.x}
+                        y={p.y}
+                        width={p.width}
+                        height={p.height}
+                        rx={overlayCellSize ? overlayCellSize * 0.18 : 6}
+                        fill="none"
+                        stroke="#3b82f6"
+                        strokeWidth={2}
+                        strokeDasharray="4,3"
+                        opacity={0.6}
+                      />
+                    ))}
+                    {/* The set's digits, inside its own region and outlined
+                        so they read over a pencil mark. */}
+                    <text
+                      x={s.x + 3}
+                      y={s.y + (overlayCellSize ? overlayCellSize * 0.24 : 9)}
+                      fill="#60a5fa"
+                      stroke={colors?.cellBg || '#020617'}
+                      strokeWidth={3}
+                      paintOrder="stroke"
+                      fontSize={overlayCellSize ? overlayCellSize * 0.24 : 9}
+                      fontWeight="600"
+                    >
+                      {s.digits.join('')}
+                    </text>
+                  </g>
+                ))}
+                {/* A group is one node: its cells are outlined and joined,
+                    cell by cell, so the gap between two of them is never
+                    drawn as part of the group. */}
+                {chainOverlay.groups.map((g, i) => (
+                  <g key={`g${i}`}>
+                    {g.joins.map((j, n) => (
+                      <line key={`gj${n}`} x1={j.from.x} y1={j.from.y} x2={j.to.x} y2={j.to.y}
+                        stroke="#3b82f6" strokeWidth={2} opacity={0.9} />
+                    ))}
+                    {g.parts.map((p, n) => (
+                      <rect
+                        key={`gp${n}`}
+                        x={p.x}
+                        y={p.y}
+                        width={p.width}
+                        height={p.height}
+                        rx={overlayCellSize ? overlayCellSize * 0.18 : 6}
+                        fill="none"
+                        stroke="#3b82f6"
+                        strokeWidth={2}
+                        opacity={0.9}
+                      />
+                    ))}
+                  </g>
+                ))}
+                {/* The whole chain stays on the board, so the step is
+                    readable at rest; the link the player is standing on is
+                    drawn heavier as they walk it. */}
+                {chainOverlay.links.map((link, i) => {
+                  const here = playbackIndex != null && i === playbackIndex;
+                  return (
+                    <line
+                      key={`l${i}`}
+                      x1={link.from.x}
+                      y1={link.from.y}
+                      x2={link.to.x}
+                      y2={link.to.y}
+                      stroke="#3b82f6"
+                      strokeWidth={(link.strong ? 3 : 2) * (here ? 1.8 : 1)}
+                      strokeDasharray={link.strong ? undefined : '5,5'}
+                      strokeLinecap="round"
+                      opacity={here ? 1 : 0.6}
+                      data-chain-link={i}
+                      data-chain-strong={link.strong ? 'true' : 'false'}
+                    />
+                  );
+                })}
+                {/* The two ends, ringed: one of them is true. They are part
+                    of the pattern, so they keep the base colour; the target
+                    colour stays reserved for what is erased. */}
+                {chainOverlay.endpoints.map((end, i) => (
+                  <circle
+                    key={`e${i}`}
+                    cx={end.x}
+                    cy={end.y}
+                    r={overlayCellSize ? overlayCellSize * 0.38 : 14}
+                    fill="none"
+                    stroke="#3b82f6"
+                    strokeWidth={3.5}
+                    opacity={0.95}
+                  />
                 ))}
               </svg>
             )}

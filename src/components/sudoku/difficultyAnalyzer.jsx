@@ -11,14 +11,16 @@
 // true by construction rather than by hand. It is also the number the
 // technique-coverage programme is judged by: the share of steps on each
 // shelf that a named technique explains (shelfCoverageReport, printed by
-// difficultyAnalyzer.spec.js).
+// difficultyAnalyzer.spec.js), and the other side of that number: which
+// techniques no library puzzle ever actually teaches
+// (techniqueTeachingReport, printed by the same spec).
 //
 // It is a developer tool and a library row. Players see its result, never
 // the tool.
 
 import { generateCandidates, findNextLogicStep, applyLogicStep, eliminateCandidatesFromPeers } from './logicEngine';
 import { findForcingChain, findHypothesis } from './forcingChainEngine';
-import { techniqueTier, teachingRank, WHAT_IF_TECHNIQUES } from './techniqueCatalog';
+import { techniqueTier, teachingRank, TECHNIQUES, TIERS, WHAT_IF_TECHNIQUES } from './techniqueCatalog';
 import { establishUniqueness } from './uniqueness';
 
 /** The tier a what-if step is counted under in the per-tier breakdown. */
@@ -51,6 +53,14 @@ const TECHNIQUE_SCORES = {
   // and still something a player can learn to spot.
   'Jellyfish': 7,
   'Empty Rectangle': 7,
+  // The short chains with their own names: harder to see than a wing,
+  // about as hard as a colouring, and scored so the shelves the library
+  // already states stay true (the recalibration is deliberate and happens
+  // once, at the end of the coverage programme).
+  'Skyscraper': 7,
+  'Two-String Kite': 7,
+  'W-Wing': 7,
+  'Remote Pairs': 8,
   'X-Cycle': 8,
   'Finned X-Wing': 8,
   'ALS-XZ': 9,
@@ -68,6 +78,8 @@ const TECHNIQUE_SCORES = {
   'Hidden Unique Rectangle': 9,
   'Avoidable Rectangle Type 1': 9,
   'Avoidable Rectangle Type 2': 9,
+  'X-Chain': 9,
+  'XY-Chain': 9,
   // Colouring across every digit, and the fish nobody spots by eye: a
   // puzzle that needs one of these is on the top shelf by definition.
   '3D Medusa': 9,
@@ -79,7 +91,14 @@ const TECHNIQUE_SCORES = {
   'BUG+3': 10,
   'Unique Loop': 10,
   'Franken Fish': 10,
-  'Mutant Fish': 10
+  'Mutant Fish': 10,
+  // The general chain and its richer forms: the last deductions the mentor
+  // has before what-if search.
+  'Alternating Chain': 10,
+  'Grouped X-Chain': 10,
+  'Grouped Alternating Chain': 10,
+  'Continuous Loop': 10,
+  'ALS Chain': 11
 };
 
 // A full solve is at most ~81 placements plus the elimination-only steps
@@ -237,6 +256,22 @@ export const startSolvePath = (puzzleArray, options = {}) => {
   return { advance, result };
 };
 
+// A walk that ran to the end never changes its answer, and the test run
+// asks the same twenty puzzles the same question more than once - once for
+// the per-shelf coverage report and once for the never-taught one - so keep
+// the last few. Only completed walks: one cut short by a time budget says
+// nothing about the rest. The path handed back is shared, so read it, do
+// not change it.
+const PATH_CACHE_LIMIT = 64;
+const pathCache = new Map();
+
+/**
+ * @param {number[]} puzzleArray
+ * @param {{ whatIf?: boolean, whatIfDepth?: number, maxSteps?: number }} walkOptions
+ */
+const pathCacheKey = (puzzleArray, { whatIf, whatIfDepth, maxSteps }) =>
+  [puzzleArray.join(''), whatIf ? 'whatIf' : 'named', whatIfDepth ?? WHAT_IF_DEPTH, maxSteps ?? MAX_STEPS].join('|');
+
 /**
  * The solve path, walked to the end (or for as long as `timeBudgetMs`).
  *
@@ -245,9 +280,18 @@ export const startSolvePath = (puzzleArray, options = {}) => {
  */
 export const analyzeSolvePath = (puzzleArray, options = {}) => {
   const { timeBudgetMs = Infinity, ...rest } = options;
+  const key = timeBudgetMs === Infinity ? pathCacheKey(puzzleArray, rest) : null;
+  if (key !== null && pathCache.has(key)) return pathCache.get(key);
+
   const run = startSolvePath(puzzleArray, rest);
   run.advance(timeBudgetMs);
-  return run.result();
+  const path = run.result();
+
+  if (key !== null && path.complete) {
+    if (pathCache.size >= PATH_CACHE_LIMIT) pathCache.delete(pathCache.keys().next().value);
+    pathCache.set(key, path);
+  }
+  return path;
 };
 
 /** What a library row says about a puzzle, from its solve path. */
@@ -397,5 +441,197 @@ export const formatShelfCoverageReport = (report) => {
       lines.push(`  ${row.shelf}: not solved even with what-if: ${row.unsolved.join(', ')}`);
     }
   }
+  return lines.join('\n');
+};
+
+/**
+ * The other side of the coverage number: for every technique in the
+ * catalog, whether any library puzzle's solve path uses it as a step.
+ *
+ * "Taught" means a player following the hints on some library puzzle is
+ * shown that technique. "Never the hint" means no library puzzle's path
+ * reaches it - which is a gap in the library rather than a fault in the
+ * detector, because the ladder always offers the easiest technique that
+ * applies and an easier one may explain every position the harder one
+ * would have. Such a technique is still found on the board, still counted
+ * in the Techniques list, still oracle-checked; it is simply never the
+ * step a player receives.
+ *
+ * `unlisted` catches the opposite accident: a step whose technique name is
+ * not in the catalog at all, which would otherwise go unreported.
+ *
+ * @param {Record<string, { name: string, puzzle: number[] }[]>} shelves
+ * @param {{ whatIfDepth?: number }} [options]
+ */
+export const techniqueTeachingReport = (shelves, options = {}) => {
+  const { whatIfDepth = WHAT_IF_DEPTH } = options;
+
+  /** @type {Map<string, number>} */
+  const stepsFor = new Map();
+  /** @type {Map<string, { shelf: string, name: string }[]>} */
+  const puzzlesFor = new Map();
+
+  for (const [shelf, puzzles] of Object.entries(shelves)) {
+    for (const p of puzzles) {
+      const path = analyzeSolvePath(p.puzzle, { whatIf: true, whatIfDepth });
+      const seen = new Set();
+      for (const step of path.steps) {
+        stepsFor.set(step.technique, (stepsFor.get(step.technique) || 0) + 1);
+        seen.add(step.technique);
+      }
+      for (const technique of seen) {
+        const rows = puzzlesFor.get(technique) || [];
+        rows.push({ shelf, name: p.name });
+        puzzlesFor.set(technique, rows);
+      }
+    }
+  }
+
+  const rows = TECHNIQUES.map((tech) => {
+    const steps = stepsFor.get(tech.name) || 0;
+    return {
+      technique: tech.name,
+      tier: tech.tier,
+      /** The what-if fallback, which the library does not set out to teach. */
+      whatIf: WHAT_IF_TECHNIQUES.includes(tech.name),
+      steps,
+      puzzles: puzzlesFor.get(tech.name) || [],
+      taught: steps > 0,
+    };
+  });
+
+  const known = new Set(TECHNIQUES.map((tech) => tech.name));
+  const unlisted = [...stepsFor.keys()].filter((name) => !known.has(name)).sort();
+
+  const byTier = TIERS.map((tier) => {
+    const tierRows = rows.filter((row) => row.tier === tier.level);
+    return {
+      tier: tier.level,
+      techniques: tierRows.length,
+      taught: tierRows.filter((row) => row.taught).length,
+      neverTaught: tierRows.filter((row) => !row.taught).map((row) => row.technique),
+    };
+  });
+
+  return {
+    rows,
+    taught: rows.filter((row) => row.taught),
+    neverTaught: rows.filter((row) => !row.taught),
+    /** Taught by exactly one puzzle: one library change from never taught. */
+    thin: rows.filter((row) => row.taught && row.puzzles.length === 1),
+    byTier,
+    unlisted,
+    techniques: rows.length,
+  };
+};
+
+// Long lists of names, wrapped under a label, so a tier's gaps read as one
+// group however many names it holds.
+const wrapNames = (label, names, width = 78) => {
+  const indent = ' '.repeat(label.length);
+  const lines = [];
+  let line = null;
+  for (const name of names) {
+    if (line === null) {
+      line = `${label}${name}`;
+    } else if (`${line}, ${name}`.length <= width) {
+      line = `${line}, ${name}`;
+    } else {
+      lines.push(`${line},`);
+      line = `${indent}${name}`;
+    }
+  }
+  if (line !== null) lines.push(line);
+  return lines;
+};
+
+/** The never-taught report as the lines the test run prints. */
+export const formatTechniqueTeachingReport = (report) => {
+  const lines = [
+    'Which techniques the library teaches, and which it never does',
+    '',
+    "Taught means at least one library puzzle's solve path uses the technique as",
+    'a step, so a player following the hints on that puzzle is shown it. Never the',
+    "hint means no library puzzle's path reaches it at all.",
+    '',
+    'A technique that is never the hint is not a broken detector. The ladder always',
+    'gives the easiest technique that applies, so where an easier one explains the',
+    'same positions, the harder one is still found on the board, still counted in',
+    'the Techniques list and still checked by the oracle - and still never the step',
+    'a player receives. That is a gap in the library, not in the engine, and the',
+    'list grows with every technique the programme adds.',
+    '',
+    'The Forcing Chains rows are the what-if search, the fallback where the named',
+    'ladder stops, rather than a technique the library sets out to teach.',
+    '',
+    'tier             techniques  taught  never the hint',
+  ];
+  for (const row of report.byTier) {
+    lines.push(
+      [
+        row.tier.padEnd(16),
+        String(row.techniques).padStart(10),
+        String(row.taught).padStart(7),
+        String(row.neverTaught.length).padStart(15),
+      ].join(' ')
+    );
+  }
+  lines.push(
+    [
+      'all tiers'.padEnd(16),
+      String(report.techniques).padStart(10),
+      String(report.taught.length).padStart(7),
+      String(report.neverTaught.length).padStart(15),
+    ].join(' ')
+  );
+
+  lines.push('');
+  lines.push(`taught by at least one library puzzle: ${report.taught.length} of ${report.techniques}`);
+  lines.push('');
+  lines.push('  tier             technique                 steps  puzzles');
+  for (const row of report.taught) {
+    lines.push(
+      '  ' +
+        [
+          row.tier.padEnd(16),
+          row.technique.padEnd(24),
+          String(row.steps).padStart(6),
+          String(row.puzzles.length).padStart(8),
+        ].join(' ')
+    );
+  }
+
+  lines.push('');
+  lines.push(`never the hint on any library puzzle: ${report.neverTaught.length} of ${report.techniques}`);
+  lines.push('');
+  if (report.neverTaught.length === 0) {
+    lines.push('  none: every technique in the catalog is taught by some puzzle.');
+  } else {
+    for (const tier of report.byTier) {
+      if (tier.neverTaught.length === 0) continue;
+      for (const line of wrapNames(`  ${tier.tier.padEnd(16)} `, tier.neverTaught)) lines.push(line);
+    }
+  }
+
+  lines.push('');
+  if (report.thin.length === 0) {
+    lines.push('taught by exactly one puzzle: none.');
+  } else {
+    lines.push('taught by exactly one puzzle, so one library change from never taught:');
+    for (const line of wrapNames(
+      '  ',
+      report.thin.map((row) => `${row.technique} (${row.puzzles[0].name})`)
+    )) {
+      lines.push(line);
+    }
+  }
+
+  if (report.unlisted.length > 0) {
+    lines.push('');
+    for (const line of wrapNames('steps whose technique is not in the catalog: ', report.unlisted)) {
+      lines.push(line);
+    }
+  }
+
   return lines.join('\n');
 };
