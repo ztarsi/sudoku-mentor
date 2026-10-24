@@ -50,3 +50,9 @@ Two detection notes, because they are the usual source of wrong hints in this fa
 
 - Shelf report from the oracle run: Medium and Hard reach 100% named steps with no what-if card, and the count of steps that needed a technique two or more tiers above the position's real difficulty falls to zero on those shelves.
 - The reference dialog for Hidden Pair and Hidden Triple, read one after the other, teaches the generalisation. A reader who has just learned Hidden Pair can predict what Hidden Triple is before reading it.
+
+## Outcome
+
+Shipped in PR #77 to `staging` on 2026-10-24. All five techniques landed with their tiers, ladder positions, teaching text and reference entries, and all five fire on today's library, so the oracle coverage is real rather than nominal. The hidden subsets of every size now share one set of plain words, so Hidden Triple reads as Hidden Pair one size up; XYZ-Wing reads as XY-Wing with the pivot counted in and says why seeing the two wings is not enough. Both detection notes are pinned by tests, including a cell that sees both wings but not the pivot, which is the elimination an XY-Wing would wrongly have made. Slowest new detector 12 ms against the 150 ms limit.
+
+Verified by the product manager on 2026-10-24: lint, typecheck, 380 tests and build pass on `staging`, and the analyser's report shows Medium, Hard and Expert at 100% named steps. One finding, not a defect in this batch: with XYZ-Wing on the ladder, Witching Hour on the Diabolical shelf now needs only an XYZ-Wing. The developer scored the new wings between XY-Wing and X-Cycle so no puzzle changed shelf, which was the right call; re-cutting the shelves is held to the end of the programme (decision log, 2026-10-24).

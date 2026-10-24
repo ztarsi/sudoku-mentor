@@ -89,6 +89,11 @@ A technique with only an engine is not done. Each one ships with:
 - Any detector too slow for the ladder sits behind the Techniques panel's Scan button, the way the expensive ones already do.
 - Live counts in the Techniques panel are the real constraint, because they run every detector on every board change. Batch #71 changes how counts are computed; until it lands, no batch may add a detector that costs more than 150 ms.
 
+### Shelves and naming
+
+- **No batch re-shelves a puzzle.** A new technique often makes a puzzle solvable by an easier rung than its shelf implies. The batch notes what it found and scores the new technique's difficulty so today's shelves still hold. Shelf assignment is recomputed once, deliberately, at the end of the programme, with the analyser's numbers in hand. Re-cutting the shelves every batch would move puzzles under players partway through them and make best times hard to compare.
+- A batch may not rename a puzzle or edit the library's content. Those are the product manager's, and a finding goes on the issue.
+
 ### Honesty
 
 - A uniqueness technique may only fire when the puzzle is known to have exactly one solution (batch #74).
