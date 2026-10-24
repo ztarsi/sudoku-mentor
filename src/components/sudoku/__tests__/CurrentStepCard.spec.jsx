@@ -194,6 +194,76 @@ describe('CurrentStepCard states', () => {
     expect(container.textContent).toContain('have come out the same colour');
   });
 
+  // A forcing proof is a deduction: it is named on the card under its own
+  // tier, in the deduction colour, and its proof is walked case by case
+  // rather than read as a paragraph (#75).
+  const forcingStep = {
+    technique: 'Unit Forcing Chain',
+    digit: 2,
+    baseCells: [28, 31],
+    targetCells: [48],
+    placement: { cell: 48, digit: 2 },
+    eliminations: [],
+    explanation: 'engine text',
+    forcingOrigin: { kind: 'unit', cells: [28, 31], digit: 7, unitName: 'row 4', options: [{ cell: 28, digit: 7 }, { cell: 31, digit: 7 }] },
+    forcingConclusion: { kind: 'convergence', placement: { cell: 48, digit: 2 }, eliminations: [] },
+    forcingNet: null,
+    forcingBranches: [28, 31].map((cell) => ({
+      assume: { cell, digit: 7 },
+      moves: [{ cell: 48, digit: 2, reason: 'Only candidate left in R6C4' }],
+      proof: [{ cell: 48, digit: 2, reason: 'Only candidate left in R6C4' }],
+      skipped: 0,
+      outcome: { kind: 'forces', text: 'R6C4 is 2', cell: 48 },
+      net: false,
+      limited: false,
+    })),
+  };
+
+  it('a forcing proof: named with its tier, in the deduction tone, not the what-if one', () => {
+    const { getByText, container } = show({ currentStep: forcingStep });
+    expect(getByText('Unit Forcing Chain')).toBeTruthy();
+    expect(getByText('Forcing')).toBeTruthy();
+    expect(container.querySelector('[data-tone="found"]')).not.toBeNull();
+    expect(container.querySelector('[data-tone="whatif"]')).toBeNull();
+    expect(container.textContent).not.toContain('Reasoning by trial');
+    expect(getByText('How this proof works')).toBeTruthy();
+  });
+
+  it('a forcing proof: the card walks it case by case', () => {
+    const onChainPlaybackChange = vi.fn();
+    const { getByText, getByRole, container } = show({ currentStep: forcingStep, onChainPlaybackChange });
+    expect(getByText('The proof, case by case:')).toBeTruthy();
+    expect(container.textContent).toContain('Suppose R4C2 is 7.');
+    expect(container.textContent).toContain('Every case was checked, so R6C4 is 2.');
+    expect(container.textContent).toContain('Step 1 of 7');
+    fireEvent.click(getByRole('button', { name: 'Next chain link' }));
+    expect(onChainPlaybackChange).toHaveBeenCalledWith(1);
+  });
+
+  it('a net that stopped at its limit says so on the card', () => {
+    const net = {
+      ...forcingStep,
+      technique: 'Forcing Net',
+      forcingNet: { depth: 5, limited: true },
+      forcingBranches: forcingStep.forcingBranches.map((b) => ({ ...b, net: true, limited: true })),
+    };
+    const { container } = show({ currentStep: net });
+    expect(container.textContent).toContain('held up to 5 suppositions at once');
+    expect(container.textContent).toContain('there may be more to find here that the mentor did not reach');
+  });
+
+  it('a net that finished looking claims nothing about a limit', () => {
+    const net = {
+      ...forcingStep,
+      technique: 'Forcing Net',
+      forcingNet: { depth: 5, limited: false },
+      forcingBranches: forcingStep.forcingBranches.map((b) => ({ ...b, net: true })),
+    };
+    const { container } = show({ currentStep: net });
+    expect(container.textContent).toContain('held up to 5 suppositions at once');
+    expect(container.textContent).not.toContain('did not reach');
+  });
+
   it('a colouring: the player can step through it', () => {
     const onChainPlaybackChange = vi.fn();
     const { getByRole } = show({ currentStep: colouringStep, onChainPlaybackChange });

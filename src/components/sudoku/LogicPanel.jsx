@@ -11,6 +11,7 @@ import { useTechniqueCounts } from './useTechniqueCounts';
 import { LIVE_COUNT_TECHNIQUES, SCAN_TECHNIQUES, needsUniqueness } from './techniqueCatalog';
 import { UNIQUENESS_UNKNOWN, uniquenessAllowed } from './uniqueness';
 import { searchWhatIf, isCancelled, isTimedOut, DEEP_TIME_BUDGET_MS } from './whatIfSearch';
+import { NET_DEPTH } from './searchLimits';
 import { toast } from '@/components/ui/use-toast';
 
 const TECHNIQUES_OPEN_KEY = 'sudoku-mentor:techniques-open';
@@ -74,7 +75,6 @@ export default function LogicPanel({
   const [scanResults, setScanResults] = useState({});
   const [searchingForcingChain, setSearchingForcingChain] = useState(false);
   const [showDeepSearchModal, setShowDeepSearchModal] = useState(false);
-  const [currentSearchDepth, setCurrentSearchDepth] = useState(10);
   const [isPlayingChain, setIsPlayingChain] = useState(false);
 
   // A scan describes one board. When the board changes, its results are
@@ -140,17 +140,17 @@ export default function LogicPanel({
   };
   useEffect(() => () => searchRef.current?.cancel(), []);
 
-  const performDeepSearch = async (depth) => {
+  const performDeepSearch = async () => {
     onAssistUsedRef.current?.();
     searchRef.current?.cancel();
-    const search = searchWhatIf(grid, depth, { timeBudgetMs: DEEP_TIME_BUDGET_MS });
+    const search = searchWhatIf(grid, { timeBudgetMs: DEEP_TIME_BUDGET_MS });
     searchRef.current = search;
     setSearchingForcingChain(true);
     try {
       return await search.promise;
     } catch (error) {
       if (isTimedOut(error)) {
-        toast({ title: 'Search ran out of time', description: `No chain found within ${DEEP_TIME_BUDGET_MS / 1000} s at depth ${depth}. The board is unusually hard for what-if search from here.` });
+        toast({ title: 'Search ran out of time', description: `Nothing found within ${DEEP_TIME_BUDGET_MS / 1000} s. The board is unusually hard to search from here.` });
       } else if (!isCancelled(error)) {
         console.error('What-if search failed', error);
       }
@@ -168,39 +168,24 @@ export default function LogicPanel({
       cancelSearch();
       return;
     }
-    setCurrentSearchDepth(100);
-    const result = await performDeepSearch(100);
+    const result = await performDeepSearch();
     if (result === undefined) return;
 
     if (result) {
       onHighlightTechnique([result], 1, 1);
     } else {
+      // Nothing to be found inside the net's stated depth. There is no
+      // "deeper" to offer: a search without a limit is a solver, not a
+      // mentor (#75), so the dialog says where the search stopped.
       setShowDeepSearchModal(true);
     }
   };
 
-  const handleGoDeeper = async () => {
-    const newDepth = currentSearchDepth + 10;
-    setCurrentSearchDepth(newDepth);
-    const result = await performDeepSearch(newDepth);
-    if (result === undefined) return;
-
-    if (result) {
-      setShowDeepSearchModal(false);
-      onHighlightTechnique([result], 1, 1);
-    }
-    // else: keep the modal open so the user can go even deeper
-  };
-
-  // Chain playback animation: the what-if replay counts its placements, a
-  // deductive chain or a colouring counts the lines the card walks, which
-  // is what chainWalk() produces (round the loop, or one more for what a
-  // colouring's two ends prove).
+  // Walk playback: every proof the card walks - a chain, a colouring, or a
+  // forcing proof case by case - counts the lines chainWalk() produces, so
+  // there is one length and one walker rather than one per family.
   useEffect(() => {
-    const chainLinks = chainWalk(currentStep).length;
-    const maxSteps = chainLinks || (currentStep?.chain
-      ? currentStep.chain.filter((s) => s.action === 'place').length
-      : 0);
+    const maxSteps = chainWalk(currentStep).length;
     if (isPlayingChain && maxSteps > 0) {
       if (chainPlaybackIndex < maxSteps - 1) {
         const timer = setTimeout(() => {
@@ -309,11 +294,9 @@ export default function LogicPanel({
         onClose={() => {
           cancelSearch();
           setShowDeepSearchModal(false);
-          setCurrentSearchDepth(100);
         }}
         onCancel={cancelSearch}
-        onGoDeeper={handleGoDeeper}
-        currentDepth={currentSearchDepth}
+        netDepth={NET_DEPTH}
         isSearching={searchingForcingChain}
       />
 

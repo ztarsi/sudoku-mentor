@@ -10,10 +10,10 @@ import {
   eliminateCandidatesFromPeers,
   applyLogicStep,
 } from '../logicEngine';
-import { findForcingChain, findHypothesis } from '../forcingChainEngine';
+import { findWhatIfStep, findForcingChain, findForcingNet, findHypothesis } from '../forcingChainEngine';
 import { solveSudoku } from '../solver';
 import { PUZZLES } from '../puzzles';
-import { TECHNIQUE_INFO, TECHNIQUES, WHAT_IF_TECHNIQUES, COUNT_SEARCH } from '../techniqueCatalog';
+import { TECHNIQUE_INFO, TECHNIQUES, SEARCH_TECHNIQUES, TRIAL_TECHNIQUES, COUNT_SEARCH } from '../techniqueCatalog';
 import { establishUniqueness } from '../uniqueness';
 import { cellName } from '../gridUnits';
 
@@ -38,7 +38,7 @@ const CHEAP = TECHNIQUES
 const checkStep = (step, solution, where) => {
   // Shape contract from stepShape.js
   expect(typeof step.technique).toBe('string');
-  expect(TECHNIQUE_INFO[step.technique] || WHAT_IF_TECHNIQUES.includes(step.technique)).toBeTruthy();
+  expect(TECHNIQUE_INFO[step.technique] || SEARCH_TECHNIQUES.includes(step.technique)).toBeTruthy();
   expect(Array.isArray(step.baseCells)).toBe(true);
   expect(Array.isArray(step.targetCells)).toBe(true);
   expect(Array.isArray(step.eliminations)).toBe(true);
@@ -126,44 +126,96 @@ describe('every technique instance agrees with the solution', () => {
   });
 });
 
-describe('what-if engines agree with the solution (Ultimate shelf)', () => {
-  // How many of the shelf still run past the named ladder. Not every
-  // puzzle here does any more - the coverage programme is removing them
-  // one batch at a time - but the engines must stay sound where they fire,
-  // and the shelf must still exercise them somewhere.
-  let shelfWhatIfSteps = 0;
+describe('the search engines agree with the solution (Ultimate shelf)', () => {
+  // The Ultimate shelf is where the ladder of patterns stops and the
+  // search takes over. Every step it produces is checked against the true
+  // solution, the way the pattern detectors are, and the proofs and the
+  // trial fallback are checked separately: the forcing engines on the path
+  // the player would actually walk, and Hypothesis Mode on the same boards
+  // even though it is no longer the step the player gets there (#75).
+  let proofSteps = 0;
+  let trialSteps = 0;
+  const seenForcing = new Set();
 
   for (const { name, puzzle } of PUZZLES.ultimate) {
-    it(`${name}: forcing chain / hypothesis steps are sound`, () => {
+    it(`${name}: every forcing proof and every trial is sound`, () => {
       let grid = buildGrid(puzzle);
       const solution = solveSudoku(grid).map((c) => c.value);
       const { state: uniqueness } = establishUniqueness(puzzle);
-      // Play the deductive engine as far as it goes, then take a few
-      // what-if steps, checking each and applying it.
-      for (let i = 0; i < 300; i++) {
-        const step = findNextLogicStep(grid, null, { uniqueness });
-        if (!step) break;
+
+      for (let i = 0; i < 400; i++) {
+        if (grid.every((cell) => cell.value !== null)) break;
+        let step = findNextLogicStep(grid, null, { uniqueness });
+        if (!step) {
+          // The hint path's own order, so what is checked here is what a
+          // player would be shown.
+          step = findWhatIfStep(grid);
+          if (!step) break;
+          checkStep(step, solution, `${name} search step ${i}`);
+          expect(SEARCH_TECHNIQUES).toContain(step.technique);
+          if (TRIAL_TECHNIQUES.includes(step.technique)) trialSteps++;
+          else {
+            proofSteps++;
+            seenForcing.add(step.technique);
+            // A proof by cases carries its branches, and the card walks them.
+            expect(Array.isArray(step.forcingBranches)).toBe(true);
+            expect(step.forcingBranches.length).toBeGreaterThan(1);
+          }
+
+          // The trial engine still has to be sound wherever it fires, even
+          // where a proof got there first, so it is asked about the same
+          // board and its answer checked without being applied.
+          const trial = findHypothesis(grid);
+          if (trial) {
+            checkStep(trial, solution, `${name} hypothesis at step ${i}`);
+            expect(trial.technique).toBe('Hypothesis Mode');
+            trialSteps++;
+          }
+        }
         grid = applyLogicStep(grid, step);
         if (step.placement) grid = eliminateCandidatesFromPeers(grid, step.placement.cell, step.placement.digit);
       }
-      let whatIfSteps = 0;
-      for (let i = 0; i < 4; i++) {
-        const step = findForcingChain(grid, 30) || findHypothesis(grid, 30);
-        if (!step) break;
-        checkStep(step, solution, `${name} what-if ${i}`);
-        expect(WHAT_IF_TECHNIQUES).toContain(step.technique);
-        whatIfSteps++;
-        grid = applyLogicStep(grid, step);
-        if (step.placement) grid = eliminateCandidatesFromPeers(grid, step.placement.cell, step.placement.digit);
-      }
-      shelfWhatIfSteps += whatIfSteps;
-      // A puzzle the named ladder now finishes has nothing to check here.
-      expect(whatIfSteps).toBeGreaterThanOrEqual(0);
+      // Whatever it took, the mentor finishes the puzzle.
+      expect(grid.every((cell) => cell.value !== null), `${name} was not solved`).toBe(true);
     });
   }
 
-  it('the shelf still exercises the what-if engines', () => {
-    expect(shelfWhatIfSteps).toBeGreaterThan(0);
+  it('the shelf exercises the forcing engines, proofs and trial alike', () => {
+    expect(proofSteps).toBeGreaterThan(0);
+    expect(trialSteps).toBeGreaterThan(0);
+    // Every name in the Forcing tier is reached somewhere on this shelf,
+    // so none of them can quietly stop firing.
+    expect([...seenForcing].sort()).toEqual(
+      ['Cell Forcing Chain', 'Digit Forcing Chain', 'Double Forcing Chain', 'Forcing Net', 'Unit Forcing Chain']
+    );
+  });
+
+  it('a forcing proof is tried before a net, and a net before a trial', () => {
+    // The order matters for the honesty line as much as for speed: a
+    // position that has a proof must never be shown as a trial.
+    let checked = 0;
+    for (const { puzzle } of PUZZLES.ultimate) {
+      let grid = buildGrid(puzzle);
+      const { state: uniqueness } = establishUniqueness(puzzle);
+      for (let i = 0; i < 400; i++) {
+        if (grid.every((cell) => cell.value !== null)) break;
+        let step = findNextLogicStep(grid, null, { uniqueness });
+        if (!step) {
+          const chain = findForcingChain(grid);
+          const net = chain ? null : findForcingNet(grid);
+          const whole = findWhatIfStep(grid);
+          expect(whole).toBeTruthy();
+          if (chain) expect(whole.technique).toBe(chain.technique);
+          else if (net) expect(whole.technique).toBe(net.technique);
+          else expect(whole.technique).toBe('Hypothesis Mode');
+          checked++;
+          step = whole;
+        }
+        grid = applyLogicStep(grid, step);
+        if (step.placement) grid = eliminateCandidatesFromPeers(grid, step.placement.cell, step.placement.digit);
+      }
+    }
+    expect(checked).toBeGreaterThan(0);
   });
 });
 

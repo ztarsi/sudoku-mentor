@@ -85,7 +85,8 @@ or a step. Nothing in here touches React or the network.
 | `fishEngine.jsx` | the rest of the fish family and the single-digit patterns: Jellyfish, the finned and sashimi forms, Franken and Mutant fish, Empty Rectangle |
 | `aicEngine.js` | alternating inference chains: the named short chains (Skyscraper, Two-String Kite, W-Wing, Remote Pairs), the general X-Chain, XY-Chain and Alternating Chain, and the richer forms (grouped nodes, continuous loops, almost-locked-set nodes) |
 | `restrictedCommon.js` | almost locked sets and the restricted-common check they are joined by, shared by `aicEngine` and the ALS techniques |
-| `forcingChainEngine.jsx` | what-if search: `applyValueAndPropagate` (naked and hidden singles to a fixpoint), Cell Forcing Chains by convergence, Hypothesis Mode by contradiction |
+| `forcingChainEngine.jsx` | the search: `applyValueAndPropagate` (naked and hidden singles to a fixpoint), the forcing proofs over a cell, a strong link or a unit, the dynamic net, and Hypothesis Mode as the trial fallback |
+| `searchLimits.js` | `NET_DEPTH`, the one stated limit the search has, on its own so the panel and the dialogs can name the number without importing the engine |
 | `whatIfSearch.js`, `whatIf.worker.js` | the same search, off the main thread and cancellable |
 | `difficultyAnalyzer.jsx` | rates a puzzle by the hardest technique the engines need |
 | `stepShape.js` | `makeStep()`: the one shape every step has |
@@ -99,6 +100,16 @@ eliminations, explanation, ... }`. Base cells form the pattern, target cells
 lose candidates or take the placement. The UI never infers structure from
 the explanation text.
 
+A forcing step carries its proof as data as well: `forcingOrigin` (the
+options that must contain the answer - a cell's candidates, the two ends of
+a strong link, or a unit's places for a digit), `forcingBranches` (one per
+option: what it assumes, every move it forced, the few of them the card
+walks, and what became of it), `forcingConclusion` and, for a net,
+`forcingNet` with the depth it was allowed and whether it stopped there.
+`chainWalk()` and `buildChainOverlay()` read those as well, so a branching
+proof is walked by the same walker and drawn by the same overlay as a
+chain - one case per path, told apart by colour.
+
 A chain step carries its proof as data too: `chainNodes`, the nodes in
 order with each node's cells, digit and the type of link to the next one,
 plus `chainClosed` for a continuous loop and `chainSets` for the almost
@@ -111,6 +122,25 @@ endpoint rings the board draws.
 WeakMap keyed by the grid) for as long as the board stands, because the
 ladder asks several chain detectors about the same board and the
 Techniques panel asks every one of them for a count.
+
+## The honesty line
+
+A step either proves its conclusion or it does not, and the card has to say
+which without the player reading it (`docs/specs/forcing-chains-and-nets.md`).
+The line is not "found by the search": a forcing proof is found by
+searching and is still a deduction, because every option an exhaustive
+origin has is followed and the conclusion is what they all force. So the
+Forcing tier is presented like any other deduction - its own name, its own
+tier chip, the deduction colour - and only Hypothesis Mode, which assumes
+one candidate and examines nothing else, keeps the what-if heading and the
+amber colour.
+
+One flag in the catalog draws it: `trial: true`, which only Hypothesis Mode
+carries. `TRIAL_TECHNIQUES` and `isTrialTechnique()` come from it, and
+everything downstream reads those rather than keeping its own list -
+`TECHNIQUE_INFO` (so a forcing proof has a tier chip and a trial does not),
+the hint card's tone, and the difficulty analyser's named-versus-what-if
+count, which is the number the coverage programme is judged by.
 
 ## The single-solution guard
 
@@ -140,9 +170,13 @@ allows it", which is the same test when there is only one answer.
 1. `findNextLogicStep(grid, focusedDigit, { uniqueness })` walks the
    techniques in order and returns the first that applies. This is fast
    (milliseconds).
-2. If nothing applies, the page asks `searchWhatIf(grid, depth)`. The worker
-   runs `findForcingChain` then `findHypothesis`; the page shows a spinner
-   with a Cancel button and drops the result if the grid changed meanwhile.
+2. If nothing applies, the page asks `searchWhatIf(grid)`. The worker runs
+   `findWhatIfStep`: the forcing proofs first (`findForcingChain`), then the
+   dynamic net (`findForcingNet`), and only then the trial fallback
+   (`findHypothesis`). The page shows a spinner with a Cancel button and
+   drops the result if the grid changed meanwhile. There is no depth
+   argument: how deep a net may go is `searchLimits.NET_DEPTH`, and a
+   search a caller could deepen without bound would be a solver.
 3. `presentStep` puts the step into the panel and highlights the grid;
    `applyStep` in the game hook applies it and counts a hint.
 

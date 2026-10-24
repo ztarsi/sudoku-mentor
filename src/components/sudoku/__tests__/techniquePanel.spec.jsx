@@ -200,11 +200,20 @@ describe('the reference dialog, and Scan', () => {
     expect(onUltimateScan).toHaveBeenCalled();
   });
 
-  it('says what the what-if Search is before it runs', () => {
+  it('says what the Search finds for the Forcing tier before it runs', () => {
     const view = show({});
-    fireEvent.click(view.getByRole('button', { name: /^Forcing Chains/ }));
-    expect(view.getByText(/assumes a digit and follows the consequences/)).toBeTruthy();
+    fireEvent.click(view.getByRole('button', { name: /^Forcing/ }));
+    expect(view.getByText(/A proof by cases, which is why these are deductions and not guesses/)).toBeTruthy();
     expect(view.getByRole('button', { name: /Search/ })).toBeTruthy();
+  });
+
+  // The honesty line, in the panel: the proofs and the trial are two tiers,
+  // and the what-if wording belongs to the trial alone (#75).
+  it('keeps the what-if wording for the trial tier alone', () => {
+    const view = show({});
+    fireEvent.click(view.getByRole('button', { name: /^What-if/ }));
+    expect(view.getByText(/assumes one candidate and erases it if the board breaks/)).toBeTruthy();
+    expect(view.getByText('Hypothesis Mode')).toBeTruthy();
   });
 });
 

@@ -7,6 +7,10 @@ import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { isTypingTarget } from './keyboardShortcuts';
 import { dialogJustClosed } from '@/hooks/useDialog';
 
+// One colour per case of a forcing proof, from the palette the what-if
+// overlay has always used. Nothing new is invented here.
+const BRANCH_COLORS = ['#10b981', '#a855f7', '#3b82f6', '#f59e0b'];
+
 export default function SudokuGrid({
   grid,
   selectedCell,
@@ -207,28 +211,6 @@ export default function SudokuGrid({
     () => buildChainOverlay(currentStep, overlayCellSize),
     [currentStep, overlayCellSize]
   );
-
-  const forcingChains = useMemo(() => {
-    const forcingTechniques = ['Deep Forcing Chain', 'Hypothesis Mode', 'Cell Forcing Chain'];
-    if (!forcingTechniques.includes(currentStep?.technique)) return null;
-
-    const rawChains = currentStep.chains
-      ? currentStep.chains
-      : currentStep.chain && currentStep.contradiction
-      ? [{ cells: currentStep.chain, color: '#ef4444', label: `If ${currentStep.contradictoryDigit}` }]
-      : null;
-    if (!rawChains) return null;
-
-    // Chain entries are {cell, value, action, reason} records; the overlay
-    // needs the sequence of placed cell INDICES. (Passing the raw entries
-    // into getCellCenter produced NaN coordinates before.)
-    return rawChains.map((chain) => ({
-      ...chain,
-      cellIndices: (chain.cells ?? [])
-        .filter((entry) => (typeof entry === 'object' ? entry.action === 'place' : true))
-        .map((entry) => (typeof entry === 'object' ? entry.cell : entry)),
-    }));
-  }, [currentStep]);
 
   // A colouring step (3D Medusa) carries its two colours as cell lists,
   // the surviving colour first. Mapped once, not per cell.
@@ -456,7 +438,12 @@ export default function SudokuGrid({
                     readable at rest; the link the player is standing on is
                     drawn heavier as they walk it. */}
                 {chainOverlay.links.map((link, i) => {
-                  const here = playbackIndex != null && i === playbackIndex;
+                  // A branching proof has no single cursor on the board,
+                  // so its cases are told apart by colour and all drawn in
+                  // full; a chain's current link is drawn heavier as the
+                  // player walks it.
+                  const here = !chainOverlay.branched && playbackIndex != null && i === playbackIndex;
+                  const stroke = link.branch != null ? BRANCH_COLORS[link.branch % BRANCH_COLORS.length] : '#3b82f6';
                   return (
                     <line
                       key={`l${i}`}
@@ -464,12 +451,13 @@ export default function SudokuGrid({
                       y1={link.from.y}
                       x2={link.to.x}
                       y2={link.to.y}
-                      stroke="#3b82f6"
+                      stroke={stroke}
                       strokeWidth={(link.strong ? 3 : 2) * (here ? 1.8 : 1)}
                       strokeDasharray={link.strong ? undefined : '5,5'}
                       strokeLinecap="round"
                       opacity={here ? 1 : 0.6}
                       data-chain-link={i}
+                      data-chain-branch={link.branch != null ? link.branch : undefined}
                       data-chain-strong={link.strong ? 'true' : 'false'}
                     />
                   );
@@ -492,25 +480,6 @@ export default function SudokuGrid({
               </svg>
             )}
 
-            {/* Forcing chain overlay: connect consecutive placements up to
-                the current playback position */}
-            {forcingChains && overlaySize > 0 && (
-              <svg className="absolute inset-0 pointer-events-none" width={overlaySize} height={overlaySize} style={{ overflow: 'visible' }}>
-                {forcingChains.map((chain, chainIndex) => {
-                  const visible = playbackIndex != null
-                    ? chain.cellIndices.slice(0, playbackIndex + 2)
-                    : chain.cellIndices;
-                  return visible.slice(0, -1).map((cellIdx, i) => {
-                    const from = getCellCenter(cellIdx);
-                    const to = getCellCenter(visible[i + 1]);
-                    return (
-                      <line key={`${chainIndex}-${i}`} x1={from.x} y1={from.y} x2={to.x} y2={to.y}
-                        stroke={chain.color || '#ef4444'} strokeWidth={2} strokeLinecap="round" opacity={0.7} />
-                    );
-                  });
-                })}
-              </svg>
-            )}
           </div>
         </div>
       </div>

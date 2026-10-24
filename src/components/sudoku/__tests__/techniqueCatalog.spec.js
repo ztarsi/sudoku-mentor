@@ -13,7 +13,9 @@ import {
   LEVEL_COLORS,
   LIVE_COUNT_TECHNIQUES,
   SCAN_TECHNIQUES,
-  WHAT_IF_TECHNIQUES,
+  SEARCH_TECHNIQUES,
+  TRIAL_TECHNIQUES,
+  isTrialTechnique,
   COUNT_LIVE,
   COUNT_SCAN,
   COUNT_SEARCH,
@@ -50,15 +52,40 @@ describe('the technique catalog', () => {
   }
 
   it('splits the techniques by what their count costs', () => {
-    expect([...LIVE_COUNT_TECHNIQUES, ...SCAN_TECHNIQUES, ...WHAT_IF_TECHNIQUES].sort()).toEqual(
+    expect([...LIVE_COUNT_TECHNIQUES, ...SCAN_TECHNIQUES, ...SEARCH_TECHNIQUES].sort()).toEqual(
       TECHNIQUES.map((t) => t.name).sort()
     );
-    // The what-if techniques are a search, not a count, and are not on the
-    // deductive ladder the hint card shows a tier chip for.
-    for (const name of WHAT_IF_TECHNIQUES) expect(TECHNIQUE_INFO[name]).toBeUndefined();
     for (const name of [...LIVE_COUNT_TECHNIQUES, ...SCAN_TECHNIQUES]) {
       expect(TECHNIQUE_INFO[name].level).toBe(techniqueTier(name));
     }
+  });
+
+  // The honesty line (#75), which is not the same line as "found by the
+  // search": a forcing proof is searched for and is still a deduction, so
+  // it is named on the card under its own tier. Only trial and error wears
+  // the what-if heading, and the card has no tier chip for it.
+  it('calls exactly one thing trial and error, and names every deduction', () => {
+    expect(TRIAL_TECHNIQUES).toEqual(['Hypothesis Mode']);
+    expect(isTrialTechnique('Hypothesis Mode')).toBe(true);
+    for (const name of TRIAL_TECHNIQUES) {
+      expect(TECHNIQUE_INFO[name], `${name} should carry no tier chip`).toBeUndefined();
+      expect(techniqueTier(name)).toBe('What-if');
+    }
+    for (const tech of TECHNIQUES.filter((t) => !TRIAL_TECHNIQUES.includes(t.name))) {
+      expect(TECHNIQUE_INFO[tech.name]?.level, `${tech.name} should be named with its tier`).toBe(tech.tier);
+      expect(isTrialTechnique(tech.name)).toBe(false);
+    }
+    // The forcing proofs are found by the search and are deductions all
+    // the same: the two tiers the search fills, on either side of the line.
+    const searchTiers = [...new Set(SEARCH_TECHNIQUES.map(techniqueTier))];
+    expect(searchTiers).toEqual(['Forcing', 'What-if']);
+    expect(SEARCH_TECHNIQUES.filter((n) => techniqueTier(n) === 'Forcing')).toEqual([
+      'Cell Forcing Chain',
+      'Unit Forcing Chain',
+      'Digit Forcing Chain',
+      'Double Forcing Chain',
+      'Forcing Net',
+    ]);
   });
 
   it('puts the ladder in teaching order, tier by tier', () => {

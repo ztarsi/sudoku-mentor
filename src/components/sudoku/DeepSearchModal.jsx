@@ -1,10 +1,18 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, AlertCircle, Zap } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useDialog } from '@/hooks/useDialog';
 
-export default function DeepSearchModal({ isOpen, onClose, onGoDeeper, onCancel, currentDepth, isSearching }) {
+/**
+ * What the Search button says when it comes back with nothing.
+ *
+ * The search has one stated limit, and it is deliberate: a net that may be
+ * deepened on request is a solver, not a mentor (#75). So this dialog says
+ * where the search stopped and why, rather than offering to go deeper or
+ * implying there is nothing on the board.
+ */
+export default function DeepSearchModal({ isOpen, onClose, onCancel, netDepth, isSearching }) {
   const dialog = useDialog({ open: isOpen, onClose });
   if (!isOpen) return null;
 
@@ -27,8 +35,8 @@ export default function DeepSearchModal({ isOpen, onClose, onGoDeeper, onCancel,
                 <AlertCircle className="w-6 h-6 text-orange-400" />
               </div>
               <div>
-                <h2 className="text-xl font-semibold text-white">No Techniques Found</h2>
-                <p className="text-sm text-slate-400">Current search depth: {currentDepth}</p>
+                <h2 className="text-xl font-semibold text-white">Nothing found from here</h2>
+                <p className="text-sm text-slate-400">The search holds at most {netDepth} suppositions at once</p>
               </div>
             </div>
           </div>
@@ -40,8 +48,8 @@ export default function DeepSearchModal({ isOpen, onClose, onGoDeeper, onCancel,
                 <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-500/20 mb-4">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
                 </div>
-                <p className="text-slate-300 text-lg font-medium">Searching deeper...</p>
-                <p className="text-slate-400 text-sm mt-2">Depth: {currentDepth}. The search runs in the background; the board stays usable.</p>
+                <p className="text-slate-300 text-lg font-medium">Searching…</p>
+                <p className="text-slate-400 text-sm mt-2">The search runs in the background; the board stays usable.</p>
                 <Button onClick={onCancel} variant="outline" className="mt-4 border-slate-600">
                   Cancel search
                 </Button>
@@ -49,21 +57,15 @@ export default function DeepSearchModal({ isOpen, onClose, onGoDeeper, onCancel,
             ) : (
               <>
                 <p className="text-slate-300 leading-relaxed">
-                  No forcing chains or logical contradictions were found at the current search depth.
+                  No forcing proof and no what-if chain was found on this board inside the search's
+                  limit: it may hold {netDepth} suppositions at once, and it stopped there.
                 </p>
-                
-                <div className="bg-slate-800 rounded-xl p-4 space-y-2">
-                  <div className="flex items-start gap-2">
-                    <Zap className="w-5 h-5 text-yellow-400 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="text-slate-200 font-medium">Go Deeper</p>
-                      <p className="text-slate-400 text-sm">Search with increased depth (may take longer)</p>
-                    </div>
-                  </div>
-                </div>
 
                 <p className="text-slate-400 text-sm">
-                  Deeper searches explore more complex logical chains but may take a few seconds to complete.
+                  That is not the same as there being nothing to find. The limit is deliberate - a
+                  search without one would solve the puzzle for you instead of teaching it - so the
+                  mentor stops rather than digging further. Place a digit you are sure of and ask
+                  again, and the board it searches will be a different one.
                 </p>
               </>
             )}
@@ -71,20 +73,9 @@ export default function DeepSearchModal({ isOpen, onClose, onGoDeeper, onCancel,
 
           {/* Footer */}
           {!isSearching && (
-            <div className="p-4 border-t border-slate-700 flex gap-3">
-              <Button
-                onClick={onClose}
-                variant="outline"
-                className="flex-1 border-slate-600"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={onGoDeeper}
-                className="flex-1 bg-gradient-to-r from-blue-500 to-indigo-500"
-              >
-                <Search className="w-4 h-4 mr-2" />
-                Go Deeper
+            <div className="p-4 border-t border-slate-700">
+              <Button onClick={onClose} variant="outline" className="w-full border-slate-600">
+                Close
               </Button>
             </div>
           )}

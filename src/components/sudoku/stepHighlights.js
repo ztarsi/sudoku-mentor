@@ -84,6 +84,38 @@ export const buildFocusedCandidates = (step, grid, colors) => {
 };
 
 /**
+ * The geometry the board draws a forcing proof with (#75): one path per
+ * case, in the order the walk tells them, and a ring on each cell of the
+ * origin. A branching proof has no single cursor, so every case is drawn
+ * in full and told apart by colour rather than revealed link by link; the
+ * card's walk is what has a current step. Same output shape as a chain's,
+ * with `branched` set, so the board draws both the same way.
+ */
+const buildForcingOverlay = (step, cellSize) => {
+  const branches = step.forcingBranches ?? [];
+  if (branches.length === 0) return null;
+  const centre = (index) => ({
+    x: (index % 9) * cellSize + cellSize / 2,
+    y: Math.floor(index / 9) * cellSize + cellSize / 2,
+  });
+  const links = [];
+  branches.forEach((branch, branchIndex) => {
+    const path = [branch.assume.cell, ...(branch.proof ?? []).map((move) => move.cell)];
+    for (let i = 0; i < path.length - 1; i++) {
+      links.push({ from: centre(path[i]), to: centre(path[i + 1]), strong: true, branch: branchIndex });
+    }
+  });
+  return {
+    links,
+    groups: [],
+    sets: [],
+    endpoints: (step.forcingOrigin?.cells ?? [branches[0].assume.cell]).map(centre),
+    closed: false,
+    branched: true,
+  };
+};
+
+/**
  * The geometry the board draws a chain with (#67): the nodes in order, a
  * line per link, a region per group, and a ring round each endpoint. A
  * continuous loop gets one more line than it has nodes gaps, so it closes.
@@ -96,14 +128,20 @@ export const buildFocusedCandidates = (step, grid, colors) => {
  * @typedef {{x:number, y:number, width:number, height:number}} Box
  * @typedef {Box & { parts: Box[], joins: {from:{x:number,y:number}, to:{x:number,y:number}}[] }} Region
  *
- * @returns {{ links: {from: {x:number,y:number}, to: {x:number,y:number}, strong: boolean}[],
+ * A forcing proof (#75) comes back in the same shape, with `branched` set
+ * and a `branch` index on every link: one path per case of the proof.
+ *
+ * @returns {{ links: {from: {x:number,y:number}, to: {x:number,y:number}, strong: boolean, branch?: number}[],
  *             groups: Region[],
  *             sets: (Region & {digits:number[]})[],
- *             endpoints: {x:number,y:number}[], closed: boolean } | null}
+ *             endpoints: {x:number,y:number}[], closed: boolean,
+ *             branched: boolean } | null}
  */
 export const buildChainOverlay = (step, cellSize) => {
+  if (!cellSize) return null;
+  if (step?.forcingBranches) return buildForcingOverlay(step, cellSize);
   const nodes = step?.chainNodes;
-  if (!Array.isArray(nodes) || nodes.length < 2 || !cellSize) return null;
+  if (!Array.isArray(nodes) || nodes.length < 2) return null;
 
   const centre = (index) => ({
     x: (index % 9) * cellSize + cellSize / 2,
@@ -166,6 +204,7 @@ export const buildChainOverlay = (step, cellSize) => {
       ? []
       : [...nodes[0].cells, ...nodes[nodes.length - 1].cells].map(centre),
     closed,
+    branched: false,
   };
 };
 

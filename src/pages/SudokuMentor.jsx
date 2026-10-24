@@ -11,7 +11,9 @@ import { playErrorTone } from '@/components/sudoku/errorSound';
 import { resolveShortcut, isTypingTarget } from '@/components/sudoku/keyboardShortcuts';
 import { findNextLogicStep, onlySinglesRemain } from '@/components/sudoku/logicEngine';
 import { UNIQUENESS_MANY, UNIQUENESS_ONE, uniquenessNote } from '@/components/sudoku/uniqueness';
-import { searchWhatIf, isCancelled, isTimedOut, HINT_SEARCH_DEPTH, HINT_TIME_BUDGET_MS } from '@/components/sudoku/whatIfSearch';
+import { searchWhatIf, isCancelled, isTimedOut, HINT_TIME_BUDGET_MS } from '@/components/sudoku/whatIfSearch';
+import { chainWalk } from '@/components/sudoku/explainStep';
+import { NET_DEPTH } from '@/components/sudoku/searchLimits';
 import {
   buildRemovalMap,
   buildFocusedCandidates,
@@ -381,15 +383,16 @@ export default function SudokuMentor() {
       return;
     }
     if (!step) {
-      // No regular technique applies: what-if search, off the main thread.
-      const search = searchWhatIf(game.logicGrid, HINT_SEARCH_DEPTH, { timeBudgetMs: HINT_TIME_BUDGET_MS });
+      // No pattern on the board: the search, off the main thread. It looks
+      // for a forcing proof first and only falls back to trial.
+      const search = searchWhatIf(game.logicGrid, { timeBudgetMs: HINT_TIME_BUDGET_MS });
       hintSearchRef.current = search;
       setSearchingHint(true);
       try {
         step = await search.promise;
       } catch (error) {
         if (isTimedOut(error)) {
-          toast({ title: 'No quick hint', description: `The what-if search ran out of time (${HINT_TIME_BUDGET_MS / 1000} s). The Search button under Techniques looks longer and deeper.` });
+          toast({ title: 'No quick hint', description: `The search ran out of time (${HINT_TIME_BUDGET_MS / 1000} s). The Search button under Techniques is given longer.` });
         } else if (!isCancelled(error)) {
           console.error('What-if search failed', error);
           toast({ title: 'Hint search failed', description: String(error?.message || error), variant: 'destructive' });
@@ -405,7 +408,7 @@ export default function SudokuMentor() {
       // the player no longer has.
       if (gridRef.current !== gridAtStart) return;
       if (!step) {
-        toast({ title: 'No hint found', description: `No technique or what-if chain within ${HINT_SEARCH_DEPTH} steps. Try the Search button under Techniques for a deeper look.` });
+        toast({ title: 'No hint found', description: `No pattern applies, and no proof or what-if chain inside the ${NET_DEPTH} suppositions the search may hold at once. That limit is deliberate: the mentor stops there rather than solving the puzzle for you.` });
         return;
       }
     }
@@ -823,22 +826,30 @@ export default function SudokuMentor() {
   });
   markUserLoadRef.current = markUserLoad;
 
-  // Calculate ghost grid for chain visualization
+  // The case the player is standing on, as ghost digits on the board.
+  //
+  // A forcing proof has several cases, and they disagree with each other -
+  // that is the point of it - so only the one being walked is shown, up to
+  // the line the player has reached. The walk says which case each of its
+  // lines belongs to, so there is no second idea of what a case is here.
   const ghostGrid = useMemo(() => {
-    if (!currentStep?.chain || !Array.isArray(currentStep.chain)) {
-      return game.grid;
+    if (!Array.isArray(currentStep?.forcingBranches)) return game.grid;
+    const walk = chainWalk(currentStep);
+    if (walk.length === 0) return game.grid;
+    const here = Math.min(Math.max(chainPlaybackIndex ?? 0, 0), walk.length - 1);
+    const branch = walk[here].branch;
+    if (typeof branch !== 'number') return game.grid;
+
+    const ghosts = new Map();
+    for (const line of walk.slice(0, here + 1)) {
+      if (line.branch !== branch) continue;
+      const placed = line.assume || line.move;
+      if (placed && !ghosts.has(placed.cell)) ghosts.set(placed.cell, placed.digit);
     }
-
-    const placementSteps = currentStep.chain.filter((s) => s.action === 'place');
-    const visibleSteps = placementSteps.slice(0, chainPlaybackIndex + 1);
-
-    return game.grid.map((cell, idx) => {
-      const ghostStep = visibleSteps.find((s) => s.cell === idx);
-      if (ghostStep) {
-        return { ...cell, ghostValue: ghostStep.value };
-      }
-      return cell;
-    });
+    if (ghosts.size === 0) return game.grid;
+    return game.grid.map((cell, idx) =>
+      ghosts.has(idx) ? { ...cell, ghostValue: ghosts.get(idx) } : cell
+    );
   }, [game.grid, currentStep, chainPlaybackIndex]);
 
   // The first visit's prompts: which are on screen now, and what moves them on.
