@@ -55,3 +55,11 @@ Every batch after it adds names to a list that does not scale and counts to a bu
 - A player can find a named technique in the list in one action, without scrolling past tiers they do not care about.
 - The per-shelf report exists and is produced by the test run, so every later batch can be judged against the number it moved.
 - The library's shelf labels match what the analyser says. Any mismatch is a bug in the label, not in the analyser.
+
+## Outcome
+
+Shipped in PR #78 to `staging` on 2026-10-24. The list leads with what applies to the current board, the full ladder sits below it collapsed by tier, a search box finds a technique by its plain name, its formal name or the name a guide would use, and the reference dialog is one tap from any row. Counts no longer run in the input path at all: a digit entry computes nothing, counts arrive once the board is still, a board change drops them, and an unknown count says so rather than showing the previous board's number. Measured on a production build with the processor slowed fourfold: 25 ms median keypress to painted frame at 760px and 33 ms at 1280px, with zero detectors in the input path, held by a test.
+
+The analyser shipped with it. Library rows now say what each puzzle teaches from measurement rather than by hand, and a shelf's what-if note is derived the same way. Its per-shelf report is the programme's baseline and is recorded in `docs/PRODUCT.md`.
+
+Verified by the product manager on 2026-10-24: lint, typecheck, 380 tests and build pass on `staging`, and the report reproduces. Two things came out of this batch and were decided rather than left open: the Techniques list stays readable but inert in No Assist, and shelf assignment is recomputed once at the end of the programme rather than per batch. Both are in the decision log. One library finding was raised and is now issue #79: two puzzle names promise techniques their puzzle never needs.
