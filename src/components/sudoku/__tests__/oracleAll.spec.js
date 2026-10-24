@@ -13,7 +13,7 @@ import {
 import { findForcingChain, findHypothesis } from '../forcingChainEngine';
 import { solveSudoku } from '../solver';
 import { PUZZLES } from '../puzzles';
-import { TECHNIQUE_INFO } from '../techniqueCatalog';
+import { TECHNIQUE_INFO, TECHNIQUES, WHAT_IF_TECHNIQUES, COUNT_SEARCH } from '../techniqueCatalog';
 import { cellName } from '../gridUnits';
 
 const buildGrid = (puzzle) =>
@@ -24,17 +24,19 @@ const buildGrid = (puzzle) =>
     }))
   );
 
-const CHEAP = [
-  'Naked Single', 'Hidden Single', 'Pointing Pair', 'Pointing Triple', 'Claiming',
-  'Naked Pair', 'Hidden Pair', 'Naked Triple', 'X-Wing', 'Swordfish', 'XY-Wing',
-  'Unique Rectangle Type 1', 'BUG+1', 'Finned X-Wing', 'X-Cycle',
-];
+// Every deductive technique in the catalog, so a technique added there
+// joins this oracle without anyone remembering to list it twice. The split
+// is by what a detector costs to run on every intermediate grid, not by
+// tier: only ALS-XZ is too slow for every iteration.
 const EXPENSIVE = ['ALS-XZ'];
+const CHEAP = TECHNIQUES
+  .filter((t) => t.count !== COUNT_SEARCH && !EXPENSIVE.includes(t.name))
+  .map((t) => t.name);
 
 const checkStep = (step, solution, where) => {
   // Shape contract from stepShape.js
   expect(typeof step.technique).toBe('string');
-  expect(TECHNIQUE_INFO[step.technique] || ['Cell Forcing Chain', 'Hypothesis Mode'].includes(step.technique)).toBeTruthy();
+  expect(TECHNIQUE_INFO[step.technique] || WHAT_IF_TECHNIQUES.includes(step.technique)).toBeTruthy();
   expect(Array.isArray(step.baseCells)).toBe(true);
   expect(Array.isArray(step.targetCells)).toBe(true);
   expect(Array.isArray(step.eliminations)).toBe(true);
@@ -110,7 +112,7 @@ describe('what-if engines agree with the solution (Ultimate shelf)', () => {
         const step = findForcingChain(grid, 30) || findHypothesis(grid, 30);
         if (!step) break;
         checkStep(step, solution, `${name} what-if ${i}`);
-        expect(['Cell Forcing Chain', 'Hypothesis Mode']).toContain(step.technique);
+        expect(WHAT_IF_TECHNIQUES).toContain(step.technique);
         whatIfSteps++;
         grid = applyLogicStep(grid, step);
         if (step.placement) grid = eliminateCandidatesFromPeers(grid, step.placement.cell, step.placement.digit);

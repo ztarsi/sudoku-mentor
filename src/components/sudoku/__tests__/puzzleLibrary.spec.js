@@ -3,7 +3,7 @@
 // "ultimate" shelf once carried two singles-solvable puzzles).
 import { describe, it, expect } from 'vitest';
 import { PUZZLES } from '../puzzles';
-import { analyzeDifficulty } from '../difficultyAnalyzer';
+import { analyzeDifficulty, analyzePuzzle, teachingLabel } from '../difficultyAnalyzer';
 
 const boxOf = (i) => Math.floor(i / 27) * 3 + Math.floor((i % 9) / 3);
 
@@ -95,4 +95,27 @@ describe('built-in puzzle library', () => {
       }
     });
   }
+
+  // The shelf note is written from the analysis, so the claim "these run
+  // past the mentor's named techniques" has to be true of exactly the
+  // shelves it appears on. A mismatch here is a bug in the label.
+  it('only the Ultimate shelf runs past the named techniques', () => {
+    for (const [shelf, list] of Object.entries(PUZZLES)) {
+      for (const p of list) {
+        const analysis = analyzePuzzle(p.puzzle);
+        expect(analysis.complete, p.name).toBe(true);
+        expect(analysis.namedOnly, `${shelf}: ${p.name}`).toBe(shelf !== 'ultimate');
+      }
+    }
+  });
+
+  it('every puzzle can say what it teaches', () => {
+    for (const list of Object.values(PUZZLES)) {
+      for (const p of list) {
+        const label = teachingLabel(analyzePuzzle(p.puzzle));
+        expect(label, p.name).toBeTruthy();
+        expect(label.length, p.name).toBeLessThan(60);
+      }
+    }
+  });
 });
