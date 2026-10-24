@@ -80,7 +80,7 @@ A technique with only an engine is not done. Each one ships with:
 ### Presentation
 
 - The hint card shows the technique name and tier, a chip for every digit involved, and the cells on the board in the colours already in use. No batch invents a new colour vocabulary.
-- A step whose proof is a chain, a net or a set must be walkable: the player can step through it rather than reading a wall of text.
+- A step whose proof is a chain, a net or a set must be walkable: the player can step through it rather than reading a wall of text. The colouring techniques, X-Cycle and 3D Medusa, are the exception until the chain batch (#67) builds the replay they share; that is tracked as #82 rather than left unsaid.
 - A deduction is presented as a deduction. Only genuine trial and error carries the what-if heading and colour. Batch #75 settles the exact line.
 
 ### Performance
