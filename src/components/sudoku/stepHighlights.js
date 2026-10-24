@@ -66,8 +66,11 @@ export const buildFocusedCandidates = (step, grid, colors) => {
   // A chain over several digits: each node shows the digit it is about, so
   // every digit the chain touches is coloured, not only the one erased. A
   // node may be about several at once - the stem of a Death Blossom, one
-  // region of a Sue de Coq - and then every one of them is coloured.
-  if (Array.isArray(step.chainNodes) && step.chainNodes.length > 1) {
+  // region of a Sue de Coq - and then every one of them is coloured. A
+  // colouring step is left out: its own two tints already say which marks
+  // the step is about, and a second colour vocabulary on top of them reads
+  // as noise.
+  if (Array.isArray(step.chainNodes) && step.chainNodes.length > 1 && !step.chainColouring) {
     const digits = [
       ...new Set(
         step.chainNodes.flatMap((node) =>

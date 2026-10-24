@@ -184,3 +184,13 @@ npm run build
 ```
 
 Then it is verified on the staging site at https://sdm.pilia.net from the player's side, and reaches players in the next release. Conventions: cells are named `R5C3`, player-facing wording is plain English for beginners with the Expert version behind the toggle, and no model identifiers appear in commits, code or comments. The full process is in `docs/STAGING.md` and `CLAUDE.md`.
+
+## Outcome
+
+Shipped in PR #86 to `staging` on 2026-10-24. Eleven names landed, all presented as deductions: Skyscraper, Two-String Kite, W-Wing and Remote Pairs in Expert; X-Chain, XY-Chain, Alternating Chain, Grouped X-Chain, Grouped Alternating Chain, Continuous Loop and ALS Chain in Ultimate. The board draws nodes in order with strong links solid and weak links dashed, both ends ringed, groups outlined, a loop drawn closed. The proof is walkable, one line per link labelled "at least one" or "at most one", with the board emphasising the link the player is standing on, and the Expert toggle gives the chain in standard notation. Beginner wording never says candidate, unit, strong link, node or conjugate. One implication graph is built per board and shared by all eleven detectors: every chain detector under 4 ms against the 150 ms budget, the whole named ladder under 7 ms against 1 s.
+
+Verified by the product manager on 2026-10-24: lint, typecheck, 555 tests and build pass on `staging`, and the report reproduces. Coverage moved from 1214 of 1251 steps named to **1270 of 1301, 97.6%**, and the Ultimate shelf from 37 what-if steps to **31**. Easy through Diabolical stay at 100%.
+
+Two calls the developer raised, both settled by the product manager the same day and recorded in the decision log: the hint's ten-node cap stands and the Techniques panel is aligned to it, so the panel never counts a chain the hint will not teach; and "what this puzzle teaches" is accepted as a moving label, because it describes what the mentor will show you today rather than a property of the puzzle.
+
+The 31 remaining steps are positions no chain of ten nodes or fewer reaches. They are left to the almost-locked-set batch (#73) and the forcing batch (#75), not to a longer chain.

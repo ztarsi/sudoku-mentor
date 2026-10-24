@@ -54,6 +54,18 @@
 //                .endpoint` marks the nodes the conclusion rests on.
 //                `chainSets[i].label` names the part a region plays.
 //
+// A colouring step (X-Cycle, 3D Medusa) carries the same `chainNodes`, so
+// the card walks it and the board draws it the same way, plus:
+//   chainColouring  true: every link is an exactly-one-of-two, and the
+//                   nodes are the run of links that decides the step
+//                   rather than a whole chain
+//   colorRule       'wrap' or 'unit' (one colour twice in a row, column or
+//                   box), 'cell' (one colour twice in one cell), or
+//                   'trap' (a cell that sees both colours)
+//   colorWitness    the two marks the run joins, which is what the rule is
+//                   about
+//   colorTarget     for a trap, the cell that is dead either way
+//
 // makeStep() fills the defaults so the UI and tests can rely on every
 // field being present with the right type.
 export const makeStep = (step) => {
