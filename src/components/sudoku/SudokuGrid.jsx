@@ -220,6 +220,17 @@ export default function SudokuGrid({
     }));
   }, [currentStep]);
 
+  // A colouring step (3D Medusa) carries its two colours as cell lists,
+  // the surviving colour first. Mapped once, not per cell.
+  const colorGroupOf = useMemo(() => {
+    const groups = currentStep?.colorGroups;
+    if (!Array.isArray(groups) || groups.length !== 2) return null;
+    const map = new Map();
+    groups[0]?.forEach((cell) => map.set(cell, 1));
+    groups[1]?.forEach((cell) => map.set(cell, 2));
+    return map;
+  }, [currentStep]);
+
   // Hoisted out of the 81-cell render loop (it was recomputed per cell).
   const alsUnits = useMemo(() => {
     if (currentStep?.technique !== 'ALS-XZ' || !currentStep.als1 || !currentStep.als2) {
@@ -327,6 +338,7 @@ export default function SudokuGrid({
                   colors={colors}
                   alsSet={alsSet}
                   alsUnitHighlight={alsUnitHighlight}
+                  colorGroup={colorGroupOf?.get(index) ?? null}
                   currentStep={currentStep}
                   xDigit={currentStep?.technique === 'ALS-XZ' ? currentStep.xDigit : null}
                   zDigit={currentStep?.technique === 'ALS-XZ' ? currentStep.zDigit : null}

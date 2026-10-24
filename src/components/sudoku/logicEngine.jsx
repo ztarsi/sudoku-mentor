@@ -1,5 +1,14 @@
 // Sudoku Logic Engine - Human-style solving techniques
-import { findXCycle, findALSXZ, findUniqueRectangle, findBUGPlus1, findFinnedXWing } from './chainEngine';
+import { findXCycle, find3DMedusa, findALSXZ, findUniqueRectangle, findBUGPlus1, findFinnedXWing } from './chainEngine';
+import {
+  findJellyfish,
+  findEmptyRectangle,
+  findFinnedSwordfish,
+  findFinnedJellyfish,
+  findSashimiFish,
+  findFrankenFish,
+  findMutantFish,
+} from './fishEngine';
 import { makeStep } from './stepShape';
 
 // Helper functions
@@ -64,14 +73,22 @@ const TECHNIQUE_ORDER = () => [
   findHiddenQuad,
   findXWing,
   findSwordfish,
+  findJellyfish,
+  findEmptyRectangle,
   findXYWing,
   findXYZWing,
   findWXYZWing,
   findXCycle,
+  find3DMedusa,
   findFinnedXWing,
+  findFinnedSwordfish,
+  findFinnedJellyfish,
+  findSashimiFish,
   findALSXZ,
   findUniqueRectangle,
   findBUGPlus1,
+  findFrankenFish,
+  findMutantFish,
 ];
 
 export const findNextLogicStep = (grid, focusedDigit = null) => {
@@ -99,14 +116,22 @@ export const findAllTechniqueInstances = (grid, techniqueName) => {
     'Hidden Quad': findHiddenQuad,
     'X-Wing': findXWing,
     'Swordfish': findSwordfish,
+    'Jellyfish': findJellyfish,
+    'Empty Rectangle': findEmptyRectangle,
     'XY-Wing': findXYWing,
     'XYZ-Wing': findXYZWing,
     'WXYZ-Wing': findWXYZWing,
     'X-Cycle': findXCycle,
+    '3D Medusa': find3DMedusa,
     'Finned X-Wing': findFinnedXWing,
+    'Finned Swordfish': findFinnedSwordfish,
+    'Finned Jellyfish': findFinnedJellyfish,
+    'Sashimi Fish': findSashimiFish,
     'ALS-XZ': findALSXZ,
     'Unique Rectangle Type 1': findUniqueRectangle,
     'BUG+1': findBUGPlus1,
+    'Franken Fish': findFrankenFish,
+    'Mutant Fish': findMutantFish,
   };
 
   const findFunc = techniqueMap[techniqueName];

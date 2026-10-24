@@ -63,10 +63,15 @@ describe('the solve path', () => {
     expect(analyzeSolvePath(puzzle('Lunch Puzzle')).hardestTechnique).toBe('Naked Triple');
     // An expert one that needs a wing
     expect(analyzeSolvePath(puzzle('Deep Waters')).hardestTechnique).toBe('XY-Wing');
-    // A diabolical one that needs colouring
-    expect(analyzeSolvePath(puzzle("Devil's Den")).hardestTechnique).toBe('X-Cycle');
-    // And one whose hardest step is a four-candidate wing
-    expect(analyzeSolvePath(puzzle('Witching Hour')).hardestTechnique).toBe('XYZ-Wing');
+    // Two diabolical ones that need a single-digit box pattern. Both used
+    // to peak higher - a colouring chain and a four-candidate wing - until
+    // #72 put the Empty Rectangle on the ladder in front of them and it
+    // explained the same positions one rung lower.
+    expect(analyzeSolvePath(puzzle("Devil's Den")).hardestTechnique).toBe('Empty Rectangle');
+    expect(analyzeSolvePath(puzzle('Witching Hour')).hardestTechnique).toBe('Empty Rectangle');
+    // And one on the top shelf that the named ladder now finishes on its
+    // own, with colouring across every digit as its hardest step.
+    expect(analyzeSolvePath(puzzle('Night Owl')).hardestTechnique).toBe('3D Medusa');
   });
 
   it('says when named techniques alone are enough', () => {

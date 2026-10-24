@@ -346,7 +346,12 @@ describe('the teaching ladder', () => {
     }
     // The walk really exercised the rungs the new techniques sit between.
     expect([...reached].length).toBeGreaterThan(4);
-    expect(reached).toContain('XYZ-Wing');
+    // Hidden Triple is this batch's rung that the library's solve paths
+    // still reach. XYZ-Wing's one step (on Witching Hour) is explained by
+    // the Empty Rectangle that #72 placed earlier on the ladder, so the
+    // named walk no longer gets that far; the technique itself is still
+    // found on the board, which oracleAll.spec.js checks.
+    expect(reached).toContain('Hidden Triple');
   });
 });
 

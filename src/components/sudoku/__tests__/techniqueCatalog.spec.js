@@ -100,7 +100,11 @@ describe('finding a technique by name', () => {
   });
 
   it('ignores case and surrounding space, and matches nothing for nonsense', () => {
-    expect(matchTechniques('  SWORDfish ').map((t) => t.name)).toEqual(['Swordfish']);
+    // A player who types one fish's name should be shown that fish's
+    // family: the finned form, and the sashimi form that lists it.
+    expect(matchTechniques('  SWORDfish ').map((t) => t.name)).toEqual([
+      'Swordfish', 'Finned Swordfish', 'Sashimi Fish',
+    ]);
     expect(matchTechniques('qqq')).toEqual([]);
   });
 

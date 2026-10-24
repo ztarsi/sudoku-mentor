@@ -4,20 +4,28 @@ import { Loader2, CheckCircle } from 'lucide-react';
 import { useDialog } from '@/hooks/useDialog';
 import { SCAN_TECHNIQUES } from './techniqueCatalog';
 
-// Rough cost of each scan, so the dialog can say what it is spending.
+// What each scan actually costs on a mid-game board, measured rather than
+// guessed (fishAndSingleDigit.spec.js prints the numbers). Anything not
+// listed is a detector added since, and "a moment" is the safe word.
 const SCAN_TIMES = {
-  'X-Cycle': '~2s',
-  'Finned X-Wing': '~1s',
-  'ALS-XZ': '~3s',
-  'Unique Rectangle Type 1': '~2s',
-  'BUG+1': '~1s',
+  'X-Cycle': 'instant',
+  '3D Medusa': 'instant',
+  'Finned X-Wing': 'instant',
+  'Finned Swordfish': 'instant',
+  'Unique Rectangle Type 1': 'instant',
+  'BUG+1': 'instant',
+  'Finned Jellyfish': 'a moment',
+  'Sashimi Fish': 'a moment',
+  'ALS-XZ': 'a moment',
+  'Franken Fish': 'a moment',
+  'Mutant Fish': 'a moment',
 };
 
 export default function UltimateTechniqueScanModal({ isOpen, currentTechnique, results, onClose }) {
   const dialog = useDialog({ open: isOpen, onClose });
   // The catalog decides which techniques are scan-only, so a new one joins
   // this dialog without being listed twice.
-  const techniques = SCAN_TECHNIQUES.map((name) => ({ name, time: SCAN_TIMES[name] || '~2s' }));
+  const techniques = SCAN_TECHNIQUES.map((name) => ({ name, time: SCAN_TIMES[name] || 'a moment' }));
 
   if (!isOpen) return null;
 
@@ -42,7 +50,7 @@ export default function UltimateTechniqueScanModal({ isOpen, currentTechnique, r
             <h3 className="text-xl font-bold text-white mb-2">Scanning Ultimate Techniques</h3>
             <p className="text-slate-400 text-sm mb-6">
               Running {techniques.length} detector{techniques.length === 1 ? '' : 's'} on the board as
-              it stands now. About ten seconds.
+              it stands now. A second or two.
             </p>
 
             <div className="space-y-3">

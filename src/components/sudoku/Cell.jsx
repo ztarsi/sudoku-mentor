@@ -27,6 +27,7 @@ function Cell({
   onToggleCandidate,
   alsSet,
   alsUnitHighlight,
+  colorGroup,       // 1 or 2: a colouring step's two colours (3D Medusa)
   currentStep,
   xDigit,
   zDigit,
@@ -75,9 +76,12 @@ function Cell({
     bgColor = 'bg-red-900/60';
   } else if (hasError) {
     bgColor = 'bg-red-900/40';
-  } else if (alsSet) {
-    bgColor = alsSet === 1 ? 'bg-blue-600/40' : 'bg-indigo-600/40';
-    borderStyle = alsSet === 1 ? 'ring-2 ring-blue-400 ring-inset' : 'ring-2 ring-indigo-400 ring-inset';
+  } else if (alsSet || colorGroup) {
+    // One set of two tints, shared by the two ALS of an ALS-XZ step and by
+    // the two colours of a colouring step: no new colour vocabulary.
+    const group = alsSet || colorGroup;
+    bgColor = group === 1 ? 'bg-blue-600/40' : 'bg-indigo-600/40';
+    borderStyle = group === 1 ? 'ring-2 ring-blue-400 ring-inset' : 'ring-2 ring-indigo-400 ring-inset';
   } else if (alsUnitHighlight) {
     bgColor = alsUnitHighlight === 1 ? 'bg-blue-500/10' : 'bg-indigo-500/10';
   } else if (isTargetCell && currentStep?.technique === 'ALS-XZ') {

@@ -119,8 +119,11 @@ describe('finding a technique by name', () => {
   it('filters the list on part of a name, without opening a tier', () => {
     const view = show({});
     fireEvent.change(view.getByLabelText('Find a technique by name'), { target: { value: 'sword' } });
-    expect(view.getByText('1 technique match')).toBeTruthy();
+    // The whole family, not just the plain fish: the finned form, and the
+    // sashimi form that lists "sashimi swordfish" among its names.
+    expect(view.getByText('3 techniques match')).toBeTruthy();
     expect(view.getByText('Swordfish')).toBeTruthy();
+    expect(view.getByText('Finned Swordfish')).toBeTruthy();
     expect(view.queryByText('Naked Single')).toBeNull();
     // The ladder and the applies-now section stand aside while filtering
     expect(view.queryByText('On this board')).toBeNull();
@@ -192,7 +195,7 @@ describe('the reference dialog, and Scan', () => {
     const view = show({ onUltimateScan });
     fireEvent.click(view.getByRole('button', { name: /^Ultimate/ }));
     const scan = view.getByRole('button', { name: /Scan this board/ });
-    expect(view.getByText(/Scan runs all five on the board as it stands now/)).toBeTruthy();
+    expect(view.getByText(/Scan runs every one of them on the board as it stands now/)).toBeTruthy();
     fireEvent.click(scan);
     expect(onUltimateScan).toHaveBeenCalled();
   });
@@ -208,7 +211,8 @@ describe('the reference dialog, and Scan', () => {
 describe('No Assist', () => {
   it('counts nothing and offers no scan, but still lets the player read', () => {
     const onCount = vi.fn();
-    const view = show({ noAssistMode: true, counts: { 'X-Wing': 3 }, onCount });
+    const onSelectTechnique = vi.fn();
+    const view = show({ noAssistMode: true, counts: { 'X-Wing': 3 }, onCount, onSelectTechnique });
     expect(view.getByText(/No Assist is on, so nothing here is counted/)).toBeTruthy();
     expect(view.queryByText('On this board')).toBeNull();
     expect(view.queryByText('(3)')).toBeNull();
@@ -217,5 +221,9 @@ describe('No Assist', () => {
     expect(view.queryByRole('button', { name: 'Count' })).toBeNull();
     expect(view.queryByRole('button', { name: /Scan this board/ })).toBeNull();
     expect(onCount).not.toHaveBeenCalled();
+    // Reading how a technique works is not assistance, so the reference
+    // dialog stays one tap away even here.
+    fireEvent.click(view.getByText('X-Wing'));
+    expect(onSelectTechnique).toHaveBeenCalledWith('X-Wing');
   });
 });
