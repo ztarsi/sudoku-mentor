@@ -525,14 +525,52 @@ describe('useSudokuGame assistance and play clock', () => {
       expect(result.current.grid[idx].candidates).toContain(truth);
     });
 
-    it('refuses a puzzle with more than one solution', () => {
+    it('establishes how many answers a puzzle has, once, from its givens', () => {
+      const { result } = setup();
+      let outcome;
+      act(() => { outcome = result.current.loadPuzzle(PUZZLE); });
+      expect(outcome).toEqual({ ok: true, uniqueness: 'one' });
+      expect(result.current.uniqueness).toBe('one');
+      expect(result.current.uniquenessEstablished).toBe(true);
+    });
+
+    it('still plays a puzzle with more than one answer, with uniqueness off', () => {
       const { result } = setup();
       // Drop enough givens from a real puzzle to make it ambiguous.
       const loose = [...PUZZLE];
       for (let i = 0; i < 81 && loose.filter(Boolean).length > 8; i++) loose[i] = 0;
       let outcome;
       act(() => { outcome = result.current.loadPuzzle(loose); });
-      expect(outcome).toEqual({ ok: false, reason: 'multiple-solutions' });
+      // It loads: the player is told, and keeps playing. What goes away is
+      // the family of techniques that needs a single answer.
+      expect(outcome).toEqual({ ok: true, uniqueness: 'many' });
+      expect(result.current.uniqueness).toBe('many');
+      expect(result.current.uniquenessEstablished).toBe(false);
+
+      // And "wrong" widens to match: a digit one of the answers allows is
+      // accepted rather than counted as a mistake.
+      const idx = firstEmptyCell(result.current.grid);
+      const one = solveSudoku(loose.map((v) => ({ value: v || null, candidates: [] })))[idx].value;
+      const other = result.current.grid[idx].candidates.find((d) => {
+        if (d === one) return false;
+        const trial = loose.map((v, i) => (i === idx ? d : v));
+        return solveSudoku(trial.map((v) => ({ value: v || null, candidates: [] }))) !== null;
+      });
+      expect(other, 'an ambiguous grid should allow a second digit somewhere').toBeTruthy();
+      act(() => { result.current.handleCellInput(idx, other); });
+      expect(result.current.grid[idx].value).toBe(other);
+      expect(result.current.errorCount).toBe(0);
+    });
+
+    it('refuses a puzzle with no answer at all', () => {
+      const { result } = setup();
+      // The same digit twice in row 1: there is nothing to play.
+      const broken = [...PUZZLE];
+      const taken = broken.slice(0, 9).find((v) => v !== 0);
+      broken[broken.slice(0, 9).indexOf(0)] = taken;
+      let outcome;
+      act(() => { outcome = result.current.loadPuzzle(broken); });
+      expect(outcome).toEqual({ ok: false, reason: 'no-solution' });
     });
   });
 

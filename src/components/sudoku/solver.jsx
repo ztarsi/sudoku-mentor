@@ -90,10 +90,22 @@ export function solveSudoku(grid) {
 
 /**
  * Count solutions up to `cap` (2 is enough to know a puzzle is not a proper
- * Sudoku). Takes a grid of cells or an array of 81 digits (0 = empty).
- * Returns -1 when the givens already conflict.
+ * Sudoku), giving up after `maxNodes` search nodes.
+ *
+ * Takes a grid of cells or an array of 81 digits (0 = empty) and returns
+ * `{ count, complete, conflict }`:
+ *
+ *   conflict  the givens already clash, so there is nothing to count
+ *   complete  the search finished: `count` is the truth, capped at `cap`
+ *             (false means it ran out of nodes and `count` is only a floor)
+ *
+ * The node budget is what lets the uniqueness guard promise not to hang a
+ * player's grid: a pathological puzzle is answered "we do not know" rather
+ * than searched forever. A proper 17-to-30-clue Sudoku settles in a few
+ * thousand nodes, so the default budget is never reached in practice.
  */
-export function countSolutions(gridOrDigits, cap = 2) {
+export function countSolutionsWithin(gridOrDigits, options = {}) {
+  const { cap = 2, maxNodes = Infinity } = options;
   const values = gridOrDigits.map((cell) =>
     typeof cell === 'number' ? cell : (cell?.value ?? 0)
   );
@@ -107,14 +119,22 @@ export function countSolutions(gridOrDigits, cap = 2) {
     const r = Math.floor(i / 9);
     const c = i % 9;
     const b = boxOf(i);
-    if ((rowMask[r] | colMask[c] | boxMask[b]) & bit) return -1;
+    if ((rowMask[r] | colMask[c] | boxMask[b]) & bit) {
+      return { count: 0, complete: true, conflict: true };
+    }
     rowMask[r] |= bit;
     colMask[c] |= bit;
     boxMask[b] |= bit;
   }
   let count = 0;
+  let nodes = 0;
+  let exhausted = false;
   const solve = () => {
-    if (count >= cap) return;
+    if (count >= cap || exhausted) return;
+    if (++nodes > maxNodes) {
+      exhausted = true;
+      return;
+    }
     let best = -1;
     let bestOptions = 10;
     for (let i = 0; i < 81; i++) {
@@ -135,9 +155,19 @@ export function countSolutions(gridOrDigits, cap = 2) {
       values[best] = d; rowMask[r] |= bit; colMask[c] |= bit; boxMask[b] |= bit;
       solve();
       values[best] = 0; rowMask[r] &= ~bit; colMask[c] &= ~bit; boxMask[b] &= ~bit;
-      if (count >= cap) return;
+      if (count >= cap || exhausted) return;
     }
   };
   solve();
-  return count;
+  return { count, complete: !exhausted, conflict: false };
+}
+
+/**
+ * Count solutions up to `cap`. Returns -1 when the givens already conflict.
+ * The unbounded form: every caller of this one wants an answer, not a
+ * budget (see countSolutionsWithin for the guarded form).
+ */
+export function countSolutions(gridOrDigits, cap = 2) {
+  const { count, conflict } = countSolutionsWithin(gridOrDigits, { cap });
+  return conflict ? -1 : count;
 }

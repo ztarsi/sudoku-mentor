@@ -17,12 +17,14 @@ const NO_COUNTS = /** @type {Record<string, number>} */ ({});
 
 /**
  * @param {any[] | null} grid the board as it stands
- * @param {{ enabled?: boolean, names?: string[] }} options
- *   enabled  false (panel closed, or No Assist) computes nothing at all
- *   names    the techniques whose counts are worth having, in any order
+ * @param {{ enabled?: boolean, names?: string[], uniqueness?: string }} options
+ *   enabled     false (panel closed, or No Assist) computes nothing at all
+ *   names       the techniques whose counts are worth having, in any order
+ *   uniqueness  what is known about the puzzle's answer count; the
+ *               uniqueness family counts nothing without it
  */
 export const useTechniqueCounts = (grid, options = {}) => {
-  const { enabled = false, names = [] } = options;
+  const { enabled = false, names = [], uniqueness } = options;
   // One state object, so a count can never outlive the grid it describes.
   const [state, setState] = useState(
     /** @type {{ grid: any, counts: Record<string, number>, counting: boolean }} */
@@ -41,7 +43,10 @@ export const useTechniqueCounts = (grid, options = {}) => {
     const wanted = namesKey ? namesKey.split('|') : [];
     setState({ grid, counts: NO_COUNTS, counting: wanted.length > 0 });
     return runInSlices(
-      wanted.map((name) => ({ key: name, run: () => findAllTechniqueInstances(grid, name).length })),
+      wanted.map((name) => ({
+        key: name,
+        run: () => findAllTechniqueInstances(grid, name, { uniqueness }).length,
+      })),
       (name, count) =>
         setState((prev) =>
           prev.grid === grid ? { ...prev, counts: { ...prev.counts, [name]: count } } : prev
@@ -51,13 +56,13 @@ export const useTechniqueCounts = (grid, options = {}) => {
           setState((prev) => (prev.grid === grid ? { ...prev, counting: false } : prev)),
       }
     );
-  }, [grid, enabled, namesKey]);
+  }, [grid, enabled, namesKey, uniqueness]);
 
   /** Count one technique now, because the player asked for it. */
   const countNow = useCallback(
     (name) => {
       if (!grid) return 0;
-      const count = findAllTechniqueInstances(grid, name).length;
+      const count = findAllTechniqueInstances(grid, name, { uniqueness }).length;
       setState((prev) =>
         prev.grid === grid
           ? { ...prev, counts: { ...prev.counts, [name]: count } }
@@ -65,7 +70,7 @@ export const useTechniqueCounts = (grid, options = {}) => {
       );
       return count;
     },
-    [grid]
+    [grid, uniqueness]
   );
 
   /** Record counts someone else computed (the Ultimate scan) for this grid. */

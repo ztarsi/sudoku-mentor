@@ -2,7 +2,8 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2, CheckCircle } from 'lucide-react';
 import { useDialog } from '@/hooks/useDialog';
-import { SCAN_TECHNIQUES } from './techniqueCatalog';
+import { SCAN_TECHNIQUES, needsUniqueness } from './techniqueCatalog';
+import { UNIQUENESS_UNKNOWN, uniquenessAllowed, uniquenessNote } from './uniqueness';
 
 // What each scan actually costs on a mid-game board, measured rather than
 // guessed (fishAndSingleDigit.spec.js prints the numbers). Anything not
@@ -13,7 +14,18 @@ const SCAN_TIMES = {
   'Finned X-Wing': 'instant',
   'Finned Swordfish': 'instant',
   'Unique Rectangle Type 1': 'instant',
+  'Unique Rectangle Type 2': 'instant',
+  'Unique Rectangle Type 3': 'instant',
+  'Unique Rectangle Type 4': 'instant',
+  'Unique Rectangle Type 5': 'instant',
+  'Unique Rectangle Type 6': 'instant',
+  'Hidden Unique Rectangle': 'instant',
+  'Avoidable Rectangle Type 1': 'instant',
+  'Avoidable Rectangle Type 2': 'instant',
   'BUG+1': 'instant',
+  'BUG+2': 'instant',
+  'BUG+3': 'instant',
+  'Unique Loop': 'a moment',
   'Finned Jellyfish': 'a moment',
   'Sashimi Fish': 'a moment',
   'ALS-XZ': 'a moment',
@@ -30,11 +42,23 @@ const SCAN_TIMES = {
   'ALS Chain': 'instant',
 };
 
-export default function UltimateTechniqueScanModal({ isOpen, currentTechnique, results, onClose }) {
+export default function UltimateTechniqueScanModal({
+  isOpen,
+  currentTechnique,
+  results,
+  uniqueness = UNIQUENESS_UNKNOWN,
+  onClose,
+}) {
   const dialog = useDialog({ open: isOpen, onClose });
   // The catalog decides which techniques are scan-only, so a new one joins
-  // this dialog without being listed twice.
-  const techniques = SCAN_TECHNIQUES.map((name) => ({ name, time: SCAN_TIMES[name] || 'a moment' }));
+  // this dialog without being listed twice. The ones that need the puzzle
+  // to have a single answer are left out when it has not got one, with a
+  // line saying so rather than a list of zeroes.
+  const uniquenessOff = !uniquenessAllowed(uniqueness);
+  const techniques = SCAN_TECHNIQUES.filter((name) => !(uniquenessOff && needsUniqueness(name))).map(
+    (name) => ({ name, time: SCAN_TIMES[name] || 'a moment' })
+  );
+  const skipped = uniquenessOff ? SCAN_TECHNIQUES.filter(needsUniqueness).length : 0;
 
   if (!isOpen) return null;
 
@@ -57,10 +81,16 @@ export default function UltimateTechniqueScanModal({ isOpen, currentTechnique, r
         >
           <div className="p-6">
             <h3 className="text-xl font-bold text-white mb-2">Scanning Ultimate Techniques</h3>
-            <p className="text-slate-400 text-sm mb-6">
+            <p className="text-slate-400 text-sm mb-2">
               Running {techniques.length} detector{techniques.length === 1 ? '' : 's'} on the board as
               it stands now. A second or two.
             </p>
+            {skipped > 0 && (
+              <p className="text-slate-400 text-sm mb-6">
+                {skipped} more are not in the list: {uniquenessNote(uniqueness)}
+              </p>
+            )}
+            {skipped === 0 && <div className="mb-6" />}
 
             <div className="space-y-3">
               {techniques.map((tech, index) => {

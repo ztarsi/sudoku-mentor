@@ -40,6 +40,56 @@ describe('CurrentStepCard states', () => {
     expect(container.querySelector('[data-tone="found"]')).not.toBeNull();
   });
 
+  it('a uniqueness step: the rectangle is drawn as a rectangle, odd corner apart', () => {
+    const cells = [0, 3, 9, 12]; // R1C1, R1C4, R2C1, R2C4
+    const grid = Array.from({ length: 81 }, (_, i) => ({
+      value: null,
+      candidates: cells.includes(i) ? (i === 12 ? [1, 2, 3] : [1, 2]) : [4, 5],
+    }));
+    const step = {
+      technique: 'Unique Rectangle Type 1',
+      digit: null,
+      baseCells: cells,
+      rectangle: { corners: cells, floor: [0, 3, 9], roof: [12] },
+      pairDigits: [1, 2],
+      targetCells: [12],
+      placement: null,
+      eliminations: [{ cell: 12, digit: 1 }, { cell: 12, digit: 2 }],
+      explanation: 'x',
+    };
+    const { getByText, container } = show({ currentStep: step, grid });
+    // All four corners, named, with their marks
+    for (const name of ['R1C1', 'R1C4', 'R2C1', 'R2C4']) expect(getByText(name)).toBeTruthy();
+    expect(getByText('1 2 3')).toBeTruthy();
+    expect(getByText(/the one in amber is the odd one out/)).toBeTruthy();
+    // The odd corner is drawn apart from the three that match
+    const amber = container.querySelectorAll('.border-amber-600\\/70');
+    expect(amber.length).toBe(1);
+  });
+
+  it('a unique loop: the ring, in the order it closes', () => {
+    const loop = [0, 3, 12, 15, 24, 18];
+    const grid = Array.from({ length: 81 }, (_, i) => ({
+      value: null,
+      candidates: loop.includes(i) ? (i === 15 ? [1, 2, 3] : [1, 2]) : [4, 5],
+    }));
+    const step = {
+      technique: 'Unique Loop',
+      digit: null,
+      baseCells: loop,
+      loopCells: loop,
+      pairDigits: [1, 2],
+      targetCells: [15],
+      placement: null,
+      eliminations: [{ cell: 15, digit: 1 }, { cell: 15, digit: 2 }],
+      explanation: 'x',
+    };
+    const { getByText, container } = show({ currentStep: step, grid });
+    expect(getByText(/The ring closes back on itself/)).toBeTruthy();
+    expect(container.textContent).toContain('R1C1');
+    expect(container.textContent).toContain('R3C1');
+  });
+
   it('what-if: a visibly different heading and tone', () => {
     const step = {
       technique: 'Hypothesis Mode', digit: 8, baseCells: [0], targetCells: [40], contradictionCell: 40, contradictoryDigit: 3,

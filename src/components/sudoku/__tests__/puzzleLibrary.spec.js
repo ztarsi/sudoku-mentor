@@ -124,7 +124,10 @@ describe('built-in puzzle library', () => {
       for (const p of list) {
         const label = teachingLabel(analyzePuzzle(p.puzzle));
         expect(label, p.name).toBeTruthy();
-        expect(label.length, p.name).toBeLessThan(60);
+        // Short enough for the library row, which wraps. The longest names
+        // on the ladder are in the uniqueness family ("Avoidable Rectangle
+        // Type 1"), and a row says the whole name rather than an initial.
+        expect(label.length, p.name).toBeLessThan(70);
       }
     }
   });

@@ -14,6 +14,7 @@ import { findForcingChain, findHypothesis } from '../forcingChainEngine';
 import { solveSudoku } from '../solver';
 import { PUZZLES } from '../puzzles';
 import { TECHNIQUE_INFO, TECHNIQUES, WHAT_IF_TECHNIQUES, COUNT_SEARCH } from '../techniqueCatalog';
+import { establishUniqueness } from '../uniqueness';
 import { cellName } from '../gridUnits';
 
 const buildGrid = (puzzle) =>
@@ -29,7 +30,7 @@ const buildGrid = (puzzle) =>
 // is by what a detector costs to run on every intermediate grid, not by
 // tier: ALS-XZ, the two unit fish and the larger finned forms are too slow
 // for every iteration and run every eighth one.
-const EXPENSIVE = ['ALS-XZ', 'Sashimi Fish', 'Finned Jellyfish', 'Franken Fish', 'Mutant Fish'];
+const EXPENSIVE = ['ALS-XZ', 'Sashimi Fish', 'Finned Jellyfish', 'Franken Fish', 'Mutant Fish', 'Unique Loop'];
 const CHEAP = TECHNIQUES
   .filter((t) => t.count !== COUNT_SEARCH && !EXPENSIVE.includes(t.name))
   .map((t) => t.name);
@@ -69,17 +70,23 @@ describe('every technique instance agrees with the solution', () => {
     it(`${difficulty}: ${name}`, () => {
       let grid = buildGrid(puzzle);
       const solution = solveSudoku(grid).map((c) => c.value);
+      // The library is vetted, so the uniqueness family applies here - and
+      // the count is established the same way the app does it rather than
+      // assumed, so a library puzzle that stopped having one answer would
+      // turn the family off here too.
+      const { state: uniqueness } = establishUniqueness(puzzle);
+      const options = { uniqueness };
       for (let iteration = 0; iteration < 300; iteration++) {
         const techniques = iteration % 8 === 0 ? [...CHEAP, ...EXPENSIVE] : CHEAP;
         for (const tech of techniques) {
-          const instances = findAllTechniqueInstances(grid, tech);
+          const instances = findAllTechniqueInstances(grid, tech, options);
           for (const inst of instances) {
             expect(inst.technique).toBe(tech);
             checkStep(inst, solution, `${name} step ${iteration}`);
             seen[tech] = (seen[tech] || 0) + 1;
           }
         }
-        const step = findNextLogicStep(grid, null);
+        const step = findNextLogicStep(grid, null, options);
         if (!step) break;
         grid = applyLogicStep(grid, step);
         if (step.placement) grid = eliminateCandidatesFromPeers(grid, step.placement.cell, step.placement.digit);
@@ -87,11 +94,35 @@ describe('every technique instance agrees with the solution', () => {
     });
   }
 
-  it('the library exercises every named technique at least once', () => {
+  // Twenty puzzles cannot exercise forty-odd techniques (#83). These are
+  // the ones this walk never reaches, so it cannot check them, and each is
+  // checked elsewhere instead:
+  //
+  //   Avoidable Rectangle Type 1 needs cells already worked out, so it
+  //   only appears past the point where the named ladder stalls. It is
+  //   checked on the real solve path, what-if steps included, in
+  //   uniqueness.spec.js.
+  //
+  //   The other four appear nowhere in the library at all, and are checked
+  //   against hand-built grids in uniqueness.spec.js.
+  //
+  // The list is exact on purpose: a technique that quietly stops firing
+  // fails this test, and so does one the library starts covering.
+  const NOT_ON_THE_NAMED_WALK = [
+    'Unique Rectangle Type 5',
+    'Avoidable Rectangle Type 1',
+    'Avoidable Rectangle Type 2',
+    'BUG+2',
+    'BUG+3',
+    'Unique Loop',
+  ];
+
+  it('the library exercises every named technique it can reach', () => {
     const missing = CHEAP.concat(EXPENSIVE).filter((t) => !seen[t]);
-    // Report what the library covers; a technique with zero instances has
-    // no oracle coverage and needs a puzzle that shows it.
-    expect(missing, `no library instance of: ${missing.join(', ')}`).toEqual([]);
+    expect(
+      missing.slice().sort(),
+      `library coverage changed - techniques with no instance on this walk: ${missing.join(', ')}`
+    ).toEqual(NOT_ON_THE_NAMED_WALK.slice().sort());
   });
 });
 
@@ -106,10 +137,11 @@ describe('what-if engines agree with the solution (Ultimate shelf)', () => {
     it(`${name}: forcing chain / hypothesis steps are sound`, () => {
       let grid = buildGrid(puzzle);
       const solution = solveSudoku(grid).map((c) => c.value);
+      const { state: uniqueness } = establishUniqueness(puzzle);
       // Play the deductive engine as far as it goes, then take a few
       // what-if steps, checking each and applying it.
       for (let i = 0; i < 300; i++) {
-        const step = findNextLogicStep(grid, null);
+        const step = findNextLogicStep(grid, null, { uniqueness });
         if (!step) break;
         grid = applyLogicStep(grid, step);
         if (step.placement) grid = eliminateCandidatesFromPeers(grid, step.placement.cell, step.placement.digit);
@@ -154,6 +186,8 @@ describe('Finned X-Wing scans both orientations', () => {
   });
 
   it('BUG+1 honours returnAll', () => {
-    expect(Array.isArray(findAllTechniqueInstances(buildGrid(PUZZLES.easy[0].puzzle), 'BUG+1'))).toBe(true);
+    const grid = buildGrid(PUZZLES.easy[0].puzzle);
+    const { state: uniqueness } = establishUniqueness(PUZZLES.easy[0].puzzle);
+    expect(Array.isArray(findAllTechniqueInstances(grid, 'BUG+1', { uniqueness }))).toBe(true);
   });
 });
