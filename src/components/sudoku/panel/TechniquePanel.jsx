@@ -178,7 +178,8 @@ export default function TechniquePanel({
               <div className="relative">
                 <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
                 <input
-                  type="search"
+                  // Not type="search": its own clear button would sit beside ours
+                  type="text"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   aria-label="Find a technique by name"
