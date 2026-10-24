@@ -66,9 +66,14 @@ const TERMS_BY_TECHNIQUE = {
   'Naked Pair': ['candidate', 'unit'],
   'Hidden Pair': ['candidate', 'unit'],
   'Naked Triple': ['candidate', 'unit'],
+  'Hidden Triple': ['candidate', 'unit'],
+  'Naked Quad': ['candidate', 'unit'],
+  'Hidden Quad': ['candidate', 'unit'],
   'X-Wing': ['candidate'],
   'Swordfish': ['candidate'],
   'XY-Wing': ['bi-value cell', 'pivot', 'wing', 'sees'],
+  'XYZ-Wing': ['bi-value cell', 'pivot', 'wing', 'sees'],
+  'WXYZ-Wing': ['candidate', 'restricted common', 'sees'],
   'X-Cycle': ['strong link', 'conjugate pair', 'sees'],
   'Finned X-Wing': ['fin', 'sees'],
   'ALS-XZ': ['Almost Locked Set (ALS)', 'restricted common', 'sees'],
@@ -219,18 +224,12 @@ const SIMPLE = {
 
   'Naked Pair': (step, grid) => nakedSet(step, grid, 2),
   'Naked Triple': (step, grid) => nakedSet(step, grid, 3),
+  'Naked Quad': (step, grid) => nakedSet(step, grid, 4),
 
-  'Hidden Pair': (step) => {
-    const [a, b] = step.baseCells;
-    const unitName = step.unit?.name ?? 'this row, column, or box';
-    const digits = uniq(step.eliminations.map((e) => e.digit));
-    const pair = step.pairDigits || [];
-    const pairText = pair.length === 2 ? `${pair[0]} and ${pair[1]}` : 'two numbers';
-    return {
-      look: `Look at ${unitName}. The numbers ${pairText} can only go in two cells there: ${shortCell(a)} and ${shortCell(b)}.`,
-      why: `Those two numbers have nowhere else to go, so between them they must fill both cells. That leaves no room for anything else in those cells, so their other pencil marks (${listWords(digits)}) can go.`,
-    };
-  },
+  // One size up each time, in the same words, so the player sees the family.
+  'Hidden Pair': (step) => hiddenSet(step, 2),
+  'Hidden Triple': (step) => hiddenSet(step, 3),
+  'Hidden Quad': (step) => hiddenSet(step, 4),
 
   'X-Wing': (step) => fish(step, 2),
   'Swordfish': (step) => fish(step, 3),
@@ -245,6 +244,32 @@ const SIMPLE = {
     return {
       look: `Look at three cells that each have just two pencil marks. The middle one is ${shortCell(pivot)} (${pv}). It is connected to ${shortCell(wing1)} (${w1.join(' or ') || 'two numbers'}) and to ${shortCell(wing2)} (${w2.join(' or ') || 'two numbers'}). Both outer cells contain ${z}.`,
       why: `Whatever the middle cell turns out to be, it forces one of the two outer cells to be ${z}. So ${z} is guaranteed to land in one of those two outer cells. Any cell that shares a row, column, or box with both outer cells can never be ${z}.`,
+    };
+  },
+
+  // XYZ-Wing is XY-Wing's wording one step on: the pivot is a third place
+  // the digit could go, which is why the targets must see all three cells.
+  'XYZ-Wing': (step, grid) => {
+    const [pivot, wing1, wing2] = step.baseCells;
+    const z = step.digit;
+    const pivotC = candidatesOf(grid, pivot);
+    const w1 = candidatesOf(grid, wing1);
+    const w2 = candidatesOf(grid, wing2);
+    const pv = pivotC.length ? `${pivotC.join(' or ')}` : 'one of three numbers';
+    return {
+      look: `Look at three cells. The middle one is ${shortCell(pivot)} (${pv}), which has three pencil marks instead of two. It is connected to ${shortCell(wing1)} (${w1.join(' or ') || 'two numbers'}) and to ${shortCell(wing2)} (${w2.join(' or ') || 'two numbers'}). All three cells contain ${z}.`,
+      why: `Whatever the middle cell turns out to be, one of these three cells ends up as ${z}: if the middle cell is not ${z} itself, it pushes one of the two outer cells to ${z}. So ${z} is guaranteed to land in one of the three, the middle cell included. Only a cell that shares a row, column, or box with all three can never be ${z}; seeing just the two outer cells is not enough.`,
+    };
+  },
+
+  'WXYZ-Wing': (step, grid) => {
+    const z = step.digit;
+    const digits = step.subsetDigits ?? [];
+    const others = digits.filter((d) => d !== z);
+    const zCells = step.zCells ?? step.baseCells.filter((c) => candidatesOf(grid, c).includes(z));
+    return {
+      look: `Look at four cells: ${shortCells(step.baseCells)}. Between them, their only pencil marks are the four numbers ${listWords(digits)}, and the cells that could be ${z} are ${shortCells(zCells)}.`,
+      why: `Each of the other three numbers (${listWords(others)}) sits only in cells that share a row, column, or box with one another, so each of those three can be used once at most across the four cells. Three numbers cannot fill four cells, so one of these cells has to be ${z}. Any cell that shares a row, column, or box with every one of ${shortCells(zCells)} can never be ${z}.`,
     };
   },
 
@@ -370,12 +395,32 @@ function pointing(step) {
   };
 }
 
+const countWord = (n) => ['', 'one', 'two', 'three', 'four'][n] ?? String(n);
+
+/**
+ * Hidden Pair, Hidden Triple and Hidden Quad, in one set of words: the
+ * reference dialog promises the player that the bigger ones are the same
+ * idea one size up, so the hint has to say it the same way too.
+ */
+function hiddenSet(step, size) {
+  const unitName = step.unit?.name ?? 'this row, column, or box';
+  const digits = uniq(step.eliminations.map((e) => e.digit)).sort((a, b) => a - b);
+  const subset = step.subsetDigits || step.pairDigits || [];
+  const word = countWord(size);
+  const subsetText = subset.length === size ? listWords(subset) : `${word} numbers`;
+  const fill = size === 2 ? 'both cells' : `all ${word} cells`;
+  return {
+    look: `Look at ${unitName}. The numbers ${subsetText} can only go in ${word} cells there: ${shortCells(step.baseCells)}.`,
+    why: `Those ${word} numbers have nowhere else to go, so between them they must fill ${fill}. That leaves no room for anything else in those cells, so their other pencil marks (${listWords(digits)}) can go.`,
+  };
+}
+
 function nakedSet(step, grid, size) {
   const elims = elimSummary(step.eliminations);
   const unit = step.unit || unitForElims(step.baseCells, elims.cells);
   const digits = uniq(step.baseCells.flatMap((c) => candidatesOf(grid, c))).sort((a, b) => a - b);
   const digitText = digits.length ? listWords(digits) : elims ? listWords(elims.digits) : 'the same numbers';
-  const word = size === 2 ? 'two' : 'three';
+  const word = countWord(size);
   return {
     look: `Look at ${word} cells in ${unit?.name ?? 'the same row, column, or box'}: ${shortCells(step.baseCells)}. Between them, their only pencil marks are ${digitText}.`,
     why: `${capitalize(word)} cells that share only ${word} numbers must use up all of those numbers between them. So ${digitText} are spoken for, and no other cell in ${unit?.name ?? 'that unit'} can hold them.`,

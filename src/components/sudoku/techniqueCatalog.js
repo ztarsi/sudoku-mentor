@@ -126,6 +126,33 @@ export const TECHNIQUES = [
     icon: BookOpen,
   },
   {
+    name: 'Hidden Triple',
+    tier: 'Advanced',
+    count: COUNT_LIVE,
+    formal: 'Hidden Subset (three digits)',
+    aliases: ['hidden subset', 'triple'],
+    description: 'Three candidates appear only in three cells of a unit.',
+    icon: BookOpen,
+  },
+  {
+    name: 'Naked Quad',
+    tier: 'Advanced',
+    count: COUNT_LIVE,
+    formal: 'Naked Subset (four cells)',
+    aliases: ['naked subset', 'quad', 'quadruple'],
+    description: 'Four cells share four candidates between them.',
+    icon: BookOpen,
+  },
+  {
+    name: 'Hidden Quad',
+    tier: 'Advanced',
+    count: COUNT_LIVE,
+    formal: 'Hidden Subset (four digits)',
+    aliases: ['hidden subset', 'quad', 'quadruple'],
+    description: 'Four candidates appear only in four cells of a unit.',
+    icon: BookOpen,
+  },
+  {
     name: 'X-Wing',
     tier: 'Expert',
     count: COUNT_LIVE,
@@ -148,6 +175,22 @@ export const TECHNIQUES = [
     formal: 'Y-Wing',
     aliases: ['y wing', 'bent triple', 'wing'],
     description: 'Three bi-value cells form a chain for eliminations.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'XYZ-Wing',
+    tier: 'Expert',
+    count: COUNT_LIVE,
+    aliases: ['wing', 'xyz wing', 'bent triple'],
+    description: 'An XY-Wing whose pivot keeps a third candidate.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'WXYZ-Wing',
+    tier: 'Expert',
+    count: COUNT_LIVE,
+    aliases: ['wing', 'wxyz wing', 'almost locked set'],
+    description: 'Four cells spanning four candidates pin one digit inside the set.',
     icon: Lightbulb,
   },
   {
@@ -330,6 +373,24 @@ export const TECHNIQUE_DETAILS = {
     example: 'Three cells in column 5 hold {1, 4}, {1, 9}, and {4, 9}. Remove 1, 4, and 9 from the rest of column 5.',
     strategy: '1. Find three cells in one unit\n2. Check that their pencil marks together make only three numbers\n3. Erase those numbers from every other cell in the unit'
   },
+  'Hidden Triple': {
+    plain: 'Three numbers that can only go in the same three cells of a row, column, or box. Those three cells are reserved for those three numbers, so any other pencil marks in them can be erased. A number does not have to be possible in all three cells, only nowhere else in that row, column, or box.',
+    description: 'Three digits are candidates only in the same three cells of a unit, each in two or three of them. All other candidates are removed from those three cells.',
+    example: 'In row 2, the digits 2, 6 and 9 fit only in R2C1, R2C5 and R2C8. Those three cells keep only 2, 6 and 9.',
+    strategy: '1. Pick a unit\n2. Find three digits that each fit in only two or three cells, all inside the same three cells\n3. Erase every other pencil mark from those three cells'
+  },
+  'Naked Quad': {
+    plain: 'Four cells in the same row, column, or box whose pencil marks, put together, are only four different numbers. (Each cell can have two, three, or four of them.) Those four numbers must fill those four cells, so erase them from the rest of that row, column, or box. There is no point looking for five or more: the cells left over are always a smaller subset you can spot instead.',
+    description: 'Four cells in a unit whose combined candidates are exactly four digits. Those digits are removed from the other cells of the unit. Larger subsets are redundant: the complement of an N-subset in a unit is always a smaller subset.',
+    example: 'Four cells in box 3 hold {1, 4}, {4, 7}, {1, 7, 8} and {7, 8}. Remove 1, 4, 7 and 8 from the rest of box 3.',
+    strategy: '1. Find four cells in one unit\n2. Check that their pencil marks together make only four numbers\n3. Erase those numbers from every other cell in the unit'
+  },
+  'Hidden Quad': {
+    plain: 'Four numbers that can only go in the same four cells of a row, column, or box. Those four cells are reserved for those four numbers, so any other pencil marks in them can be erased. Four is as far as this goes: with five or more, the cells left over are always a smaller subset you can spot instead.',
+    description: 'Four digits are candidates only in the same four cells of a unit. All other candidates are removed from those four cells. Larger hidden subsets are redundant for the same reason as larger naked ones.',
+    example: 'In column 7, the digits 1, 3, 5 and 6 fit only in R1C7, R4C7, R5C7 and R9C7. Those four cells keep only 1, 3, 5 and 6.',
+    strategy: '1. Pick a unit\n2. Find four digits whose possible cells all fall inside the same four cells\n3. Erase every other pencil mark from those four cells'
+  },
   'X-Wing': {
     plain: 'Pick a number. Find two rows where that number can only go in the same two columns, making the four corners of a rectangle. Each of those rows needs the number once, so the two columns will each get one from these rows. That uses up both columns, so erase the number from every other cell in those two columns. (It also works with rows and columns swapped.)',
     description: 'A digit has exactly two candidate cells in each of two rows, in the same two columns. The digit is removed from those columns outside the two rows. Symmetrically for columns.',
@@ -347,6 +408,18 @@ export const TECHNIQUE_DETAILS = {
     description: 'A pivot with candidates {X, Y} sees two wings, {X, Z} and {Y, Z}. Either value of the pivot forces a wing to be Z, so Z is removed from every cell that sees both wings.',
     example: 'Pivot R5C5 = {2, 5}, wings R5C1 = {2, 8} and R1C5 = {5, 8}. Remove 8 from R1C1, which sees both wings.',
     strategy: '1. Find a cell with two pencil marks (the pivot)\n2. Find two cells it shares a unit with that each share one of its marks and share a third mark with each other\n3. Erase that third mark from cells that see both wings'
+  },
+  'XYZ-Wing': {
+    plain: 'The same hinge as an XY-Wing, with one extra pencil mark in the middle cell. The middle cell holds A, B and C. One outer cell holds A and C, the other holds B and C. If the middle cell is A, the first outer cell must be C; if it is B, the second outer cell must be C; and it may be C itself. So the middle cell counts as a third place C could go, and C is guaranteed to land in one of these three cells. That is why only a cell that shares a row, column, or box with all three can be ruled out, not one that merely sees the two outer cells.',
+    description: 'A pivot with candidates {X, Y, Z} sees two wings, {X, Z} and {Y, Z}. All three cells can hold Z, so Z is removed from every cell that sees the pivot and both wings.',
+    example: 'Pivot R5C5 = {2, 5, 8}, wings R5C4 = {2, 8} and R6C5 = {5, 8}. Remove 8 only from cells that see all three, such as R6C4.',
+    strategy: '1. Find a cell with three pencil marks (the pivot)\n2. Find two cells it shares a unit with, each holding two of its marks and sharing a third mark with each other\n3. Erase that shared mark from the cells that see the pivot and both wings'
+  },
+  'WXYZ-Wing': {
+    plain: 'Four cells whose pencil marks, put together, are only four different numbers. Three of those numbers are each penned into cells that all share a row, column, or box, so each of the three can be used only once among the four cells. Three numbers cannot fill four cells, so the fourth number has to go in one of them. Any cell that shares a row, column, or box with every cell of the group that could hold that number can never be it.',
+    description: 'Four cells spanning exactly four candidates where each of the three non-Z digits is restricted (all its cells in the set see each other). At most three cells take those digits, so one cell must be Z, and Z is removed from every cell that sees all Z candidates in the set.',
+    example: 'R1C1 = {1, 9}, R1C3 = {4, 9}, R1C7 = {1, 4, 6} and R3C1 = {6, 9}. The 1s, 4s and 6s each see each other, so one of the four cells is 9. Remove 9 from cells that see every 9 in the set.',
+    strategy: '1. Find four cells whose pencil marks together are only four numbers\n2. Pick the number whose cells do not all see each other; the other three must each be confined to cells that do\n3. Erase that number from every cell that sees all of its places inside the set'
   },
   'X-Cycle': {
     plain: 'Pick a number and find places where it has exactly two possible cells in a row, column, or box. Those pairs link into a chain: if one end is not the number, the other end must be. Colour the chain alternately, like a checkerboard. Exactly one colour is the true set. If a cell sees both colours it can never be the number. And if two cells of one colour clash with each other, that whole colour is wrong.',

@@ -54,7 +54,8 @@ describe('explainStep on real engine steps', () => {
   const library = Object.values(PUZZLES).flat();
   const techniques = [
     'Naked Single', 'Hidden Single', 'Pointing Pair', 'Pointing Triple', 'Claiming',
-    'Naked Pair', 'Hidden Pair', 'Naked Triple', 'X-Wing', 'Swordfish', 'XY-Wing',
+    'Naked Pair', 'Hidden Pair', 'Naked Triple', 'Hidden Triple', 'Naked Quad', 'Hidden Quad',
+    'X-Wing', 'Swordfish', 'XY-Wing', 'XYZ-Wing', 'WXYZ-Wing',
   ];
   for (const { puzzle } of library) {
     const grid = gridFrom(puzzle);

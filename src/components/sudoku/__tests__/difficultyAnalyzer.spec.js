@@ -64,11 +64,13 @@ describe('the solve path', () => {
     // An expert one that needs a wing
     expect(analyzeSolvePath(puzzle('Deep Waters')).hardestTechnique).toBe('XY-Wing');
     // A diabolical one that needs colouring
-    expect(analyzeSolvePath(puzzle('Witching Hour')).hardestTechnique).toBe('X-Cycle');
+    expect(analyzeSolvePath(puzzle("Devil's Den")).hardestTechnique).toBe('X-Cycle');
+    // And one whose hardest step is a four-candidate wing
+    expect(analyzeSolvePath(puzzle('Witching Hour')).hardestTechnique).toBe('XYZ-Wing');
   });
 
   it('says when named techniques alone are enough', () => {
-    for (const name of ['Gentle Start', 'Brain Teaser', 'Lunch Puzzle', 'Deep Waters', 'Witching Hour']) {
+    for (const name of ['Gentle Start', 'Brain Teaser', 'Lunch Puzzle', 'Deep Waters', "Devil's Den"]) {
       const path = analyzeSolvePath(puzzle(name));
       expect(path.namedOnly, name).toBe(true);
       expect(path.whatIfSteps, name).toBe(0);
