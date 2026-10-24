@@ -13,7 +13,11 @@
 // Optional, technique-specific: unit, orientation, pairDigits,
 // subsetDigits (the digits a subset of any size is about), zCells, finCells,
 // strongLinks, chains, chain, contradiction, contradictionCell,
-// contradictoryDigit, als1, als2, xDigit, zDigit.
+// contradictoryDigit, als1, als2, xDigit, zDigit, fishSize, sashimi,
+// baseUnits and coverUnits (a fish whose lines are not all rows or all
+// columns), crossing and linkUnit (Empty Rectangle), medusaRule,
+// medusaWitness and colorGroups (a colouring step's two colours, the
+// surviving one first).
 //
 // makeStep() fills the defaults so the UI and tests can rely on every
 // field being present with the right type.

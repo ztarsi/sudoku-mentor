@@ -50,7 +50,10 @@ export const GLOSSARY = {
   'conjugate pair': 'Another name for a strong link: the only two spots for a digit in a unit.',
   'Almost Locked Set (ALS)': 'A group of N cells that together hold N+1 different candidates. Remove any one candidate and the group is forced.',
   'restricted common': 'A digit shared by two groups where every copy in one group sees every copy in the other, so only one group can contain it.',
-  fin: 'One or two extra candidates that spoil a perfect X-Wing. Eliminations survive only where they see the fin.',
+  fin: 'One or two extra candidates that spoil an otherwise perfect fish. Eliminations survive only where they see every fin.',
+  'base set': 'One of the units a fish is built on: it must hold the digit somewhere, and no two base sets share a candidate cell.',
+  'cover set': 'One of the units a fish ends in: between them, the cover sets hold every candidate the base sets offer.',
+  colouring: 'Marking a network of strong links in two alternating colours, exactly one of which is the true set.',
   pivot: 'The middle cell of a wing pattern; its two candidates each point at one wing.',
   wing: 'An end cell of a wing pattern; it shares one candidate with the pivot and one with the other wing.',
   'deadly pattern': 'Four cells in a rectangle across two boxes holding the same two candidates. It would give the puzzle two solutions, so a valid puzzle never contains one.',
@@ -71,11 +74,19 @@ const TERMS_BY_TECHNIQUE = {
   'Hidden Quad': ['candidate', 'unit'],
   'X-Wing': ['candidate'],
   'Swordfish': ['candidate'],
+  'Jellyfish': ['candidate'],
+  'Empty Rectangle': ['candidate', 'strong link', 'conjugate pair'],
   'XY-Wing': ['bi-value cell', 'pivot', 'wing', 'sees'],
   'XYZ-Wing': ['bi-value cell', 'pivot', 'wing', 'sees'],
   'WXYZ-Wing': ['candidate', 'restricted common', 'sees'],
   'X-Cycle': ['strong link', 'conjugate pair', 'sees'],
   'Finned X-Wing': ['fin', 'sees'],
+  'Finned Swordfish': ['fin', 'sees'],
+  'Finned Jellyfish': ['fin', 'sees'],
+  'Sashimi Fish': ['fin', 'sees', 'candidate'],
+  'Franken Fish': ['base set', 'cover set', 'candidate'],
+  'Mutant Fish': ['base set', 'cover set', 'candidate'],
+  '3D Medusa': ['colouring', 'strong link', 'bi-value cell', 'conjugate pair'],
   'ALS-XZ': ['Almost Locked Set (ALS)', 'restricted common', 'sees'],
   'Unique Rectangle Type 1': ['deadly pattern', 'candidate'],
   'BUG+1': ['bi-value cell', 'deadly pattern'],
@@ -233,6 +244,11 @@ const SIMPLE = {
 
   'X-Wing': (step) => fish(step, 2),
   'Swordfish': (step) => fish(step, 3),
+  // Jellyfish is the same family one size up, in the same words, because
+  // the reference entry promises the player exactly that.
+  'Jellyfish': (step) => fish(step, 4),
+
+  'Empty Rectangle': (step) => emptyRectangle(step),
 
   'XY-Wing': (step, grid) => {
     const [pivot, wing1, wing2] = step.baseCells;
@@ -290,24 +306,18 @@ const SIMPLE = {
     };
   },
 
-  'Finned X-Wing': (step) => {
-    const d = step.digit;
-    const fins = step.finCells ?? [];
-    const core = step.baseCells.filter((c) => !fins.includes(c));
-    const rows = uniq(core.map(r1));
-    const cols = uniq(core.map(c1));
-    // The engine says which lines are the base (orientation); the text
-    // must follow it, or every column-based instance is described wrong.
-    const byRows = step.orientation ? step.orientation === 'row' : rows.length <= cols.length;
-    const baseWord = byRows ? 'rows' : 'columns';
-    const coverWord = byRows ? 'columns' : 'rows';
-    const base = byRows ? rows : cols;
-    const cover = byRows ? cols : rows;
-    return {
-      look: `Look at ${baseWord} ${listWords(base)}. Almost every ${d} in those ${baseWord} sits in ${coverWord} ${listWords(cover)}, forming a rectangle, except for ${fins.length === 1 ? 'one extra spot' : 'a couple of extra spots'} at ${shortCells(fins)} (the "fin").`,
-      why: `There are two cases. If the fin is not ${d}, the rectangle works like a normal X-Wing and ${d} can be erased from the rest of ${coverWord} ${listWords(cover)}. If the fin is ${d}, then any cell sharing a row, column, or box with the fin can't be ${d}. The highlighted cells are ruled out in both cases, so they can never be ${d}.`,
-    };
-  },
+  // One set of words for every finned fish, so the bigger ones read as the
+  // X-Wing case one and two sizes up, and the sashimi form says what is
+  // different about it: the corner is empty rather than occupied.
+  'Finned X-Wing': (step) => finnedFish(step, 2),
+  'Finned Swordfish': (step) => finnedFish(step, 3),
+  'Finned Jellyfish': (step) => finnedFish(step, 4),
+  'Sashimi Fish': (step) => finnedFish(step, step.fishSize ?? 2),
+
+  'Franken Fish': (step) => unitFish(step),
+  'Mutant Fish': (step) => unitFish(step),
+
+  '3D Medusa': (step) => medusa(step),
 
   'ALS-XZ': (step) => {
     const { als1, als2, xDigit: x, zDigit: z } = step;
@@ -427,6 +437,96 @@ function nakedSet(step, grid, size) {
   };
 }
 
+/**
+ * Every finned fish, at every size, in one set of words. The shape word
+ * follows the size, and the sashimi case says where its corner went.
+ */
+function finnedFish(step, size) {
+  const d = step.digit;
+  const fins = step.finCells ?? [];
+  const core = step.baseCells.filter((c) => !fins.includes(c));
+  const rows = uniq(core.map(r1));
+  const cols = uniq(core.map(c1));
+  // The engine says which lines are the base (orientation); the text
+  // must follow it, or every column-based instance is described wrong.
+  const byRows = step.orientation ? step.orientation === 'row' : rows.length <= cols.length;
+  const baseWord = byRows ? 'rows' : 'columns';
+  const coverWord = byRows ? 'columns' : 'rows';
+  const base = byRows ? rows : cols;
+  const cover = byRows ? cols : rows;
+  const shape = size === 2 ? 'a rectangle' : `a ${countWord(size)}-line pattern`;
+  const spots = fins.length === 1 ? 'one extra spot' : 'a couple of extra spots';
+  const emptyCorner = step.sashimi
+    ? ` One corner of the pattern has no ${d} left in it at all, which is the only difference from the usual shape.`
+    : '';
+  return {
+    look: `Look at ${baseWord} ${listWords(base)}. Almost every ${d} in those ${baseWord} sits in ${coverWord} ${listWords(cover)}, forming ${shape}, except for ${spots} at ${shortCells(fins)} (the "fin").${emptyCorner}`,
+    why: `There are two cases. If the fin is not ${d}, the pattern works like a normal ${size === 2 ? 'X-Wing' : countWord(size)}-line fish and ${d} can be erased from the rest of ${coverWord} ${listWords(cover)}. If the fin is ${d}, then any cell sharing a row, column, or box with the fin can't be ${d}. The highlighted cells are ruled out in both cases, so they can never be ${d}.`,
+  };
+}
+
+/** Franken and Mutant fish: the groups, and why the covering groups fill up. */
+function unitFish(step) {
+  const d = step.digit;
+  const baseNames = (step.baseUnits ?? []).map((u) => u.name);
+  const coverNames = (step.coverUnits ?? []).map((u) => u.name);
+  const n = countWord(baseNames.length);
+  return {
+    look: `Look at ${n} groups of cells, each of which has to hold a ${d} somewhere: ${listWords(baseNames)}. No two of them share a cell. Every place a ${d} could still go in those groups lies inside ${n} other groups: ${listWords(coverNames)}.`,
+    why: `The first ${n} groups need a ${d} each and share no cell, so there are ${n} different ${d}s among them. Each of the other ${n} groups can hold a ${d} once at most, and between them they cover all ${n}, so every one of those groups is spoken for by a ${d} that is already in the first ${n}. So no other cell inside ${listWords(coverNames)} can be ${d}. Nobody is expected to spot this shape by eye; finding it is the mentor's job, and the reasoning above is all of it.`,
+  };
+}
+
+/** 3D Medusa: the colouring, and which of the two clashes was found. */
+function medusa(step) {
+  const [a, b] = step.medusaWitness ?? [];
+  const rule = step.medusaRule;
+  const cells = step.baseCells ?? [];
+  const named = cells.length > 6
+    ? `${shortCells(cells.slice(0, 6))} and ${cells.length - 6} more`
+    : shortCells(cells);
+  const look =
+    `Follow the pencil marks in the highlighted cells (${named}). They are joined in pairs where one of the two has to be right: ` +
+    'a number with only two homes left in a row, column, or box, and a cell with only two marks left. Colour the ' +
+    'pairs alternately, like a checkerboard, and one whole colour is right while the other is wrong.';
+  if (!a || !b) {
+    return { look, why: 'One colour contradicts itself, so every pencil mark of that colour can go.' };
+  }
+  if (rule === 'cell') {
+    return {
+      look,
+      why: `One colour lands twice in the same cell here: ${shortCell(a.cell)} would have to be ${a.digit} and ${b.digit} at once. A cell holds one number, so that colour cannot be the right one. Every pencil mark wearing it can go.`,
+    };
+  }
+  const line =
+    getRow(a.cell) === getRow(b.cell) ? `row ${r1(a.cell)}`
+    : getCol(a.cell) === getCol(b.cell) ? `column ${c1(a.cell)}`
+    : `box ${getBox(a.cell) + 1}`;
+  return {
+    look,
+    why: `One colour lands twice in ${line} here: ${shortCell(a.cell)} and ${shortCell(b.cell)} would both be ${a.digit}. A number goes once in a row, column, or box, so that colour cannot be the right one. Every pencil mark wearing it can go.`,
+  };
+}
+
+/** Empty Rectangle: the box's two crossing lines, and the pair that breaks it. */
+function emptyRectangle(step) {
+  const d = step.digit;
+  const boxName = step.unit?.name ?? 'that box';
+  const crossRow = (step.crossing?.row ?? 0) + 1;
+  const crossCol = (step.crossing?.col ?? 0) + 1;
+  const [near, far] = (step.strongLinks?.[0] ? [step.strongLinks[0].from.cell, step.strongLinks[0].to.cell] : []);
+  const target = step.eliminations?.[0]?.cell;
+  const alongRow = step.linkUnit?.type === 'row';
+  const linkName = step.linkUnit?.name ?? 'a line nearby';
+  const usedUp = alongRow ? `row ${crossRow}` : `column ${crossCol}`;
+  const forcedOnto = alongRow ? `column ${crossCol}` : `row ${crossRow}`;
+  const shared = alongRow ? 'column' : 'row';
+  return {
+    look: `Look at ${boxName}. Every place a ${d} can still go there sits on row ${crossRow} or on column ${crossCol}, and nowhere else in the box, so ${boxName} takes its ${d} from one of those two lines.`,
+    why: `${capitalize(linkName)} has only two places left for a ${d}, ${shortCell(near)} and ${shortCell(far)}, so one of those two is it. Now suppose ${shortCell(target)} were ${d}. That uses up ${usedUp} outside ${boxName}, so ${boxName} would have to take its ${d} from ${forcedOnto}, which leaves no ${d} anywhere else along ${forcedOnto} - including ${shortCell(near)}. ${capitalize(linkName)} would then need ${shortCell(far)}, which shares a ${shared} with ${shortCell(target)}. Two ${d}s in one ${shared} is impossible, so ${shortCell(target)} cannot be ${d}.`,
+  };
+}
+
 function fish(step, size) {
   const d = step.digit;
   const elims = elimSummary(step.eliminations);
@@ -443,7 +543,7 @@ function fish(step, size) {
   const coverName = rowBased ? 'columns' : 'rows';
   const baseList = rowBased ? rows : cols;
   const coverList = rowBased ? cols : rows;
-  const word = size === 2 ? 'two' : 'three';
+  const word = countWord(size);
   return {
     look: `Look at ${baseName} ${listWords(baseList)}. In each of them, the number ${d} can only go in ${coverName} ${listWords(coverList)}.`,
     why: `Each of those ${word} ${baseName} needs exactly one ${d}, and they only have those ${word} ${coverName} to choose from. So those ${word} ${coverName} will each get one ${d} from these ${baseName}. That uses up every ${d} those ${coverName} are allowed, so no other cell in ${coverName} ${listWords(coverList)} can be ${d}.`,

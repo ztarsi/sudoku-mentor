@@ -100,13 +100,23 @@ describe('built-in puzzle library', () => {
   // past the mentor's named techniques" has to be true of exactly the
   // shelves it appears on. A mismatch here is a bug in the label.
   it('only the Ultimate shelf runs past the named techniques', () => {
+    let topShelfNeedingWhatIf = 0;
     for (const [shelf, list] of Object.entries(PUZZLES)) {
       for (const p of list) {
         const analysis = analyzePuzzle(p.puzzle);
         expect(analysis.complete, p.name).toBe(true);
-        expect(analysis.namedOnly, `${shelf}: ${p.name}`).toBe(shelf !== 'ultimate');
+        if (shelf === 'ultimate') {
+          // The coverage programme is clearing this shelf a batch at a
+          // time, so a puzzle here may already be fully named (Night Owl
+          // is, since #72). The shelf note counts the ones that are not
+          // instead of claiming all of them, so that is what is checked.
+          if (!analysis.namedOnly) topShelfNeedingWhatIf++;
+        } else {
+          expect(analysis.namedOnly, `${shelf}: ${p.name}`).toBe(true);
+        }
       }
     }
+    expect(topShelfNeedingWhatIf, 'the Ultimate shelf still needs what-if somewhere').toBeGreaterThan(0);
   });
 
   it('every puzzle can say what it teaches', () => {

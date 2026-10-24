@@ -27,8 +27,9 @@ const buildGrid = (puzzle) =>
 // Every deductive technique in the catalog, so a technique added there
 // joins this oracle without anyone remembering to list it twice. The split
 // is by what a detector costs to run on every intermediate grid, not by
-// tier: only ALS-XZ is too slow for every iteration.
-const EXPENSIVE = ['ALS-XZ'];
+// tier: ALS-XZ, the two unit fish and the larger finned forms are too slow
+// for every iteration and run every eighth one.
+const EXPENSIVE = ['ALS-XZ', 'Sashimi Fish', 'Finned Jellyfish', 'Franken Fish', 'Mutant Fish'];
 const CHEAP = TECHNIQUES
   .filter((t) => t.count !== COUNT_SEARCH && !EXPENSIVE.includes(t.name))
   .map((t) => t.name);
@@ -95,6 +96,12 @@ describe('every technique instance agrees with the solution', () => {
 });
 
 describe('what-if engines agree with the solution (Ultimate shelf)', () => {
+  // How many of the shelf still run past the named ladder. Not every
+  // puzzle here does any more - the coverage programme is removing them
+  // one batch at a time - but the engines must stay sound where they fire,
+  // and the shelf must still exercise them somewhere.
+  let shelfWhatIfSteps = 0;
+
   for (const { name, puzzle } of PUZZLES.ultimate) {
     it(`${name}: forcing chain / hypothesis steps are sound`, () => {
       let grid = buildGrid(puzzle);
@@ -117,9 +124,15 @@ describe('what-if engines agree with the solution (Ultimate shelf)', () => {
         grid = applyLogicStep(grid, step);
         if (step.placement) grid = eliminateCandidatesFromPeers(grid, step.placement.cell, step.placement.digit);
       }
-      expect(whatIfSteps).toBeGreaterThan(0);
+      shelfWhatIfSteps += whatIfSteps;
+      // A puzzle the named ladder now finishes has nothing to check here.
+      expect(whatIfSteps).toBeGreaterThanOrEqual(0);
     });
   }
+
+  it('the shelf still exercises the what-if engines', () => {
+    expect(shelfWhatIfSteps).toBeGreaterThan(0);
+  });
 });
 
 describe('Finned X-Wing scans both orientations', () => {
