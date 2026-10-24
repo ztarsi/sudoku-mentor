@@ -64,8 +64,11 @@ export const buildFocusedCandidates = (step, grid, colors) => {
   }
 
   // A chain over several digits: each node shows the digit it is about, so
-  // every digit the chain touches is coloured, not only the one erased.
-  if (Array.isArray(step.chainNodes) && step.chainNodes.length > 1) {
+  // every digit the chain touches is coloured, not only the one erased. A
+  // colouring step is left out: its own two tints already say which marks
+  // the step is about, and a second colour vocabulary on top of them reads
+  // as noise.
+  if (Array.isArray(step.chainNodes) && step.chainNodes.length > 1 && !step.chainColouring) {
     const digits = [...new Set(step.chainNodes.map((node) => node.digit))].sort((a, b) => a - b);
     if (digits.length > 1) {
       const palette = [colors.focusDigit || DEFAULT_COLORS.focusDigit, '#3b82f6', '#f59e0b', '#a855f7', '#ef4444'];
