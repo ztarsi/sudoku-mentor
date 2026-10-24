@@ -80,6 +80,8 @@ or a step. Nothing in here touches React or the network.
 | `solver.jsx` | backtracking solver; the source of truth for "the solution" |
 | `logicEngine.jsx` | named techniques from Naked Single to XY-Wing, in order; `findNextLogicStep`, `findAllTechniqueInstances`, `applyLogicStep` |
 | `chainEngine.jsx` | X-Cycle, Finned X-Wing, ALS-XZ, Unique Rectangle, BUG+1 |
+| `aicEngine.js` | alternating inference chains: the named short chains (Skyscraper, Two-String Kite, W-Wing, Remote Pairs), the general X-Chain, XY-Chain and Alternating Chain, and the richer forms (grouped nodes, continuous loops, almost-locked-set nodes) |
+| `restrictedCommon.js` | almost locked sets and the restricted-common check they are joined by, shared by `aicEngine` and the ALS techniques |
 | `forcingChainEngine.jsx` | what-if search: `applyValueAndPropagate` (naked and hidden singles to a fixpoint), Cell Forcing Chains by convergence, Hypothesis Mode by contradiction |
 | `whatIfSearch.js`, `whatIf.worker.js` | the same search, off the main thread and cancellable |
 | `difficultyAnalyzer.jsx` | rates a puzzle by the hardest technique the engines need |
@@ -93,6 +95,19 @@ A step is `{ technique, digit, baseCells, targetCells, placement,
 eliminations, explanation, ... }`. Base cells form the pattern, target cells
 lose candidates or take the placement. The UI never infers structure from
 the explanation text.
+
+A chain step carries its proof as data too: `chainNodes`, the nodes in
+order with each node's cells, digit and the type of link to the next one,
+plus `chainClosed` for a continuous loop and `chainSets` for the almost
+locked sets it passes through. `explainStep.chainWalk()` turns that into
+one sentence per link, which the hint card steps through, and
+`stepHighlights.buildChainOverlay()` turns it into the lines, regions and
+endpoint rings the board draws.
+
+`aicEngine` builds one implication graph per board and keeps it (in a
+WeakMap keyed by the grid) for as long as the board stands, because the
+ladder asks several chain detectors about the same board and the
+Techniques panel asks every one of them for a count.
 
 ## The hint path
 
@@ -131,8 +146,9 @@ scoping on `SudokuPuzzle` and `SolveRecord`; the repo cannot express that.
 
 ## Adding a technique
 
-1. Implement the finder in `logicEngine.jsx` (or `chainEngine.jsx`), return
-   through `makeStep`, and add it to `TECHNIQUE_ORDER()`.
+1. Implement the finder in `logicEngine.jsx` (or `chainEngine.jsx`, or
+   `aicEngine.js` for a chain), return through `makeStep`, and add it to
+   `TECHNIQUE_ORDER()`.
 2. Add its name, tier and learn-more text to `techniqueCatalog.js`.
 3. Add Beginner and Expert explanations in `explainStep.js`.
 4. Run the oracle tests. If the library never exercises it, add a puzzle

@@ -11,6 +11,15 @@ const SCAN_TIMES = {
   'ALS-XZ': '~3s',
   'Unique Rectangle Type 1': '~2s',
   'BUG+1': '~1s',
+  // The chain family reads one graph per board, built once and shared, so
+  // every one of them is milliseconds after the first.
+  'X-Chain': '<1s',
+  'XY-Chain': '<1s',
+  'Alternating Chain': '<1s',
+  'Grouped X-Chain': '<1s',
+  'Grouped Alternating Chain': '<1s',
+  'Continuous Loop': '<1s',
+  'ALS Chain': '<1s',
 };
 
 export default function UltimateTechniqueScanModal({ isOpen, currentTechnique, results, onClose }) {

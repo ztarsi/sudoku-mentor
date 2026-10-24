@@ -100,13 +100,25 @@ describe('built-in puzzle library', () => {
   // past the mentor's named techniques" has to be true of exactly the
   // shelves it appears on. A mismatch here is a bug in the label.
   it('only the Ultimate shelf runs past the named techniques', () => {
+    // Below Ultimate, nothing may need what-if. On the Ultimate shelf some
+    // puzzles do and some no longer do - the coverage programme (#69) is
+    // moving them one by one - so the shelf's note counts them rather than
+    // claiming all of them, and this test only requires that the shelf is
+    // still the only place what-if is needed at all.
+    let ultimateNeedingWhatIf = 0;
     for (const [shelf, list] of Object.entries(PUZZLES)) {
       for (const p of list) {
         const analysis = analyzePuzzle(p.puzzle);
         expect(analysis.complete, p.name).toBe(true);
-        expect(analysis.namedOnly, `${shelf}: ${p.name}`).toBe(shelf !== 'ultimate');
+        if (shelf === 'ultimate') {
+          if (!analysis.namedOnly) ultimateNeedingWhatIf++;
+        } else {
+          expect(analysis.namedOnly, `${shelf}: ${p.name}`).toBe(true);
+        }
       }
     }
+    expect(ultimateNeedingWhatIf, 'the Ultimate shelf still needs what-if somewhere').toBeGreaterThan(0);
+    expect(ultimateNeedingWhatIf).toBeLessThanOrEqual(PUZZLES.ultimate.length);
   });
 
   it('every puzzle can say what it teaches', () => {

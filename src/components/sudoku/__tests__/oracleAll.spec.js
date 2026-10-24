@@ -95,6 +95,11 @@ describe('every technique instance agrees with the solution', () => {
 });
 
 describe('what-if engines agree with the solution (Ultimate shelf)', () => {
+  // How many Ultimate puzzles still fall through to what-if at all. The
+  // named ladder now finishes some of them on its own (#67), so the shelf
+  // as a whole has to exercise the search, not every puzzle on it.
+  let puzzlesNeedingWhatIf = 0;
+
   for (const { name, puzzle } of PUZZLES.ultimate) {
     it(`${name}: forcing chain / hypothesis steps are sound`, () => {
       let grid = buildGrid(puzzle);
@@ -117,9 +122,13 @@ describe('what-if engines agree with the solution (Ultimate shelf)', () => {
         grid = applyLogicStep(grid, step);
         if (step.placement) grid = eliminateCandidatesFromPeers(grid, step.placement.cell, step.placement.digit);
       }
-      expect(whatIfSteps).toBeGreaterThan(0);
+      if (whatIfSteps > 0) puzzlesNeedingWhatIf++;
     });
   }
+
+  it('the shelf still exercises the what-if engines somewhere', () => {
+    expect(puzzlesNeedingWhatIf).toBeGreaterThan(0);
+  });
 });
 
 describe('Finned X-Wing scans both orientations', () => {

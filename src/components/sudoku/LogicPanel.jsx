@@ -182,10 +182,16 @@ export default function LogicPanel({
     // else: keep the modal open so the user can go even deeper
   };
 
-  // Chain playback animation
+  // Chain playback animation: the what-if replay counts its placements, a
+  // deductive chain counts its links (and one more, round the loop).
   useEffect(() => {
-    if (isPlayingChain && currentStep?.chain) {
-      const maxSteps = currentStep.chain.filter((s) => s.action === 'place').length;
+    const chainLinks = Array.isArray(currentStep?.chainNodes)
+      ? currentStep.chainNodes.length - (currentStep.chainClosed ? 0 : 1)
+      : 0;
+    const maxSteps = chainLinks || (currentStep?.chain
+      ? currentStep.chain.filter((s) => s.action === 'place').length
+      : 0);
+    if (isPlayingChain && maxSteps > 0) {
       if (chainPlaybackIndex < maxSteps - 1) {
         const timer = setTimeout(() => {
           onChainPlaybackChange?.(chainPlaybackIndex + 1);

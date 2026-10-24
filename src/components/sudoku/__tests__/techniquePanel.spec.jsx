@@ -192,7 +192,7 @@ describe('the reference dialog, and Scan', () => {
     const view = show({ onUltimateScan });
     fireEvent.click(view.getByRole('button', { name: /^Ultimate/ }));
     const scan = view.getByRole('button', { name: /Scan this board/ });
-    expect(view.getByText(/Scan runs all five on the board as it stands now/)).toBeTruthy();
+    expect(view.getByText(/Scan runs every one of them on the board as it stands now/)).toBeTruthy();
     fireEvent.click(scan);
     expect(onUltimateScan).toHaveBeenCalled();
   });
@@ -217,5 +217,16 @@ describe('No Assist', () => {
     expect(view.queryByRole('button', { name: 'Count' })).toBeNull();
     expect(view.queryByRole('button', { name: /Scan this board/ })).toBeNull();
     expect(onCount).not.toHaveBeenCalled();
+  });
+
+  it('a chain lesson is still one click away in No Assist', () => {
+    // Reading how a technique works is not assistance: the reference dialog
+    // stays reachable while counts, Scan and Search stay off (#67).
+    const onSelectTechnique = vi.fn();
+    const view = show({ noAssistMode: true, onSelectTechnique });
+    fireEvent.click(view.getByRole('button', { name: /^Ultimate/ }));
+    fireEvent.click(view.getByRole('button', { name: 'Continuous Loop' }));
+    expect(onSelectTechnique).toHaveBeenCalledWith('Continuous Loop');
+    expect(view.queryByRole('button', { name: /Scan this board/ })).toBeNull();
   });
 });

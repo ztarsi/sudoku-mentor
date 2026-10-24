@@ -44,11 +44,28 @@ const TECHNIQUE_SCORES = {
   // Harder to see than an XY-Wing, easier than a colouring chain.
   'XYZ-Wing': 7,
   'WXYZ-Wing': 7,
+  // The short chains with their own names: harder to see than a wing,
+  // about as hard as a colouring, and scored so the shelves the library
+  // already states stay true (the recalibration is deliberate and happens
+  // once, at the end of the coverage programme).
+  'Skyscraper': 7,
+  'Two-String Kite': 7,
+  'W-Wing': 7,
+  'Remote Pairs': 8,
   'X-Cycle': 8,
   'Finned X-Wing': 8,
   'ALS-XZ': 9,
   'Unique Rectangle Type 1': 9,
-  'BUG+1': 10
+  'X-Chain': 9,
+  'XY-Chain': 9,
+  'BUG+1': 10,
+  // The general chain and its richer forms: the last deductions the mentor
+  // has before what-if search.
+  'Alternating Chain': 10,
+  'Grouped X-Chain': 10,
+  'Grouped Alternating Chain': 10,
+  'Continuous Loop': 10,
+  'ALS Chain': 11
 };
 
 // A full solve is at most ~81 placements plus the elimination-only steps

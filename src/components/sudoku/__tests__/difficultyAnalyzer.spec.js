@@ -63,8 +63,10 @@ describe('the solve path', () => {
     expect(analyzeSolvePath(puzzle('Lunch Puzzle')).hardestTechnique).toBe('Naked Triple');
     // An expert one that needs a wing
     expect(analyzeSolvePath(puzzle('Deep Waters')).hardestTechnique).toBe('XY-Wing');
-    // A diabolical one that needs colouring
-    expect(analyzeSolvePath(puzzle("Devil's Den")).hardestTechnique).toBe('X-Cycle');
+    // A diabolical one whose hardest step is a chain. It used to need
+    // colouring (X-Cycle); since the chain family landed (#67) a Skyscraper
+    // explains the same position one rung earlier, which is the point.
+    expect(analyzeSolvePath(puzzle("Devil's Den")).hardestTechnique).toBe('Skyscraper');
     // And one whose hardest step is a four-candidate wing
     expect(analyzeSolvePath(puzzle('Witching Hour')).hardestTechnique).toBe('XYZ-Wing');
   });
@@ -97,7 +99,7 @@ describe('the solve path', () => {
     // Named techniques still explain most of it, and the hardest one the
     // puzzle teaches is reported even though a what-if came first.
     expect(withWhatIf.namedShare).toBeGreaterThan(0.5);
-    expect(withWhatIf.hardestTechnique).toBe('ALS-XZ');
+    expect(withWhatIf.hardestTechnique).toBe('Grouped X-Chain');
   });
 
   it('every tier it reports is a tier the panel knows', () => {
@@ -151,7 +153,7 @@ describe('what the library row says', () => {
     expect(teachingLabel(analyzePuzzle(puzzle('Gentle Start')))).toBe('Teaches up to Naked Single');
     expect(teachingLabel(analyzePuzzle(puzzle('Deep Waters')))).toBe('Teaches up to XY-Wing');
     expect(teachingLabel(analyzePuzzle(puzzle('Golden Nugget')))).toBe(
-      'Teaches up to ALS-XZ, then what-if search'
+      'Teaches up to Grouped X-Chain, then what-if search'
     );
   });
 
@@ -195,6 +197,17 @@ describe('named-technique coverage, by shelf', () => {
       expect(row.unsolved, `${row.shelf}: unsolved puzzles`).toEqual([]);
     }
     expect(report.named + (report.steps - report.named)).toBe(report.steps);
+  });
+
+  it('keeps the ground the chain family gained on the Ultimate shelf', () => {
+    // Before the chain family (#67) the Ultimate shelf was 91.7% named,
+    // with every one of its seven puzzles needing what-if somewhere. The
+    // chains moved it to 94.3%, with one puzzle fully named. The floor is
+    // a little under that so a later batch can only push it up.
+    const ultimate = report.rows.find((r) => r.shelf === 'ultimate');
+    expect(ultimate.namedShare).toBeGreaterThan(0.92);
+    expect(ultimate.needWhatIf).toBeLessThan(ultimate.puzzles);
+    expect(report.namedShare).toBeGreaterThan(0.97);
   });
 
   it('holds the shelves the programme says are fully named', () => {

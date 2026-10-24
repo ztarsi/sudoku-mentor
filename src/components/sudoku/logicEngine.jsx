@@ -1,5 +1,6 @@
 // Sudoku Logic Engine - Human-style solving techniques
 import { findXCycle, findALSXZ, findUniqueRectangle, findBUGPlus1, findFinnedXWing } from './chainEngine';
+import { CHAIN_FINDERS } from './aicEngine';
 import { makeStep } from './stepShape';
 
 // Helper functions
@@ -67,11 +68,26 @@ const TECHNIQUE_ORDER = () => [
   findXYWing,
   findXYZWing,
   findWXYZWing,
+  // The chain family (#67). The short chains that have well-known names come
+  // first, so the player meets the idea under a name they can look up; the
+  // general and the richer forms are the last deductions before what-if.
+  CHAIN_FINDERS['Skyscraper'],
+  CHAIN_FINDERS['Two-String Kite'],
+  CHAIN_FINDERS['W-Wing'],
+  CHAIN_FINDERS['Remote Pairs'],
+  // Colouring keeps its place: the player has already learned it.
   findXCycle,
+  CHAIN_FINDERS['X-Chain'],
+  CHAIN_FINDERS['XY-Chain'],
   findFinnedXWing,
   findALSXZ,
   findUniqueRectangle,
   findBUGPlus1,
+  CHAIN_FINDERS['Alternating Chain'],
+  CHAIN_FINDERS['Grouped X-Chain'],
+  CHAIN_FINDERS['Grouped Alternating Chain'],
+  CHAIN_FINDERS['Continuous Loop'],
+  CHAIN_FINDERS['ALS Chain'],
 ];
 
 export const findNextLogicStep = (grid, focusedDigit = null) => {
@@ -107,6 +123,7 @@ export const findAllTechniqueInstances = (grid, techniqueName) => {
     'ALS-XZ': findALSXZ,
     'Unique Rectangle Type 1': findUniqueRectangle,
     'BUG+1': findBUGPlus1,
+    ...CHAIN_FINDERS,
   };
 
   const findFunc = techniqueMap[techniqueName];
