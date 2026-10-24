@@ -13,6 +13,10 @@ export const LEVEL_COLORS = {
   orange: 'from-orange-400 to-red-500',
   violet: 'from-indigo-600 to-violet-800',
   fuchsia: 'from-fuchsia-600 to-pink-600',
+  // The what-if tier, in the amber the hint card's what-if state already
+  // uses. Nothing else wears it: the honesty promise is that a trial looks
+  // different from a deduction without anybody reading the card (#75).
+  amber: 'from-amber-500 to-orange-600',
 };
 
 // How a technique's count on the current board is paid for.
@@ -36,10 +40,21 @@ export const TIERS = [
     color: 'violet',
     scanNote: 'These cost too much to count while you play. Scan runs every one of them on the board as it stands now, and looks at longer chains than a hint will show you; it takes a second or two. Or count one row on its own.',
   },
+  // The two tiers the search finds, on the two sides of the honesty line
+  // (#75). A forcing proof tries every option a cell, a unit or a digit
+  // has and keeps what they all force, so it proves its conclusion; it is
+  // a deduction and it is presented as one. Hypothesis Mode tries a single
+  // candidate and erases it when the board breaks, which is trial and
+  // error, and it keeps the what-if heading and colour on its own.
   {
-    level: 'Forcing Chains',
+    level: 'Forcing',
     color: 'fuchsia',
-    searchNote: 'Not a pattern on the board: Search assumes a digit and follows the consequences until something repeats or breaks.',
+    searchNote: 'Not a pattern on the board: Search tries every option one cell, one unit or one digit has, follows each of them, and keeps what they all force. A proof by cases, which is why these are deductions and not guesses.',
+  },
+  {
+    level: 'What-if',
+    color: 'amber',
+    searchNote: 'The last resort, and the only thing here that is not a proof: Search assumes one candidate and erases it if the board breaks. Nothing else is examined, so nothing else is claimed.',
   },
 ];
 
@@ -562,16 +577,50 @@ export const TECHNIQUES = [
   },
   {
     name: 'Cell Forcing Chain',
-    tier: 'Forcing Chains',
+    tier: 'Forcing',
     count: COUNT_SEARCH,
-    aliases: ['forcing chain', 'what if', 'convergence'],
+    aliases: ['forcing chain', 'convergence', 'proof by cases'],
     description: 'Every candidate of one cell leads to the same conclusion.',
     icon: Lightbulb,
   },
   {
-    name: 'Hypothesis Mode',
-    tier: 'Forcing Chains',
+    name: 'Unit Forcing Chain',
+    tier: 'Forcing',
     count: COUNT_SEARCH,
+    aliases: ['forcing chain', 'convergence', 'proof by cases', 'region forcing chain'],
+    description: 'Every place a digit could go in one unit leads to the same conclusion.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'Digit Forcing Chain',
+    tier: 'Forcing',
+    count: COUNT_SEARCH,
+    aliases: ['forcing chain', 'convergence', 'proof by cases', 'strong link'],
+    description: 'Both ends of a strong link on one digit lead to the same conclusion.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'Double Forcing Chain',
+    tier: 'Forcing',
+    count: COUNT_SEARCH,
+    aliases: ['forcing chain', 'contradiction', 'proof by cases', 'elimination of cases'],
+    description: 'Every option but one ends in a contradiction, so the one left is proved.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'Forcing Net',
+    tier: 'Forcing',
+    count: COUNT_SEARCH,
+    formal: 'Dynamic Forcing Net',
+    aliases: ['forcing chain', 'net', 'dynamic net', 'dynamic forcing net', 'proof by cases'],
+    description: 'A forcing proof whose branches need more than one assumption at a time.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'Hypothesis Mode',
+    tier: 'What-if',
+    count: COUNT_SEARCH,
+    trial: true,
     aliases: ['what if', 'contradiction', 'trial and error', 'nishio'],
     description: 'Assume a candidate and eliminate it when it breaks the board.',
     icon: Lightbulb,
@@ -614,7 +663,24 @@ export const needsUniqueness = (name) => !!BY_NAME[name]?.uniqueness;
 
 export const LIVE_COUNT_TECHNIQUES = techniqueNamesByCount(COUNT_LIVE);
 export const SCAN_TECHNIQUES = techniqueNamesByCount(COUNT_SCAN);
-export const WHAT_IF_TECHNIQUES = techniqueNamesByCount(COUNT_SEARCH);
+/** Found by the search rather than counted: the Forcing tier and what-if. */
+export const SEARCH_TECHNIQUES = techniqueNamesByCount(COUNT_SEARCH);
+
+/**
+ * Trial and error, which the card presents as what-if (#75).
+ *
+ * This is the honesty line, and it is not the same line as "found by the
+ * search". A forcing proof is found by searching and is still a proof:
+ * every option a cell, a unit or a digit has is tried, and the conclusion
+ * holds whichever one is true. Hypothesis Mode tries one candidate and
+ * eliminates it when the board breaks, having examined nothing else. So
+ * only Hypothesis Mode wears the what-if heading and colour, and only it
+ * is counted as unnamed in the coverage report.
+ */
+export const TRIAL_TECHNIQUES = TECHNIQUES.filter((tech) => tech.trial).map((tech) => tech.name);
+
+/** True when this technique is trial and error rather than a deduction. */
+export const isTrialTechnique = (name) => !!BY_NAME[name]?.trial;
 
 /** Every name a player might type to find this technique, lower-cased. */
 export const searchTerms = (tech) =>
@@ -633,12 +699,14 @@ export const matchTechniques = (query) => {
 };
 
 /**
- * What the hint card reads for a step's tier and colour. Only the deductive
- * techniques are here: a what-if step is presented as a search, not as a
- * tier on the ladder, and the card's own wording covers it.
+ * What the hint card reads for a step's tier and colour. Every deduction is
+ * here, the Forcing tier included: a forcing proof is named on the card
+ * under its own tier like any other deduction (#75). Only trial and error
+ * is missing, because the card's what-if wording covers it instead of a
+ * tier chip.
  */
 export const TECHNIQUE_INFO = Object.fromEntries(
-  TECHNIQUES.filter((tech) => tech.count !== COUNT_SEARCH).map((tech) => [
+  TECHNIQUES.filter((tech) => !tech.trial).map((tech) => [
     tech.name,
     { level: tech.tier, color: tierColor(tech.tier), description: tech.description, icon: tech.icon },
   ])
@@ -993,14 +1061,38 @@ export const TECHNIQUE_DETAILS = {
     strategy: '1. This one is for the mentor to find; read the groups it names on the board\n2. Check that the base groups share no cell and each must hold the digit\n3. Check that the cover groups contain every place the digit could be in the base groups\n4. Erase the digit everywhere else inside the cover groups'
   },
   'Cell Forcing Chain': {
-    plain: 'Take a cell with just two (or three) pencil marks. Try each one in turn and follow the forced moves. If every option ends up putting the same number in the same cell, that number is certain, no matter which option was right. This is real logic, because every possibility was checked.',
-    description: 'All candidates of one cell are propagated independently. Any placement or elimination common to every branch is proven, regardless of which candidate is true.',
-    example: 'R3C4 = {2, 7}. If 2, then R8C6 = 5. If 7, then also R8C6 = 5. So R8C6 = 5.',
-    strategy: '1. Pick a cell with two or three pencil marks\n2. Follow the consequences of each mark\n3. Keep any result that every branch agrees on'
+    plain: 'Pick a cell with two or three pencil marks. One of them is the answer, so try each one in turn and follow the moves it forces. If every one of them ends up putting the same number in the same cell, or rubbing out the same pencil mark, that result is certain - you did not have to know which mark was right, because they all agree. This is a proof, not a guess: every possibility was checked.',
+    description: 'Every candidate of one cell is propagated independently with naked and hidden singles. Any placement or elimination common to all branches is proved, whichever candidate is true. A proof by cases, not a trial: the card names it as a deduction. Valid, and not a pattern anybody spots by eye - finding it is the mentor\'s job, and the branches on the card are the whole of the proof.',
+    example: 'R3C4 = {2, 7}. If 2, then R8C6 = 5. If 7, then R8C6 = 5 as well. So R8C6 = 5.',
+    strategy: '1. Pick a cell with two or three pencil marks\n2. Follow the forced moves from each mark in turn\n3. Keep any result that every branch agrees on'
+  },
+  'Unit Forcing Chain': {
+    plain: 'The same idea over a row, a column or a box instead of a cell. A number has to go somewhere in that row, so take each cell where it could still go, put it there, and follow the forced moves. If all of those cells lead to the same result, that result is certain, because one of them really does hold the number.',
+    description: 'Every candidate cell for one digit in one unit is propagated independently. The unit must contain the digit, so the options are exhaustive and anything common to all branches is proved. A proof by cases, not a trial. Valid, and not a pattern anybody spots by eye - finding it is the mentor\'s job, and the branches on the card are the whole of the proof.',
+    example: 'In row 4 the 7 can only go in R4C2, R4C5 or R4C8. All three force R6C3 = 2, so R6C3 = 2.',
+    strategy: '1. Pick a row, column or box and a number with a few places left in it\n2. Try the number in each of those places and follow the forced moves\n3. Keep any result every place agrees on'
+  },
+  'Digit Forcing Chain': {
+    plain: 'The smallest version of the same idea: a number with only two possible homes left in some row, column or box. One of the two is right, so try both and follow the forced moves. Whatever they agree on is certain. Two branches make this the shortest of the forcing proofs and the easiest to read.',
+    description: 'The two ends of a strong link on one digit are each propagated independently. Exactly one of them is the digit, so what both branches force is proved. A proof by cases, not a trial. Valid, and not a pattern anybody spots by eye - finding it is the mentor\'s job, and the two branches on the card are the whole of the proof.',
+    example: 'In box 3 the only 9s are R1C8 and R3C9. Both force R7C2 = 4, so R7C2 = 4.',
+    strategy: '1. Find a number with exactly two places left in some row, column or box\n2. Try it in each place and follow the forced moves\n3. Keep what both agree on'
+  },
+  'Double Forcing Chain': {
+    plain: 'Sometimes the options do not agree on anything - they disagree with themselves. Follow one option and two of the things it forces end up contradicting each other, which means that option was never possible. Try every option of the cell, the row or the number like that, and if all but one break the board, the one left standing must be the answer. You have not guessed anything: you checked every case and only one survived.',
+    description: 'An exhaustive set of options (a cell\'s candidates, a unit\'s places for a digit) is propagated option by option. An option whose consequences contradict each other is impossible. With one option left unrefuted, that one is placed; where several survive but some were refuted, the refuted candidates are eliminated. Every option was examined, so this is a proof by cases rather than a trial - which is what separates it from Hypothesis Mode, where only one candidate is tested. Valid, and not a pattern anybody spots by eye.',
+    example: 'R5C5 = {1, 4, 9}. Following 1 forces R2C5 to be both 3 and 7, and following 4 empties R9C1. So R5C5 = 9.',
+    strategy: '1. Pick a cell, or a number in one row, column or box\n2. Follow every option it has, one at a time\n3. Rule out every option whose own consequences clash\n4. If one option is left, it is the answer'
+  },
+  'Forcing Net': {
+    plain: 'A forcing proof where following one option is not enough on its own. The forced moves run out, so the net picks another cell with two pencil marks and tries both of them: if one of the two breaks the board the cell must take the other, and if both lead to the same number somewhere, that number holds either way. Either way nothing is assumed and kept - only what both cases force. The card shows every assumption the net had to hold at once, and it holds at most five. Where it runs into that limit the card says so, rather than pretending there was nothing left to find.',
+    description: 'A forcing proof whose branches are advanced by nested case analysis: where singles stall, both options of a two-candidate cell are propagated and only their shared consequences are adopted - a refuted option forces the other, and a shared placement holds regardless. Up to five assumptions are held at once, a stated limit rather than an accident, and a branch that stalls against it is reported as cut short. Nothing an option merely allows is ever adopted, so the proof is sound. Valid, and emphatically not a pattern anybody spots by eye: finding it is the mentor\'s job, and the branches on the card are the whole of the proof.',
+    example: 'Trying 6 in R1C3 runs out of forced moves. R4C7 is {2, 8}: 2 breaks the board, so R4C7 = 8, and the branch carries on from there.',
+    strategy: '1. This one is for the mentor to find; read the branches it names on the card\n2. Check each assumption it holds, and that the move it takes is forced in both cases\n3. Check that every option of the origin was followed to its end'
   },
   'Hypothesis Mode': {
-    plain: 'A "what if" test. Suppose a cell is a certain number, then follow the forced moves. If that leads to a dead end (a cell with no possible number), the supposition was wrong, so the cell is not that number. This is closer to trial and error than to a pattern, and the mentor uses it only when nothing else applies.',
-    description: 'Contradiction search: assume a candidate, propagate, and if some cell is left with no candidates, eliminate the assumption. Not a pattern-based deduction; used only when every named technique fails.',
+    plain: 'A "what if" test, and the one thing here that is not a proof. Suppose one pencil mark is the answer, then follow the forced moves. If that leads to a dead end - a cell with no number left to put in it - the supposition was wrong, so that mark can be rubbed out. It is sound as far as it goes, but only that one mark was tested: nothing was learned about the others. That is why it is labelled trial and error, and why the mentor only reaches for it when every named technique, the forcing proofs included, has nothing to say.',
+    description: 'Contradiction search: assume one candidate, propagate, and eliminate the assumption if some cell is left with no candidates or some unit no place for a digit. Sound on its own, but not a proof by cases - no other candidate was examined - so it keeps the what-if heading and colour while the Forcing tier above it does not. Used only when every named technique fails.',
     example: 'Assume R1C1 = 3. Propagation empties R5C5 of candidates, so R1C1 is not 3.',
     strategy: '1. Pick a cell with few pencil marks\n2. Assume one of them and follow the forced moves\n3. If you hit a dead end, erase that mark'
   }

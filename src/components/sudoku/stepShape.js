@@ -24,6 +24,23 @@
 // corners), loopCells (a unique loop, in the order the ring closes) and
 // bugExtras (the candidates whose removal would leave a grave).
 //
+// A forcing step (the Forcing tier and Hypothesis Mode) carries its proof
+// as data, so the card can walk it and the board draw it:
+//   forcingOrigin      { kind: 'cell'|'digit'|'unit'|'candidate', cells,
+//                        digit, unitName, options } - the options that must
+//                        contain the answer. 'candidate' is the trial
+//                        fallback, where there is only the one option.
+//   forcingBranches    one per option, in order: { assume, moves (every
+//                        placement it forced, with its reason and, for a
+//                        net move, the `net` split that justified it),
+//                        proof (the few moves the card walks), skipped,
+//                        outcome, net, limited }
+//   forcingConclusion  { kind: 'convergence'|'refutation', placement,
+//                        eliminations }
+//   forcingNet         { depth, limited } when the proof needed more than
+//                        one assumption at a time; null otherwise
+// and, for Hypothesis Mode only, the contradiction fields above.
+//
 // A set-based step (the almost-locked-set family) also carries:
 //   alsSets     the groups the pattern is made of, each { cells, digits }
 //               plus the part it plays: 'outer' / 'middle' for an

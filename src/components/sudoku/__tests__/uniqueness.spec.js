@@ -37,7 +37,7 @@ import {
   uniquenessShortNote,
 } from '../uniqueness';
 import { countSolutionsWithin } from '../solver';
-import { findForcingChain, findHypothesis } from '../forcingChainEngine';
+import { findWhatIfStep } from '../forcingChainEngine';
 import {
   TECHNIQUE_DETAILS,
   UNIQUENESS_TECHNIQUES,
@@ -860,12 +860,20 @@ describe('the ladder', () => {
 });
 
 describe('the family on the real solve path of the top shelf', () => {
-  // oracleAll walks the named ladder and stops where it stalls. The
-  // Avoidable Rectangles live past that point: they are about cells already
-  // worked out, so they need a board the walk only reaches by carrying on
-  // through the what-if search, the way the hint path does. Walk it that
-  // way and check every instance the family reports against the puzzle's
-  // one true answer, which is the whole promise of the oracle tests.
+  // oracleAll walks the ladder of patterns and stops where it stalls. This
+  // walk carries on through the search the way the hint path does, and
+  // checks every instance the family reports on every board it passes
+  // against the puzzle's one true answer, which is the whole promise of
+  // the oracle tests.
+  //
+  // Which boards those are depends on what the ladder and the search hand
+  // back, so the forcing batch (#75) moved them: the proofs finish these
+  // puzzles by a different route from the trial search they replaced, and
+  // that route no longer passes a board carrying an Avoidable Rectangle or
+  // a Unique Rectangle Type 6. Both keep their own hand-built tests above,
+  // with their exact eliminations; what they have lost is a sighting on a
+  // library board, which is a gap in the library rather than in a
+  // detector, and the teaching report (#83) counts it as one.
   for (const { name, puzzle } of PUZZLES.ultimate) {
     it(`${name}: every uniqueness instance agrees with the answer`, () => {
       const solution = solutionsOf(puzzle, 1)[0];
@@ -898,7 +906,7 @@ describe('the family on the real solve path of the top shelf', () => {
           }
         }
         let step = findNextLogicStep(grid, null, { uniqueness });
-        if (!step) step = findForcingChain(grid, 20) || findHypothesis(grid, 20);
+        if (!step) step = findWhatIfStep(grid);
         if (!step) break;
         grid = applyLogicStep(grid, step);
         if (step.placement) {
@@ -908,8 +916,16 @@ describe('the family on the real solve path of the top shelf', () => {
     }, 120_000);
   }
 
-  it('and the walk really does reach the Avoidable Rectangles', () => {
-    expect([...seenOnThePath]).toContain('Avoidable Rectangle Type 1');
+  it('and the walk really does reach the family, by name', () => {
+    // Exact on purpose: a technique that quietly stopped firing on these
+    // boards would fail here, and so would one that started.
+    expect([...seenOnThePath].sort()).toEqual([
+      'Hidden Unique Rectangle',
+      'Unique Rectangle Type 1',
+      'Unique Rectangle Type 2',
+      'Unique Rectangle Type 3',
+      'Unique Rectangle Type 4',
+    ]);
   });
 });
 

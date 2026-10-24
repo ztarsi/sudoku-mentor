@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Lightbulb, Eye, Sparkles, Check, FlaskConical, Timer, Trophy, Play, ChevronRight, Loader2, X, Sprout } from 'lucide-react';
-import { LEVEL_COLORS, TECHNIQUE_INFO } from '../techniqueCatalog';
+import { LEVEL_COLORS, TECHNIQUE_INFO, isTrialTechnique } from '../techniqueCatalog';
 import { explainStep, readExplainLevel, writeExplainLevel, legendFor, chainWalk } from '../explainStep';
 
 import { cellName as cellRef } from '../gridUnits';
@@ -113,6 +113,18 @@ const Explanation = ({ explanation, legend }) => {
  * does a set-based step (#73), whose links may be a case for each number a
  * cell could be, or regions that cannot hold the same number.
  */
+// The chip in front of each line of the walk. A chain labels its links by
+// how strong they are; a forcing proof labels each line by what it is
+// doing, and says so in colour: the supposition, the moves it forces, the
+// case breaking, and what the cases prove together.
+const WALK_TONES = {
+  blue: 'bg-blue-950 text-blue-300',
+  slate: 'bg-slate-700 text-slate-300',
+  red: 'bg-red-950 text-red-300',
+  emerald: 'bg-emerald-950 text-emerald-300',
+  amber: 'bg-amber-950 text-amber-300',
+};
+
 const ChainLinkTrace = ({
   currentStep,
   chainPlaybackIndex,
@@ -124,14 +136,26 @@ const ChainLinkTrace = ({
   if (walk.length === 0) return null;
   const here = Math.min(Math.max(chainPlaybackIndex ?? 0, 0), walk.length - 1);
   const colouring = !!currentStep.chainColouring;
-  const heading = colouring
+  const forcing = !!currentStep.forcingBranches;
+  // A trial has one case and proves nothing, so it is not walked as a proof.
+  const trial = isTrialTechnique(currentStep.technique);
+  const heading = forcing
+    ? trial
+      ? 'The test, step by step:'
+      : 'The proof, case by case:'
+    : colouring
     ? 'How the colouring spreads:'
     : currentStep.chainClosed
     ? 'Round the loop:'
     : walk.every((link) => link.kind === 'strong' || link.kind === 'weak')
     ? 'The chain, link by link:'
     : 'The argument, step by step:';
-  const walkLabel = colouring ? 'Walk the colouring' : 'Walk the chain';
+  const walkLabel = forcing
+    ? (trial ? 'Walk the test' : 'Walk the proof')
+    : colouring
+    ? 'Walk the colouring'
+    : 'Walk the chain';
+  const unitWord = forcing || colouring ? 'Step' : 'Link';
 
   return (
     <div className="space-y-3">
@@ -192,11 +216,12 @@ const ChainLinkTrace = ({
               <span className="min-w-0">
                 <span
                   className={`inline-block mr-2 px-1.5 py-0.5 rounded text-xs font-medium ${
-                    link.conclusion
-                      ? 'bg-amber-950 text-amber-300'
-                      : link.strong
-                      ? 'bg-blue-950 text-blue-300'
-                      : 'bg-slate-700 text-slate-300'
+                    WALK_TONES[link.tone]
+                      ?? (link.conclusion
+                        ? WALK_TONES.amber
+                        : link.strong
+                        ? WALK_TONES.blue
+                        : WALK_TONES.slate)
                   }`}
                 >
                   {link.label}
@@ -208,133 +233,7 @@ const ChainLinkTrace = ({
         ))}
       </ol>
       <div className="text-xs text-slate-500 text-center">
-        {colouring ? 'Step' : 'Link'} {here + 1} of {walk.length}
-      </div>
-    </div>
-  );
-};
-
-const ChainTrace = ({
-  currentStep,
-  chainPlaybackIndex,
-  onChainPlaybackChange,
-  isPlayingChain,
-  onToggleChainPlayback,
-}) => {
-  const placements = currentStep.chain.filter((s) => s.action === 'place');
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-base font-medium text-slate-300">Logical Chain Trace:</p>
-        {currentStep.chain.length > 1 && (
-          <div className="flex gap-2">
-            <button
-              onClick={() => onChainPlaybackChange?.(Math.max(0, chainPlaybackIndex - 1))}
-              disabled={chainPlaybackIndex === 0}
-              className="p-1.5 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-600 rounded transition-colors"
-              title="Previous Step"
-              aria-label="Previous chain step"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <button
-              onClick={onToggleChainPlayback}
-              className={`p-1.5 ${isPlayingChain ? 'bg-red-600 hover:bg-red-500' : 'bg-blue-600 hover:bg-blue-500'} rounded transition-colors`}
-              title={isPlayingChain ? 'Pause' : 'Play Chain'}
-              aria-label={isPlayingChain ? 'Pause chain playback' : 'Play chain'}
-            >
-              {isPlayingChain ? (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6" />
-                </svg>
-              ) : (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                </svg>
-              )}
-            </button>
-            <button
-              onClick={() => onChainPlaybackChange?.(Math.min(placements.length - 1, chainPlaybackIndex + 1))}
-              disabled={chainPlaybackIndex >= placements.length - 1}
-              className="p-1.5 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-600 rounded transition-colors"
-              title="Next Step"
-              aria-label="Next chain step"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          </div>
-        )}
-      </div>
-      <div className="bg-slate-800 rounded-xl p-4 max-h-72 overflow-y-auto space-y-2">
-        {placements.map((step, idx) => {
-          const isActive = idx <= chainPlaybackIndex;
-          const isCurrentStep = idx === chainPlaybackIndex;
-
-          return (
-            <motion.div
-              key={idx}
-              onClick={() => onChainPlaybackChange?.(idx)}
-              className={`flex items-start gap-2 text-sm p-2 rounded cursor-pointer hover:bg-slate-700/50 transition-colors ${isCurrentStep ? 'bg-blue-900/30 border border-blue-600' : ''} ${!isActive ? 'opacity-40' : ''}`}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <span className={`font-bold ${idx === 0 ? 'text-purple-400' : isCurrentStep ? 'text-blue-300' : 'text-slate-400'}`}>
-                {idx + 1}.
-              </span>
-              <div className="flex-1">
-                <span className={isCurrentStep ? 'text-white font-medium' : 'text-slate-300'}>
-                  {cellRef(step.cell)} = {step.value}
-                </span>
-                {step.reason && (
-                  <p className="text-slate-400 text-xs mt-1">{step.reason}</p>
-                )}
-              </div>
-              {isCurrentStep && (
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  className="w-2 h-2 bg-blue-500 rounded-full"
-                />
-              )}
-            </motion.div>
-          );
-        })}
-        {currentStep.contradiction && chainPlaybackIndex >= placements.length - 1 && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="mt-3 p-3 bg-red-950/50 border border-red-600 rounded-lg"
-          >
-            <div className="flex items-center gap-2 text-red-400 font-medium mb-2">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-              CONTRADICTION REACHED
-            </div>
-            <p className="text-sm text-red-300">
-              {currentStep.contradictionText
-                ? `${currentStep.contradictionText[0].toUpperCase()}${currentStep.contradictionText.slice(1)}.`
-                : `${cellRef(currentStep.contradictionCell)} has no valid candidates left!`}
-            </p>
-            {currentStep.chain.filter((s) => s.action === 'note').map((n, i) => (
-              <p key={i} className="text-sm text-red-200/80 mt-1">{n.reason}</p>
-            ))}
-            {currentStep.placement && (
-              <p className="text-sm text-emerald-400 mt-2">
-                ✓ Therefore: {cellRef(currentStep.placement.cell)} must be {currentStep.placement.digit}
-              </p>
-            )}
-          </motion.div>
-        )}
-      </div>
-      <div className="text-xs text-slate-500 text-center">
-        Step {Math.min(chainPlaybackIndex + 1, placements.length)} of {placements.length}
+        {unitWord} {here + 1} of {walk.length}
       </div>
     </div>
   );
@@ -344,8 +243,6 @@ const ChainTrace = ({
  * The "current hint" card: technique badge, explanation, chain trace,
  * eliminations, and placement summary - or the hint prompt when idle.
  */
-
-const WHAT_IF_TECHNIQUES = new Set(['Hypothesis Mode', 'Cell Forcing Chain', 'Deep Forcing Chain']);
 
 /**
  * The deadly pattern, drawn as the shape it is.
@@ -393,6 +290,22 @@ const RectangleShape = ({ rectangle, grid }) => {
     </div>
   );
 };
+
+/**
+ * What a net had to hold at once, and whether it ran into the limit.
+ *
+ * A net that stalls against its depth has not finished looking, and saying
+ * nothing would let the card read as though there were nothing more to
+ * find (#75).
+ */
+const NetNote = ({ net }) => (
+  <p className="text-xs text-slate-400">
+    This one needed a net: it held up to {net.depth} suppositions at once where the forced moves ran out.
+    {net.limited
+      ? ` It stopped at that limit rather than finishing the board, so there may be more to find here that the mentor did not reach.`
+      : ''}
+  </p>
+);
 
 /** A unique loop: the ring, in the order it closes. */
 const LoopShape = ({ loopCells, grid }) => {
@@ -541,7 +454,9 @@ export default function CurrentStepCard({
     return () => clearInterval(id);
   }, [noAssistMode, solved, getElapsedSeconds]);
 
-  const isWhatIf = !!currentStep && WHAT_IF_TECHNIQUES.has(currentStep.technique);
+  // Only trial and error wears the what-if heading and colour: a forcing
+  // proof checks every option, so it is a deduction and is shown as one (#75).
+  const isWhatIf = !!currentStep && isTrialTechnique(currentStep.technique);
   const legendCell = currentStep ? (currentStep.placement?.cell ?? currentStep.baseCells?.[0] ?? currentStep.targetCells?.[0]) : null;
 
   // ---------- Solved
@@ -633,7 +548,11 @@ export default function CurrentStepCard({
                 title="Learn how this technique works"
                 className={`px-3 py-1 rounded-full text-sm font-medium bg-gradient-to-r ${LEVEL_COLORS[techniqueInfo?.color || 'emerald']} text-white hover:shadow-lg transition-all cursor-pointer`}
               >
-                {isWhatIf ? currentStep.technique : 'How to spot it'}
+                {isWhatIf
+                  ? currentStep.technique
+                  : currentStep.forcingBranches
+                    ? 'How this proof works'
+                    : 'How to spot it'}
               </button>
               {involved.map((d) => (
                 <span key={`d${d}`} className="px-2 py-1 bg-slate-800 rounded-lg text-sm font-semibold text-slate-100" aria-label={`digit ${d}`}>{d}</span>
@@ -653,7 +572,8 @@ export default function CurrentStepCard({
             )}
             {currentStep.loopCells && <LoopShape loopCells={currentStep.loopCells} grid={grid} />}
 
-            {Array.isArray(currentStep.chainNodes) && currentStep.chainNodes.length > 1 && (
+            {((Array.isArray(currentStep.chainNodes) && currentStep.chainNodes.length > 1) ||
+              Array.isArray(currentStep.forcingBranches)) && (
               <ChainLinkTrace
                 currentStep={currentStep}
                 chainPlaybackIndex={chainPlaybackIndex}
@@ -663,31 +583,7 @@ export default function CurrentStepCard({
               />
             )}
 
-            {(currentStep.technique === 'Deep Forcing Chain' || currentStep.technique === 'Hypothesis Mode') && currentStep.chain && (
-              <ChainTrace
-                currentStep={currentStep}
-                chainPlaybackIndex={chainPlaybackIndex}
-                onChainPlaybackChange={onChainPlaybackChange}
-                isPlayingChain={isPlayingChain}
-                onToggleChainPlayback={onToggleChainPlayback}
-              />
-            )}
-
-            {currentStep.technique === 'Cell Forcing Chain' && Array.isArray(currentStep.chains) && (
-              <div className="space-y-2">
-                <p className="text-base font-medium text-slate-300">Both paths:</p>
-                {currentStep.chains.map((path, pi) => (
-                  <div key={pi} className="bg-slate-800 rounded-xl p-3">
-                    <p className="text-sm font-medium mb-1" style={{ color: path.color || '#94a3b8' }}>{path.label}</p>
-                    <ol className="text-xs text-slate-300 space-y-0.5">
-                      {(path.cells ?? []).filter((e) => e.action === 'place').map((e, i) => (
-                        <li key={i}>{cellRef(e.cell)} = {e.value}{e.reason && i > 0 ? <span className="text-slate-500"> ({e.reason})</span> : null}</li>
-                      ))}
-                    </ol>
-                  </div>
-                ))}
-              </div>
-            )}
+            {currentStep.forcingNet && <NetNote net={currentStep.forcingNet} />}
 
             {currentStep.eliminations && currentStep.eliminations.length > 0 && (
               <div className="flex flex-wrap gap-2">

@@ -87,30 +87,38 @@ describe('the solve path', () => {
     }
   });
 
-  it('says when a puzzle runs out of named technique, and where', () => {
-    // The named ladder stops on this one with cells still empty.
+  it('says where the ladder of patterns stops, and what finishes the job', () => {
+    // No pattern on the ladder applies to this board at all, so the
+    // pattern-only walk stops with every cell still empty.
     const named = analyzeSolvePath(puzzle('Golden Nugget'));
     expect(named.complete).toBe(true); // it finished looking
     expect(named.stalled).toBe(true);  // and found nothing more to say
     expect(named.solved).toBe(false);
     expect(named.namedOnly).toBe(false);
 
-    // Following the what-if search the way the hint path does finishes it,
-    // and the path says which steps were searched rather than named.
-    const withWhatIf = analyzeSolvePath(puzzle('Golden Nugget'), { whatIf: true });
-    expect(withWhatIf.solved).toBe(true);
-    expect(withWhatIf.whatIfSteps).toBeGreaterThan(0);
-    expect(withWhatIf.namedSteps + withWhatIf.whatIfSteps).toBe(withWhatIf.steps.length);
-    expect(withWhatIf.stepsByTier[WHAT_IF_TIER]).toBe(withWhatIf.whatIfSteps);
-    expect(withWhatIf.steps.filter((s) => !s.named).every((s) => s.tier === WHAT_IF_TIER)).toBe(true);
-    // Named techniques still explain most of it, and the hardest one the
-    // puzzle teaches is reported even though a what-if came first.
-    expect(withWhatIf.namedShare).toBeGreaterThan(0.5);
-    // Grouped X-Chain until the almost-locked-set family landed (#73): the
-    // named ALS-XY-Wing now explains those positions, and it sits a rung
-    // before the general chain, so it is the hardest rung this puzzle asks
-    // for. A measurement, re-read when a rung changes, not a promise.
-    expect(withWhatIf.hardestTechnique).toBe('ALS-XY-Wing');
+    // Following the search the way the hint path does finishes it - and
+    // since the forcing batch (#75) every step it contributes is a proof by
+    // cases, which is a named technique, so nothing on this path is
+    // counted as trial and error.
+    const withSearch = analyzeSolvePath(puzzle('Golden Nugget'), { whatIf: true });
+    expect(withSearch.solved).toBe(true);
+    expect(withSearch.whatIfSteps).toBe(0);
+    expect(withSearch.namedSteps).toBe(withSearch.steps.length);
+    expect(withSearch.namedShare).toBe(1);
+    expect(withSearch.namedOnly).toBe(true);
+    expect(withSearch.stepsByTier[WHAT_IF_TIER]).toBeUndefined();
+    expect(withSearch.stepsByTier.Forcing).toBeGreaterThan(0);
+    // The hardest thing it teaches is a forcing proof, and the hardest
+    // tier is the Forcing tier rather than the what-if fallback.
+    expect(techniqueTier(withSearch.hardestTechnique)).toBe('Forcing');
+    expect(withSearch.hardestTier).toBe('Forcing');
+  });
+
+  it('counts a trial step, if one ever comes back, under the what-if tier', () => {
+    // No library puzzle needs trial and error any more, so this invariant
+    // is checked where it lives rather than on a path: the tier the report
+    // counts an unnamed step under is the tier Hypothesis Mode sits in.
+    expect(techniqueTier('Hypothesis Mode')).toBe(WHAT_IF_TIER);
   });
 
   it('every tier it reports is a tier the panel knows', () => {
@@ -163,9 +171,9 @@ describe('what the library row says', () => {
   it('describes what a puzzle teaches, and whether what-if is needed', () => {
     expect(teachingLabel(analyzePuzzle(puzzle('Gentle Start')))).toBe('Teaches up to Naked Single');
     expect(teachingLabel(analyzePuzzle(puzzle('Deep Waters')))).toBe('Teaches up to XY-Wing');
-    expect(teachingLabel(analyzePuzzle(puzzle('Golden Nugget')))).toBe(
-      'Teaches up to ALS-XY-Wing, then what-if search'
-    );
+    // Nothing in the library ends in "then what-if search" any more: the
+    // forcing proofs name every step of every puzzle (#75).
+    expect(teachingLabel(analyzePuzzle(puzzle('Golden Nugget')))).toBe('Teaches up to Forcing Net');
   });
 
   it('is measured, never assumed: a label matches the path it came from', () => {
@@ -210,23 +218,24 @@ describe('named-technique coverage, by shelf', () => {
     expect(report.named + (report.steps - report.named)).toBe(report.steps);
   });
 
-  it('keeps the ground the chain family gained on the Ultimate shelf', () => {
-    // The Ultimate shelf was 91.7% named before the fish (#72) and 92.6%
-    // after them; the chain family (#67) moved it to 94.4%, and 37 what-if
-    // steps became 31. The floors sit a little under that so a later batch
-    // can only push them up.
+  it('keeps the whole library named, which is where the programme ends', () => {
+    // The Ultimate shelf was 91.7% named before the fish (#72), 92.6% after
+    // them, 94.4% after the chains (#67), and the forcing proofs (#75) took
+    // the last 31 what-if steps on it to none. Every shelf is fully named,
+    // which is what the coverage programme set out to reach, and a batch
+    // that gave any of it back would fail here.
     const ultimate = report.rows.find((r) => r.shelf === 'ultimate');
-    expect(ultimate.namedShare).toBeGreaterThan(0.93);
-    expect(ultimate.whatIf).toBeLessThan(37);
-    expect(ultimate.needWhatIf).toBeLessThan(ultimate.puzzles);
-    expect(report.namedShare).toBeGreaterThan(0.97);
+    expect(ultimate.namedShare).toBe(1);
+    expect(ultimate.whatIf).toBe(0);
+    expect(ultimate.needWhatIf).toBe(0);
+    expect(report.namedShare).toBe(1);
   });
 
-  it('holds the shelves the programme says are fully named', () => {
-    // The targets in docs/specs/technique-coverage.md. Easy through
-    // Diabolical are 100% named today and must stay that way; the Ultimate
-    // shelf is what the programme is trying to move.
-    for (const shelf of ['easy', 'medium', 'hard', 'expert', 'diabolical']) {
+  it('holds every shelf the programme says is fully named', () => {
+    // The targets in docs/specs/technique-coverage.md: Easy through
+    // Diabolical were already 100% named and must stay that way, and the
+    // Ultimate shelf has joined them.
+    for (const shelf of Object.keys(PUZZLES)) {
       const row = report.rows.find((r) => r.shelf === shelf);
       expect(row.namedShare, `${shelf} should be fully named`).toBe(1);
       expect(row.needWhatIf, `${shelf} should need no what-if`).toBe(0);

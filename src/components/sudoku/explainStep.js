@@ -64,6 +64,9 @@ export const GLOSSARY = {
   'alternating inference chain': 'A chain of nodes whose links alternate strong, weak, strong, beginning and ending with a strong link. At least one of its two endpoints is true.',
   'group node': 'Every candidate for one digit in the cells where a box overlaps a row or a column. The digit is somewhere in the group or nowhere in it, so the group behaves as one node.',
   'continuous loop': 'A chain that closes on itself with the alternation intact. Every weak link in it becomes exact, so each one eliminates.',
+  'proof by cases': 'Every option a cell, a unit or a digit has is tried, and the conclusion is what all of them force. Sound whichever option turns out to be true, which is what makes it a proof rather than a trial.',
+  'forcing chain': 'The consequences of one assumption, followed with naked and hidden singles until nothing more is forced.',
+  'forcing net': 'A forcing proof that needs more than one assumption at a time: where the singles stall, both options of a further cell are tried and only what both of them force is kept.',
   stem: 'The cell a Death Blossom hangs on: it has an almost locked set of its own for every candidate it still holds.',
   petal: 'One of the almost locked sets hanging off a Death Blossom stem, tied to one of the stem\'s candidates by a restricted common.',
   'two-sector disjoint subsets': 'The formal name for Sue de Coq: cells in the overlap of a line and a box holding more candidates than they have cells, with the rest of the line and the rest of the box splitting the surplus.',
@@ -125,7 +128,11 @@ const TERMS_BY_TECHNIQUE = {
   'BUG+2': ['bi-value cell', 'deadly pattern', 'bivalue universal grave'],
   'BUG+3': ['bi-value cell', 'deadly pattern', 'bivalue universal grave'],
   'Unique Loop': ['deadly pattern', 'candidate', 'sees'],
-  'Cell Forcing Chain': ['bi-value cell', 'contradiction'],
+  'Cell Forcing Chain': ['proof by cases', 'forcing chain', 'bi-value cell'],
+  'Unit Forcing Chain': ['proof by cases', 'forcing chain', 'unit'],
+  'Digit Forcing Chain': ['proof by cases', 'forcing chain', 'strong link', 'conjugate pair'],
+  'Double Forcing Chain': ['proof by cases', 'forcing chain', 'contradiction'],
+  'Forcing Net': ['proof by cases', 'forcing net', 'forcing chain', 'contradiction'],
   'Hypothesis Mode': ['contradiction', 'bi-value cell'],
 };
 
@@ -595,27 +602,18 @@ const SIMPLE = {
     };
   },
 
-  'Cell Forcing Chain': (step, grid) => {
-    const origin = step.baseCells?.[0];
-    const cands = candidatesOf(grid, origin);
-    const target = step.placement?.cell;
-    const opts = cands.length ? listWords(cands.map(String)).replace(', and ', ' or ').replace(' and ', ' or ') : 'a couple of numbers';
-    return {
-      look: `Look at ${shortCell(origin)}. It can only be ${opts}.`,
-      why: `Try each option in turn and follow the consequences. Every option leads to the same result: ${target != null ? `${shortCell(target)} becomes ${step.placement.digit}` : 'the same pencil marks disappear'}. When every road leads to the same place, that result is certain, no matter which option is right. This is real logic, not guessing.`,
-    };
-  },
+  'Cell Forcing Chain': (step) => forcingPlain(step),
+  'Unit Forcing Chain': (step) => forcingPlain(step),
+  'Digit Forcing Chain': (step) => forcingPlain(step),
+  'Double Forcing Chain': (step) => forcingPlain(step),
+  'Forcing Net': (step) => forcingPlain(step),
 
   'Hypothesis Mode': (step) => {
     const origin = step.baseCells?.[0];
     const tried = step.contradictoryDigit ?? step.digit;
     const bad = step.contradictionCell;
-    const chain = step.chain ?? [];
-    // Forced moves: placements that followed from the assumption, not the
-    // assumption itself and not case splits.
-    const forced = chain.filter((s, i) => s.action === 'place' && i > 0 && !(s.reason || '').startsWith('Case analysis')).length;
-    const splits = chain.filter((s) => s.action === 'place' && (s.reason || '').startsWith('Case analysis')).length;
-    const notes = chain.filter((s) => s.action === 'note');
+    const branch = step.forcingBranches?.[0];
+    const forced = branch?.moves?.length ?? 0;
     const deadEnd = step.contradictionText
       ? plainContradiction(step.contradictionText)
       : `${bad != null ? shortCell(bad) : 'a cell'} is left with no possible number at all`;
@@ -623,12 +621,12 @@ const SIMPLE = {
       ? `So ${shortCell(origin)} cannot be ${tried}, and its only other option, ${step.placement.digit}, must be right.`
       : `So ${shortCell(origin)} cannot be ${tried}, and that pencil mark can be erased.`;
     const path = forced > 0 ? ` through ${forced} forced move${forced === 1 ? '' : 's'}` : '';
-    const splitNote = splits > 0
-      ? ` Along the way the test had to try both options of ${splits === 1 ? 'a two-option cell' : `${splits} two-option cells`}; ${notes.length > 0 ? 'both options failed each time' : 'the option shown is the one that did not fail on its own'}.`
+    const netNote = branch?.net
+      ? ' Along the way the test had to try both options of another cell and keep what they forced.'
       : '';
     return {
-      look: `This is a "what if" test. Suppose ${shortCell(origin)} were ${tried}.`,
-      why: `Following that assumption${path} leads to a dead end: ${deadEnd}.${splitNote} An assumption that breaks the puzzle must be wrong. ${outcome}`,
+      look: `This is a "what if" test, and the only thing the mentor shows you that is not a proof. Suppose ${shortCell(origin)} were ${tried}.`,
+      why: `Following that assumption${path} leads to a dead end: ${deadEnd}.${netNote} An assumption that breaks the puzzle must be wrong. ${outcome} Only this one pencil mark was tested, so nothing is claimed about the others: that is why this is labelled reasoning by trial.`,
     };
   },
 };
@@ -829,6 +827,165 @@ function colorEnding(step) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Forcing proofs, in plain words (#75)
+//
+// A forcing proof is not a line, it is a handful of lines side by side:
+// every option the origin has, each followed to what it forces. So it
+// walks case by case - the assumption, the moves it forces, what became of
+// it - and ends on one entry for what the cases prove together. The card
+// steps through that with the same controls it uses for a chain, and the
+// board draws each case as its own path; there is one walker, not two.
+// ---------------------------------------------------------------------------
+
+const CASE_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
+
+/** What the origin of a forcing proof is, in one sentence. */
+const forcingLook = (step) => {
+  const origin = step.forcingOrigin;
+  if (!origin) return 'Look at the highlighted cells.';
+  const options = (origin.options ?? []).map((o) => o.digit);
+  if (origin.kind === 'cell') {
+    return `Look at ${shortCell(origin.cells[0])}. It can only be ${listOr(options)}, so one of those is the answer.`;
+  }
+  if (origin.kind === 'candidate') {
+    return `Look at ${shortCell(origin.cells[0])} and the pencil mark ${origin.digit}.`;
+  }
+  const where = origin.unitName ?? 'that row, column or box';
+  if (origin.kind === 'digit') {
+    return `Look at the number ${origin.digit} in ${where}. It has only two places left, ${shortCells(origin.cells)}, so one of them is the ${origin.digit}.`;
+  }
+  return `Look at the number ${origin.digit} in ${where}. It can only go in ${shortCells(origin.cells)}, so one of them is the ${origin.digit}.`;
+};
+
+/** What a forcing proof concludes, and why that is a proof and not a guess. */
+const forcingWhy = (step) => {
+  const branches = step.forcingBranches ?? [];
+  const conclusion = step.forcingConclusion ?? {};
+  const placement = step.placement;
+  const broken = branches.filter((b) => b.outcome?.kind === 'contradiction').length;
+  const net = branches.some((b) => b.net);
+
+  let body;
+  if (conclusion.kind === 'refutation') {
+    const what = placement
+      ? `The one left standing, ${shortCell(placement.cell)} = ${placement.digit}, must be the answer.`
+      : `Those options can be rubbed out; the ones that survive are still open.`;
+    body =
+      `Each option is followed in turn. ${broken === branches.length - 1 ? 'All of them but one' : `${broken} of them`} ` +
+      `break the board - a cell with no number left, or a number with nowhere to go - so they were never possible. ${what}`;
+  } else {
+    const what = placement
+      ? `every one of them ends with ${shortCell(placement.cell)} as ${placement.digit}`
+      : 'every one of them rubs out the same pencil marks';
+    const brokeNote = broken > 0
+      ? ` (${broken === 1 ? 'One option' : `${broken} options`} broke the board along the way, which rules ${broken === 1 ? 'it' : 'them'} out too.)`
+      : '';
+    body =
+      `Each option is followed as far as it forces anything, and ${what}.${brokeNote} ` +
+      'You never have to decide which option is right: they agree, so the result holds either way.';
+  }
+
+  const netNote = net
+    ? ` This one needed a net: where the forced moves ran out, the proof tried both options of another cell and kept only what both of them force. The cases below say which.${
+        branches.some((b) => b.limited)
+          ? ' It stopped at the depth the mentor allows, so there may be more it did not reach.'
+          : ''
+      }`
+    : '';
+
+  return `${body} That makes it a proof, not a guess: every possibility was checked.${netNote}`;
+};
+
+/** The lesson for every forcing proof: the origin, and what the cases prove. */
+function forcingPlain(step) {
+  return {
+    look: forcingLook(step),
+    why: forcingWhy(step),
+    extra: 'Step through the proof below, one case at a time.',
+  };
+}
+
+/** What became of one case, in the words the walk ends that case with. */
+const caseOutcome = (branch) => {
+  const outcome = branch.outcome ?? {};
+  if (outcome.kind === 'contradiction') {
+    return {
+      label: 'breaks the board',
+      tone: 'red',
+      text: `${capitalize(plainContradiction(outcome.text || 'the board breaks'))}. So this option was never possible.`,
+    };
+  }
+  if (outcome.kind === 'survives') {
+    return {
+      label: 'the one left',
+      tone: 'emerald',
+      text: 'Nothing breaks here, and every other option did. So this is the one that must be true.',
+    };
+  }
+  if (outcome.kind === 'forces') {
+    return { label: 'and so', tone: 'emerald', text: `This case ends with ${outcome.text}.` };
+  }
+  return { label: 'and so', tone: 'emerald', text: 'This case rubs out the shared pencil marks.' };
+};
+
+/**
+ * A forcing proof as the card walks it: every case in turn - what it
+ * assumes, the moves it forces, what became of it - and one last entry for
+ * what the cases prove together.
+ */
+function forcingWalk(step) {
+  const branches = step.forcingBranches ?? [];
+  if (branches.length === 0) return [];
+  const walk = [];
+  const push = (entry) => walk.push({ index: walk.length, from: null, to: null, strong: false, ...entry });
+
+  branches.forEach((branch, i) => {
+    const letter = CASE_LETTERS[i] ?? String(i + 1);
+    const name = branches.length === 1 ? 'Suppose' : `Case ${letter}`;
+    push({
+      branch: i,
+      assume: branch.assume,
+      tone: 'blue',
+      strong: true,
+      label: name,
+      text: `Suppose ${shortCell(branch.assume.cell)} is ${branch.assume.digit}.`,
+    });
+    (branch.proof ?? []).forEach((move) => {
+      push({
+        branch: i,
+        move,
+        tone: 'slate',
+        label: move.net ? 'net' : 'then',
+        text: `${shortCell(move.cell)} must be ${move.digit}. ${capitalize(move.reason || '')}.`,
+      });
+    });
+    if (branch.skipped > 0) {
+      push({
+        branch: i,
+        tone: 'slate',
+        label: 'then',
+        text: `${branch.skipped} more forced move${branch.skipped === 1 ? '' : 's'} follow${branch.skipped === 1 ? 's' : ''} the same way.`,
+      });
+    }
+    push({ branch: i, ...caseOutcome(branch) });
+  });
+
+  const conclusion = step.forcingConclusion;
+  if (conclusion) {
+    const placement = step.placement;
+    push({
+      conclusion: true,
+      tone: 'amber',
+      label: 'proved',
+      text: placement
+        ? `Every case was checked, so ${shortCell(placement.cell)} is ${placement.digit}.`
+        : `Every case was checked, so ${(step.eliminations ?? []).length === 1 ? 'that pencil mark' : 'those pencil marks'} can go.`,
+    });
+  }
+  return walk;
+}
+
 // What each kind of link proves, in the fewest words that are still true.
 // A chain's links are its strong and weak ones (#67); a set-based step may
 // also take one case of several, or say that two groups cannot hold the
@@ -890,11 +1047,21 @@ const linksOf = (step) => {
  * colouring step (#82) walks the run of links that decides it and ends on
  * one more entry: what the two ends of the run prove.
  *
- * @param {object} step a step carrying `chainNodes`
- * @returns {{ index: number, from: object, to: object|null, strong: boolean,
- *             kind: string, label: string, conclusion: boolean, text: string }[]}
+ * A forcing proof (#75) walks the same way and comes back in the same
+ * shape: `branch` says which case a line belongs to, `tone` which of the
+ * walk's colours the card gives its chip, and `assume` or `move` the
+ * placement that line is about, so the board can show the case so far as
+ * ghost digits.
+ *
+ * @param {object} step a step carrying `chainNodes` or `forcingBranches`
+ * @returns {{ index: number, from: object|null, to: object|null, strong: boolean,
+ *             kind?: string, label: string, conclusion?: boolean, text: string,
+ *             branch?: number, tone?: string,
+ *             assume?: {cell:number, digit:number},
+ *             move?: {cell:number, digit:number, reason?: string} }[]}
  */
 export function chainWalk(step) {
+  if (step?.forcingBranches) return forcingWalk(step);
   const nodes = step?.chainNodes;
   if (!Array.isArray(nodes) || nodes.length < 2) return [];
   const colouring = !!step.chainColouring;

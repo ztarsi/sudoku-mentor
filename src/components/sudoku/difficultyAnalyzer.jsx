@@ -19,11 +19,16 @@
 // the tool.
 
 import { generateCandidates, findNextLogicStep, applyLogicStep, eliminateCandidatesFromPeers } from './logicEngine';
-import { findForcingChain, findHypothesis } from './forcingChainEngine';
-import { techniqueTier, teachingRank, TECHNIQUES, TIERS, WHAT_IF_TECHNIQUES } from './techniqueCatalog';
+import { findWhatIfStep } from './forcingChainEngine';
+import { techniqueTier, teachingRank, TECHNIQUES, TIERS, TRIAL_TECHNIQUES, isTrialTechnique } from './techniqueCatalog';
 import { establishUniqueness } from './uniqueness';
 
-/** The tier a what-if step is counted under in the per-tier breakdown. */
+/**
+ * The tier a trial step is counted under in the per-tier breakdown, and
+ * the tier Hypothesis Mode sits in in the catalog: the same name, because
+ * since #75 they are the same thing. A forcing proof is counted under the
+ * Forcing tier like any other deduction.
+ */
 export const WHAT_IF_TIER = 'What-if';
 
 // How hard each named technique is taken to be, for the shelf a puzzle
@@ -108,17 +113,22 @@ const TECHNIQUE_SCORES = {
   'ALS-XY-Wing': 10,
   'Death Blossom': 10,
   'Sue de Coq': 10,
-  'Sue de Coq, extended': 10
+  'Sue de Coq, extended': 10,
+  // The forcing family (#75): proofs by cases, the last named rungs before
+  // trial and error. Scored above every pattern on the ladder so that a
+  // puzzle needing one still rates Ultimate, exactly as it did when the
+  // same positions fell to the what-if search. The net is a rung above the
+  // chains: it holds more than one supposition at a time.
+  'Cell Forcing Chain': 12,
+  'Unit Forcing Chain': 12,
+  'Digit Forcing Chain': 12,
+  'Double Forcing Chain': 12,
+  'Forcing Net': 13
 };
 
 // A full solve is at most ~81 placements plus the elimination-only steps
 // between them; anything past this means the engine stopped progressing.
 const MAX_STEPS = 500;
-
-// How far the what-if search may propagate. The depth the hint path uses
-// (whatIfSearch.HINT_SEARCH_DEPTH), so the path the analyser reports is the
-// path a player would actually be walked through.
-export const WHAT_IF_DEPTH = 20;
 
 /** The 81-cell grid the engines take, with pencil marks filled in. */
 export const buildGrid = (puzzleArray) =>
@@ -135,7 +145,11 @@ export const buildGrid = (puzzleArray) =>
     }))
   );
 
-const isWhatIf = (technique) => WHAT_IF_TECHNIQUES.includes(technique);
+// What counts as unnamed in the coverage report: trial and error only. A
+// forcing proof is found by the search and is still a deduction, so it
+// counts as named (#75) - that is the honesty line, and the report has to
+// draw it in the same place the hint card does.
+const isWhatIf = (technique) => isTrialTechnique(technique);
 
 /** The shelf a solve path belongs on. */
 const shelfFor = (path) => {
@@ -163,14 +177,16 @@ const shelfFor = (path) => {
  * path so far and whether it is the whole of it.
  *
  * @param {number[]} puzzleArray 81 digits, 0 for empty
- * @param {{ whatIf?: boolean, whatIfDepth?: number, maxSteps?: number }} [options]
- *   whatIf       follow the what-if search where the named ladder stops, as
- *                the hint path does. Off by default: the named ladder alone
- *                is what decides a puzzle's shelf, and it is cheap.
- *   whatIfDepth  how far the what-if search may propagate.
+ * @param {{ whatIf?: boolean, maxSteps?: number }} [options]
+ *   whatIf   follow the search where the ladder of patterns stops, as the
+ *            hint path does: a forcing proof if there is one, and trial
+ *            only if there is not. Off by default, because the patterns
+ *            alone are cheap and a shelf is decided by the hardest of
+ *            them. How deep a net may go is the engine's own stated limit
+ *            (searchLimits.NET_DEPTH), never a caller's choice.
  */
 export const startSolvePath = (puzzleArray, options = {}) => {
-  const { whatIf = false, whatIfDepth = WHAT_IF_DEPTH, maxSteps = MAX_STEPS } = options;
+  const { whatIf = false, maxSteps = MAX_STEPS } = options;
   let grid = buildGrid(puzzleArray);
   // The uniqueness family only applies to a puzzle with exactly one answer.
   // The analyser establishes that the way the app does - once, from the
@@ -198,9 +214,7 @@ export const startSolvePath = (puzzleArray, options = {}) => {
       if (Date.now() > deadline) break;
 
       let step = findNextLogicStep(grid, null, { uniqueness });
-      if (!step && whatIf) {
-        step = findForcingChain(grid, whatIfDepth) || findHypothesis(grid, whatIfDepth);
-      }
+      if (!step && whatIf) step = findWhatIfStep(grid);
       if (!step) {
         stalled = true;
         finished = true;
@@ -277,16 +291,16 @@ const pathCache = new Map();
 
 /**
  * @param {number[]} puzzleArray
- * @param {{ whatIf?: boolean, whatIfDepth?: number, maxSteps?: number }} walkOptions
+ * @param {{ whatIf?: boolean, maxSteps?: number }} walkOptions
  */
-const pathCacheKey = (puzzleArray, { whatIf, whatIfDepth, maxSteps }) =>
-  [puzzleArray.join(''), whatIf ? 'whatIf' : 'named', whatIfDepth ?? WHAT_IF_DEPTH, maxSteps ?? MAX_STEPS].join('|');
+const pathCacheKey = (puzzleArray, { whatIf, maxSteps }) =>
+  [puzzleArray.join(''), whatIf ? 'whatIf' : 'named', maxSteps ?? MAX_STEPS].join('|');
 
 /**
  * The solve path, walked to the end (or for as long as `timeBudgetMs`).
  *
  * @param {number[]} puzzleArray 81 digits, 0 for empty
- * @param {{ whatIf?: boolean, whatIfDepth?: number, maxSteps?: number, timeBudgetMs?: number }} [options]
+ * @param {{ whatIf?: boolean, maxSteps?: number, timeBudgetMs?: number }} [options]
  */
 export const analyzeSolvePath = (puzzleArray, options = {}) => {
   const { timeBudgetMs = Infinity, ...rest } = options;
@@ -378,14 +392,12 @@ export const analyzeDifficulty = (puzzleArray) => shelfFor(analyzeSolvePath(puzz
  * the share of solve-path steps that a named technique explains.
  *
  * @param {Record<string, { name: string, puzzle: number[] }[]>} shelves
- * @param {{ whatIfDepth?: number }} [options]
  */
-export const shelfCoverageReport = (shelves, options = {}) => {
-  const { whatIfDepth = WHAT_IF_DEPTH } = options;
+export const shelfCoverageReport = (shelves) => {
   const rows = Object.entries(shelves).map(([shelf, puzzles]) => {
     const analyses = puzzles.map((p) => ({
       name: p.name,
-      path: analyzeSolvePath(p.puzzle, { whatIf: true, whatIfDepth }),
+      path: analyzeSolvePath(p.puzzle, { whatIf: true }),
     }));
     const steps = analyses.reduce((sum, a) => sum + a.path.steps.length, 0);
     const named = analyses.reduce((sum, a) => sum + a.path.namedSteps, 0);
@@ -471,10 +483,8 @@ export const formatShelfCoverageReport = (report) => {
  * not in the catalog at all, which would otherwise go unreported.
  *
  * @param {Record<string, { name: string, puzzle: number[] }[]>} shelves
- * @param {{ whatIfDepth?: number }} [options]
  */
-export const techniqueTeachingReport = (shelves, options = {}) => {
-  const { whatIfDepth = WHAT_IF_DEPTH } = options;
+export const techniqueTeachingReport = (shelves) => {
 
   /** @type {Map<string, number>} */
   const stepsFor = new Map();
@@ -483,7 +493,7 @@ export const techniqueTeachingReport = (shelves, options = {}) => {
 
   for (const [shelf, puzzles] of Object.entries(shelves)) {
     for (const p of puzzles) {
-      const path = analyzeSolvePath(p.puzzle, { whatIf: true, whatIfDepth });
+      const path = analyzeSolvePath(p.puzzle, { whatIf: true });
       const seen = new Set();
       for (const step of path.steps) {
         stepsFor.set(step.technique, (stepsFor.get(step.technique) || 0) + 1);
@@ -503,7 +513,7 @@ export const techniqueTeachingReport = (shelves, options = {}) => {
       technique: tech.name,
       tier: tech.tier,
       /** The what-if fallback, which the library does not set out to teach. */
-      whatIf: WHAT_IF_TECHNIQUES.includes(tech.name),
+      whatIf: TRIAL_TECHNIQUES.includes(tech.name),
       steps,
       puzzles: puzzlesFor.get(tech.name) || [],
       taught: steps > 0,
@@ -571,8 +581,9 @@ export const formatTechniqueTeachingReport = (report) => {
     'a player receives. That is a gap in the library, not in the engine, and the',
     'list grows with every technique the programme adds.',
     '',
-    'The Forcing Chains rows are the what-if search, the fallback where the named',
-    'ladder stops, rather than a technique the library sets out to teach.',
+    'The Forcing rows are proofs by cases, found by the search where no pattern',
+    'applies: named techniques like any other. The What-if row is the trial',
+    'fallback, which the library does not set out to teach at all.',
     '',
     'tier             techniques  taught  never the hint',
   ];

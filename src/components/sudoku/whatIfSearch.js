@@ -1,10 +1,15 @@
-// What-if search (forcing chains, then hypothesis) as a cancellable,
-// off-main-thread call.
+// The what-if search - forcing proofs first, then the trial fallback - as a
+// cancellable, off-main-thread call.
 //
-//   const search = searchWhatIf(grid, depth, { timeBudgetMs });
+//   const search = searchWhatIf(grid, { timeBudgetMs });
 //   search.promise.then((step) => ...);   // step | null
 //   search.cancel();                       // rejects with { cancelled: true }
 //   a search past its time budget rejects with { timedOut: true }
+//
+// There is no depth argument: how deep the search may go is the engine's
+// own stated limit (searchLimits.NET_DEPTH), not something a caller sets,
+// because a search a caller can deepen without bound is a solver rather
+// than a mentor (#75).
 //
 // Every search gets its own worker (the module is small), so cancelling
 // one search - the only way to stop a synchronous search is to terminate
@@ -12,9 +17,7 @@
 // unavailable (tests, very old browsers) the search runs on the main
 // thread in a macrotask.
 
-/** Depth for the hint button: enough for library puzzles, never a freeze. */
-export const HINT_SEARCH_DEPTH = 20;
-/** Time budgets (ms): the hint gives up quickly; the panel's deeper search waits longer. */
+/** Time budgets (ms): the hint gives up quickly; the panel's search waits longer. */
 export const HINT_TIME_BUDGET_MS = 5000;
 export const DEEP_TIME_BUDGET_MS = 30000;
 
@@ -34,11 +37,10 @@ const serializeGrid = (grid) =>
 
 /**
  * @param {Array<{value: number|null, isFixed?: boolean, candidates: number[]}>} grid
- * @param {number} depth
  * @param {{ timeBudgetMs?: number }} [options]
  * @returns {{ promise: Promise<any>, cancel: () => void }}
  */
-export function searchWhatIf(grid, depth, { timeBudgetMs } = {}) {
+export function searchWhatIf(grid, { timeBudgetMs } = {}) {
   const id = nextId++;
   let cancelled = false;
 
@@ -48,11 +50,11 @@ export function searchWhatIf(grid, depth, { timeBudgetMs } = {}) {
       timer = setTimeout(async () => {
         if (cancelled) return;
         try {
-          const { findForcingChain, findHypothesis } = await import('./forcingChainEngine');
+          const { findWhatIfStep } = await import('./forcingChainEngine');
           if (cancelled) return;
           pending.delete(id);
           const deadline = typeof timeBudgetMs === 'number' ? Date.now() + timeBudgetMs : Infinity;
-          resolve(findForcingChain(grid, depth, deadline) || findHypothesis(grid, depth, deadline) || null);
+          resolve(findWhatIfStep(grid, { deadline }));
         } catch (error) {
           pending.delete(id);
           reject(error && error.timedOut ? { timedOut: true } : error);
@@ -95,7 +97,7 @@ export function searchWhatIf(grid, depth, { timeBudgetMs } = {}) {
         settle();
         reject(new Error(event?.message || 'What-if search failed'));
       };
-      worker.postMessage({ id, grid: serializeGrid(grid), depth, timeBudgetMs });
+      worker.postMessage({ id, grid: serializeGrid(grid), timeBudgetMs });
     } catch (error) {
       settle();
       reject(error);

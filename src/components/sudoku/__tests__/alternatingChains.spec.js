@@ -21,7 +21,7 @@ import {
 } from '../logicEngine';
 import { CHAIN_TECHNIQUES, HINT_CHAIN_NODES, SCAN_CHAIN_NODES, findChain } from '../aicEngine';
 import { solveSudoku } from '../solver';
-import { findForcingChain, findHypothesis } from '../forcingChainEngine';
+import { findWhatIfStep } from '../forcingChainEngine';
 import { explainStep, chainWalk } from '../explainStep';
 import { buildHighlightSets, buildChainOverlay } from '../stepHighlights';
 import { TECHNIQUE_INFO, TECHNIQUE_TIERS, TECHNIQUE_DETAILS, techniqueTier, matchTechniques } from '../techniqueCatalog';
@@ -661,7 +661,7 @@ describe('choosing the chain to show', () => {
       let grid = buildGrid(puzzle);
       for (let i = 0; i < 250; i++) {
         let step = findNextLogicStep(grid, null);
-        if (!step) step = findForcingChain(grid, 20) || findHypothesis(grid, 20);
+        if (!step) step = findWhatIfStep(grid);
         if (!step) break;
         if (CHAIN_TECHNIQUES.includes(step.technique)) seen.push({ name, grid, step });
         grid = applyLogicStep(grid, step);

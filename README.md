@@ -50,7 +50,7 @@ Branches: pull requests target `staging`, which the staging server deploys autom
 | `src/hooks/useSudokuPlayer.js` | Shared account state: user, colors, best times. |
 | `src/components/sudoku/logicEngine.jsx` | Core techniques: singles, pointing/claiming, pairs/triples, fish, XY-Wing. |
 | `src/components/sudoku/chainEngine.jsx` | Expert techniques: X-Cycle coloring, ALS-XZ, Unique Rectangle, BUG+1, Finned X-Wing. |
-| `src/components/sudoku/forcingChainEngine.jsx` | What-if engines: cell forcing chains and hypothesis (contradiction) search. |
+| `src/components/sudoku/forcingChainEngine.jsx` | The search: forcing proofs (cell, digit, unit, double and dynamic nets) and hypothesis (contradiction) search as the trial fallback. |
 | `src/components/sudoku/solver.jsx` | Bitmask MRV backtracking solver (computes the reference solution). |
 | `src/components/sudoku/difficultyAnalyzer.jsx` | Rates puzzle difficulty by simulating a solve. |
 | `src/components/sudoku/puzzles.js` | Built-in puzzle library (pure data). |
