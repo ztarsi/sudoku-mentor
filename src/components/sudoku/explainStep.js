@@ -58,6 +58,10 @@ export const GLOSSARY = {
   wing: 'An end cell of a wing pattern; it shares one candidate with the pivot and one with the other wing.',
   'deadly pattern': 'Four cells in a rectangle across two boxes holding the same two candidates. It would give the puzzle two solutions, so a valid puzzle never contains one.',
   contradiction: 'A state where some cell has no possible digit left, proving the assumption that led there was wrong.',
+  'weak link': 'Two places where at most one can be true: the same digit in cells that all see each other, or two digits in one cell.',
+  'alternating inference chain': 'A chain of nodes whose links alternate strong, weak, strong, beginning and ending with a strong link. At least one of its two endpoints is true.',
+  'group node': 'Every candidate for one digit in the cells where a box overlaps a row or a column. The digit is somewhere in the group or nowhere in it, so the group behaves as one node.',
+  'continuous loop': 'A chain that closes on itself with the alternation intact. Every weak link in it becomes exact, so each one eliminates.',
 };
 
 const TERMS_BY_TECHNIQUE = {
@@ -79,6 +83,17 @@ const TERMS_BY_TECHNIQUE = {
   'XY-Wing': ['bi-value cell', 'pivot', 'wing', 'sees'],
   'XYZ-Wing': ['bi-value cell', 'pivot', 'wing', 'sees'],
   'WXYZ-Wing': ['candidate', 'restricted common', 'sees'],
+  'Skyscraper': ['strong link', 'conjugate pair', 'sees'],
+  'Two-String Kite': ['strong link', 'conjugate pair', 'sees'],
+  'W-Wing': ['bi-value cell', 'conjugate pair', 'sees'],
+  'Remote Pairs': ['bi-value cell', 'strong link', 'sees'],
+  'X-Chain': ['alternating inference chain', 'strong link', 'weak link', 'conjugate pair'],
+  'XY-Chain': ['alternating inference chain', 'strong link', 'weak link', 'bi-value cell'],
+  'Alternating Chain': ['alternating inference chain', 'strong link', 'weak link', 'sees'],
+  'Grouped X-Chain': ['alternating inference chain', 'group node', 'strong link', 'weak link'],
+  'Grouped Alternating Chain': ['alternating inference chain', 'group node', 'strong link', 'weak link'],
+  'Continuous Loop': ['continuous loop', 'alternating inference chain', 'strong link', 'weak link'],
+  'ALS Chain': ['alternating inference chain', 'Almost Locked Set (ALS)', 'restricted common', 'weak link'],
   'X-Cycle': ['strong link', 'conjugate pair', 'sees'],
   'Finned X-Wing': ['fin', 'sees'],
   'Finned Swordfish': ['fin', 'sees'],
@@ -289,6 +304,22 @@ const SIMPLE = {
     };
   },
 
+  // The chain family (#67). The four short patterns read as their own
+  // lesson; the general and the richer forms share one set of words, with
+  // the link-by-link walk in chainWalk() so the player steps through it
+  // instead of reading a wall of text.
+  'Skyscraper': (step) => twoPairFish(step),
+  'Two-String Kite': (step) => twoPairFish(step),
+  'W-Wing': (step) => wWing(step),
+  'Remote Pairs': (step, grid) => remotePairs(step, grid),
+  'X-Chain': (step) => chainPlain(step),
+  'XY-Chain': (step) => chainPlain(step),
+  'Alternating Chain': (step) => chainPlain(step),
+  'Grouped X-Chain': (step) => chainPlain(step),
+  'Grouped Alternating Chain': (step) => chainPlain(step),
+  'Continuous Loop': (step) => chainPlain(step),
+  'ALS Chain': (step) => chainPlain(step),
+
   'X-Cycle': (step) => {
     const d = step.digit;
     const elimCells = uniq(step.eliminations.map((e) => e.cell));
@@ -392,6 +423,188 @@ const SIMPLE = {
 
 function capitalize(s) {
   return s ? s[0].toUpperCase() + s.slice(1) : s;
+}
+
+// ---------------------------------------------------------------------------
+// Chains, in plain words.
+//
+// A chain's proof is a sequence, so it is told as a sequence: one sentence
+// per link, which the hint card steps through. The explanation itself says
+// what to look at and what the two ends prove, and never repeats the whole
+// walk as one paragraph.
+// ---------------------------------------------------------------------------
+
+// A group of cells counts as one place in the chain, so it needs one name.
+// "R4C2/R6C2" keeps every sentence short; the look line explains it once,
+// the way the R5C3 legend explains a cell name once.
+const nodePlace = (node) => node.cells.map(shortCell).join('/');
+const isGroupNode = (node) => node.cells.length > 1;
+/** The legend, naming a group from this hint rather than a made-up one. */
+const groupLegend = (node) =>
+  `Cells written ${nodePlace(node)} count as one place: ${node.digit} is somewhere in there or nowhere in it.`;
+
+/** The one sentence a single link of a chain is worth. */
+function linkSentence(from, to) {
+  const unit = from.linkUnit?.name;
+  const a = nodePlace(from);
+  const b = nodePlace(to);
+
+  if (from.linkToNext === 'strong') {
+    if (from.linkVia === 'bivalue') {
+      return `${a} has only two pencil marks left, ${from.digit} and ${to.digit}. So if it is not ${from.digit}, it is ${to.digit}.`;
+    }
+    if (from.linkVia === 'als' && from.linkSet) {
+      const set = from.linkSet;
+      return `The ${countWord(set.cells.length)} cells ${shortCells(set.cells)} hold only ${listWords(set.digits)} between them, one number more than there are cells. So if none of them is ${from.digit}, the rest are forced and one of them must be ${to.digit}.`;
+    }
+    if (isGroupNode(from) || isGroupNode(to)) {
+      return `In ${unit ?? 'that row, column, or box'}, ${from.digit} has only two possible places left, ${a} and ${b}. So if ${from.digit} is not in ${a}, it is in ${b}.`;
+    }
+    return `In ${unit ?? 'that row, column, or box'}, the only two places for ${from.digit} are ${a} and ${b}. So if ${a} is not ${from.digit}, ${b} is.`;
+  }
+
+  if (from.linkVia === 'cell') {
+    return `${a} holds one number only, so if it is ${from.digit} it is not ${to.digit}.`;
+  }
+  if (isGroupNode(from) || isGroupNode(to)) {
+    return `Every cell in ${a} shares a row, column, or box with every cell in ${b}, so ${from.digit} cannot be in both places. So if ${from.digit} is in ${a}, it is not in ${b}.`;
+  }
+  return `${a} and ${b} ${unit ? `are both in ${unit}` : 'share a row, column, or box'}, so they cannot both be ${from.digit}. So if ${a} is ${from.digit}, ${b} is not.`;
+}
+
+/**
+ * The chain as the card walks it: one entry per link, in order, each with
+ * the nodes it joins and the sentence that explains it. For a continuous
+ * loop the last entry closes the loop back onto the first node.
+ *
+ * @param {object} step a step carrying `chainNodes`
+ * @returns {{ index: number, from: object, to: object, strong: boolean, text: string }[]}
+ */
+export function chainWalk(step) {
+  const nodes = step?.chainNodes;
+  if (!Array.isArray(nodes) || nodes.length < 2) return [];
+  const linkCount = step.chainClosed ? nodes.length : nodes.length - 1;
+  const walk = [];
+  for (let i = 0; i < linkCount; i++) {
+    const from = nodes[i];
+    const to = nodes[(i + 1) % nodes.length];
+    walk.push({
+      index: i,
+      from,
+      to,
+      strong: from.linkToNext === 'strong',
+      text: linkSentence(from, to),
+    });
+  }
+  return walk;
+}
+
+/** What the two ends of the chain prove, in plain words. */
+function chainConclusion(step) {
+  const nodes = step.chainNodes ?? [];
+  if (step.chainClosed) {
+    return 'Because the chain comes back to where it started, each link is now an exact either-or rather than a one-way push: in every dashed link, exactly one of its two sides is right. That is what lets the loop erase something at every one of them instead of only at one end.';
+  }
+  const first = nodes[0];
+  const last = nodes[nodes.length - 1];
+  if (!first || !last) return step.explanation || '';
+  if (step.placement) {
+    return `Say ${nodePlace(first)} is not ${first.digit}, and the chain forces it to be ${first.digit} after all. It cannot be both, so ${nodePlace(first)} is ${first.digit}.`;
+  }
+  if (first.digit === last.digit) {
+    const targets = uniq(step.eliminations.map((e) => e.cell));
+    const plural = targets.length !== 1;
+    const grouped = isGroupNode(first) || isGroupNode(last);
+    const either = grouped
+      ? `Either ${first.digit} is in ${nodePlace(first)}, or it is in ${nodePlace(last)}.`
+      : `Either ${nodePlace(first)} or ${nodePlace(last)} is ${first.digit}.`;
+    const seeing = grouped ? 'every cell at both ends' : 'both of them';
+    return `${either} ${shortCells(targets)} ${plural ? 'see' : 'sees'} ${seeing}, so ${plural ? 'they' : 'it'} can never be ${first.digit}.`;
+  }
+  return `Either way, ${nodePlace(first)} ends up as ${first.digit} or ${last.digit}, so every other pencil mark in it can go.`;
+}
+
+/** The generic chain lesson: what to look at, and what the ends prove. */
+function chainPlain(step) {
+  const nodes = step.chainNodes ?? [];
+  const links = chainWalk(step).length;
+  const digits = uniq(nodes.map((n) => n.digit)).sort((a, b) => a - b);
+  const about = digits.length === 1 ? `the number ${digits[0]}` : `the numbers ${listWords(digits)}`;
+  const legend =
+    'A solid step means at least one of its two ends is right; a dashed step means at most one of them is.';
+  const firstGroup = nodes.find(isGroupNode);
+  const groups = firstGroup ? ` ${groupLegend(firstGroup)}` : '';
+  const first = nodes[0];
+  const last = nodes[nodes.length - 1];
+  const ends =
+    first && last && first.cells.length === 1 && last.cells.length === 1 && first.cells[0] === last.cells[0]
+      ? `starting and ending at ${nodePlace(first)}`
+      : `from ${nodePlace(first)} to ${nodePlace(last)}`;
+  const look = step.chainClosed
+    ? `Follow the highlighted marks round the loop: ${links} steps about ${about}, ending back where they began. ${legend}${groups}`
+    : `Follow the highlighted marks in order: ${links} steps about ${about}, ${ends}. ${legend}${groups}`;
+  return {
+    look,
+    why: chainConclusion(step),
+    extra: 'Step through the chain below to watch it build, one link at a time.',
+  };
+}
+
+/**
+ * Skyscraper and Two-String Kite: the two four-node patterns on one digit.
+ * One sentence for each pair, one for where they touch.
+ */
+function twoPairFish(step) {
+  const nodes = step.chainNodes ?? [];
+  if (nodes.length !== 4) return chainPlain(step);
+  const [freeA, nearA, nearB, freeB] = nodes;
+  const d = freeA.digit;
+  const unitA = freeA.linkUnit?.name ?? 'its line';
+  const unitB = nearB.linkUnit?.name ?? 'its line';
+  const join = nearA.linkUnit?.name ?? 'the same row, column, or box';
+  const targets = uniq(step.eliminations.map((e) => e.cell));
+  const plural = targets.length !== 1;
+  return {
+    look: `Look at the number ${d}. In ${unitA} it can only go in ${shortCell(freeA.cells[0])} or ${shortCell(nearA.cells[0])}; in ${unitB} only in ${shortCell(nearB.cells[0])} or ${shortCell(freeB.cells[0])}. ${shortCell(nearA.cells[0])} and ${shortCell(nearB.cells[0])} are both in ${join}.`,
+    why: `Those two cannot both be ${d}, because they share a ${join.split(' ')[0]}. ${capitalize(unitA)} and ${unitB} each need a ${d} somewhere, so at least one of the other two cells, ${shortCell(freeA.cells[0])} and ${shortCell(freeB.cells[0])}, must be ${d}. ${shortCells(targets)} ${plural ? 'see' : 'sees'} both of them, so ${plural ? 'they' : 'it'} can never be ${d}.`,
+  };
+}
+
+/** W-Wing: the same bare pair twice, bridged by a conjugate pair. */
+function wWing(step) {
+  const nodes = step.chainNodes ?? [];
+  if (nodes.length !== 6) return chainPlain(step);
+  const z = nodes[0].digit;
+  const x = nodes[2].digit;
+  const left = shortCell(nodes[0].cells[0]);
+  const right = shortCell(nodes[5].cells[0]);
+  const bridgeA = shortCell(nodes[2].cells[0]);
+  const bridgeB = shortCell(nodes[3].cells[0]);
+  const bridgeUnit = nodes[2].linkUnit?.name ?? 'one row, column, or box';
+  const targets = uniq(step.eliminations.map((e) => e.cell));
+  const plural = targets.length !== 1;
+  return {
+    look: `Look at ${left} and ${right}. Both hold exactly the same two pencil marks, ${x} and ${z}. In ${bridgeUnit} the number ${x} can only go in ${bridgeA} or ${bridgeB}, and ${bridgeA} shares a row, column, or box with ${left} while ${bridgeB} shares one with ${right}.`,
+    why: `One of ${bridgeA} and ${bridgeB} is ${x}. Whichever it is, it stops the matching cell beside it from being ${x}, and that cell has only ${x} and ${z} to choose from, so it has to be ${z}. Either way one of ${left} and ${right} is ${z}. ${shortCells(targets)} ${plural ? 'see' : 'sees'} both of them, so ${plural ? 'they' : 'it'} can never be ${z}.`,
+  };
+}
+
+/** Remote Pairs: a line of cells all holding the very same two marks. */
+function remotePairs(step, grid) {
+  const nodes = step.chainNodes ?? [];
+  if (nodes.length < 4) return chainPlain(step);
+  const cells = uniq(nodes.map((n) => n.cells[0]));
+  const marks = candidatesOf(grid, cells[0]);
+  const pair = marks.length === 2 ? listWords([...marks].sort((a, b) => a - b)) : 'the same two numbers';
+  const d = nodes[0].digit;
+  const first = shortCell(cells[0]);
+  const last = shortCell(cells[cells.length - 1]);
+  const targets = uniq(step.eliminations.map((e) => e.cell));
+  const plural = targets.length !== 1;
+  return {
+    look: `Look at ${countWord(cells.length)} cells that all hold exactly the same two pencil marks, ${pair}: ${shortCells(cells)}. Each one shares a row, column, or box with the next.`,
+    why: `Since every one of these cells has only those two numbers to choose from, the line flips between them: whatever ${first} takes, its neighbour must take the other, and the one after that flips back. Follow it to the far end and one of ${first} and ${last} has to be ${d}. ${shortCells(targets)} ${plural ? 'see' : 'sees'} both of them, so ${plural ? 'they' : 'it'} can never be ${d}.`,
+  };
 }
 
 function pointing(step) {

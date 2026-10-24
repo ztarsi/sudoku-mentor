@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Lightbulb, Eye, Sparkles, Check, FlaskConical, Timer, Trophy, Play, ChevronRight, Loader2, X, Sprout } from 'lucide-react';
 import { LEVEL_COLORS, TECHNIQUE_INFO } from '../techniqueCatalog';
-import { explainStep, readExplainLevel, writeExplainLevel, legendFor } from '../explainStep';
+import { explainStep, readExplainLevel, writeExplainLevel, legendFor, chainWalk } from '../explainStep';
 
 import { cellName as cellRef } from '../gridUnits';
 import Callout from '../Callout';
@@ -98,6 +98,102 @@ const Explanation = ({ explanation, legend }) => {
       ))}
       {extra && <p className="text-xs text-slate-500 px-1">{extra}</p>}
       <p className="text-xs text-slate-500 px-1">{legend}</p>
+    </div>
+  );
+};
+
+/**
+ * The walk through an alternating inference chain: one line per link, in
+ * order, with the same prev / play / next controls the what-if replay uses.
+ * A chain's proof is a sequence, so the player steps through it rather than
+ * reading a wall of text (#67).
+ */
+const ChainLinkTrace = ({
+  currentStep,
+  chainPlaybackIndex,
+  onChainPlaybackChange,
+  isPlayingChain,
+  onToggleChainPlayback,
+}) => {
+  const walk = chainWalk(currentStep);
+  if (walk.length === 0) return null;
+  const here = Math.min(Math.max(chainPlaybackIndex ?? 0, 0), walk.length - 1);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-base font-medium text-slate-300">
+          {currentStep.chainClosed ? 'Round the loop:' : 'The chain, link by link:'}
+        </p>
+        <div className="flex gap-2">
+          <button
+            onClick={() => onChainPlaybackChange?.(Math.max(0, here - 1))}
+            disabled={here === 0}
+            className="p-1.5 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-600 rounded transition-colors"
+            title="Previous link"
+            aria-label="Previous chain link"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <button
+            onClick={onToggleChainPlayback}
+            className={`p-1.5 ${isPlayingChain ? 'bg-red-600 hover:bg-red-500' : 'bg-blue-600 hover:bg-blue-500'} rounded transition-colors`}
+            title={isPlayingChain ? 'Pause' : 'Walk the chain'}
+            aria-label={isPlayingChain ? 'Pause the chain walk' : 'Walk the chain'}
+          >
+            {isPlayingChain ? (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6" />
+              </svg>
+            ) : (
+              <Play className="w-4 h-4" aria-hidden="true" />
+            )}
+          </button>
+          <button
+            onClick={() => onChainPlaybackChange?.(Math.min(walk.length - 1, here + 1))}
+            disabled={here >= walk.length - 1}
+            className="p-1.5 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-600 rounded transition-colors"
+            title="Next link"
+            aria-label="Next chain link"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+      </div>
+      <ol className="bg-slate-800 rounded-xl p-4 max-h-72 overflow-y-auto space-y-2">
+        {walk.map((link, idx) => (
+          <li key={idx}>
+            <button
+              onClick={() => onChainPlaybackChange?.(idx)}
+              aria-current={idx === here}
+              className={`w-full flex items-start gap-2 text-sm text-left p-2 rounded hover:bg-slate-700/50 transition-colors ${
+                idx === here ? 'bg-blue-900/30 border border-blue-600' : ''
+              }`}
+            >
+              <span className={`font-bold shrink-0 ${idx === here ? 'text-blue-300' : 'text-slate-500'}`}>
+                {idx + 1}.
+              </span>
+              <span className="min-w-0">
+                <span
+                  className={`inline-block mr-2 px-1.5 py-0.5 rounded text-xs font-medium ${
+                    link.strong ? 'bg-blue-950 text-blue-300' : 'bg-slate-700 text-slate-300'
+                  }`}
+                >
+                  {link.strong ? 'at least one' : 'at most one'}
+                </span>
+                <span className={idx === here ? 'text-white' : 'text-slate-300'}>{link.text}</span>
+              </span>
+            </button>
+          </li>
+        ))}
+      </ol>
+      <div className="text-xs text-slate-500 text-center">
+        Link {here + 1} of {walk.length}
+      </div>
     </div>
   );
 };
@@ -459,6 +555,16 @@ export default function CurrentStepCard({
             </div>
 
             <Explanation explanation={explanation} legend={legendFor(legendCell)} />
+
+            {Array.isArray(currentStep.chainNodes) && currentStep.chainNodes.length > 1 && (
+              <ChainLinkTrace
+                currentStep={currentStep}
+                chainPlaybackIndex={chainPlaybackIndex}
+                onChainPlaybackChange={onChainPlaybackChange}
+                isPlayingChain={isPlayingChain}
+                onToggleChainPlayback={onToggleChainPlayback}
+              />
+            )}
 
             {(currentStep.technique === 'Deep Forcing Chain' || currentStep.technique === 'Hypothesis Mode') && currentStep.chain && (
               <ChainTrace

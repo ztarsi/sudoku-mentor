@@ -34,7 +34,7 @@ export const TIERS = [
   {
     level: 'Ultimate',
     color: 'violet',
-    scanNote: 'These cost too much to count while you play. Scan runs every one of them on the board as it stands now; it takes a second or two. Or count one row on its own.',
+    scanNote: 'These cost too much to count while you play. Scan runs every one of them on the board as it stands now, and looks at longer chains than a hint will show you; it takes a second or two. Or count one row on its own.',
   },
   {
     level: 'Forcing Chains',
@@ -211,6 +211,44 @@ export const TECHNIQUES = [
     description: 'Four cells spanning four candidates pin one digit inside the set.',
     icon: Lightbulb,
   },
+  // The chain family (#67). Four short chains with well-known names come
+  // first, so a player gains a vocabulary rather than one general machine.
+  {
+    name: 'Skyscraper',
+    tier: 'Expert',
+    count: COUNT_LIVE,
+    formal: 'Turbot Fish (skyscraper)',
+    aliases: ['turbot fish', 'single digit chain', 'chain', 'aic'],
+    description: 'Two conjugate pairs on one digit share a line at one end.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'Two-String Kite',
+    short: 'Two-String Kite',
+    tier: 'Expert',
+    count: COUNT_LIVE,
+    formal: 'Turbot Fish (kite)',
+    aliases: ['kite', 'turbot fish', 'single digit chain', 'chain', 'aic'],
+    description: 'A row pair and a column pair on one digit meet in a box.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'W-Wing',
+    tier: 'Expert',
+    count: COUNT_LIVE,
+    aliases: ['wing', 'w wing', 'chain', 'aic'],
+    description: 'The same bare pair twice, bridged by a conjugate pair.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'Remote Pairs',
+    tier: 'Expert',
+    count: COUNT_LIVE,
+    formal: 'Remote Pair chain',
+    aliases: ['remote pair', 'chain', 'aic'],
+    description: 'A chain of cells all holding the same two candidates.',
+    icon: Lightbulb,
+  },
   {
     name: 'X-Cycle',
     tier: 'Ultimate',
@@ -227,6 +265,23 @@ export const TECHNIQUES = [
     formal: '3D Medusa Colouring',
     aliases: ['medusa', 'colouring', 'coloring', 'multi-digit colouring', 'multi colouring'],
     description: 'Colouring across every digit at once, inside cells as well as along units.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'X-Chain',
+    tier: 'Ultimate',
+    count: COUNT_SCAN,
+    formal: 'X-Chain (single-digit AIC)',
+    aliases: ['single digit chain', 'chain', 'aic', 'alternating inference chain'],
+    description: 'A longer chain of strong and weak links on one digit.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'XY-Chain',
+    tier: 'Ultimate',
+    count: COUNT_SCAN,
+    aliases: ['xy chain', 'chain', 'aic', 'alternating inference chain'],
+    description: 'A chain of bi-value cells whose two ends share a digit.',
     icon: Lightbulb,
   },
   {
@@ -306,6 +361,52 @@ export const TECHNIQUES = [
     count: COUNT_SCAN,
     aliases: ['fish', 'mutant', 'mutant fish'],
     description: 'A fish whose lines mix rows, columns and boxes freely.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'Alternating Chain',
+    tier: 'Ultimate',
+    count: COUNT_SCAN,
+    formal: 'Alternating Inference Chain (AIC)',
+    aliases: ['aic', 'alternating inference chain', 'chain', 'mixed digit chain'],
+    description: 'Strong and weak links alternating across mixed digits.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'Grouped X-Chain',
+    tier: 'Ultimate',
+    count: COUNT_SCAN,
+    formal: 'Grouped X-Chain',
+    aliases: ['grouped chain', 'grouped aic', 'group node', 'chain', 'aic'],
+    description: 'A one-digit chain whose links may land on a group of cells.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'Grouped Alternating Chain',
+    short: 'Grouped AIC',
+    tier: 'Ultimate',
+    count: COUNT_SCAN,
+    formal: 'Grouped Alternating Inference Chain',
+    aliases: ['grouped chain', 'grouped aic', 'group node', 'chain', 'aic'],
+    description: 'A mixed-digit chain whose links may land on a group of cells.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'Continuous Loop',
+    tier: 'Ultimate',
+    count: COUNT_SCAN,
+    formal: 'Nice Loop (continuous)',
+    aliases: ['nice loop', 'loop', 'continuous nice loop', 'chain', 'aic'],
+    description: 'A chain that closes on itself, so every weak link eliminates.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'ALS Chain',
+    tier: 'Ultimate',
+    count: COUNT_SCAN,
+    formal: 'AIC with Almost Locked Set nodes',
+    aliases: ['als', 'almost locked set', 'als aic', 'chain', 'aic'],
+    description: 'A chain that passes through a set one digit short of locked.',
     icon: Lightbulb,
   },
   {
@@ -502,6 +603,72 @@ export const TECHNIQUE_DETAILS = {
     description: 'Four cells spanning exactly four candidates where each of the three non-Z digits is restricted (all its cells in the set see each other). At most three cells take those digits, so one cell must be Z, and Z is removed from every cell that sees all Z candidates in the set.',
     example: 'R1C1 = {1, 9}, R1C3 = {4, 9}, R1C7 = {1, 4, 6} and R3C1 = {6, 9}. The 1s, 4s and 6s each see each other, so one of the four cells is 9. Remove 9 from cells that see every 9 in the set.',
     strategy: '1. Find four cells whose pencil marks together are only four numbers\n2. Pick the number whose cells do not all see each other; the other three must each be confined to cells that do\n3. Erase that number from every cell that sees all of its places inside the set'
+  },
+  'Skyscraper': {
+    plain: 'Pick a number. Find two rows where it has only two possible cells each, and where one of those cells in each row sits in the same column as the other row\'s. Those two cells share a column, so they cannot both hold the number. That leaves the other two cells, one in each row, and at least one of them has to hold it. Any cell that shares a row, column, or box with both of those can never be that number.',
+    description: 'Two conjugate pairs on one digit lie in two rows (or two columns) with one end of each in the same column (or row). The two free ends are the endpoints of a four-node alternating inference chain, so the digit is eliminated from every cell that sees both of them.',
+    example: 'The only 5s in row 1 are R1C3 and R1C7; the only 5s in row 4 are R4C7 and R4C9. R1C7 and R4C7 share column 7, so one of R1C3 and R4C9 is 5. R1C9 sees both, so remove 5 from R1C9.',
+    strategy: '1. Pick a digit\n2. Find two rows where it has exactly two places\n3. Check that one place from each row shares a column\n4. Erase the digit from every cell that sees both of the other two places'
+  },
+  'Two-String Kite': {
+    plain: 'Pick a number. Find a row where it has only two possible cells, and a column where it has only two possible cells. If one cell from the row and one cell from the column sit inside the same 3x3 box, those two cannot both hold the number. So one of the other two cells, the far ends, must hold it. The cell that shares a row with one far end and a column with the other can never be that number.',
+    description: 'A conjugate pair on one digit in a row and another in a column, with their near ends in the same box. The far ends are the endpoints of a four-node alternating inference chain, so the digit is eliminated from the cell that sees both.',
+    example: 'The only 7s in row 7 are R7C2 and R7C8; the only 7s in column 3 are R5C3 and R9C3. R7C2 and R9C3 both sit in box 7, so they cannot both be 7, which leaves one of R7C8 and R5C3. R5C8 shares row 5 with one and column 8 with the other, so R5C8 cannot be 7.',
+    strategy: '1. Pick a digit\n2. Find a row with exactly two places for it, and a column with exactly two\n3. Check that one place from each shares a box\n4. Erase the digit from the cell that sees both far ends'
+  },
+  'W-Wing': {
+    plain: 'Two cells somewhere on the board hold exactly the same two pencil marks, say 3 and 8, and they do not see each other. Now find a row, column, or box where 3 has only two possible cells, with one of them seeing the first cell and the other seeing the second. One of those two cells is the 3, and whichever it is, it stops the matching cell beside it from being 3, which forces that cell to be 8. So one of the two matching cells is 8. Any cell that shares a row, column, or box with both of them can never be 8.',
+    description: 'Two cells hold the same bare pair {X, Z} and are joined by a conjugate pair on X, one end of which sees each pair cell. Either end of the conjugate pair forces the pair cell it sees to Z, so Z is eliminated from every cell that sees both pair cells.',
+    example: 'R1C1 and R7C9 both hold only {3, 8}. In row 4 the only 3s are R4C1 and R4C9. R4C1 sees R1C1 and R4C9 sees R7C9, so one of R1C1 and R7C9 is 8. Remove 8 from R1C9, which sees both.',
+    strategy: '1. Find two cells with the same two pencil marks that do not see each other\n2. Pick one of the two digits and find a row, column, or box where it has exactly two places\n3. Check that one place sees the first cell and the other sees the second\n4. Erase the other digit from every cell that sees both of the matching cells'
+  },
+  'Remote Pairs': {
+    plain: 'A line of cells that all hold exactly the same two pencil marks, each cell sharing a row, column, or box with the next. Because every cell has only those two numbers, the chain flips between them: if one cell takes the first number, its neighbour has to take the second, and the next one flips back. Follow the flipping from one end to the other and you learn that one of the two far ends must hold a particular number, whichever way it falls. Any cell that shares a row, column, or box with both ends can never be that number.',
+    description: 'A chain of cells all holding the same two candidates, each linked to the next. The alternation makes the two ends either the same digit or opposite; where they share a digit, that digit is eliminated from every cell seeing both ends.',
+    example: 'R1C1, R1C5, R6C5 and R6C9 all hold only {2, 7}, each linked to the next. One of R1C1 and R6C9 is 2, so remove 2 from any cell that sees both.',
+    strategy: '1. Find cells holding the same two pencil marks\n2. Link each to the next one it shares a row, column, or box with\n3. With four or more cells in the line, erase the end digit from every cell that sees both ends'
+  },
+  'X-Chain': {
+    plain: 'One number, followed along a chain. Each link of the chain is a row, column, or box where the number has only two possible places: if one of them is not the number, the other one is. Between the links, two places that share a row, column, or box cannot both hold the number. Follow the chain from end to end and you learn that one of its two end cells holds the number. Any cell that shares a row, column, or box with both ends can never be it.',
+    description: 'An alternating inference chain where every node is the same digit: conjugate pairs as the strong links and shared units as the weak ones. At least one endpoint is true, so the digit is eliminated from every cell that sees both endpoints. Skyscraper and Two-String Kite are its four-node cases.',
+    example: 'A chain on 6: (6)R1C3 = (6)R1C7 - (6)R4C7 = (6)R4C2 - (6)R8C2 = (6)R8C9. One of R1C3 and R8C9 is 6, so any cell seeing both loses its 6.',
+    strategy: '1. Pick a digit\n2. Find a row, column, or box where it has exactly two places and start at one of them\n3. Hop to a place that shares a unit with the other, then to its own pair, and keep going\n4. Erase the digit from every cell that sees both ends of the chain'
+  },
+  'XY-Chain': {
+    plain: 'A chain of cells that each have only two pencil marks left. Each cell passes the baton to the next: the two cells share a number and also share a row, column, or box, so they cannot both be that number, which forces the next cell to take its other mark. The two ends of the chain happen to share a number. Follow the chain and one of the two ends must be that number, so any cell that sees both ends can never be it.',
+    description: 'An alternating inference chain whose strong links are all bi-value cells and whose weak links are shared units on a common digit. Where the two endpoint candidates are the same digit, it is eliminated from every cell that sees both endpoint cells. An XY-Wing is its three-cell case.',
+    example: 'R1C1 = {4, 9}, R1C6 = {9, 2}, R5C6 = {2, 7}, R5C3 = {7, 4}, each linked to the next. One of R1C1 and R5C3 is 4, so remove 4 from R1C3, which sees both.',
+    strategy: '1. Start at a cell with two pencil marks\n2. Move to another two-mark cell that shares a unit and one of those marks\n3. Keep going, each step carrying the unused mark forward\n4. When the far end offers the digit you started with, erase it from every cell that sees both ends'
+  },
+  'Alternating Chain': {
+    plain: 'The general form of every chain in this family, with mixed numbers rather than one. The chain alternates two kinds of step. A strong step says "at least one of these two is right": the only two places for a number in a row, column, or box, or the only two numbers left in a cell. A weak step says "at most one of these two is right": the same number in two cells that see each other, or two numbers in one cell. A chain that starts and ends with a strong step proves that at least one of its two ends is right, and anything both ends rule out can be erased.',
+    description: 'An alternating inference chain (AIC) over mixed digits, beginning and ending with a strong link. Endpoints on the same digit eliminate it from every cell that sees both; endpoints on two digits in one cell leave that cell only those two.',
+    example: '(7)R2C2 = (4)R2C2 - (4)R2C8 = (4)R6C8 - (9)R6C8 = (9)R6C2 gives "one of (7)R2C2 and (9)R6C2 is true", so R6C2 and R2C2 between them settle column 2.',
+    strategy: '1. Start on a pencil mark and take a strong step away from it\n2. Take a weak step, then a strong one, and keep alternating\n3. Stop on a strong step\n4. Read off what both ends rule out and erase it'
+  },
+  'Grouped X-Chain': {
+    plain: 'A chain on one number, except that a link may land on a small group of cells instead of a single cell. Where a 3x3 box overlaps a row or a column, the number is either somewhere in that overlap or nowhere in it, so the whole overlap behaves like one place in the chain. Everything else works the same way. One thing to be careful about: an erasure at the end of the chain has to share a row, column, or box with every single cell of the group. Missing one of them makes the erasure wrong.',
+    description: 'An X-Chain in which a node may be a group: every candidate for the digit in the cells where a box overlaps a row or a column. A group is true or false as a whole, so the link rules are unchanged, but an elimination must see every cell of an endpoint group.',
+    example: 'A chain on 3 where the middle node is "the 3s in R4C1 and R4C2", which is where box 4 overlaps row 4. The ends are single cells, and a cell seeing both ends loses its 3.',
+    strategy: '1. Pick a digit\n2. Look for a row, column, or box where its places fall into just two clumps, each clump inside one box\n3. Treat each clump as one place and build the chain as usual\n4. Erase the digit only from cells that see every cell of both end clumps'
+  },
+  'Grouped Alternating Chain': {
+    plain: 'The same as a chain with mixed numbers, except that a link may land on a small group of cells instead of a single cell. Where a 3x3 box overlaps a row or a column, a number is either somewhere in that overlap or nowhere in it, so the overlap behaves like one place in the chain. An erasure at the end has to share a row, column, or box with every single cell of the group; missing one makes it wrong.',
+    description: 'An alternating inference chain over mixed digits in which at least one node is a group: every candidate for one digit in a box/line overlap. An elimination must see every cell of an endpoint group.',
+    example: 'A chain whose second node is "the 5s in R7C7 and R7C8", the overlap of box 9 and row 7, with the chain continuing on a different digit from a cell inside it.',
+    strategy: '1. Build the chain as usual, hopping between pencil marks\n2. Where a digit in a unit is confined to one box/line overlap, use that overlap as a single step\n3. Finish on a strong step\n4. Erase only from cells that see every cell of both ends'
+  },
+  'Continuous Loop': {
+    plain: 'A chain that closes back on itself, with the two kinds of step still alternating all the way round. Because the chain returns to where it started, each weak step turns into an exact either-or rather than a one-way push: in every weak step, exactly one of the two sides is right. That hands you several erasures at once, one for each weak step in the loop, instead of a single one at the end of a chain. A loop with an odd number of steps cannot alternate, so it proves nothing at all.',
+    description: 'A nice loop: a chain that closes with strong and weak links alternating all the way round. Every weak link becomes exact, so each one eliminates - the digit from every cell seeing both of its sides, or the other candidates from a cell shared by two digits. An odd number of links cannot alternate and is rejected.',
+    example: 'A four-link loop on 2 and 8 around R1C1, R1C6, R5C6 and R5C1. Each weak link is now exact, so 2 leaves the rest of row 1 and 8 leaves the rest of column 6, and so on round the loop.',
+    strategy: '1. Build a chain as usual\n2. Keep going until it returns to the mark it started from, still alternating\n3. Check that the number of steps is even\n4. Take the erasure every weak step in the loop gives you, not just the first'
+  },
+  'ALS Chain': {
+    plain: 'A chain that passes through a group of cells that is one number short of locked: the cells together hold exactly one more number than there are cells. Take any one of those numbers away and the rest are forced into place. So the group behaves like a single step in the chain: either it holds one particular number, or it loses that one, locks, and must hold another. The rest of the chain works as usual. The erasure at the end has to share a row, column, or box with every cell of the group that could hold the number.',
+    description: 'An alternating inference chain with an Almost Locked Set as a node: N cells holding N + 1 candidates. Losing digit X locks the set, which must then contain Z, so (X in set) = (Z in set) is a strong link. The links into and out of the set are restricted commons: every copy of the digit in the set sees every copy outside it.',
+    example: 'Two cells in row 5 holding {2, 3, 5} between them are one number short of locked. A chain arrives on 2 and leaves on 5: if nothing in the pair is 2, both cells are forced and one of them is 5.',
+    strategy: '1. Find a few cells in one row, column, or box holding one more number than there are cells\n2. Pick two of its numbers, X and Z, and use "no X means a Z" as a strong step\n3. Join it to the rest of the chain on X and on Z, checking that every copy of the digit inside the group sees every copy outside it\n4. Erase at the end only from cells that see every cell of the group that could hold the digit'
   },
   'X-Cycle': {
     plain: 'Pick a number and find places where it has exactly two possible cells in a row, column, or box. Those pairs link into a chain: if one end is not the number, the other end must be. Colour the chain alternately, like a checkerboard. Exactly one colour is the true set. If a cell sees both colours it can never be the number. And if two cells of one colour clash with each other, that whole colour is wrong.',

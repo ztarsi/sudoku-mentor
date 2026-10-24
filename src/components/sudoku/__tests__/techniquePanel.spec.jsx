@@ -226,4 +226,15 @@ describe('No Assist', () => {
     fireEvent.click(view.getByText('X-Wing'));
     expect(onSelectTechnique).toHaveBeenCalledWith('X-Wing');
   });
+
+  it('a chain lesson is still one click away in No Assist', () => {
+    // Reading how a technique works is not assistance: the reference dialog
+    // stays reachable while counts, Scan and Search stay off (#67).
+    const onSelectTechnique = vi.fn();
+    const view = show({ noAssistMode: true, onSelectTechnique });
+    fireEvent.click(view.getByRole('button', { name: /^Ultimate/ }));
+    fireEvent.click(view.getByRole('button', { name: 'Continuous Loop' }));
+    expect(onSelectTechnique).toHaveBeenCalledWith('Continuous Loop');
+    expect(view.queryByRole('button', { name: /Scan this board/ })).toBeNull();
+  });
 });

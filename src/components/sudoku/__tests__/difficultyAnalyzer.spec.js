@@ -106,7 +106,7 @@ describe('the solve path', () => {
     // Named techniques still explain most of it, and the hardest one the
     // puzzle teaches is reported even though a what-if came first.
     expect(withWhatIf.namedShare).toBeGreaterThan(0.5);
-    expect(withWhatIf.hardestTechnique).toBe('ALS-XZ');
+    expect(withWhatIf.hardestTechnique).toBe('Grouped X-Chain');
   });
 
   it('every tier it reports is a tier the panel knows', () => {
@@ -160,7 +160,7 @@ describe('what the library row says', () => {
     expect(teachingLabel(analyzePuzzle(puzzle('Gentle Start')))).toBe('Teaches up to Naked Single');
     expect(teachingLabel(analyzePuzzle(puzzle('Deep Waters')))).toBe('Teaches up to XY-Wing');
     expect(teachingLabel(analyzePuzzle(puzzle('Golden Nugget')))).toBe(
-      'Teaches up to ALS-XZ, then what-if search'
+      'Teaches up to Grouped X-Chain, then what-if search'
     );
   });
 
@@ -204,6 +204,18 @@ describe('named-technique coverage, by shelf', () => {
       expect(row.unsolved, `${row.shelf}: unsolved puzzles`).toEqual([]);
     }
     expect(report.named + (report.steps - report.named)).toBe(report.steps);
+  });
+
+  it('keeps the ground the chain family gained on the Ultimate shelf', () => {
+    // The Ultimate shelf was 91.7% named before the fish (#72) and 92.6%
+    // after them; the chain family (#67) moved it to 94.4%, and 37 what-if
+    // steps became 31. The floors sit a little under that so a later batch
+    // can only push them up.
+    const ultimate = report.rows.find((r) => r.shelf === 'ultimate');
+    expect(ultimate.namedShare).toBeGreaterThan(0.93);
+    expect(ultimate.whatIf).toBeLessThan(37);
+    expect(ultimate.needWhatIf).toBeLessThan(ultimate.puzzles);
+    expect(report.namedShare).toBeGreaterThan(0.97);
   });
 
   it('holds the shelves the programme says are fully named', () => {

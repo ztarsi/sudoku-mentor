@@ -19,6 +19,15 @@ const SCAN_TIMES = {
   'ALS-XZ': 'a moment',
   'Franken Fish': 'a moment',
   'Mutant Fish': 'a moment',
+  // The chain family reads one graph per board, built once and shared, so
+  // every one of them is milliseconds after the first.
+  'X-Chain': 'instant',
+  'XY-Chain': 'instant',
+  'Alternating Chain': 'instant',
+  'Grouped X-Chain': 'instant',
+  'Grouped Alternating Chain': 'instant',
+  'Continuous Loop': 'instant',
+  'ALS Chain': 'instant',
 };
 
 export default function UltimateTechniqueScanModal({ isOpen, currentTechnique, results, onClose }) {
