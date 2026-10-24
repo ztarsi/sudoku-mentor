@@ -609,13 +609,26 @@ describe('the family on the ladder', () => {
     // The densest board there will ever be: a library puzzle before a
     // single digit has been placed, where every set that will ever exist
     // exists at once.
+    //
+    // Each one is timed three times and the quickest run is the one that
+    // counts. The budget is what the detector costs; a test runner with
+    // half a dozen other files on it at the same time is not part of that,
+    // and a single sample on a shared machine swings by half as much again
+    // (#75 measured 105 ms and 159 ms back to back for the same work). Each
+    // run gets a board of its own, because the sets are cached per grid and
+    // a second run on the same one would time the cache instead of the work.
+    const SAMPLES = 3;
     const costs = [];
     for (const { name, puzzle } of Object.values(PUZZLES).flat()) {
-      const board = buildGrid(puzzle);
       for (const [technique, find] of Object.entries(ALS_FINDERS)) {
-        const started = performance.now();
-        find(board, null, true);
-        costs.push({ where: `${technique} on ${name}`, ms: performance.now() - started });
+        let quickest = Infinity;
+        for (let sample = 0; sample < SAMPLES; sample++) {
+          const board = buildGrid(puzzle);
+          const started = performance.now();
+          find(board, null, true);
+          quickest = Math.min(quickest, performance.now() - started);
+        }
+        costs.push({ where: `${technique} on ${name}`, ms: quickest });
       }
     }
     const worst = costs.reduce((a, b) => (a.ms > b.ms ? a : b));
