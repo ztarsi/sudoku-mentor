@@ -4,14 +4,15 @@ Issue: [#88](https://github.com/ztarsi/sudoku-mentor/issues/88). Roadmap bucket:
 
 ## The player problem
 
-The mentor knows 31 techniques today and will know around 55 when the coverage programme finishes. The library is twenty puzzles. The report that shipped in #83 says what that means:
+The mentor knows 53 techniques as of this afternoon and will know around 55 when the coverage programme finishes. The library is twenty puzzles, and has been throughout. The report that shipped in #83 says what that means:
 
-| | Count |
-| --- | --- |
-| Techniques in the catalog | 31 |
-| Taught by at least one library puzzle | 21 |
-| Never the hint on any library puzzle | 10 |
-| Taught by exactly one puzzle | 6, four of them by a single step |
+| | 24 Oct, when the report first ran | 24 Oct, after chains, uniqueness and the fish |
+| --- | --- | --- |
+| Techniques in the catalog | 31 | 53 |
+| Taught by at least one library puzzle | 21 | 31 |
+| Never the hint on any library puzzle | 10 | 22 |
+
+The gap more than doubled in an afternoon, which is the point: the engine work is nearly done and the library has not moved. Every batch widens it. When the report first ran, six techniques were taught by exactly one puzzle each, four of them by a single step; that list grows the same way.
 
 X-Wing is in the never-taught list. The most famous technique in Sudoku beyond the singles has an engine, a tier, plain and Expert wording, a reference entry, a live count in the Techniques list, and no puzzle on which a player will ever be shown it. Jellyfish, added the same day, is already in the same position: a Swordfish or an Empty Rectangle reaches those positions first every time. Hidden Triple and 3D Medusa are each taught by Night Owl and nothing else.
 
