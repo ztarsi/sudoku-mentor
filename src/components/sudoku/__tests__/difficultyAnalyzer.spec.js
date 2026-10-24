@@ -5,22 +5,26 @@
 // techniques alone finish the job. The second is the report the whole
 // technique-coverage programme (#69) is judged by - for each shelf, the
 // share of solve-path steps a named technique explains - which is printed
-// so every later batch can be compared with the number before it.
+// so every later batch can be compared with the number before it. Beside
+// it, the other half of that question: which techniques the library never
+// teaches, because an easier rung always explains the same positions.
 import { describe, it, expect } from 'vitest';
 import {
   analyzeDifficulty,
   analyzePuzzle,
   analyzeSolvePath,
   formatShelfCoverageReport,
+  formatTechniqueTeachingReport,
   shelfCoverageReport,
   startPuzzleAnalysis,
+  techniqueTeachingReport,
   teachingLabel,
   WHAT_IF_TIER,
 } from '../difficultyAnalyzer';
 import { PUZZLES } from '../puzzles';
 import { TECHNIQUES, TIERS, techniqueTier } from '../techniqueCatalog';
 
-// The report is output, not an assertion: vitest keeps console.log to
+// The reports are output, not an assertion: vitest keeps console.log to
 // itself, so write straight to stdout where there is one.
 const out = (text) => {
   const stdout = /** @type {any} */ (globalThis).process?.stdout;
@@ -219,6 +223,89 @@ describe('named-technique coverage, by shelf', () => {
     for (const shelf of Object.keys(PUZZLES)) expect(text).toContain(shelf);
     // Readable output, not a pass or a fail: this is the baseline every
     // later batch of the coverage programme is measured against.
+    out(`\n${text}\n`);
+  });
+});
+
+describe('which techniques the library actually teaches', () => {
+  const report = techniqueTeachingReport(PUZZLES);
+
+  // Every step of every library puzzle, counted here independently of the
+  // report, so the report is checked against the paths and not itself.
+  const stepsPerTechnique = new Map();
+  for (const list of Object.values(PUZZLES)) {
+    for (const p of list) {
+      for (const step of analyzeSolvePath(p.puzzle, { whatIf: true }).steps) {
+        stepsPerTechnique.set(step.technique, (stepsPerTechnique.get(step.technique) || 0) + 1);
+      }
+    }
+  }
+
+  it('answers for every technique in the catalog, exactly once', () => {
+    expect(report.rows.map((r) => r.technique)).toEqual(TECHNIQUES.map((t) => t.name));
+    expect(report.taught.length + report.neverTaught.length).toBe(report.techniques);
+    // A step whose technique the catalog does not hold would be missing
+    // from the report entirely, so the report says when it meets one.
+    expect(report.unlisted).toEqual([]);
+  });
+
+  it('calls a technique taught only where a solve path uses it as a step', () => {
+    for (const row of report.rows) {
+      expect(row.steps, row.technique).toBe(stepsPerTechnique.get(row.technique) || 0);
+      expect(row.taught, row.technique).toBe(row.steps > 0);
+      // Never the hint means no puzzle at all, not simply few steps.
+      if (!row.taught) expect(row.puzzles, row.technique).toEqual([]);
+      else expect(row.puzzles.length, row.technique).toBeGreaterThan(0);
+    }
+    // The two singles are the floor: a library that teaches nothing would
+    // pass every assertion above, and this one would not.
+    for (const name of ['Naked Single', 'Hidden Single']) {
+      expect(report.taught.map((r) => r.technique), name).toContain(name);
+    }
+  });
+
+  it('names the puzzles that teach a technique, and they really do', () => {
+    for (const row of report.taught) {
+      for (const { shelf, name } of row.puzzles) {
+        expect(PUZZLES[shelf].map((p) => p.name), `${row.technique}: ${name}`).toContain(name);
+        const path = analyzeSolvePath(puzzle(name), { whatIf: true });
+        expect(path.steps.map((s) => s.technique), `${name} should teach ${row.technique}`).toContain(
+          row.technique
+        );
+      }
+      // One puzzle per name, however many steps it takes there.
+      expect(new Set(row.puzzles.map((p) => p.name)).size, row.technique).toBe(row.puzzles.length);
+    }
+  });
+
+  it('groups the answer by tier, and every tier adds up', () => {
+    expect(report.byTier.map((t) => t.tier)).toEqual(TIERS.map((t) => t.level));
+    let techniques = 0;
+    for (const tier of report.byTier) {
+      expect(tier.taught + tier.neverTaught.length, tier.tier).toBe(tier.techniques);
+      techniques += tier.techniques;
+      for (const name of tier.neverTaught) {
+        expect(techniqueTier(name), name).toBe(tier.tier);
+        expect(report.neverTaught.map((r) => r.technique), name).toContain(name);
+      }
+    }
+    // No technique sits in a tier the panel does not know, so none is lost
+    // between the tier table and the lists below it.
+    expect(techniques).toBe(report.techniques);
+  });
+
+  it('prints the list, readable without a key', () => {
+    const text = formatTechniqueTeachingReport(report);
+    // Every technique in the catalog appears, in one group or the other.
+    for (const tech of TECHNIQUES) expect(text, tech.name).toContain(tech.name);
+    expect(text).toContain('taught by at least one library puzzle');
+    expect(text).toContain('never the hint on any library puzzle');
+    // And it says, in the report's own words, why a technique can be found
+    // on a board and counted in the panel and still never be the hint.
+    expect(text).toContain('not a broken detector');
+    for (const tier of TIERS) expect(text, tier.level).toContain(tier.level);
+    // Readable output, not a pass or a fail: this is the list of techniques
+    // the library cannot currently teach anybody.
     out(`\n${text}\n`);
   });
 });
