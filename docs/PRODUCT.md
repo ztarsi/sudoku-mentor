@@ -2,7 +2,7 @@
 
 This document says what Sudoku Mentor is, who it is for, what it promises, and how we decide what to build. It deliberately does not say how anything is built; that lives in the README and the code. Keep this file current: when the product changes, change this first.
 
-Owner: the product manager. Last reviewed: 2026-09-19.
+Owner: the product manager. Last reviewed: 2026-10-24.
 
 ---
 
@@ -146,6 +146,7 @@ Then:
 
 ### Next
 
+- [Alternating inference chains](specs/alternating-inference-chains.md): the mentor learns the chain of strong and weak links, so a chain-solvable position gives a named lesson instead of a what-if card. Adds Skyscraper, Two-String Kite, W-Wing, X-Chain, XY-Chain and the general Alternating Chain, and absorbs four of the six techniques that sat in Later.
 - [Library and completion](specs/library-and-completion.md): library rows that say what a puzzle teaches and where you left off; completion that shows what you learned and offers the next puzzle.
 - More vetted puzzles on the Hard, Expert and Diabolical shelves (today one, two and two). The improver runs out in a sitting.
 - Learning on the phone: what teaching looks like on a phone-sized screen, which may not be the desktop hint card. The phone stays No Assist until this is answered.
@@ -157,7 +158,7 @@ Then:
 ### Later
 
 - Installable app (PWA) with full offline play.
-- More techniques with explanations: XY-Chain, W-Wing, Skyscraper, Two-String Kite, Sue de Coq, Unique Rectangle types 2 to 4.
+- More techniques with explanations, beyond what the chain engine covers: Sue de Coq, Unique Rectangle types 2 to 4, grouped chains and continuous loops.
 - Solve history and personal statistics for signed-in players.
 - Shareable puzzle links.
 - Localisation.
@@ -183,6 +184,7 @@ Then:
 
 Short record of product decisions and why, newest first.
 
+- 2026-10-24: Alternating inference chains go into Next, ahead of more puzzles and the practice mode. Reason: above XY-Wing the ladder stops, so the Diabolical and Ultimate shelves answer most hints with what-if search, which is honest and teaches nothing. The chain of strong and weak links is one idea the player already half-knows from XY-Wing and X-Cycle, and it converts those cards into named lessons. It also absorbs four of the six techniques parked in Later, so it is cheaper than it looks. Spec in docs/specs/alternating-inference-chains.md, issue #67. Scope held down deliberately: no grouped nodes, no continuous loops, no ALS nodes in chains.
 - 2026-09-19: First release of the UX pass from `staging` to `main` (PR #61), on the founder's "release". `main` had not moved since `staging` branched, so nothing from the platform bot had to be folded in first. What it carries: the seven UX-pass specs (#28 to #34), the three follow-ups (#53 to #55), the startup fix (#42), the staging plumbing (#40) and the docs. Merging to `main` does not publish: the Base44 checkpoint is deployed as a separate step, and the five Base44-dependent features are spot-checked on the live app after that. Section 7 now describes what is on `main`.
 - 2026-09-19: The UX pass is complete on `staging` and verified: all seven specs and the three follow-ups shipped (PRs #46 to #52 and #57 to #59), each verified from the player's side on a build identical to the staging bundle. Section 7 now describes this product. Ready for the first release from `staging` to `main` on the founder's go; the checklist in docs/STAGING.md applies (CI green, play-and-learn loop verified on staging, the five Base44-dependent features spot-checked on the live app after deploy).
 - 2026-09-19: Six of the seven UX-pass specs shipped to `staging` in one evening (PRs #46 to #51) and were verified from the player's side on a build identical to the staging bundle. Verified: the lesson is on screen without scrolling at 1366x768; one digit strip everywhere; designed hint card states; one adaptive page with side and bottom sheets; a header in words with one menu; the paper theme. Three follow-ups filed (#53 tour click-through arms a digit, #54 only-singles state on Easy puzzles, #55 strip below the fold). Section 7 still describes the released product on `main`; it is rewritten at the first release of the UX pass.
