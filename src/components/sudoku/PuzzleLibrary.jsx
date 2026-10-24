@@ -6,6 +6,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/components/ui/use-toast';
 
 import { PUZZLES } from './puzzles';
+import { startPuzzleAnalysis, teachingLabel } from './difficultyAnalyzer';
+import { advanceInSlices } from './sliceRunner';
 export { PUZZLES };
 
 const DIFFICULTY_CONFIG = {
@@ -89,6 +91,40 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
       .map(p => ({ id: p.id, name: p.name, puzzle: p.puzzle, isCustom: true, record: p }))
   ];
 
+  // What each puzzle on this shelf teaches, measured rather than labelled by
+  // hand (technique-panel-at-scale spec). A solve path is a few
+  // milliseconds for most puzzles and a couple of hundred for one that
+  // leans on the what-if search, so the measuring happens after the shelf
+  // has painted, in slices short enough not to be felt, and a shelf the
+  // player leaves drops the work for the one they moved to.
+  const [teaching, setTeaching] = useState(/** @type {Record<string, any>} */ ({}));
+  const puzzlesRef = useRef(allPuzzles);
+  puzzlesRef.current = allPuzzles;
+  const shelfKey = allPuzzles.map(p => p.puzzle.join('')).join(',');
+  useEffect(() => {
+    const tasks = puzzlesRef.current.map(p => ({
+      key: p.puzzle.join(''),
+      ...startPuzzleAnalysis(p.puzzle),
+    }));
+    return advanceInSlices(
+      tasks,
+      (key, analysis) => setTeaching(prev => (prev[key] ? prev : { ...prev, [key]: analysis })),
+      { budgetMs: 50 }
+    );
+  }, [shelfKey]);
+
+  // The shelf's own note about what-if search, from the same analysis, so
+  // the shelf cannot claim something the engine does not do.
+  const analysed = PUZZLES[selectedDifficulty]
+    .map(p => teaching[p.puzzle.join('')])
+    .filter(a => a && a.complete);
+  const needWhatIf = analysed.filter(a => !a.namedOnly).length;
+  const whatIfNote = analysed.length < PUZZLES[selectedDifficulty].length || needWhatIf === 0
+    ? null
+    : needWhatIf === analysed.length
+      ? 'Every puzzle on this shelf runs past the mentor\'s named techniques at some point. Hints there fall back to what-if search: assume a value and follow the consequences.'
+      : `${needWhatIf} of ${analysed.length} puzzles on this shelf run past the mentor's named techniques at some point. Hints there fall back to what-if search: assume a value and follow the consequences.`;
+
   const colorClasses = {
     emerald: 'from-emerald-400 to-green-500',
     blue: 'from-blue-400 to-indigo-500',
@@ -127,10 +163,9 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
         </div>
       </div>
       
-      {selectedDifficulty === 'ultimate' && (
+      {whatIfNote && (
         <p className="mb-4 text-sm text-violet-200 bg-violet-950/40 border border-violet-800/50 rounded-xl px-4 py-3">
-          These puzzles need techniques beyond the mentor's deductive toolkit. Hints here fall back to
-          what-if search (assume a value and follow the consequences) rather than a named technique.
+          {whatIfNote}
         </p>
       )}
 
@@ -212,10 +247,15 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
                     )}
                     </h3>
                     )}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm text-slate-400">
                         {puzzle.puzzle.filter(v => v !== 0).length} clues given
                       </p>
+                      {teachingLabel(teaching[puzzle.puzzle.join('')]) && (
+                        <span className="text-xs text-slate-300">
+                          {teachingLabel(teaching[puzzle.puzzle.join('')])}
+                        </span>
+                      )}
                       {bestTimesMap[puzzle.name] && (
                         <span className="text-xs px-2 py-0.5 bg-emerald-900/50 text-emerald-300 rounded-full flex items-center gap-1" title="Your best no-assist time">
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -6,7 +6,7 @@ import { useDialog } from '@/hooks/useDialog';
 const CONTENT = {
   techniques: {
     title: 'Techniques',
-    body: 'Browse all Sudoku solving techniques organized by difficulty. Click on technique names to learn how they work, or click the counter badges to see live examples in your current puzzle. Use the Scan button to find advanced techniques.',
+    body: 'What applies to the board in front of you comes first, with how many of each there are; tap a count to see them. Below that is every technique the mentor knows, by tier, closed until you open one, and a box to find one by name. Tap any name to read how it works, whether or not it applies right now. The tiers that cost too much to count while you play have a Scan button instead.',
   },
 };
 

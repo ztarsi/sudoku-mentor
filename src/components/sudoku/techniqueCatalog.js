@@ -1,6 +1,9 @@
 // Single source of truth for the technique catalog: display metadata,
-// teaching content, and the hierarchy tiers. Previously LogicPanel and
-// TechniqueModal each carried their own parallel dictionary.
+// teaching content, and the ladder the Techniques panel shows.
+//
+// Adding a technique is one entry in TECHNIQUES plus its TECHNIQUE_DETAILS
+// text. Everything else here is derived, so the panel, the hint card and
+// the difficulty analyser all learn about it at once.
 import { Lightbulb, Target, Zap, BookOpen } from 'lucide-react';
 
 export const LEVEL_COLORS = {
@@ -12,199 +15,308 @@ export const LEVEL_COLORS = {
   fuchsia: 'from-fuchsia-600 to-pink-600',
 };
 
-export const TECHNIQUE_INFO = {
-  'Naked Single': {
-    level: 'Basic',
-    color: 'emerald',
-    description: 'A cell has only one possible candidate remaining.',
-    icon: Target,
-  },
-  'Hidden Single': {
-    level: 'Basic',
-    color: 'emerald',
-    description: 'A candidate appears only once in a row, column, or box.',
-    icon: Target,
-  },
-  'Pointing Pair': {
-    level: 'Intermediate',
-    color: 'blue',
-    description: 'Candidates in a box align in a row/column, eliminating candidates outside the box.',
-    icon: Zap,
-  },
-  'Pointing Triple': {
-    level: 'Intermediate',
-    color: 'blue',
-    description: 'Three candidates in a box align in a row/column.',
-    icon: Zap,
-  },
-  'Claiming': {
-    level: 'Intermediate',
-    color: 'blue',
-    description: 'Candidates in a row/column are confined to one box.',
-    icon: Zap,
-  },
-  'Naked Pair': {
-    level: 'Advanced',
-    color: 'purple',
-    description: 'Two cells in a unit have the same two candidates.',
-    icon: BookOpen,
-  },
-  'Hidden Pair': {
-    level: 'Advanced',
-    color: 'purple',
-    description: 'Two candidates appear only in two cells of a unit.',
-    icon: BookOpen,
-  },
-  'Naked Triple': {
-    level: 'Advanced',
-    color: 'purple',
-    description: 'Three cells share three candidates between them.',
-    icon: BookOpen,
-  },
-  'Hidden Triple': {
-    level: 'Advanced',
-    color: 'purple',
-    description: 'Three candidates appear only in three cells of a unit.',
-    icon: BookOpen,
-  },
-  'Naked Quad': {
-    level: 'Advanced',
-    color: 'purple',
-    description: 'Four cells share four candidates between them.',
-    icon: BookOpen,
-  },
-  'Hidden Quad': {
-    level: 'Advanced',
-    color: 'purple',
-    description: 'Four candidates appear only in four cells of a unit.',
-    icon: BookOpen,
-  },
-  'X-Wing': {
-    level: 'Expert',
-    color: 'orange',
-    description: 'A candidate forms a rectangle pattern, allowing eliminations.',
-    icon: Lightbulb,
-  },
-  'Swordfish': {
-    level: 'Expert',
-    color: 'orange',
-    description: 'An X-Wing extended to three rows and columns.',
-    icon: Lightbulb,
-  },
-  'XY-Wing': {
-    level: 'Expert',
-    color: 'orange',
-    description: 'Three bi-value cells form a chain for eliminations.',
-    icon: Lightbulb,
-  },
-  'XYZ-Wing': {
-    level: 'Expert',
-    color: 'orange',
-    description: 'An XY-Wing whose pivot keeps a third candidate.',
-    icon: Lightbulb,
-  },
-  'WXYZ-Wing': {
-    level: 'Expert',
-    color: 'orange',
-    description: 'Four cells spanning four candidates pin one digit inside the set.',
-    icon: Lightbulb,
-  },
-  'X-Cycle': {
-    level: 'Ultimate',
-    color: 'violet',
-    description: 'Chain-based coloring technique using strong links.',
-    icon: Lightbulb,
-  },
-  'Finned X-Wing': {
-    level: 'Ultimate',
-    color: 'violet',
-    description: 'X-Wing pattern with additional fin cells.',
-    icon: Lightbulb,
-  },
-  'ALS-XZ': {
-    level: 'Ultimate',
-    color: 'violet',
-    description: 'Almost Locked Sets with restricted common digits.',
-    icon: Lightbulb,
-  },
-  'Unique Rectangle Type 1': {
-    level: 'Ultimate',
-    color: 'violet',
-    description: 'Avoids deadly patterns with multiple solutions.',
-    icon: Lightbulb,
-  },
-  'BUG+1': {
-    level: 'Ultimate',
-    color: 'violet',
-    description: 'Bivalue Universal Grave plus one tri-value cell.',
-    icon: Lightbulb,
-  },
-};
+// How a technique's count on the current board is paid for.
+//
+//   live    cheap enough to count while the panel is open, off the input path
+//   scan    only when the player asks, on the tier's Scan button
+//   search  not a count at all: the what-if search, on the Search button
+export const COUNT_LIVE = 'live';
+export const COUNT_SCAN = 'scan';
+export const COUNT_SEARCH = 'search';
 
-// The tiers shown in the hierarchy browser, in teaching order.
-export const TECHNIQUE_TIERS = [
-  {
-    level: 'Basic',
-    color: 'emerald',
-    techniques: [
-      { name: 'Naked Single', full: 'Naked Single' },
-      { name: 'Hidden Single', full: 'Hidden Single' },
-    ],
-  },
-  {
-    level: 'Intermediate',
-    color: 'blue',
-    techniques: [
-      { name: 'Pointing Pair', full: 'Pointing Pair' },
-      { name: 'Pointing Triple', full: 'Pointing Triple' },
-      { name: 'Claiming', full: 'Claiming' },
-    ],
-  },
-  {
-    level: 'Advanced',
-    color: 'purple',
-    techniques: [
-      { name: 'Naked Pair', full: 'Naked Pair' },
-      { name: 'Hidden Pair', full: 'Hidden Pair' },
-      { name: 'Naked Triple', full: 'Naked Triple' },
-      { name: 'Hidden Triple', full: 'Hidden Triple' },
-      { name: 'Naked Quad', full: 'Naked Quad' },
-      { name: 'Hidden Quad', full: 'Hidden Quad' },
-    ],
-  },
-  {
-    level: 'Expert',
-    color: 'orange',
-    techniques: [
-      { name: 'X-Wing', full: 'X-Wing' },
-      { name: 'Swordfish', full: 'Swordfish' },
-      { name: 'XY-Wing', full: 'XY-Wing' },
-      { name: 'XYZ-Wing', full: 'XYZ-Wing' },
-      { name: 'WXYZ-Wing', full: 'WXYZ-Wing' },
-    ],
-  },
+// The tiers, in teaching order. `scanNote` is what the Scan button promises
+// before it runs, so the player knows what they are about to spend.
+export const TIERS = [
+  { level: 'Basic', color: 'emerald' },
+  { level: 'Intermediate', color: 'blue' },
+  { level: 'Advanced', color: 'purple' },
+  { level: 'Expert', color: 'orange' },
   {
     level: 'Ultimate',
     color: 'violet',
-    scanButton: true,
-    techniques: [
-      { name: 'X-Cycle', full: 'X-Cycle' },
-      { name: 'Finned X-Wing', full: 'Finned X-Wing' },
-      { name: 'ALS-XZ', full: 'ALS-XZ' },
-      { name: 'Unique Rect.', full: 'Unique Rectangle Type 1' },
-      { name: 'BUG+1', full: 'BUG+1' },
-    ],
+    scanNote: 'These cost too much to count while you play. Scan runs all five on the board as it stands now; it takes about ten seconds.',
   },
   {
     level: 'Forcing Chains',
     color: 'fuchsia',
-    isWhatIf: true,
-    techniques: [
-      { name: 'Cell Forcing Chain', full: 'Cell Forcing Chain' },
-      { name: 'Hypothesis Mode', full: 'Hypothesis Mode' },
-    ],
+    searchNote: 'Not a pattern on the board: Search assumes a digit and follows the consequences until something repeats or breaks.',
   },
 ];
+
+/**
+ * Every technique the mentor knows, in teaching order.
+ *
+ *   name        the engine's name, and the key used everywhere else
+ *   short       what a narrow row shows instead of the full name
+ *   formal      the name an experienced solver uses, when it differs
+ *   aliases     other names players look for ("colouring" finds X-Cycle)
+ *   tier        a TIERS level
+ *   count       COUNT_LIVE, COUNT_SCAN or COUNT_SEARCH (above)
+ *   description one line, shown in the hint card's tier chip tooltip
+ */
+export const TECHNIQUES = [
+  {
+    name: 'Naked Single',
+    tier: 'Basic',
+    count: COUNT_LIVE,
+    aliases: ['sole candidate', 'forced cell', 'single', 'last remaining candidate'],
+    description: 'A cell has only one possible candidate remaining.',
+    icon: Target,
+  },
+  {
+    name: 'Hidden Single',
+    tier: 'Basic',
+    count: COUNT_LIVE,
+    aliases: ['unique candidate', 'single', 'only square', 'last remaining cell'],
+    description: 'A candidate appears only once in a row, column, or box.',
+    icon: Target,
+  },
+  {
+    name: 'Pointing Pair',
+    tier: 'Intermediate',
+    count: COUNT_LIVE,
+    formal: 'Locked Candidates (pointing)',
+    aliases: ['locked candidates', 'intersection removal', 'box line'],
+    description: 'Candidates in a box align in a row/column, eliminating candidates outside the box.',
+    icon: Zap,
+  },
+  {
+    name: 'Pointing Triple',
+    tier: 'Intermediate',
+    count: COUNT_LIVE,
+    formal: 'Locked Candidates (pointing, three cells)',
+    aliases: ['locked candidates', 'intersection removal'],
+    description: 'Three candidates in a box align in a row/column.',
+    icon: Zap,
+  },
+  {
+    name: 'Claiming',
+    tier: 'Intermediate',
+    count: COUNT_LIVE,
+    formal: 'Box/Line Reduction',
+    aliases: ['box line reduction', 'line box reduction', 'locked candidates'],
+    description: 'Candidates in a row/column are confined to one box.',
+    icon: Zap,
+  },
+  {
+    name: 'Naked Pair',
+    tier: 'Advanced',
+    count: COUNT_LIVE,
+    formal: 'Naked Subset (two cells)',
+    aliases: ['locked pair', 'naked subset', 'conjugate pair'],
+    description: 'Two cells in a unit have the same two candidates.',
+    icon: BookOpen,
+  },
+  {
+    name: 'Hidden Pair',
+    tier: 'Advanced',
+    count: COUNT_LIVE,
+    formal: 'Hidden Subset (two digits)',
+    aliases: ['hidden subset'],
+    description: 'Two candidates appear only in two cells of a unit.',
+    icon: BookOpen,
+  },
+  {
+    name: 'Naked Triple',
+    tier: 'Advanced',
+    count: COUNT_LIVE,
+    formal: 'Naked Subset (three cells)',
+    aliases: ['naked subset', 'triple'],
+    description: 'Three cells share three candidates between them.',
+    icon: BookOpen,
+  },
+  {
+    name: 'Hidden Triple',
+    tier: 'Advanced',
+    count: COUNT_LIVE,
+    formal: 'Hidden Subset (three digits)',
+    aliases: ['hidden subset', 'triple'],
+    description: 'Three candidates appear only in three cells of a unit.',
+    icon: BookOpen,
+  },
+  {
+    name: 'Naked Quad',
+    tier: 'Advanced',
+    count: COUNT_LIVE,
+    formal: 'Naked Subset (four cells)',
+    aliases: ['naked subset', 'quad', 'quadruple'],
+    description: 'Four cells share four candidates between them.',
+    icon: BookOpen,
+  },
+  {
+    name: 'Hidden Quad',
+    tier: 'Advanced',
+    count: COUNT_LIVE,
+    formal: 'Hidden Subset (four digits)',
+    aliases: ['hidden subset', 'quad', 'quadruple'],
+    description: 'Four candidates appear only in four cells of a unit.',
+    icon: BookOpen,
+  },
+  {
+    name: 'X-Wing',
+    tier: 'Expert',
+    count: COUNT_LIVE,
+    aliases: ['fish', 'basic fish'],
+    description: 'A candidate forms a rectangle pattern, allowing eliminations.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'Swordfish',
+    tier: 'Expert',
+    count: COUNT_LIVE,
+    aliases: ['fish', 'basic fish', '3-fish'],
+    description: 'An X-Wing extended to three rows and columns.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'XY-Wing',
+    tier: 'Expert',
+    count: COUNT_LIVE,
+    formal: 'Y-Wing',
+    aliases: ['y wing', 'bent triple', 'wing'],
+    description: 'Three bi-value cells form a chain for eliminations.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'XYZ-Wing',
+    tier: 'Expert',
+    count: COUNT_LIVE,
+    aliases: ['wing', 'xyz wing', 'bent triple'],
+    description: 'An XY-Wing whose pivot keeps a third candidate.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'WXYZ-Wing',
+    tier: 'Expert',
+    count: COUNT_LIVE,
+    aliases: ['wing', 'wxyz wing', 'almost locked set'],
+    description: 'Four cells spanning four candidates pin one digit inside the set.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'X-Cycle',
+    tier: 'Ultimate',
+    count: COUNT_SCAN,
+    formal: 'Simple Colouring',
+    aliases: ['colouring', 'coloring', 'simple colouring', 'single digit chain', 'nice loop'],
+    description: 'Chain-based coloring technique using strong links.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'Finned X-Wing',
+    tier: 'Ultimate',
+    count: COUNT_SCAN,
+    formal: 'Finned Fish',
+    aliases: ['finned fish', 'sashimi', 'fish'],
+    description: 'X-Wing pattern with additional fin cells.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'ALS-XZ',
+    tier: 'Ultimate',
+    count: COUNT_SCAN,
+    formal: 'Almost Locked Set XZ rule',
+    aliases: ['almost locked set', 'als', 'als xz'],
+    description: 'Almost Locked Sets with restricted common digits.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'Unique Rectangle Type 1',
+    short: 'Unique Rect.',
+    tier: 'Ultimate',
+    count: COUNT_SCAN,
+    aliases: ['uniqueness', 'deadly pattern', 'ur', 'unique rectangle'],
+    description: 'Avoids deadly patterns with multiple solutions.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'BUG+1',
+    tier: 'Ultimate',
+    count: COUNT_SCAN,
+    formal: 'Bivalue Universal Grave + 1',
+    aliases: ['bivalue universal grave', 'bug', 'uniqueness'],
+    description: 'Bivalue Universal Grave plus one tri-value cell.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'Cell Forcing Chain',
+    tier: 'Forcing Chains',
+    count: COUNT_SEARCH,
+    aliases: ['forcing chain', 'what if', 'convergence'],
+    description: 'Every candidate of one cell leads to the same conclusion.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'Hypothesis Mode',
+    tier: 'Forcing Chains',
+    count: COUNT_SEARCH,
+    aliases: ['what if', 'contradiction', 'trial and error', 'nishio'],
+    description: 'Assume a candidate and eliminate it when it breaks the board.',
+    icon: Lightbulb,
+  },
+];
+
+const TIER_BY_LEVEL = Object.fromEntries(TIERS.map((tier) => [tier.level, tier]));
+const BY_NAME = Object.fromEntries(TECHNIQUES.map((tech) => [tech.name, tech]));
+
+/** The catalog entry for a technique name, or undefined. */
+export const techniqueEntry = (name) => BY_NAME[name];
+
+/** The tier a technique sits in ('Expert'), or null for an unknown name. */
+export const techniqueTier = (name) => BY_NAME[name]?.tier ?? null;
+
+/** Where a technique sits on the teaching ladder; -1 for an unknown name. */
+export const teachingRank = (name) => TECHNIQUES.findIndex((tech) => tech.name === name);
+
+/** The tier's accent colour key, for LEVEL_COLORS. */
+export const tierColor = (level) => TIER_BY_LEVEL[level]?.color ?? 'emerald';
+
+/** Names in teaching order, by how their count is paid for. */
+export const techniqueNamesByCount = (count) =>
+  TECHNIQUES.filter((tech) => tech.count === count).map((tech) => tech.name);
+
+export const LIVE_COUNT_TECHNIQUES = techniqueNamesByCount(COUNT_LIVE);
+export const SCAN_TECHNIQUES = techniqueNamesByCount(COUNT_SCAN);
+export const WHAT_IF_TECHNIQUES = techniqueNamesByCount(COUNT_SEARCH);
+
+/** Every name a player might type to find this technique, lower-cased. */
+export const searchTerms = (tech) =>
+  [tech.name, tech.short, tech.formal, ...(tech.aliases || [])]
+    .filter(Boolean)
+    .map((term) => term.toLowerCase());
+
+/**
+ * The techniques whose name, formal name or alias contains `query`. An empty
+ * query matches everything, in teaching order.
+ */
+export const matchTechniques = (query) => {
+  const needle = (query || '').trim().toLowerCase();
+  if (!needle) return TECHNIQUES;
+  return TECHNIQUES.filter((tech) => searchTerms(tech).some((term) => term.includes(needle)));
+};
+
+/**
+ * What the hint card reads for a step's tier and colour. Only the deductive
+ * techniques are here: a what-if step is presented as a search, not as a
+ * tier on the ladder, and the card's own wording covers it.
+ */
+export const TECHNIQUE_INFO = Object.fromEntries(
+  TECHNIQUES.filter((tech) => tech.count !== COUNT_SEARCH).map((tech) => [
+    tech.name,
+    { level: tech.tier, color: tierColor(tech.tier), description: tech.description, icon: tech.icon },
+  ])
+);
+
+/** The ladder, grouped by tier, in teaching order. */
+export const TECHNIQUE_TIERS = TIERS.map((tier) => ({
+  ...tier,
+  techniques: TECHNIQUES.filter((tech) => tech.tier === tier.level).map((tech) => ({
+    name: tech.short || tech.name,
+    full: tech.name,
+    formal: tech.formal || null,
+    count: tech.count,
+  })),
+}));
 
 // Teaching content for the "learn this technique" dialog.
 //

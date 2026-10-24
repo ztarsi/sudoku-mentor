@@ -1,11 +1,13 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import TechniqueModal from './TechniqueModal';
 import UltimateTechniqueScanModal from './UltimateTechniqueScanModal';
 import DeepSearchModal from './DeepSearchModal';
-import TechniqueHierarchy from './panel/TechniqueHierarchy';
+import TechniquePanel from './panel/TechniquePanel';
 import CurrentStepCard from './panel/CurrentStepCard';
 import PanelInfoModal from './panel/PanelInfoModal';
 import { findAllTechniqueInstances } from './logicEngine';
+import { useTechniqueCounts } from './useTechniqueCounts';
+import { LIVE_COUNT_TECHNIQUES, SCAN_TECHNIQUES } from './techniqueCatalog';
 import { searchWhatIf, isCancelled, isTimedOut, DEEP_TIME_BUDGET_MS } from './whatIfSearch';
 import { toast } from '@/components/ui/use-toast';
 
@@ -25,26 +27,10 @@ const writeTechniquesOpen = (open) => {
   }
 };
 
-const SCANNABLE_TECHNIQUES = [
-  'Naked Single', 'Hidden Single',
-  'Pointing Pair', 'Pointing Triple', 'Claiming',
-  'Naked Pair', 'Hidden Pair', 'Naked Triple',
-  'Hidden Triple', 'Naked Quad', 'Hidden Quad',
-  'X-Wing', 'Swordfish', 'XY-Wing', 'XYZ-Wing', 'WXYZ-Wing',
-];
-
-const ULTIMATE_TECHNIQUES = [
-  'X-Cycle',
-  'Finned X-Wing',
-  'ALS-XZ',
-  'Unique Rectangle Type 1',
-  'BUG+1',
-];
-
 /**
- * Right-hand panel orchestrator: composes the technique hierarchy, current
- * hint card, auto-solve controls, and shortcut reference, and owns the
- * cross-cutting state (scans, deep search, auto-play timers).
+ * Right-hand panel orchestrator: composes the current hint card and the
+ * Techniques list, and owns the cross-cutting state (technique counts,
+ * scans, deep search, chain playback).
  */
 export default function LogicPanel({
   currentStep,
@@ -88,8 +74,9 @@ export default function LogicPanel({
   const [currentSearchDepth, setCurrentSearchDepth] = useState(10);
   const [isPlayingChain, setIsPlayingChain] = useState(false);
 
-  // Ultimate scan counts describe one grid; drop them when it changes, and
-  // let a scan still running for the old grid know it is stale.
+  // A scan describes one board. When the board changes, its results are
+  // dropped, and a scan still running for the old grid has to know it is
+  // stale: its counts would describe a board the player has left behind.
   const gridRef = useRef(grid);
   useEffect(() => {
     gridRef.current = grid;
@@ -104,25 +91,14 @@ export default function LogicPanel({
     if (techniqueExpanded && !noAssistMode) onAssistUsedRef.current?.();
   }, [techniqueExpanded, noAssistMode, grid]);
 
-  // Count occurrences of each technique (excluding ultimate for performance).
-  // Only scan while the hierarchy section is actually visible - these 11
-  // full-grid scans used to run on every candidate toggle even collapsed,
-  // which was the main source of input lag.
-  const techniqueCounts = useMemo(() => {
-    if (!techniqueExpanded || noAssistMode) return {};
-    const counts = {};
-    SCANNABLE_TECHNIQUES.forEach((tech) => {
-      counts[tech] = findAllTechniqueInstances(grid, tech).length;
-    });
-
-    if (Object.keys(scanResults).length > 0) {
-      ULTIMATE_TECHNIQUES.forEach((tech) => {
-        counts[tech] = scanResults[tech] || 0;
-      });
-    }
-
-    return counts;
-  }, [grid, scanResults, techniqueExpanded, noAssistMode]);
+  // Counts for the cheap tiers, computed after the board has been still for
+  // a moment and in slices a further change cancels, so entering a digit
+  // never waits for a detector. The expensive tiers are counted only when
+  // the player asks: by tapping one row's Count, or by scanning the tier.
+  const { counts: techniqueCounts, counting, countNow, recordCounts } = useTechniqueCounts(grid, {
+    enabled: techniqueExpanded && !noAssistMode,
+    names: LIVE_COUNT_TECHNIQUES,
+  });
 
   const handleUltimateScan = async () => {
     onAssistUsedRef.current?.();
@@ -131,13 +107,14 @@ export default function LogicPanel({
 
     const scanned = grid;
     const results = {};
-    for (const tech of ULTIMATE_TECHNIQUES) {
+    for (const tech of SCAN_TECHNIQUES) {
       setScanningTechnique(tech);
       await new Promise((resolve) => setTimeout(resolve, 100)); // Small delay for UI update
       if (gridRef.current !== scanned) break; // the board changed: these counts would lie
 
       results[tech] = findAllTechniqueInstances(scanned, tech).length;
       setScanResults({ ...results });
+      recordCounts({ [tech]: results[tech] });
     }
 
     setScanningTechnique(null);
@@ -279,14 +256,16 @@ export default function LogicPanel({
         }}
       />
 
-      <TechniqueHierarchy
+      <TechniquePanel
         expanded={techniqueExpanded}
         onToggleExpanded={toggleTechniques}
         noAssistMode={noAssistMode}
-        techniqueCounts={techniqueCounts}
+        counts={techniqueCounts}
+        counting={counting}
         searchingForcingChain={searchingForcingChain}
         onSelectTechnique={setSelectedTechnique}
-        onTechniqueClick={handleTechniqueClick}
+        onHighlight={handleTechniqueClick}
+        onCount={countNow}
         onUltimateScan={handleUltimateScan}
         onWhatIfSearch={handleWhatIfSearch}
         onShowInfo={() => setShowInfoModal('techniques')}
