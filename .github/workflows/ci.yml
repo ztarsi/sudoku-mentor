@@ -48,10 +48,20 @@ jobs:
           test -f dist/manifest.webmanifest
           test -f dist/sw.js
 
-      # Budget: all JavaScript in the build, uncompressed. The build is about
-      # 750 kB today; raise this number deliberately, not by accident.
+      # Budget: all JavaScript in the build, uncompressed, every chunk
+      # counted. The build is about 935 kB today; raise this number
+      # deliberately, not by accident.
+      #
+      # Raised from 900 kB for the uniqueness family (#74), which added
+      # 45 kB: an engine, thirteen reference entries and their plain
+      # wordings. The coverage programme (#69) is what drives this number,
+      # and the two batches left in it will each add tens of kilobytes, so
+      # it is worth a look rather than another nudge. Note that splitting
+      # code into lazy chunks does not move this total, because it sums
+      # every chunk; if what we care about is what a player downloads
+      # before the first board, this should measure the entry chunks.
       - name: Check the bundle-size budget
         run: |
           total=$(cat dist/assets/*.js | wc -c)
           echo "JavaScript total: $total bytes"
-          test "$total" -le 900000
+          test "$total" -le 1000000

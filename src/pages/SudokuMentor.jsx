@@ -569,7 +569,7 @@ export default function SudokuMentor() {
       if (result.uniqueness && result.uniqueness !== UNIQUENESS_ONE) {
         toast({
           title: result.uniqueness === UNIQUENESS_MANY ? 'More than one answer' : 'Answer count unknown',
-          description: uniquenessNote(result.uniqueness),
+          description: `${uniquenessNote(result.uniqueness)} If you typed this grid in or photographed it, it is worth checking the givens against the original.`,
         });
       }
       markUserLoadRef.current();
