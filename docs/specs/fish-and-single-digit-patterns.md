@@ -15,7 +15,7 @@ What is missing: the four-line fish (Jellyfish), the fins on the larger fish, th
 | Name | What it is | Tier |
 | --- | --- | --- |
 | Jellyfish | The fish at size four: a digit in four rows confined to the same four columns, or the other way round. The digit goes from those columns outside the pattern. | Expert |
-| Empty Rectangle | In one box, a digit's candidates all lie in one row and one column crossing at an empty intersection. Combined with a conjugate pair on that digit, it eliminates on the far end. | Expert |
+| Empty Rectangle | In one box, a digit's candidates lie only in one row and one column of that box, leaving the 2x2 block off those two lines empty of the digit. Combined with a conjugate pair on that digit elsewhere, it eliminates on the far end. (Corrected 2026-10-24: an earlier wording said the crossing cell itself must be empty, which is not the pattern.) | Expert |
 | Finned Swordfish | A Swordfish spoiled by one or two extra candidates in a base line. Only eliminations that also see every fin survive. | Ultimate |
 | Finned Jellyfish | The same at size four. | Ultimate |
 | Sashimi variants | A finned fish where the spoiled corner is empty rather than occupied. Same proof, different shape to spot. | Ultimate |
@@ -51,3 +51,17 @@ Three notes on detection, each a known source of wrong hints:
 - Shelf report from the oracle run: the what-if share on Expert and Diabolical falls, and the report names which new technique replaced each previously unexplained step.
 - Every pattern this batch adds is checked against the true solution on every intermediate grid of every library puzzle, including the seven Ultimate puzzles, which is where these fire.
 - A reader who has learned X-Wing and Swordfish from the product can read the Jellyfish entry and predict the eliminations before reaching the example.
+
+## Outcome
+
+Shipped in PR #81 to `staging` on 2026-10-24. All eight landed: Jellyfish and Empty Rectangle in Expert, and 3D Medusa, Finned Swordfish, Finned Jellyfish, Sashimi Fish, Franken Fish and Mutant Fish in Ultimate. Jellyfish reads as the Swordfish one size up and says why size five adds nothing. Empty Rectangle is taught as its own idea with no mention of fish, held by a test. The finned fish share one set of plain words across their sizes. Franken and Mutant say outright that nobody is expected to spot them by eye. 3D Medusa paints its two colours and names which of its two conclusions fired. Live-count pass 12 ms over 18 detectors against the 150 ms budget; named ladder 233 ms worst case against 1 s.
+
+Verified by the product manager on 2026-10-24: lint, typecheck, 455 tests and build pass on `staging`, and the report reproduces. Coverage moved from 1204 of 1245 steps named to **1214 of 1251, 97.0%**, and the Ultimate shelf from 41 what-if steps to 37. **Night Owl is the first Ultimate puzzle the named ladder finishes on its own.** The 37 remaining are chain-shaped, not fish-shaped, and belong to #67.
+
+Three calls the developer made, all accepted:
+
+- **One Sashimi Fish rung rather than one per size,** since the shape the eye looks for is the same at every size, and Finned X-Wing now reports only the occupied-corner case so one pattern never carries two names.
+- **Walkable colouring deferred to #67,** because chains need the same replay and one implementation should serve both. Filed as #82 rather than skipped.
+- **The Empty Rectangle wording above was wrong in this spec** and is corrected; the implementation follows the standard pattern.
+
+One finding, now #83: with Empty Rectangle on the ladder, no library puzzle's solve path reaches XYZ-Wing any more. The ladder order is right; a 20-puzzle library simply cannot exercise fifty-five techniques, so the analyser should report which techniques the library never teaches.
