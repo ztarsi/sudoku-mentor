@@ -18,7 +18,9 @@ export const buildRemovalMap = (step) => {
 export const buildFocusedCandidates = (step, grid, colors) => {
   if (!step) return null;
 
-  const multiCandidateTechniques = ['Naked Pair', 'Hidden Pair', 'Naked Triple'];
+  const multiCandidateTechniques = [
+    'Naked Pair', 'Hidden Pair', 'Naked Triple', 'Hidden Triple', 'Naked Quad', 'Hidden Quad',
+  ];
   if (multiCandidateTechniques.includes(step.technique) && step.baseCells) {
     const candidatesInvolved = new Set();
     step.baseCells.forEach((cellIdx) => {

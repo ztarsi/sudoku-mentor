@@ -26,7 +26,8 @@ const buildGrid = (puzzle) =>
 
 const CHEAP = [
   'Naked Single', 'Hidden Single', 'Pointing Pair', 'Pointing Triple', 'Claiming',
-  'Naked Pair', 'Hidden Pair', 'Naked Triple', 'X-Wing', 'Swordfish', 'XY-Wing',
+  'Naked Pair', 'Hidden Pair', 'Naked Triple', 'Hidden Triple', 'Naked Quad', 'Hidden Quad',
+  'X-Wing', 'Swordfish', 'XY-Wing', 'XYZ-Wing', 'WXYZ-Wing',
   'Unique Rectangle Type 1', 'BUG+1', 'Finned X-Wing', 'X-Cycle',
 ];
 const EXPENSIVE = ['ALS-XZ'];
