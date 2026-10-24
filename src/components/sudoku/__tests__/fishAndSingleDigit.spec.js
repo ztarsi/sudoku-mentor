@@ -32,6 +32,7 @@ import {
   teachingRank,
 } from '../techniqueCatalog';
 import { PUZZLES } from '../puzzles';
+import { establishUniqueness } from '../uniqueness';
 import { cellName } from '../gridUnits';
 
 const NEW_TECHNIQUES = [
@@ -538,7 +539,14 @@ describe('the teaching ladder', () => {
     ['XY-Wing'], ['XYZ-Wing'], ['WXYZ-Wing'],
     ['X-Cycle'], ['3D Medusa'],
     ['Finned X-Wing'], ['Finned Swordfish'], ['Finned Jellyfish'], ['Sashimi Fish'],
-    ['ALS-XZ'], ['Unique Rectangle Type 1'], ['BUG+1'],
+    ['ALS-XZ'],
+    // The uniqueness family, in the order it is taught. It only runs at all
+    // on a puzzle known to have one answer, which every library puzzle is.
+    ['Unique Rectangle Type 1'], ['Unique Rectangle Type 2'], ['Unique Rectangle Type 3'],
+    ['Unique Rectangle Type 4'], ['Unique Rectangle Type 5'], ['Unique Rectangle Type 6'],
+    ['Hidden Unique Rectangle'],
+    ['Avoidable Rectangle Type 1'], ['Avoidable Rectangle Type 2'],
+    ['BUG+1'], ['BUG+2'], ['BUG+3'], ['Unique Loop'],
     ['Franken Fish'], ['Mutant Fish'],
   ];
 
@@ -546,14 +554,15 @@ describe('the teaching ladder', () => {
     const reached = new Set();
     for (const { name, puzzle } of Object.values(PUZZLES).flat()) {
       let grid = buildGrid(puzzle);
+      const { state: uniqueness } = establishUniqueness(puzzle);
       for (let n = 0; n < 300; n++) {
-        const step = findNextLogicStep(grid, null);
+        const step = findNextLogicStep(grid, null, { uniqueness });
         if (!step) break;
         const rung = RUNGS.findIndex((rungNames) => rungNames.includes(step.technique));
         if (rung > 0) {
           for (const easier of RUNGS.slice(0, rung).flat()) {
             expect(
-              findAllTechniqueInstances(grid, easier),
+              findAllTechniqueInstances(grid, easier, { uniqueness }),
               `${name}: the hint was ${step.technique} while a ${easier} was on the board`
             ).toEqual([]);
           }
@@ -567,6 +576,10 @@ describe('the teaching ladder', () => {
     expect([...reached]).toContain('Empty Rectangle');
     expect([...reached]).toContain('3D Medusa');
     expect([...reached]).toContain('Finned Swordfish');
+    // The uniqueness rungs are in the list above so that nothing may be
+    // offered while one of them applies. The walk itself never reaches
+    // them: on this library they only come up past the point where the
+    // named ladder stalls, which uniqueness.spec.js walks instead.
   });
 
   it('prefers a single to a Jellyfish on a board that holds both', () => {

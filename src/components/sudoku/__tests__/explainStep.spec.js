@@ -4,7 +4,8 @@
 import { describe, it, expect } from 'vitest';
 import { explainStep, plainCell, GLOSSARY } from '../explainStep';
 import { generateCandidates, findAllTechniqueInstances, findNextLogicStep } from '../logicEngine';
-import { findALSXZ, findXCycle, findUniqueRectangle, findFinnedXWing } from '../chainEngine';
+import { findALSXZ, findXCycle, findFinnedXWing } from '../chainEngine';
+import { findUniqueRectangle } from '../uniquenessEngine';
 import { PUZZLES } from '../puzzles';
 
 const cellIndex = (row, col) => (row - 1) * 9 + (col - 1);

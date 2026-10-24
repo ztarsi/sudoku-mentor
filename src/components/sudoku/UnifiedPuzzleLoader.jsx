@@ -7,7 +7,7 @@ import TextPuzzleUpload from './TextPuzzleUpload';
 import { analyzeDifficulty } from './difficultyAnalyzer';
 import { base44 } from '@/api/base44Client';
 import { findMySavedPuzzle, savePuzzle } from '@/api/playerData';
-import { solveSudoku, countSolutions } from './solver';
+import { solveSudoku } from './solver';
 import { toast } from "@/components/ui/use-toast";
 import { useDialog } from '@/hooks/useDialog';
 
@@ -40,15 +40,10 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded, u
         setSavingPuzzle(false);
         return;
       }
-      if (countSolutions(gridForSolving, 2) > 1) {
-        toast({
-          title: 'Not a proper Sudoku',
-          description: 'This puzzle has more than one solution, so the mentor could not tell right entries from wrong ones. Check the givens and try again.',
-          variant: 'destructive',
-        });
-        setSavingPuzzle(false);
-        return;
-      }
+      // A puzzle with more than one answer used to be refused here. It is
+      // playable now: the page says so when it loads it, and the
+      // techniques that need a single answer switch themselves off for
+      // that grid. The count itself is established once, by the game.
 
       // Signed-out players can still play a pasted puzzle; only saving to
       // the library needs an account.

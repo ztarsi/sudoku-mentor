@@ -6,7 +6,7 @@ import { useDialog } from '@/hooks/useDialog';
 const CONTENT = {
   techniques: {
     title: 'Techniques',
-    body: 'What applies to the board in front of you comes first, with how many of each there are; tap a count to see them. Below that is every technique the mentor knows, by tier, closed until you open one, and a box to find one by name. Tap any name to read how it works, whether or not it applies right now. The tiers that cost too much to count while you play have a Scan button instead.',
+    body: 'What applies to the board in front of you comes first, with how many of each there are; tap a count to see them. Below that is every technique the mentor knows, by tier, closed until you open one, and a box to find one by name. Tap any name to read how it works, whether or not it applies right now. The tiers that cost too much to count while you play have a Scan button instead. A few techniques work only because a puzzle has exactly one answer; on a grid that has more than one, they are shown as unavailable with the reason, and you can still read how they work.',
   },
 };
 

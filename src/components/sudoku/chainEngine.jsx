@@ -1,6 +1,6 @@
 // Advanced Chain-Based Logic Engine for Expert Sudoku Techniques
 
-import { getRow, getCol, getBox, getRowIndices, getColIndices, getBoxIndices, arePeers, cellName } from './gridUnits';
+import { getRow, getCol, getRowIndices, getColIndices, getBoxIndices, arePeers, cellName } from './gridUnits';
 
 // Strong Link: If one candidate is false, the other must be true
 const buildLinkGraph = (grid) => {
@@ -607,167 +607,10 @@ export const findALSXZ = (grid, focusedDigit, returnAll = false) => {
   return returnAll ? allInstances : null;
 };
 
-// Unique Rectangle Type 1
-export const findUniqueRectangle = (grid, focusedDigit = null, returnAll = false) => {
-  const allInstances = [];
-  for (let r1 = 0; r1 < 8; r1++) {
-    for (let r2 = r1 + 1; r2 < 9; r2++) {
-      for (let c1 = 0; c1 < 8; c1++) {
-        for (let c2 = c1 + 1; c2 < 9; c2++) {
-          const corners = [
-            r1 * 9 + c1,
-            r1 * 9 + c2,
-            r2 * 9 + c1,
-            r2 * 9 + c2
-          ];
-          
-          // The deadly pattern only exists when the four corners span
-          // exactly two boxes (a 4-box rectangle is not interchangeable).
-          const boxes = corners.map(getBox);
-          if (new Set(boxes).size !== 2) continue;
-
-          // Check if all corners are empty
-          if (!corners.every(c => grid[c].value === null)) continue;
-
-          // Type 1: three corners hold exactly the same two candidates
-          // (the floor); the fourth holds those two plus extras (the roof).
-          const biValueCorners = corners.filter(c => grid[c].candidates.length === 2);
-          if (biValueCorners.length !== 3) continue;
-
-          const [d1, d2] = grid[biValueCorners[0]].candidates;
-          const floorMatches = biValueCorners.every(c =>
-            grid[c].candidates.includes(d1) && grid[c].candidates.includes(d2)
-          );
-          if (!floorMatches) continue;
-
-          const extraCorner = corners.find(c => !biValueCorners.includes(c));
-          const extraCands = grid[extraCorner].candidates;
-          if (
-            extraCands.length <= 2 ||
-            !extraCands.includes(d1) ||
-            !extraCands.includes(d2)
-          ) continue;
-
-          // If all four corners kept only {d1,d2}, the puzzle would have two
-          // solutions - so the roof corner must take one of its extras:
-          // remove d1 and d2 from it.
-          const eliminations = [d1, d2].map(digit => ({ cell: extraCorner, digit }));
-
-          if (focusedDigit && d1 !== focusedDigit && d2 !== focusedDigit) continue;
-
-          const step = {
-            technique: 'Unique Rectangle Type 1',
-            digit: null,
-            baseCells: corners,
-            targetCells: [extraCorner],
-            eliminations,
-            explanation: `Unique Rectangle on digits ${d1} and ${d2}: if R${getRow(extraCorner)+1}C${getCol(extraCorner)+1} were ${d1} or ${d2}, the four corners could swap ${d1}/${d2} freely and the puzzle would have two solutions. Since a valid Sudoku has one solution, ${d1} and ${d2} can be removed from R${getRow(extraCorner)+1}C${getCol(extraCorner)+1}.`
-          };
-
-          if (returnAll) {
-            allInstances.push(step);
-          } else {
-            return step;
-          }
-        }
-      }
-    }
-  }
-  
-  return returnAll ? allInstances : null;
-};
-
-// BUG+1 (Bivalue Universal Grave plus 1)
-export const findBUGPlus1 = (grid, focusedDigit = null, returnAll = false) => {
-  let extraCell = null;
-  let extraDigit = null;
-  
-  // Count bi-value cells and tri-value cells
-  let triValueCount = 0;
-  
-  for (let i = 0; i < 81; i++) {
-    const cell = grid[i];
-    if (cell.value !== null) continue;
-    
-    const candCount = cell.candidates.length;
-    
-    if (candCount === 3) {
-      triValueCount++;
-      extraCell = i;
-    } else if (candCount > 3) {
-      return returnAll ? [] : null; // Not a BUG pattern
-    }
-  }
-  
-  // BUG+1: All cells bi-value except one tri-value
-  if (triValueCount !== 1) return returnAll ? [] : null;
-  
-  // For each digit in units, count occurrences
-  const units = [
-    ...Array.from({ length: 9 }, (_, i) => getRowIndices(i)),
-    ...Array.from({ length: 9 }, (_, i) => getColIndices(i)),
-    ...Array.from({ length: 9 }, (_, i) => getBoxIndices(i))
-  ];
-  
-  // Find which digit appears 3 times in all units containing the extra cell
-  for (const digit of grid[extraCell].candidates) {
-    let isExtra = true;
-
-    const relevantUnits = units.filter(unit => unit.includes(extraCell));
-
-    for (const unit of relevantUnits) {
-      const count = unit.filter(c =>
-        grid[c].value === null && grid[c].candidates.includes(digit)
-      ).length;
-
-      if (count !== 3) {
-        isExtra = false;
-        break;
-      }
-    }
-
-    if (isExtra) {
-      extraDigit = digit;
-      break;
-    }
-  }
-
-  // Verify the actual BUG property before placing anything: in EVERY unit,
-  // every candidate digit must appear exactly 0 or 2 times - the only
-  // exception being the extra digit appearing 3 times in the three units
-  // that contain the tri-value cell. Cell-count shapes alone (all bi-value
-  // + one tri-value) do NOT guarantee a BUG, and a false positive here
-  // places a wrong digit.
-  if (extraDigit) {
-    for (const unit of units) {
-      for (let d = 1; d <= 9; d++) {
-        const count = unit.filter(c =>
-          grid[c].value === null && grid[c].candidates.includes(d)
-        ).length;
-        if (count === 0 || count === 2) continue;
-        if (count === 3 && d === extraDigit && unit.includes(extraCell)) continue;
-        return returnAll ? [] : null;
-      }
-    }
-  }
-
-  if (focusedDigit && extraDigit !== focusedDigit) return returnAll ? [] : null;
-
-  if (extraDigit) {
-    const step = {
-      technique: 'BUG+1',
-      digit: extraDigit,
-      baseCells: [extraCell],
-      targetCells: [],
-      placement: { cell: extraCell, digit: extraDigit },
-      eliminations: [],
-      explanation: `BUG+1 pattern detected. R${getRow(extraCell)+1}C${getCol(extraCell)+1} must be ${extraDigit} to avoid a deadly pattern with multiple solutions.`
-    };
-    return returnAll ? [step] : step;
-  }
-  
-  return returnAll ? [] : null;
-};
+// Unique Rectangle Type 1 and BUG+1 used to live here. They moved to
+// uniquenessEngine.jsx with the rest of the uniqueness family, because they
+// share its one argument and, more importantly, its guard: nothing in that
+// family may run on a grid that is not known to have exactly one answer.
 
 // Finned X-Wing, in both orientations.
 //

@@ -17,7 +17,12 @@
 // baseUnits and coverUnits (a fish whose lines are not all rows or all
 // columns), crossing and linkUnit (Empty Rectangle), medusaRule,
 // medusaWitness and colorGroups (a colouring step's two colours, the
-// surviving one first).
+// surviving one first), and from the uniqueness family: rectangle
+// ({ corners, floor, roof } - the four corners in reading order, which of
+// them match and which are the odd ones, so the card can draw the shape),
+// extraDigits, placedDigits (an Avoidable Rectangle's already-worked-out
+// corners), loopCells (a unique loop, in the order the ring closes) and
+// bugExtras (the candidates whose removal would leave a grave).
 //
 // A chain step (the alternating-inference family) also carries:
 //   chainNodes   the nodes in order, each { cells, cell, digit, kind,

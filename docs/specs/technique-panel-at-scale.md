@@ -63,3 +63,9 @@ Shipped in PR #78 to `staging` on 2026-10-24. The list leads with what applies t
 The analyser shipped with it. Library rows now say what each puzzle teaches from measurement rather than by hand, and a shelf's what-if note is derived the same way. Its per-shelf report is the programme's baseline and is recorded in `docs/PRODUCT.md`.
 
 Verified by the product manager on 2026-10-24: lint, typecheck, 380 tests and build pass on `staging`, and the report reproduces. Two things came out of this batch and were decided rather than left open: the Techniques list stays readable but inert in No Assist, and shelf assignment is recomputed once at the end of the programme rather than per batch. Both are in the decision log. One library finding was raised and is now issue #79: two puzzle names promise techniques their puzzle never needs.
+
+## Follow-up: the never-taught report (#83)
+
+Added to the analyser in PR #85 on 2026-10-24, after the XYZ-Wing finding showed the per-shelf table had a blind spot: it names only each puzzle's hardest technique, so a technique taught once mid-path was invisible. The report now answers, for every technique in the catalog, whether any library puzzle's solve path uses it as a step, with the step and puzzle counts, and it says in its own words why a never-taught technique is not a broken detector.
+
+It immediately found something larger than the question it was built for: the library teaches 21 of the 31 techniques the mentor knows, X-Wing is taught by none of the twenty puzzles, and six techniques are taught by exactly one puzzle each. That is now its own spec, [teaching coverage](teaching-coverage.md) (#88), because it is a gap in the product rather than in this batch.

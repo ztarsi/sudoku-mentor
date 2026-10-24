@@ -56,7 +56,9 @@ export const GLOSSARY = {
   colouring: 'Marking a network of strong links in two alternating colours, exactly one of which is the true set.',
   pivot: 'The middle cell of a wing pattern; its two candidates each point at one wing.',
   wing: 'An end cell of a wing pattern; it shares one candidate with the pivot and one with the other wing.',
-  'deadly pattern': 'Four cells in a rectangle across two boxes holding the same two candidates. It would give the puzzle two solutions, so a valid puzzle never contains one.',
+  'deadly pattern': 'Cells that could swap two digits between them without breaking anything: four in a rectangle across two boxes, or a longer loop. It would give the puzzle two solutions, so a valid puzzle never contains one.',
+  'locked set': 'N cells of one unit whose candidates come to exactly N digits. Those digits fill those cells, so they leave every other cell of the unit.',
+  'bivalue universal grave': 'A board where every empty cell has exactly two candidates and every digit has exactly two homes in every unit. Such a board always has more than one solution, so a proper puzzle never reaches one.',
   contradiction: 'A state where some cell has no possible digit left, proving the assumption that led there was wrong.',
   'weak link': 'Two places where at most one can be true: the same digit in cells that all see each other, or two digits in one cell.',
   'alternating inference chain': 'A chain of nodes whose links alternate strong, weak, strong, beginning and ending with a strong link. At least one of its two endpoints is true.',
@@ -104,7 +106,18 @@ const TERMS_BY_TECHNIQUE = {
   '3D Medusa': ['colouring', 'strong link', 'bi-value cell', 'conjugate pair'],
   'ALS-XZ': ['Almost Locked Set (ALS)', 'restricted common', 'sees'],
   'Unique Rectangle Type 1': ['deadly pattern', 'candidate'],
-  'BUG+1': ['bi-value cell', 'deadly pattern'],
+  'Unique Rectangle Type 2': ['deadly pattern', 'candidate', 'sees'],
+  'Unique Rectangle Type 3': ['deadly pattern', 'candidate', 'unit', 'locked set'],
+  'Unique Rectangle Type 4': ['deadly pattern', 'candidate', 'strong link'],
+  'Unique Rectangle Type 5': ['deadly pattern', 'candidate', 'sees'],
+  'Unique Rectangle Type 6': ['deadly pattern', 'candidate', 'strong link'],
+  'Hidden Unique Rectangle': ['deadly pattern', 'strong link', 'conjugate pair'],
+  'Avoidable Rectangle Type 1': ['deadly pattern'],
+  'Avoidable Rectangle Type 2': ['deadly pattern', 'candidate', 'sees'],
+  'BUG+1': ['bi-value cell', 'deadly pattern', 'bivalue universal grave'],
+  'BUG+2': ['bi-value cell', 'deadly pattern', 'bivalue universal grave'],
+  'BUG+3': ['bi-value cell', 'deadly pattern', 'bivalue universal grave'],
+  'Unique Loop': ['deadly pattern', 'candidate', 'sees'],
   'Cell Forcing Chain': ['bi-value cell', 'contradiction'],
   'Hypothesis Mode': ['contradiction', 'bi-value cell'],
 };
@@ -196,6 +209,44 @@ const eraseLine = (eliminations) => {
 const placeLine = (placement) => {
   if (!placement) return null;
   return `Write ${placement.digit} in ${shortCell(placement.cell)}.`;
+};
+
+/** "1 or 2", for a list of alternatives. */
+const listOr = (items) => listWords(items.map(String)).replace(/, and |\band\b/, ' or ');
+
+/**
+ * The half of the uniqueness argument that every technique in the family
+ * shares, written once. The player has read it under Unique Rectangle Type
+ * 1; the other types differ only in the shape of the corner that breaks it.
+ */
+const swapWhy = (a, b, past = false) =>
+  past
+    ? `Then you could swap ${a} and ${b} right round the rectangle and nothing else would change, so the puzzle would have two answers - and it has exactly one.`
+    : `If all four corners were down to ${a} and ${b}, you could swap the two numbers right round the rectangle and nothing else would change: the puzzle would have two answers. It has exactly one.`;
+
+/** Type 2 and Type 5: the same shared extra, in two or three corners. */
+const uniqueRectangleExtras = (step, howMany) => {
+  const [a, b] = step.pairDigits;
+  const { corners, floor, roof } = step.rectangle;
+  const extra = step.extraDigits[0];
+  const rest =
+    floor.length === 0
+      ? 'every corner carries the same one extra'
+      : `${shortCells(floor)} hold exactly ${a} and ${b}`;
+  return {
+    look: `Look at the four corners of a rectangle spread over two boxes: ${shortCells(corners)}. ${rest}, and the other ${howMany} (${shortCells(roof)}) hold those two plus ${extra}.`,
+    why: `${swapWhy(a, b)} So at least one of ${shortCells(roof)} must take its extra number, and ${extra} is the only extra on offer. ${extra} is therefore true in one of them, and any cell that clashes with all of them can never be ${extra}.`,
+  };
+};
+
+/** BUG+2 and BUG+3: the board-wide version, with two or three extras. */
+const bugPlus = (step, howMany) => {
+  const extras = step.bugExtras ?? [];
+  const where = extras.map((e) => `${e.digit} in ${shortCell(e.cell)}`);
+  return {
+    look: `Look at the whole board: every empty cell is down to two pencil marks, apart from ${listWords(where)}.`,
+    why: `Rub out those ${howMany} marks and every number would have exactly two homes in every row, column and box. A board like that can always be finished in two different ways, so a puzzle with exactly one answer never reaches it. At least one of ${listWords(where)} must therefore be true, and anything that every one of them would rule out can be erased.`,
+  };
 };
 
 // ---------------------------------------------------------------------------
@@ -367,6 +418,97 @@ const SIMPLE = {
     };
   },
 
+  'Unique Rectangle Type 2': (step) => uniqueRectangleExtras(step, 'two'),
+  'Unique Rectangle Type 5': (step) => uniqueRectangleExtras(step, 'three'),
+
+  'Unique Rectangle Type 3': (step) => {
+    const [a, b] = step.pairDigits;
+    const { corners, floor, roof } = step.rectangle;
+    const extras = step.extraDigits;
+    const subset = step.subsetDigits;
+    const withCells = step.zCells ?? [];
+    return {
+      look: `Look at the four corners of a rectangle spread over two boxes: ${shortCells(corners)}. ${shortCells(floor)} hold exactly ${a} and ${b}. ${shortCells(roof)} hold those two as well, plus ${listOr(extras)}.`,
+      why: `${swapWhy(a, b)} So one of ${shortCells(roof)} has to take one of its extra numbers, ${listOr(extras)}. That means those two cells behave like a single cell holding ${listWords(extras.map(String))}, sitting in ${step.unit?.name ?? 'the line they share'}. Put it beside ${shortCells(withCells)} and you have ${countWord(withCells.length + 1)} cells for the ${countWord(subset.length)} numbers ${listWords(subset.map(String))}, so those numbers are used up there and can go from the rest of ${step.unit?.name ?? 'that line'}.`,
+    };
+  },
+
+  'Unique Rectangle Type 4': (step) => {
+    const [a, b] = step.pairDigits;
+    const { corners, floor, roof } = step.rectangle;
+    const gone = step.digit;
+    const locked = gone === a ? b : a;
+    return {
+      look: `Look at the four corners of a rectangle spread over two boxes: ${shortCells(corners)}. ${shortCells(floor)} hold exactly ${a} and ${b}; ${shortCells(roof)} hold those two plus something else. In ${step.unit?.name ?? 'the line they share'}, ${locked} has nowhere left to go but ${shortCells(roof)}.`,
+      why: `One of ${shortCells(roof)} is therefore ${locked}. Suppose the other were ${gone}: then the first takes ${locked}, and the two cells holding only ${a} and ${b} are forced to the numbers left over. All four corners would be down to ${a} and ${b}. ${swapWhy(a, b, true)} So neither of ${shortCells(roof)} can be ${gone}.`,
+    };
+  },
+
+  'Unique Rectangle Type 6': (step) => {
+    const [a, b] = step.pairDigits;
+    const { corners, floor, roof } = step.rectangle;
+    const digit = step.digit;
+    const other = digit === a ? b : a;
+    return {
+      look: `Look at the four corners of a rectangle spread over two boxes: ${shortCells(corners)}. ${shortCells(floor)} hold exactly ${a} and ${b}, and they sit across the rectangle from each other. ${shortCells(roof)} hold those two plus something else.`,
+      why: `In both lines of the rectangle, ${digit} can only go in these corners, so it takes one corner in each - which means it runs along one diagonal of the rectangle or the other. If it ran along ${shortCells(roof)}, the other two corners would both be forced to ${other}, and all four corners would be down to ${a} and ${b}. ${swapWhy(a, b, true)} So ${digit} runs along the other diagonal, and it can go from ${shortCells(roof)}.`,
+    };
+  },
+
+  'Hidden Unique Rectangle': (step) => {
+    const [a, b] = step.pairDigits;
+    const { corners, floor } = step.rectangle;
+    const far = step.targetCells[0];
+    const gone = step.digit;
+    const linked = gone === a ? b : a;
+    const beside = (step.strongLinks ?? []).map((l) => l.to.cell);
+    return {
+      look: `Look at the four corners of a rectangle spread over two boxes: ${shortCells(corners)}. Only ${shortCells(floor)} holds exactly ${a} and ${b}. Across the rectangle from it is ${shortCell(far)}, and in ${shortCell(far)}'s own row and column the number ${linked} can only go in these corners.`,
+      why: `Suppose ${shortCell(far)} were ${gone}. Then its row and its column would both have to put their ${linked} on ${shortCells(beside)}, and ${shortCells(floor)}, which clashes with both of them, would be left with ${gone}. All four corners would be down to ${a} and ${b}. ${swapWhy(a, b, true)} So ${shortCell(far)} cannot be ${gone}.`,
+    };
+  },
+
+  'Avoidable Rectangle Type 1': (step) => {
+    const placed = step.placedDigits ?? [];
+    const target = step.targetCells[0];
+    const digit = step.digit;
+    const other = placed.find((p) => p.digit !== digit)?.digit;
+    return {
+      look: `Look at the four corners of a rectangle spread over two boxes: ${shortCells(step.rectangle.corners)}. Three of them are already filled in - ${placed.map((pl) => `${shortCell(pl.cell)} is ${pl.digit}`).join(', ')} - and none of the four was a starting clue. ${shortCell(target)} is the empty one.`,
+      why: `This is the deadly rectangle again, but over numbers already written in, so it is about avoiding the pattern rather than breaking it. If ${shortCell(target)} were ${digit}, the four corners would hold ${digit} and ${other} on their two diagonals, and you could swap them round without breaking anything - the puzzle would have had two answers all along. It has one, so ${shortCell(target)} is not ${digit}.`,
+    };
+  },
+
+  'Avoidable Rectangle Type 2': (step) => {
+    const placed = step.placedDigits ?? [];
+    const empty = step.rectangle.roof;
+    const extra = step.digit;
+    const [p, q] = placed;
+    return {
+      look: `Look at the four corners of a rectangle spread over two boxes: ${shortCells(step.rectangle.corners)}. ${shortCell(p.cell)} is already ${p.digit} and ${shortCell(q.cell)} is already ${q.digit}, and none of the four was a starting clue. ${shortCells(empty)} are still empty, and each can only be the number sitting across from it or ${extra}.`,
+      why: `This is the deadly rectangle again, but over numbers already written in, so it is about avoiding the pattern rather than breaking it. If both empty corners took the number across from them, the four would hold ${p.digit} and ${q.digit} on their two diagonals and could swap round - two answers. So ${extra} goes in ${shortCells(empty)}, in one or the other, and any cell that clashes with both of them can never be ${extra}.`,
+    };
+  },
+
+  'BUG+2': (step) => bugPlus(step, 'two'),
+  'BUG+3': (step) => bugPlus(step, 'three'),
+
+  'Unique Loop': (step, grid) => {
+    const [a, b] = step.pairDigits;
+    const loop = step.loopCells ?? step.baseCells;
+    // The ring cells with something beyond the two loop numbers: the only
+    // ones that can break the alternation.
+    const carriers = loop.filter((c) => candidatesOf(grid, c).length > 2);
+    const extra = step.extraDigits?.[0] ?? null;
+    const odd = carriers.length === 1 ? carriers[0] : step.targetCells[0];
+    return {
+      look: `Look at a ring of ${loop.length} cells that can all hold ${a} and ${b}: ${shortCells(loop)}. Every row, column and box the ring touches holds exactly two of them.`,
+      why: extra
+        ? `${a} and ${b} could alternate right round the ring in two different ways, and both would solve the puzzle, so some ring cell has to take something else. Only ${shortCells(carriers)} can: each of them carries ${extra}. So ${extra} is true in one of them, and any cell that clashes with all of them can never be ${extra}.`
+        : `${a} and ${b} could alternate right round the ring in two different ways, and both would solve the puzzle. The puzzle has exactly one answer, so some ring cell must take something else - and ${shortCell(odd)} is the only one that can. So ${a} and ${b} can go from it.`,
+    };
+  },
+
   'Unique Rectangle Type 1': (step) => {
     const extra = step.targetCells?.[0];
     const corners = step.baseCells.filter((c) => c !== extra);
@@ -381,7 +523,7 @@ const SIMPLE = {
     const cell = step.placement?.cell ?? step.baseCells?.[0];
     return {
       look: `Look at the whole grid: every empty cell has exactly two pencil marks, except ${shortCell(cell)}, which has three.`,
-      why: `A grid where every cell has two options, and each digit appears exactly twice in every row, column, and box, would have two answers. A proper Sudoku has exactly one, so this cell must break the pattern. The only number that breaks it is ${step.digit}: it is the one that appears three times in this cell's row, column, or box.`,
+      why: `Rub out the odd mark and every number would have exactly two homes in every row, column and box. A board like that can always be finished in two different ways, so a puzzle with exactly one answer never reaches it. The mark that would have to go is ${step.digit}, so ${step.digit} is the one number ${shortCell(cell)} can take.`,
     };
   },
 

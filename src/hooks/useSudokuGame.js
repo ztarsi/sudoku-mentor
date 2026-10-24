@@ -4,13 +4,33 @@ import {
   applyLogicStep,
   eliminateCandidatesFromPeers,
 } from '@/components/sudoku/logicEngine';
-import { solveSudoku, countSolutions } from '@/components/sudoku/solver';
+import { solveSudoku } from '@/components/sudoku/solver';
+import {
+  UNIQUENESS_NONE,
+  UNIQUENESS_UNKNOWN,
+  establishUniqueness,
+  uniquenessAllowed,
+} from '@/components/sudoku/uniqueness';
 import { getPeers } from '@/components/sudoku/gridUnits';
 
 // Digits a cell could still hold given only the placed digits around it.
 const validCandidates = (grid, cellIndex) => {
   const used = new Set(getPeers(cellIndex).map((i) => grid[i].value).filter((v) => v !== null));
   return [1, 2, 3, 4, 5, 6, 7, 8, 9].filter((d) => !used.has(d));
+};
+
+/**
+ * Would placing `digit` in `cellIndex` leave the board with an answer?
+ *
+ * On a puzzle with one answer this is the same question as "is it the
+ * answer's digit", and the hook asks it that cheaper way. It is here for
+ * the grid that has more than one answer, or whose count never finished:
+ * such a grid is still playable, and a digit is only wrong there when no
+ * answer at all allows it.
+ */
+const keepsAnAnswer = (grid, cellIndex, digit) => {
+  const trial = grid.map((cell, i) => (i === cellIndex ? { ...cell, value: digit } : cell));
+  return solveSudoku(trial) !== null;
 };
 
 export const createEmptyGrid = () =>
@@ -105,6 +125,10 @@ const clearSavedGame = (key) => {
 export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}) {
   const [grid, setGrid] = useState(createEmptyGrid);
   const [solution, setSolution] = useState(null);
+  // How many answers this puzzle has, established once from its givens and
+  // remembered with it. The uniqueness techniques are only sound when it is
+  // exactly one; see components/sudoku/uniqueness.js.
+  const [uniqueness, setUniqueness] = useState(UNIQUENESS_UNKNOWN);
   const [history, setHistory] = useState({ stack: [], index: -1 });
   const [errorCount, setErrorCount] = useState(0);
   const [completed, setCompleted] = useState(false);
@@ -174,6 +198,7 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
 
   // Derived from the current grid, so it can never validate a stale one.
   const validationErrors = useMemo(() => computeConflicts(grid), [grid]);
+  const unique = uniquenessAllowed(uniqueness);
 
   // Commit a player-visible move: set the grid and push a snapshot,
   // truncating any redo tail. Never called from inside a setState updater,
@@ -192,8 +217,14 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
       const cell = grid[cellIndex];
       if (!cell || cell.isFixed) return;
 
-      // Reject inputs that contradict the known solution
-      if (solution && value !== null && solution[cellIndex].value !== value) {
+      // Reject an entry no answer allows. With one answer that is exactly
+      // the answer's digit, which is the cheap comparison; with more than
+      // one, any digit that still leaves the board solvable is fair.
+      const refused =
+        value !== null &&
+        solution &&
+        (unique ? solution[cellIndex].value !== value : !keepsAnAnswer(grid, cellIndex, value));
+      if (refused) {
         setErrorCount((c) => c + 1);
         setRejectedInput({ cellIndex, digit: value, id: ++rejectSeq.current });
         onWrongInputRef.current?.(cellIndex, value);
@@ -212,7 +243,7 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
         value ? eliminateCandidatesFromPeers(newGrid, cellIndex, value) : newGrid
       );
     },
-    [grid, solution, commit]
+    [grid, solution, unique, commit]
   );
 
   const handleToggleCandidate = useCallback(
@@ -223,8 +254,13 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
       const has = cell.candidates.includes(candidate);
       // Erasing the pencil mark that IS the answer is a mistake, and the
       // product promises mistakes are caught at once. It would also leave
-      // the mentor reasoning from a lie.
-      if (has && solution && solution[cellIndex].value === candidate) {
+      // the mentor reasoning from a lie. On a grid with more than one
+      // answer, "the answer" is any digit some answer still allows.
+      const needed =
+        has &&
+        solution &&
+        (unique ? solution[cellIndex].value === candidate : keepsAnAnswer(grid, cellIndex, candidate));
+      if (needed) {
         setErrorCount((c) => c + 1);
         setRejectedInput({ cellIndex, digit: candidate, id: ++rejectSeq.current });
         onWrongInputRef.current?.(cellIndex, candidate);
@@ -239,7 +275,7 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
       };
       commit(newGrid);
     },
-    [grid, solution, commit]
+    [grid, solution, unique, commit]
   );
 
   // The grid the engines reason from. The player's pencil marks are their
@@ -253,14 +289,16 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
       if (cell.value !== null) return cell;
       let candidates = cell.candidates;
       if (candidates.length === 0) candidates = validCandidates(grid, i);
-      const truth = solution?.[i]?.value;
+      // Only a puzzle with one answer has a truth to restore; on a grid
+      // with more, there is no single digit that belongs here.
+      const truth = unique ? solution?.[i]?.value : null;
       if (truth && !candidates.includes(truth)) candidates = [...candidates, truth].sort((a, b) => a - b);
       if (candidates === cell.candidates) return cell;
       changed = true;
       return { ...cell, candidates };
     });
     return changed ? repaired : grid;
-  }, [grid, solution]);
+  }, [grid, solution, unique]);
 
   // Apply a logic-engine step (placement and/or eliminations) as one
   // undoable move. A step is checked against the solution first: the
@@ -269,7 +307,10 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
   const applyStep = useCallback(
     (step) => {
       if (!step) return false;
-      if (solution) {
+      // Checked against the answer where there is one: the engines are
+      // sound on consistent marks, and the player never sees a wrong digit
+      // written by the mentor.
+      if (solution && unique) {
         const badPlacement = step.placement && solution[step.placement.cell].value !== step.placement.digit;
         const badElimination = (step.eliminations ?? []).some((e) => solution[e.cell].value === e.digit);
         if (badPlacement || badElimination) {
@@ -294,7 +335,7 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
       setHintsUsed((n) => n + 1);
       return true;
     },
-    [grid, logicGrid, solution, commit]
+    [grid, logicGrid, solution, unique, commit]
   );
 
   const canUndo = history.index > 0;
@@ -328,12 +369,15 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
 
     const solved = solveSudoku(newGrid);
     if (!solved) return { ok: false, reason: 'no-solution' };
-    // A puzzle with two solutions would reject valid entries as "wrong"
-    // and mislead the uniqueness techniques (Unique Rectangle, BUG+1).
-    if (countSolutions(newGrid, 2) > 1) return { ok: false, reason: 'multiple-solutions' };
+    // How many answers it has, once, here, from the givens. A puzzle with
+    // more than one is still playable - the player is told, and the
+    // techniques that need a single answer are switched off for it.
+    const answers = establishUniqueness(puzzle.map((v) => v || 0));
+    if (answers.state === UNIQUENESS_NONE) return { ok: false, reason: 'no-solution' };
     if (seq !== loadSeq.current) return { ok: false, reason: 'superseded' };
 
     const startGrid = withCandidates ? generateCandidates(newGrid) : newGrid;
+    setUniqueness(answers.state);
     setSolution(solved);
     setGrid(startGrid);
     setHistory({ stack: [startGrid], index: 0 });
@@ -346,7 +390,7 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
     setHintsUsed(0);
     setAssistUsed(false);
     startClock(0);
-    return { ok: true };
+    return { ok: true, uniqueness: answers.state };
   }, [startClock]);
 
   // Rejected-input feedback is transient: drop it once the animation has
@@ -366,6 +410,7 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
     const empty = createEmptyGrid();
     setGrid(empty);
     setSolution(null);
+    setUniqueness(UNIQUENESS_UNKNOWN);
     setHistory({ stack: [empty], index: 0 });
     setErrorCount(0);
     setCompleted(false);
@@ -393,6 +438,10 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
     });
     const solved = solveSudoku(givensGrid);
     if (!solved) return false;
+    // The answer count belongs to the puzzle, so a resumed game
+    // establishes it again from the same givens rather than trusting what
+    // was written to storage.
+    const answers = establishUniqueness(saved.givens);
 
     const restored = givensGrid.map((cell, i) => {
       if (cell.isFixed) return cell;
@@ -405,6 +454,7 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
     });
 
     loadSeq.current++;
+    setUniqueness(answers.state);
     setSolution(solved);
     setGrid(restored);
     setHistory({ stack: [restored], index: 0 });
@@ -467,9 +517,10 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
   // Escape) re-opened the completion modal and saved duplicate records.
   useEffect(() => {
     if (completed || !solution || !startTime) return;
-    const isSolved = grid.every(
-      (cell, idx) => cell.value !== null && cell.value === solution[idx].value
-    );
+    // A full board with nothing clashing IS an answer - the same test as
+    // comparing against the answer when there is only one, and the right
+    // one when the player has found the other.
+    const isSolved = grid.every((cell) => cell.value !== null) && validationErrors.length === 0;
     if (!isSolved) return;
 
     setCompleted(true);
@@ -483,7 +534,7 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
       puzzleName,
       puzzleDifficulty,
     });
-  }, [grid, solution, startTime, completed, errorCount, hintsUsed, assistUsed, puzzleName, puzzleDifficulty, getElapsedSeconds, stopClock]);
+  }, [grid, solution, validationErrors, startTime, completed, errorCount, hintsUsed, assistUsed, puzzleName, puzzleDifficulty, getElapsedSeconds, stopClock]);
 
   const solvedCount = useMemo(
     () => grid.filter((c) => c.value !== null).length,
@@ -494,6 +545,10 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
     grid,
     setGrid, // raw setter for non-undoable visual updates (highlights)
     solution,
+    /** 'one' | 'many' | 'none' | 'unknown', from uniqueness.js */
+    uniqueness,
+    /** True when the uniqueness techniques may be used on this puzzle. */
+    uniquenessEstablished: unique,
     validationErrors,
     rejectedInput, // { cellIndex, digit, id } for ~1s after a wrong entry
     errorCount,

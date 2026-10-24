@@ -10,6 +10,7 @@ import KeyboardShortcutsDialog from '@/components/sudoku/panel/KeyboardShortcuts
 import { playErrorTone } from '@/components/sudoku/errorSound';
 import { resolveShortcut, isTypingTarget } from '@/components/sudoku/keyboardShortcuts';
 import { findNextLogicStep, onlySinglesRemain } from '@/components/sudoku/logicEngine';
+import { UNIQUENESS_MANY, UNIQUENESS_ONE, uniquenessNote } from '@/components/sudoku/uniqueness';
 import { searchWhatIf, isCancelled, isTimedOut, HINT_SEARCH_DEPTH, HINT_TIME_BUDGET_MS } from '@/components/sudoku/whatIfSearch';
 import {
   buildRemovalMap,
@@ -361,7 +362,7 @@ export default function SudokuMentor() {
     setOnboarding(onHintAsked);
 
     const gridAtStart = game.grid;
-    let step = findNextLogicStep(game.logicGrid, null);
+    let step = findNextLogicStep(game.logicGrid, null, { uniqueness: game.uniqueness });
     // Only singles left (issue #54): every empty cell on the player's board
     // shows one pencil mark, and this puzzle has already taught at least one
     // single. Until both hold, singles are lessons like any other technique.
@@ -414,7 +415,7 @@ export default function SudokuMentor() {
       highlightSteps([step]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [game.grid, game.logicGrid, game.noteAssistUsed, effectiveNoAssist, presentStep, highlightSteps, lessonLog, candidatesVisible]);
+  }, [game.grid, game.logicGrid, game.uniqueness, game.noteAssistUsed, effectiveNoAssist, presentStep, highlightSteps, lessonLog, candidatesVisible]);
   const gridRef = useRef(game.grid);
   gridRef.current = game.grid;
 
@@ -562,9 +563,14 @@ export default function SudokuMentor() {
         toast({ title: 'Invalid puzzle', description: 'This puzzle has no valid solution.', variant: 'destructive' });
         return;
       }
-      if (!result.ok && result.reason === 'multiple-solutions') {
-        toast({ title: 'Not a proper Sudoku', description: 'This puzzle has more than one solution. Check the givens and try again.', variant: 'destructive' });
-        return;
+      // More than one answer, or a count that did not finish: the player
+      // is told plainly and keeps playing. What goes away is the family of
+      // techniques that only holds when there is a single answer.
+      if (result.uniqueness && result.uniqueness !== UNIQUENESS_ONE) {
+        toast({
+          title: result.uniqueness === UNIQUENESS_MANY ? 'More than one answer' : 'Answer count unknown',
+          description: `${uniquenessNote(result.uniqueness)} If you typed this grid in or photographed it, it is worth checking the givens against the original.`,
+        });
       }
       markUserLoadRef.current();
       setShowPuzzleLoader(false);
@@ -944,6 +950,7 @@ export default function SudokuMentor() {
   // One lesson panel, rendered in the column or in the sheet.
   const lessonPanel = phone ? null : (
     <LogicPanel
+      uniqueness={game.uniqueness}
       currentStep={currentStep}
       grid={game.logicGrid}
       onAssistUsed={game.noteAssistUsed}

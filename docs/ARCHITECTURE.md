@@ -79,7 +79,9 @@ or a step. Nothing in here touches React or the network.
 | `gridUnits.js` | rows, columns, boxes, peers, cell names (`R5C3`) |
 | `solver.jsx` | backtracking solver; the source of truth for "the solution" |
 | `logicEngine.jsx` | named techniques from Naked Single to the wings, in order; `findNextLogicStep`, `findAllTechniqueInstances`, `applyLogicStep` |
-| `chainEngine.jsx` | the colouring and set techniques: X-Cycle, 3D Medusa, Finned X-Wing, ALS-XZ, Unique Rectangle, BUG+1 |
+| `chainEngine.jsx` | the colouring and set techniques: X-Cycle, 3D Medusa, Finned X-Wing, ALS-XZ |
+| `uniquenessEngine.jsx` | the uniqueness family: the Unique Rectangles and their hidden form, the Avoidable Rectangles, the BUG variants, unique loops. One argument proves all of them, and none of it may run without the guard below |
+| `uniqueness.js` | the guard: how many answers a puzzle has, established once from its givens, and what the panel says when it is not one |
 | `fishEngine.jsx` | the rest of the fish family and the single-digit patterns: Jellyfish, the finned and sashimi forms, Franken and Mutant fish, Empty Rectangle |
 | `aicEngine.js` | alternating inference chains: the named short chains (Skyscraper, Two-String Kite, W-Wing, Remote Pairs), the general X-Chain, XY-Chain and Alternating Chain, and the richer forms (grouped nodes, continuous loops, almost-locked-set nodes) |
 | `restrictedCommon.js` | almost locked sets and the restricted-common check they are joined by, shared by `aicEngine` and the ALS techniques |
@@ -110,10 +112,34 @@ WeakMap keyed by the grid) for as long as the board stands, because the
 ladder asks several chain detectors about the same board and the
 Techniques panel asks every one of them for a count.
 
+## The single-solution guard
+
+Every technique in the uniqueness family is only valid on a puzzle with
+exactly one answer: each one argues "if this were that digit the puzzle
+would have two answers, and it has one". On a grid that really does have
+two, the same argument produces a confident wrong hint.
+
+So `useSudokuGame` establishes the answer count **once per puzzle, from the
+givens** (`establishUniqueness`, which counts to two and stops) and keeps it
+with the puzzle; a resumed game establishes it again from the same givens.
+`findNextLogicStep` and `findAllTechniqueInstances` take it as
+`{ uniqueness }` and run nothing from `uniquenessEngine.jsx` unless it is
+`'one'`. The default is `'unknown'`, so a caller that never establishes
+anything gets the family switched off - failing in the safe direction. The
+gate keys off the engine module itself rather than a list of names, so a
+technique added to that module is guarded by being there.
+
+A puzzle with more than one answer is still played: the player is told
+plainly, every other technique still works, and the Techniques list shows
+the family as unavailable with the reason rather than as counts of zero. On
+such a grid "wrong entry" widens from "not the answer's digit" to "no answer
+allows it", which is the same test when there is only one answer.
+
 ## The hint path
 
-1. `findNextLogicStep(grid)` walks the techniques in order and returns the
-   first that applies. This is fast (milliseconds).
+1. `findNextLogicStep(grid, focusedDigit, { uniqueness })` walks the
+   techniques in order and returns the first that applies. This is fast
+   (milliseconds).
 2. If nothing applies, the page asks `searchWhatIf(grid, depth)`. The worker
    runs `findForcingChain` then `findHypothesis`; the page shows a spinner
    with a Cancel button and drops the result if the grid changed meanwhile.
@@ -149,9 +175,12 @@ scoping on `SudokuPuzzle` and `SolveRecord`; the repo cannot express that.
 
 1. Implement the finder in `logicEngine.jsx` (or `chainEngine.jsx` for a
    colouring or set technique, `fishEngine.jsx` for a fish or a
-   single-digit pattern, `aicEngine.js` for a chain), return through
+   single-digit pattern, `aicEngine.js` for a chain, `uniquenessEngine.jsx`
+   for one that needs the puzzle to have a single answer), return through
    `makeStep`, and add it to `TECHNIQUE_ORDER()` and to the map
-   `findAllTechniqueInstances` reads.
+   `findAllTechniqueInstances` reads. A uniqueness technique goes in
+   `UNIQUENESS_FINDERS` and is gated for free; mark it `uniqueness: true`
+   in the catalog so the panel can say why it is unavailable.
 2. Add its name, tier, `count` (live, scan or search) and learn-more text
    to `techniqueCatalog.js`, and score it in `difficultyAnalyzer.jsx` so
    the shelf every library puzzle rates stays what it was.

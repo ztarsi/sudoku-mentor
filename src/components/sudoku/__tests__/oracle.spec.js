@@ -12,6 +12,7 @@ import {
   applyLogicStep,
 } from '../logicEngine';
 import { solveSudoku } from '../solver';
+import { establishUniqueness } from '../uniqueness';
 import { PUZZLES } from '../puzzles';
 
 const buildGrid = (puzzleArray) =>
@@ -42,9 +43,12 @@ describe('logic engine soundness (solution oracle)', () => {
       const solved = solveSudoku(grid);
       expect(solved, 'built-in puzzle must be solvable').not.toBeNull();
       const solution = solved.map((c) => c.value);
+      // Every library puzzle has exactly one answer, which is what lets the
+      // uniqueness family run; establish it rather than assume it.
+      const { state: uniqueness } = establishUniqueness(puzzle);
 
       for (let iteration = 0; iteration < 300; iteration++) {
-        const step = findNextLogicStep(grid, null);
+        const step = findNextLogicStep(grid, null, { uniqueness });
         if (!step) break; // engine ran out of techniques - fine, we only test soundness
 
         if (step.placement) {

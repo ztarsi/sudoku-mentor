@@ -331,20 +331,133 @@ export const TECHNIQUES = [
   },
   {
     name: 'Unique Rectangle Type 1',
-    short: 'Unique Rect.',
+    short: 'Unique Rect. 1',
     tier: 'Ultimate',
     count: COUNT_SCAN,
+    uniqueness: true,
     aliases: ['uniqueness', 'deadly pattern', 'ur', 'unique rectangle'],
-    description: 'Avoids deadly patterns with multiple solutions.',
+    description: 'Three corners are the same bare pair, so the fourth cannot be either digit.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'Unique Rectangle Type 2',
+    short: 'Unique Rect. 2',
+    tier: 'Ultimate',
+    count: COUNT_SCAN,
+    uniqueness: true,
+    aliases: ['uniqueness', 'deadly pattern', 'ur', 'unique rectangle'],
+    description: 'Two corners in one unit carry the same extra digit, so one of them holds it.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'Unique Rectangle Type 3',
+    short: 'Unique Rect. 3',
+    tier: 'Ultimate',
+    count: COUNT_SCAN,
+    uniqueness: true,
+    aliases: ['uniqueness', 'deadly pattern', 'ur', 'unique rectangle', 'subset'],
+    description: "The two corners' extra digits act as one more cell, locking a subset in their unit.",
+    icon: Lightbulb,
+  },
+  {
+    name: 'Unique Rectangle Type 4',
+    short: 'Unique Rect. 4',
+    tier: 'Ultimate',
+    count: COUNT_SCAN,
+    uniqueness: true,
+    aliases: ['uniqueness', 'deadly pattern', 'ur', 'unique rectangle', 'strong link'],
+    description: 'One pair digit is locked in two corners, so the other pair digit leaves them.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'Unique Rectangle Type 5',
+    short: 'Unique Rect. 5',
+    tier: 'Ultimate',
+    count: COUNT_SCAN,
+    uniqueness: true,
+    aliases: ['uniqueness', 'deadly pattern', 'ur', 'unique rectangle'],
+    description: 'The same extra digit sits in three corners, so one of them holds it.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'Unique Rectangle Type 6',
+    short: 'Unique Rect. 6',
+    tier: 'Ultimate',
+    count: COUNT_SCAN,
+    uniqueness: true,
+    aliases: ['uniqueness', 'deadly pattern', 'ur', 'unique rectangle', 'strong link', 'diagonal'],
+    description: 'A pair digit can only reach the corners, so it runs down the bare diagonal.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'Hidden Unique Rectangle',
+    short: 'Hidden Unique Rect.',
+    tier: 'Ultimate',
+    count: COUNT_SCAN,
+    uniqueness: true,
+    formal: 'Hidden Rectangle',
+    aliases: ['uniqueness', 'deadly pattern', 'ur', 'unique rectangle', 'hidden rectangle', 'strong link'],
+    description: 'The rectangle read through strong links rather than bare pairs.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'Avoidable Rectangle Type 1',
+    short: 'Avoidable Rect. 1',
+    tier: 'Ultimate',
+    count: COUNT_SCAN,
+    uniqueness: true,
+    aliases: ['uniqueness', 'deadly pattern', 'avoidable rectangle', 'ar'],
+    description: 'Three corners already placed; the fourth may not complete the deadly pattern.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'Avoidable Rectangle Type 2',
+    short: 'Avoidable Rect. 2',
+    tier: 'Ultimate',
+    count: COUNT_SCAN,
+    uniqueness: true,
+    aliases: ['uniqueness', 'deadly pattern', 'avoidable rectangle', 'ar'],
+    description: 'Two corners placed, and the two empty ones share one extra digit.',
     icon: Lightbulb,
   },
   {
     name: 'BUG+1',
     tier: 'Ultimate',
     count: COUNT_SCAN,
+    uniqueness: true,
     formal: 'Bivalue Universal Grave + 1',
     aliases: ['bivalue universal grave', 'bug', 'uniqueness'],
     description: 'Bivalue Universal Grave plus one tri-value cell.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'BUG+2',
+    tier: 'Ultimate',
+    count: COUNT_SCAN,
+    uniqueness: true,
+    formal: 'Bivalue Universal Grave + 2',
+    aliases: ['bivalue universal grave', 'bug', 'uniqueness'],
+    description: 'A grave with two extra candidates: one of the two must be true.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'BUG+3',
+    tier: 'Ultimate',
+    count: COUNT_SCAN,
+    uniqueness: true,
+    formal: 'Bivalue Universal Grave + 3',
+    aliases: ['bivalue universal grave', 'bug', 'uniqueness'],
+    description: 'A grave with three extra candidates: one of the three must be true.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'Unique Loop',
+    tier: 'Ultimate',
+    count: COUNT_SCAN,
+    uniqueness: true,
+    formal: 'Unique Loop (BUG-lite)',
+    aliases: ['uniqueness', 'deadly pattern', 'unique loop', 'loop'],
+    description: 'The rectangle argument around a loop of six or eight cells.',
     icon: Lightbulb,
   },
   {
@@ -445,6 +558,21 @@ export const tierColor = (level) => TIER_BY_LEVEL[level]?.color ?? 'emerald';
 /** Names in teaching order, by how their count is paid for. */
 export const techniqueNamesByCount = (count) =>
   TECHNIQUES.filter((tech) => tech.count === count).map((tech) => tech.name);
+
+/**
+ * The techniques that only hold because the puzzle has exactly one answer.
+ * The panel reads this to say why they are unavailable on a grid whose
+ * answer count is not one, instead of showing them as "none here" - which
+ * would read as "there is no pattern here" when the truth is "this
+ * technique cannot be used on this grid at all".
+ *
+ * The engine does not read it. Its own gate keys off uniquenessEngine, so
+ * the two cannot drift apart unnoticed; a test holds them equal.
+ */
+export const UNIQUENESS_TECHNIQUES = TECHNIQUES.filter((tech) => tech.uniqueness).map((t) => t.name);
+
+/** True when this technique needs the puzzle to have exactly one answer. */
+export const needsUniqueness = (name) => !!BY_NAME[name]?.uniqueness;
 
 export const LIVE_COUNT_TECHNIQUES = techniqueNamesByCount(COUNT_LIVE);
 export const SCAN_TECHNIQUES = techniqueNamesByCount(COUNT_SCAN);
@@ -713,16 +841,82 @@ export const TECHNIQUE_DETAILS = {
     strategy: '1. Find two groups of N cells with N+1 candidates, in different units\n2. Find a shared digit X whose cells in one group all see its cells in the other\n3. Pick another shared digit Z and erase it from cells that see every Z in both groups'
   },
   'Unique Rectangle Type 1': {
-    plain: 'Four cells at the corners of a rectangle, spread across two 3x3 boxes. Three corners hold exactly the same two pencil marks. If the fourth corner could also be one of those two numbers, the puzzle would have two answers (you could swap the numbers around the rectangle). Real puzzles have one answer, so the fourth corner must be something else. Erase those two numbers from it.',
-    description: 'Four cells in two rows, two columns, and two boxes where three corners are the same bare pair. The fourth corner cannot take either pair digit, or the puzzle would have two solutions.',
+    plain: 'Four cells at the corners of a rectangle, spread across two 3x3 boxes. Three corners hold exactly the same two pencil marks. If the fourth corner could also be one of those two numbers, the puzzle would have two answers: you could swap the two numbers all the way round the rectangle and nothing else would change. So the fourth corner must be something else, and those two numbers can be erased from it. This technique works because the puzzle has exactly one answer.',
+    description: 'Four cells in two rows, two columns, and two boxes where three corners are the same bare pair. The fourth corner cannot take either pair digit, or the puzzle would have two solutions. This technique works because the puzzle has exactly one answer.',
     example: 'R2C3, R2C7, and R6C3 are {1, 2}; R6C7 is {1, 2, 6}. Remove 1 and 2 from R6C7, leaving 6.',
     strategy: '1. Find a rectangle of four cells spanning exactly two boxes\n2. Check that three corners hold the same two pencil marks only\n3. Erase those two marks from the fourth corner'
   },
+  'Unique Rectangle Type 2': {
+    plain: 'The same rectangle, but this time two corners have the pair plus one extra number, and that extra number is the same in both. If neither of them took the extra, all four corners would be down to the same two numbers and the puzzle would have two answers. So one of those two corners is the extra number. It is in one of them, so any cell that clashes with both of them can never be that number. This technique works because the puzzle has exactly one answer.',
+    description: 'A Unique Rectangle whose two roof cells each hold the pair plus the same single extra candidate, and which share a unit. One of the two must take the extra digit, so it is eliminated from every cell that sees both. This technique works because the puzzle has exactly one answer.',
+    example: 'R1C1 and R1C4 are {1, 2}; R2C1 and R2C4 are {1, 2, 3}. One of R2C1 and R2C4 is 3, so 3 is removed from the rest of row 2.',
+    strategy: '1. Find a rectangle over two boxes where all four corners can hold the same two numbers\n2. Check that exactly two corners have extras, and that the extra is the same single number in both\n3. Erase that number from every cell that clashes with both corners'
+  },
+  'Unique Rectangle Type 3': {
+    plain: 'Two corners have the pair plus extras, and this time the extras are different. One of those two corners has to take one of its extras, or the rectangle would have two answers. So treat the two corners together as one imaginary cell holding just the extras, sitting in the row, column or box they share. If that imaginary cell plus one or two real cells beside it use up exactly as many numbers as there are cells, those numbers are locked into them and can be erased from the rest of the unit. This technique works because the puzzle has exactly one answer.',
+    description: 'A Unique Rectangle whose two roof cells share a unit and carry two or more extra candidates between them. At least one extra must be true, so the roof acts as one cell holding the extras; combined with N other cells of the unit into exactly N+1 digits it forms a naked subset, and those digits are eliminated from the rest of the unit. This technique works because the puzzle has exactly one answer.',
+    example: 'R1C1 is {1, 2, 3} and R1C4 is {1, 2, 4}, with R2C1 and R2C4 both {1, 2}. The extras are {3, 4}; R1C7 is {3, 4} too, so 3 and 4 are locked into R1C7 and the roof, and come off the rest of row 1.',
+    strategy: '1. Find a rectangle whose two roof corners share a unit and have two or more extras between them\n2. Treat those extras as one extra cell in the unit\n3. Look for cells beside it that make a locked set with those numbers\n4. Erase the set\'s numbers from the rest of the unit'
+  },
+  'Unique Rectangle Type 4': {
+    plain: 'Two corners have extras and the other two are the bare pair. Look at the row, column or box the two extra-carrying corners share: if one of the pair numbers has nowhere else to go in it, one of them must be that number. Then if either of them took the other pair number, the second corner would take the first, the two bare corners would be forced, and all four corners would hold only the two numbers - two answers. So the other pair number can be erased from both of those corners. This technique works because the puzzle has exactly one answer.',
+    description: 'A Unique Rectangle whose two roof cells share a unit in which one pair digit has only those two cells left (a strong link). The other pair digit is then eliminated from both roof cells. This technique works because the puzzle has exactly one answer.',
+    example: 'R2C1 and R2C4 are {1, 2}; R1C1 and R1C4 are {1, 2, 3}. In row 1 the digit 2 can only go in R1C1 or R1C4, so 1 is removed from both.',
+    strategy: '1. Find a rectangle with two bare-pair corners and two corners with extras\n2. Take the unit the two extra corners share\n3. Check whether one pair number has only those two cells left in it\n4. Erase the other pair number from both of them'
+  },
+  'Unique Rectangle Type 5': {
+    plain: 'Like Type 2, but the extra number sits in three of the corners instead of two (or in two corners that sit across the rectangle from each other). One of them still has to take it, or all four corners would be down to the pair and the puzzle would have two answers. So any cell that clashes with every one of those corners can never be that number. This technique works because the puzzle has exactly one answer.',
+    description: 'A Unique Rectangle where three (or four, or two diagonally opposite) corners carry the same single extra candidate. One of them must take it, so it is eliminated from every cell that sees all of them. With only two diagonal corners nothing sees both, so in practice this is the three-corner form. This technique works because the puzzle has exactly one answer.',
+    example: 'R2C4 is {1, 2}; R1C1, R1C4 and R2C1 are all {1, 2, 3}. One of the three is 3, so 3 comes off R1C2 and R1C3, which clash with all three.',
+    strategy: '1. Find a rectangle over two boxes where every corner can hold the same two numbers\n2. Check that the corners with extras all carry the same single extra number\n3. Erase that number from every cell that clashes with all of them'
+  },
+  'Unique Rectangle Type 6': {
+    plain: 'Here the two bare-pair corners sit across the rectangle from each other, on one diagonal. Pick one of the pair numbers and check both rows of the rectangle (or both columns): if that number can only go in the rectangle\'s corners in each of them, it has to take one corner per row, which means it runs down one diagonal or the other. If it ran down the diagonal with the extras, both bare corners would be forced to the other number and all four corners would hold only the pair - two answers. So it runs down the bare diagonal and can be erased from the other two corners. This technique works because the puzzle has exactly one answer.',
+    description: 'A Unique Rectangle with its two bare-pair cells on one diagonal, where one pair digit is confined to the rectangle in both of its rows (or both of its columns). That digit must occupy the bare diagonal, so it is eliminated from the other two corners. This technique works because the puzzle has exactly one answer.',
+    example: 'R1C1 and R2C4 are {1, 2}; R1C4 and R2C1 are {1, 2, 3}. If rows 1 and 2 can only hold their 1s in these corners, 1 comes off R1C4 and R2C1.',
+    strategy: '1. Find a rectangle whose two bare-pair corners are diagonally opposite\n2. Pick a pair number and check both rows, then both columns\n3. If it can only go in the corners in both lines, erase it from the two corners with extras'
+  },
+  'Hidden Unique Rectangle': {
+    plain: 'The same rectangle, read a different way. Only one corner is a bare pair this time. Look at the corner diagonally across from it, and at that corner\'s own row and column: if one of the two numbers can only go in the rectangle\'s corners in both of those lines, then giving the far corner the other number would force the two corners beside it, then the bare corner, and all four would hold only the two numbers - two answers. So the other number can be erased from the far corner. This technique works because the puzzle has exactly one answer.',
+    description: 'A Unique Rectangle established through strong links instead of bare pairs: one cell is the bare pair, and in the diagonally opposite cell\'s row and column one pair digit is confined to the rectangle. The other pair digit is eliminated from that opposite cell. This technique works because the puzzle has exactly one answer.',
+    example: 'R1C1 is {1, 2} and the other three corners carry extras. If 2 can only go in R2C1 or R2C4 in row 2, and in R1C4 or R2C4 in column 4, then 1 comes off R2C4.',
+    strategy: '1. Find a rectangle over two boxes with exactly one bare-pair corner\n2. Take the corner diagonally across from it\n3. Check its row and its column: can one of the two numbers only go in the rectangle there?\n4. If so, erase the other number from that corner'
+  },
+  'Avoidable Rectangle Type 1': {
+    plain: 'The same argument, but over numbers already written in. Three corners of a rectangle are filled, none of them a starting clue, and the two next to the empty corner hold the same number. If the empty corner took the number sitting across from it, the four corners would form the swappable pattern and the puzzle would have had two answers all along. It did not, so that number can be erased from the empty corner. The pattern is avoided before it forms rather than broken afterwards, which is why it is called avoidable. This technique works because the puzzle has exactly one answer.',
+    description: 'Three corners of a two-box rectangle are filled with worked-out digits (no givens among the four), and the two adjacent to the empty corner hold the same digit. The digit in the diagonally opposite corner is eliminated from the empty one. This technique works because the puzzle has exactly one answer.',
+    example: 'R1C1 = 5, R1C4 = 7 and R2C1 = 7, all worked out rather than given, and R2C4 is empty. R2C4 cannot be 5.',
+    strategy: '1. Find a rectangle over two boxes with three cells filled and none of the four a starting clue\n2. Check that the two cells beside the empty one hold the same number\n3. Erase the number from across the rectangle from the empty cell'
+  },
+  'Avoidable Rectangle Type 2': {
+    plain: 'Two corners of the rectangle are filled, side by side, and neither is a starting clue. Each empty corner could still take the number sitting across from it - which is exactly what would complete the swappable pattern - or one other number, the same one for both. They cannot both take the pattern number, so one of them takes that shared other number. Any cell clashing with both empty corners can never be it. This technique works because the puzzle has exactly one answer.',
+    description: 'Two adjacent corners of a two-box rectangle hold worked-out digits (no givens among the four), and each empty corner has exactly the digit diagonally opposite it plus one shared extra candidate. The shared extra is true in one of them, so it is eliminated from every cell that sees both. This technique works because the puzzle has exactly one answer.',
+    example: 'R1C1 = 5 and R1C4 = 7, both worked out. R2C1 is {7, 3} and R2C4 is {5, 3}. One of them is 3, so 3 comes off the rest of row 2.',
+    strategy: '1. Find a rectangle over two boxes with two cells filled side by side and no starting clue among the four\n2. Check each empty cell holds the number across from it plus one other, the same other in both\n3. Erase that number from every cell clashing with both empty cells'
+  },
   'BUG+1': {
-    plain: 'Every empty cell on the board has exactly two pencil marks, except one cell that has three. If that cell took one of its "normal" two numbers, the whole board would become a pattern with two answers. So it must take the odd one out: the number that shows up three times in its row, column, or box.',
-    description: 'Bivalue Universal Grave plus one: all empty cells are bi-value except one tri-value cell. That cell must take the digit that appears three times in one of its units, or the grid would have two solutions.',
+    plain: 'Every empty cell on the board has exactly two pencil marks, except one cell that has three. If that cell took one of its two "normal" numbers, the whole board would be a pattern where every number has exactly two homes in every row, column and box - and such a board always has two answers. So the odd cell must take the odd one out: the number that shows up three times in its row, column or box. This technique works because the puzzle has exactly one answer.',
+    description: 'Bivalue Universal Grave plus one: all empty cells are bi-value except one tri-value cell. That cell must take the digit that appears three times in one of its units, or the grid would have two solutions. This technique works because the puzzle has exactly one answer.',
     example: 'Every cell is bi-value except R5C5 = {4, 7, 9}. 7 appears three times in row 5, so R5C5 = 7.',
     strategy: '1. Check that all empty cells but one have exactly two pencil marks\n2. In the odd cell, find the mark that appears three times in its row, column, or box\n3. Place it'
+  },
+  'BUG+2': {
+    plain: 'The same board-wide pattern, with two extra pencil marks instead of one. Rub out both of them and every number would have exactly two homes in every row, column and box, which always means two answers. So at least one of the two extras is true. If they are the same number in two cells, it can be erased from any cell clashing with both. If they are two marks in one cell, every other mark in that cell goes. And if they are different numbers in two cells that clash, each cell loses the other\'s number. This technique works because the puzzle has exactly one answer.',
+    description: 'Bivalue Universal Grave plus two: removing two particular candidates would leave every digit exactly two homes in every unit, so at least one of the two is true. Any candidate that both of them would rule out is eliminated. This technique works because the puzzle has exactly one answer.',
+    example: 'Every empty cell is bi-value except R3C3 = {2, 5, 8} and R7C3 = {2, 6, 9}, where the extras are the 8 and the 9. One of them is true, and anything both would rule out comes off.',
+    strategy: '1. Check that every empty cell has two pencil marks apart from a couple of extras\n2. Confirm that rubbing out the extras would leave every number exactly two homes in every unit\n3. One of the extras is true: erase anything that both of them would rule out'
+  },
+  'BUG+3': {
+    plain: 'The same thing again with three extra pencil marks. Rub out all three and the board would be the two-answer pattern, so at least one of the three is true. The usual case is three copies of one number: it can then be erased from any cell that clashes with all three. This technique works because the puzzle has exactly one answer.',
+    description: 'Bivalue Universal Grave plus three: removing three particular candidates would leave every digit exactly two homes in every unit, so at least one of the three is true. Any candidate all three would rule out is eliminated. This technique works because the puzzle has exactly one answer.',
+    example: 'Every empty cell is bi-value except three cells each carrying one extra 4. One of those 4s is true, so 4 comes off any cell clashing with all three.',
+    strategy: '1. Check that every empty cell has two pencil marks apart from three extras\n2. Confirm that rubbing out the three would leave every number exactly two homes in every unit\n3. One of the three is true: erase anything all three would rule out'
+  },
+  'Unique Loop': {
+    plain: 'The rectangle argument around a longer loop. Six or eight cells that can all hold the same two numbers, arranged so that every row, column and box they touch holds exactly two of them, and so that they close a single ring. The two numbers could then alternate round the ring in two ways, and both would solve the puzzle - so the cells cannot all be down to those two numbers. If exactly one of them has something extra, the two loop numbers come off it. If several carry the same extra, one of them must take it, and it can be erased from any cell clashing with all of them. This technique works because the puzzle has exactly one answer.',
+    description: 'A set of six, eight or more cells all holding two common candidates, where every unit meets the set exactly twice and the shared units close a single cycle. The two digits can alternate round the loop two ways, so the loop cells cannot all be bi-value: with one roof cell the loop digits are eliminated from it, and with several roof cells sharing one extra digit that digit is eliminated from every cell seeing them all. This technique works because the puzzle has exactly one answer.',
+    example: 'Six cells across rows 1, 4 and 7 and columns 2, 5 and 8, two per row, column and box, all {3, 8} except one which is {3, 8, 6}. That cell cannot be 3 or 8.',
+    strategy: '1. Pick two numbers and find the cells that can hold both\n2. Look for a ring of six or eight of them where every row, column and box holds exactly two\n3. Check which ring cells carry something extra\n4. One roof cell loses both loop numbers; several sharing one extra put that extra in one of them'
   },
   'Franken Fish': {
     plain: 'A fish that uses a 3x3 box as one of its lines. The reasoning is the same as an X-Wing: pick a few groups that each must contain the number, make sure no two of them share a cell, and find the same number of groups that cover every place the number could be. Since each covering group can hold the number only once, each one is used up by the groups underneath it, and any other place for the number inside a covering group is out. Be honest about this one: nobody is expected to spot it by eye, and you do not need to. The mentor finds it, shows you which groups it used, and the proof is short enough to follow even though the shape is not one you can scan for.',
