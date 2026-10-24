@@ -33,6 +33,14 @@ import { UNIQUENESS_UNKNOWN, uniquenessAllowed, uniquenessNote, uniquenessShortN
  * as "there is no pattern here" rather than "this cannot be used here".
  */
 
+// The Search button wears its tier's colour, so the trial tier's button is
+// not dressed as the proofs' (#75). Keyed off the catalog's colour, not off
+// a tier's name.
+const SEARCH_BUTTON = {
+  fuchsia: 'bg-fuchsia-600 hover:bg-fuchsia-500',
+  amber: 'bg-amber-600 hover:bg-amber-500',
+};
+
 const TIERS_OPEN_KEY = 'sudoku-mentor:technique-tiers-open';
 
 export const readOpenTiers = () => {
@@ -335,8 +343,12 @@ export default function TechniquePanel({
                                     <button
                                       onClick={onWhatIfSearch}
                                       aria-busy={searchingForcingChain}
-                                      className={`px-2 py-1 ${searchingForcingChain ? 'bg-slate-600 hover:bg-slate-500' : 'bg-fuchsia-600 hover:bg-fuchsia-500'} text-white text-xs rounded inline-flex items-center gap-1 transition-colors`}
-                                      title={searchingForcingChain ? 'Stop the what-if search' : 'Explore what-if scenarios (runs in the background)'}
+                                      className={`px-2 py-1 ${
+                                        searchingForcingChain
+                                          ? 'bg-slate-600 hover:bg-slate-500'
+                                          : SEARCH_BUTTON[tierColor(tier.level)] ?? SEARCH_BUTTON.fuchsia
+                                      } text-white text-xs rounded inline-flex items-center gap-1 transition-colors`}
+                                      title={searchingForcingChain ? 'Stop the search' : 'Search this board (runs in the background)'}
                                     >
                                       {searchingForcingChain ? (
                                         <span className="animate-spin rounded-full h-3 w-3 border-b border-white" aria-hidden="true" />
