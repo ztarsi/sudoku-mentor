@@ -107,6 +107,9 @@ const Explanation = ({ explanation, legend }) => {
  * order, with the same prev / play / next controls the what-if replay uses.
  * A chain's proof is a sequence, so the player steps through it rather than
  * reading a wall of text (#67).
+ *
+ * A colouring step (X-Cycle, 3D Medusa) walks the same way (#82): its run
+ * of links, then one last line for what the two ends of the run prove.
  */
 const ChainLinkTrace = ({
   currentStep,
@@ -118,13 +121,18 @@ const ChainLinkTrace = ({
   const walk = chainWalk(currentStep);
   if (walk.length === 0) return null;
   const here = Math.min(Math.max(chainPlaybackIndex ?? 0, 0), walk.length - 1);
+  const colouring = !!currentStep.chainColouring;
+  const heading = colouring
+    ? 'How the colouring spreads:'
+    : currentStep.chainClosed
+    ? 'Round the loop:'
+    : 'The chain, link by link:';
+  const walkLabel = colouring ? 'Walk the colouring' : 'Walk the chain';
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-base font-medium text-slate-300">
-          {currentStep.chainClosed ? 'Round the loop:' : 'The chain, link by link:'}
-        </p>
+        <p className="text-base font-medium text-slate-300">{heading}</p>
         <div className="flex gap-2">
           <button
             onClick={() => onChainPlaybackChange?.(Math.max(0, here - 1))}
@@ -140,8 +148,8 @@ const ChainLinkTrace = ({
           <button
             onClick={onToggleChainPlayback}
             className={`p-1.5 ${isPlayingChain ? 'bg-red-600 hover:bg-red-500' : 'bg-blue-600 hover:bg-blue-500'} rounded transition-colors`}
-            title={isPlayingChain ? 'Pause' : 'Walk the chain'}
-            aria-label={isPlayingChain ? 'Pause the chain walk' : 'Walk the chain'}
+            title={isPlayingChain ? 'Pause' : walkLabel}
+            aria-label={isPlayingChain ? 'Pause the walk' : walkLabel}
           >
             {isPlayingChain ? (
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -180,10 +188,14 @@ const ChainLinkTrace = ({
               <span className="min-w-0">
                 <span
                   className={`inline-block mr-2 px-1.5 py-0.5 rounded text-xs font-medium ${
-                    link.strong ? 'bg-blue-950 text-blue-300' : 'bg-slate-700 text-slate-300'
+                    link.conclusion
+                      ? 'bg-amber-950 text-amber-300'
+                      : link.strong
+                      ? 'bg-blue-950 text-blue-300'
+                      : 'bg-slate-700 text-slate-300'
                   }`}
                 >
-                  {link.strong ? 'at least one' : 'at most one'}
+                  {link.label}
                 </span>
                 <span className={idx === here ? 'text-white' : 'text-slate-300'}>{link.text}</span>
               </span>
@@ -192,7 +204,7 @@ const ChainLinkTrace = ({
         ))}
       </ol>
       <div className="text-xs text-slate-500 text-center">
-        Link {here + 1} of {walk.length}
+        {colouring ? 'Step' : 'Link'} {here + 1} of {walk.length}
       </div>
     </div>
   );

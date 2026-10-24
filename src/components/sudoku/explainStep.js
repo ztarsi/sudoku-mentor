@@ -329,11 +329,13 @@ const SIMPLE = {
       return {
         look,
         why: `Colour the chain alternately, like a checkerboard. Exactly one colour is the real set of ${d}s. Here, two cells of the same colour share a row, column, or box, which is impossible for a real set. So that colour is wrong, and ${d} can be erased from every cell of that colour.`,
+        extra: 'Step through the colouring below to watch it spread, one link at a time.',
       };
     }
     return {
       look,
       why: `Colour the chain alternately, like a checkerboard. Exactly one colour is the real set of ${d}s; we just do not know which. A cell that shares a row, column, or box with a cell of each colour would clash with the real ${d} either way, so it can never be ${d}.`,
+      extra: 'Step through the colouring below to watch it spread, one link at a time.',
     };
   },
 
@@ -472,28 +474,107 @@ function linkSentence(from, to) {
   return `${a} and ${b} ${unit ? `are both in ${unit}` : 'share a row, column, or box'}, so they cannot both be ${from.digit}. So if ${a} is ${from.digit}, ${b} is not.`;
 }
 
+// ---------------------------------------------------------------------------
+// Colouring, in plain words (#82)
+//
+// A colouring step's proof is a network, so it is walked along the run of
+// links the engine kept: the pair of marks that decides it, and the links
+// between them. Every link in a colouring is an exactly-one-of-two, so each
+// one hands the next mark the opposite colour, which is the whole idea.
+// ---------------------------------------------------------------------------
+
+/** The one sentence a single link of a colouring is worth. */
+function colorLinkSentence(from, to) {
+  const a = shortCell(from.cell);
+  const b = shortCell(to.cell);
+  if (from.linkVia === 'bivalue') {
+    return `${a} has only two pencil marks left, ${from.digit} and ${to.digit}, so exactly one of the two is right. They get opposite colours.`;
+  }
+  const where = from.linkUnit?.name ?? 'that row, column, or box';
+  return `In ${where}, the only two places for ${from.digit} are ${a} and ${b}, so exactly one of them is the ${from.digit}. They get opposite colours.`;
+}
+
+/** Which row, column or box two cells share, named for a beginner. */
+const sharedLine = (a, b) =>
+  getRow(a) === getRow(b) ? `row ${r1(a)}`
+  : getCol(a) === getCol(b) ? `column ${c1(a)}`
+  : `box ${getBox(a) + 1}`;
+
+/**
+ * The last thing the player walks to: what the two ends of the run prove.
+ * For a clash it is the colour that cannot be right; for a trap it is the
+ * cell that is dead whichever colour turns out to be right.
+ */
+function colorEnding(step) {
+  const [a, b] = step.colorWitness ?? [];
+  if (!a || !b) return null;
+  if (step.colorRule === 'cell') {
+    return {
+      label: 'so that colour is out',
+      text: `Back at ${shortCell(a.cell)}: its ${a.digit} and its ${b.digit} have come out the same colour. That would make one cell two numbers at once, so that colour is wrong, and every pencil mark wearing it can go.`,
+    };
+  }
+  if (step.colorRule === 'trap') {
+    const target = step.colorTarget ?? step.eliminations?.[0]?.cell;
+    // One run proves one cell dead; the others go by the same rule, so say
+    // so rather than leaving the player to wonder about them.
+    const others = uniq((step.eliminations ?? []).map((e) => e.cell)).filter((c) => c !== target);
+    const rest = others.length
+      ? ` Any other cell that shares a row, column, or box with both colours goes the same way.`
+      : '';
+    return {
+      label: 'so one cell is dead either way',
+      text: `${shortCell(a.cell)} and ${shortCell(b.cell)} have come out opposite colours, so one of them is a real ${a.digit}. ${shortCell(target)} shares a row, column, or box with both, so it can never be ${a.digit}.${rest}`,
+    };
+  }
+  return {
+    label: 'so that colour is out',
+    text: `${shortCell(a.cell)} and ${shortCell(b.cell)} have come out the same colour, and they are both in ${sharedLine(a.cell, b.cell)}. Two ${a.digit}s there is impossible, so that colour is wrong, and every pencil mark wearing it can go.`,
+  };
+}
+
 /**
  * The chain as the card walks it: one entry per link, in order, each with
  * the nodes it joins and the sentence that explains it. For a continuous
- * loop the last entry closes the loop back onto the first node.
+ * loop the last entry closes the loop back onto the first node. A
+ * colouring step (#82) walks the run of links that decides it and ends on
+ * one more entry: what the two ends of the run prove.
  *
  * @param {object} step a step carrying `chainNodes`
- * @returns {{ index: number, from: object, to: object, strong: boolean, text: string }[]}
+ * @returns {{ index: number, from: object, to: object|null, strong: boolean,
+ *             label: string, conclusion?: boolean, text: string }[]}
  */
 export function chainWalk(step) {
   const nodes = step?.chainNodes;
   if (!Array.isArray(nodes) || nodes.length < 2) return [];
+  const colouring = !!step.chainColouring;
   const linkCount = step.chainClosed ? nodes.length : nodes.length - 1;
   const walk = [];
   for (let i = 0; i < linkCount; i++) {
     const from = nodes[i];
     const to = nodes[(i + 1) % nodes.length];
+    const strong = from.linkToNext === 'strong';
     walk.push({
       index: i,
       from,
       to,
-      strong: from.linkToNext === 'strong',
-      text: linkSentence(from, to),
+      strong,
+      // A colouring's links are all exactly-one-of-two, which is stronger
+      // than the "at least one" a chain's solid link promises.
+      label: colouring ? 'exactly one' : strong ? 'at least one' : 'at most one',
+      text: colouring ? colorLinkSentence(from, to) : linkSentence(from, to),
+    });
+  }
+  const ending = colouring ? colorEnding(step) : null;
+  if (ending) {
+    walk.push({
+      index: walk.length,
+      from: nodes[nodes.length - 1],
+      to: null,
+      strong: false,
+      conclusion: true,
+      label: ending.label,
+      text: ending.text,
     });
   }
   return walk;
@@ -709,6 +790,7 @@ function medusa(step) {
     return {
       look,
       why: `One colour lands twice in the same cell here: ${shortCell(a.cell)} would have to be ${a.digit} and ${b.digit} at once. A cell holds one number, so that colour cannot be the right one. Every pencil mark wearing it can go.`,
+      extra: 'Step through the colouring below to watch it spread, one link at a time.',
     };
   }
   const line =
@@ -718,6 +800,7 @@ function medusa(step) {
   return {
     look,
     why: `One colour lands twice in ${line} here: ${shortCell(a.cell)} and ${shortCell(b.cell)} would both be ${a.digit}. A number goes once in a row, column, or box, so that colour cannot be the right one. Every pencil mark wearing it can go.`,
+    extra: 'Step through the colouring below to watch it spread, one link at a time.',
   };
 }
 

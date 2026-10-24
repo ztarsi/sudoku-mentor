@@ -113,6 +113,45 @@ describe('CurrentStepCard states', () => {
     expect(container.textContent).toContain('Link 1 of 4');
   });
 
+  // A colouring's proof is a network, so the card walks the run of links
+  // that decides it and ends on what the two ends prove (#82).
+  const colouringStep = {
+    technique: 'X-Cycle',
+    digit: 5,
+    baseCells: [0, 2, 20],
+    targetCells: [0, 20],
+    placement: null,
+    eliminations: [{ cell: 0, digit: 5 }, { cell: 20, digit: 5 }],
+    explanation: 'Simple coloring on digit 5.',
+    chainColouring: true,
+    colorRule: 'wrap',
+    colorWitness: [{ cell: 0, digit: 5 }, { cell: 20, digit: 5 }],
+    colorGroups: [[2], [0, 20]],
+    chainNodes: [
+      { cells: [0], cell: 0, digit: 5, kind: 'candidate', color: 1, truth: null, endpoint: true, linkToNext: 'strong', linkVia: 'unit', linkUnit: { name: 'row 1' }, linkSet: null },
+      { cells: [2], cell: 2, digit: 5, kind: 'candidate', color: 2, truth: null, endpoint: false, linkToNext: 'strong', linkVia: 'unit', linkUnit: { name: 'column 3' }, linkSet: null },
+      { cells: [20], cell: 20, digit: 5, kind: 'candidate', color: 1, truth: null, endpoint: true, linkToNext: null, linkVia: null, linkUnit: null, linkSet: null },
+    ],
+  };
+
+  it('a colouring: the same walk as a chain, one line per link and one for the clash', () => {
+    const { getByText, getAllByText, container } = show({ currentStep: colouringStep });
+    expect(getByText('How the colouring spreads:')).toBeTruthy();
+    expect(getAllByText('exactly one')).toHaveLength(2);
+    expect(getAllByText('so that colour is out')).toHaveLength(1);
+    expect(container.textContent).toContain('Step 1 of 3');
+    expect(container.textContent).toContain('the only two places for 5 are R1C1 and R1C3');
+    expect(container.textContent).toContain('have come out the same colour');
+  });
+
+  it('a colouring: the player can step through it', () => {
+    const onChainPlaybackChange = vi.fn();
+    const { getByRole } = show({ currentStep: colouringStep, onChainPlaybackChange });
+    fireEvent.click(getByRole('button', { name: 'Next chain link' }));
+    expect(onChainPlaybackChange).toHaveBeenCalledWith(1);
+    fireEvent.click(getByRole('button', { name: 'Walk the colouring' }));
+  });
+
   it('searching: the wait and a Cancel button', () => {
     const onCancelSearch = vi.fn();
     const { getByText, getByRole } = show({ searching: true, onCancelSearch });

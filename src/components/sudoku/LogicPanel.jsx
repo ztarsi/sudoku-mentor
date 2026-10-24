@@ -6,6 +6,7 @@ import TechniquePanel from './panel/TechniquePanel';
 import CurrentStepCard from './panel/CurrentStepCard';
 import PanelInfoModal from './panel/PanelInfoModal';
 import { findAllTechniqueInstances } from './logicEngine';
+import { chainWalk } from './explainStep';
 import { useTechniqueCounts } from './useTechniqueCounts';
 import { LIVE_COUNT_TECHNIQUES, SCAN_TECHNIQUES } from './techniqueCatalog';
 import { searchWhatIf, isCancelled, isTimedOut, DEEP_TIME_BUDGET_MS } from './whatIfSearch';
@@ -183,11 +184,11 @@ export default function LogicPanel({
   };
 
   // Chain playback animation: the what-if replay counts its placements, a
-  // deductive chain counts its links (and one more, round the loop).
+  // deductive chain or a colouring counts the lines the card walks, which
+  // is what chainWalk() produces (round the loop, or one more for what a
+  // colouring's two ends prove).
   useEffect(() => {
-    const chainLinks = Array.isArray(currentStep?.chainNodes)
-      ? currentStep.chainNodes.length - (currentStep.chainClosed ? 0 : 1)
-      : 0;
+    const chainLinks = chainWalk(currentStep).length;
     const maxSteps = chainLinks || (currentStep?.chain
       ? currentStep.chain.filter((s) => s.action === 'place').length
       : 0);
