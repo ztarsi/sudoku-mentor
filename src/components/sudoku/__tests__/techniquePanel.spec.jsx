@@ -227,3 +227,41 @@ describe('No Assist', () => {
     expect(onSelectTechnique).toHaveBeenCalledWith('X-Wing');
   });
 });
+
+describe('the techniques that need the puzzle to have one answer', () => {
+  const openUltimate = (view) => {
+    fireEvent.click(view.getByRole('button', { name: /^Ultimate/ }));
+    return view;
+  };
+
+  it('are shown as unavailable, with the reason, when it has more than one', () => {
+    const view = openUltimate(show({ uniqueness: 'many', counts: { 'X-Cycle': 2 } }));
+    // The reason, once, above the tier's rows.
+    expect(view.getByText(/more than one answer/)).toBeTruthy();
+    // Every one of them says so, rather than reading as "no pattern here".
+    expect(view.getAllByText('not available here').length).toBeGreaterThan(5);
+    // And the rest of the tier is counted as usual (twice over: once under
+    // "On this board" and once in the tier itself).
+    expect(view.getAllByText('(2)').length).toBeGreaterThan(0);
+  });
+
+  it('can still be read about: reading is not assistance', () => {
+    const picked = [];
+    const view = openUltimate(show({ uniqueness: 'many', onSelectTechnique: (n) => picked.push(n) }));
+    fireEvent.click(view.getByRole('button', { name: 'Unique Rect. 1' }));
+    expect(picked).toEqual(['Unique Rectangle Type 1']);
+  });
+
+  it('say nothing at all in No Assist, where the whole list is inert', () => {
+    const view = openUltimate(show({ uniqueness: 'many', noAssistMode: true }));
+    expect(view.queryByText('not available here')).toBeNull();
+    expect(view.queryByText(/more than one answer/)).toBeNull();
+    expect(view.getByRole('button', { name: 'Unique Rect. 1' })).toBeTruthy();
+  });
+
+  it('are counted like anything else once the puzzle is known to have one', () => {
+    const view = openUltimate(show({ uniqueness: 'one', counts: { 'Unique Rectangle Type 2': 1 } }));
+    expect(view.queryByText('not available here')).toBeNull();
+    expect(view.getAllByText('(1)').length).toBeGreaterThan(0);
+  });
+});

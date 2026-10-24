@@ -7,7 +7,8 @@ import CurrentStepCard from './panel/CurrentStepCard';
 import PanelInfoModal from './panel/PanelInfoModal';
 import { findAllTechniqueInstances } from './logicEngine';
 import { useTechniqueCounts } from './useTechniqueCounts';
-import { LIVE_COUNT_TECHNIQUES, SCAN_TECHNIQUES } from './techniqueCatalog';
+import { LIVE_COUNT_TECHNIQUES, SCAN_TECHNIQUES, needsUniqueness } from './techniqueCatalog';
+import { UNIQUENESS_UNKNOWN, uniquenessAllowed } from './uniqueness';
 import { searchWhatIf, isCancelled, isTimedOut, DEEP_TIME_BUDGET_MS } from './whatIfSearch';
 import { toast } from '@/components/ui/use-toast';
 
@@ -35,6 +36,7 @@ const writeTechniquesOpen = (open) => {
 export default function LogicPanel({
   currentStep,
   grid,
+  uniqueness = UNIQUENESS_UNKNOWN,
   noAssistMode,
   onHighlightTechnique,
   onNextStep,
@@ -95,9 +97,16 @@ export default function LogicPanel({
   // a moment and in slices a further change cancels, so entering a digit
   // never waits for a detector. The expensive tiers are counted only when
   // the player asks: by tapping one row's Count, or by scanning the tier.
+  // Nothing in the uniqueness family may be counted, scanned or shown on a
+  // grid that is not known to have exactly one answer. The panel says why
+  // instead of printing a row of zeroes.
+  const uniquenessOn = uniquenessAllowed(uniqueness);
+  const countable = (name) => uniquenessOn || !needsUniqueness(name);
+
   const { counts: techniqueCounts, counting, countNow, recordCounts } = useTechniqueCounts(grid, {
     enabled: techniqueExpanded && !noAssistMode,
-    names: LIVE_COUNT_TECHNIQUES,
+    names: LIVE_COUNT_TECHNIQUES.filter(countable),
+    uniqueness,
   });
 
   const handleUltimateScan = async () => {
@@ -107,12 +116,12 @@ export default function LogicPanel({
 
     const scanned = grid;
     const results = {};
-    for (const tech of SCAN_TECHNIQUES) {
+    for (const tech of SCAN_TECHNIQUES.filter(countable)) {
       setScanningTechnique(tech);
       await new Promise((resolve) => setTimeout(resolve, 100)); // Small delay for UI update
       if (gridRef.current !== scanned) break; // the board changed: these counts would lie
 
-      results[tech] = findAllTechniqueInstances(scanned, tech).length;
+      results[tech] = findAllTechniqueInstances(scanned, tech, { uniqueness }).length;
       setScanResults({ ...results });
       recordCounts({ [tech]: results[tech] });
     }
@@ -204,7 +213,7 @@ export default function LogicPanel({
   }, [currentStep, onChainPlaybackChange]);
 
   const handleTechniqueClick = (techniqueName) => {
-    const instances = findAllTechniqueInstances(grid, techniqueName);
+    const instances = findAllTechniqueInstances(grid, techniqueName, { uniqueness });
     if (instances.length > 0 && onHighlightTechnique) {
       // Get current index for this technique (or start at 0), ensure it's valid
       let currentIndex = techniqueIndices[techniqueName] || 0;
@@ -260,6 +269,7 @@ export default function LogicPanel({
         expanded={techniqueExpanded}
         onToggleExpanded={toggleTechniques}
         noAssistMode={noAssistMode}
+        uniqueness={uniqueness}
         counts={techniqueCounts}
         counting={counting}
         searchingForcingChain={searchingForcingChain}
@@ -282,6 +292,7 @@ export default function LogicPanel({
       <UltimateTechniqueScanModal
         isOpen={showUltimateScan}
         currentTechnique={scanningTechnique}
+        uniqueness={uniqueness}
         results={scanResults}
         onClose={() => setShowUltimateScan(false)}
       />

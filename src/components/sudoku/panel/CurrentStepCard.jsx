@@ -235,6 +235,82 @@ const ChainTrace = ({
 
 const WHAT_IF_TECHNIQUES = new Set(['Hypothesis Mode', 'Cell Forcing Chain', 'Deep Forcing Chain']);
 
+/**
+ * The deadly pattern, drawn as the shape it is.
+ *
+ * A uniqueness step is about four cells that form a rectangle, and reading
+ * four cell names off a line does not show that. The corners that match
+ * each other are drawn one way and the odd one (or ones) another, so the
+ * shape and which corner breaks it are visible at a glance.
+ */
+const RectangleShape = ({ rectangle, grid }) => {
+  const { corners, roof } = rectangle;
+  if (!Array.isArray(corners) || corners.length !== 4) return null;
+  const odd = new Set(roof ?? []);
+  const corner = (cell) => {
+    const value = grid?.[cell]?.value ?? null;
+    const marks = value ? String(value) : (grid?.[cell]?.candidates ?? []).join(' ');
+    return (
+      <div
+        key={cell}
+        className={`rounded-lg border px-2 py-1.5 ${
+          odd.has(cell)
+            ? 'border-amber-600/70 bg-amber-950/30'
+            : 'border-blue-700/70 bg-blue-950/30'
+        }`}
+      >
+        <p className="text-xs font-medium text-slate-200">{cellRef(cell)}</p>
+        <p className={`text-xs tabular-nums ${odd.has(cell) ? 'text-amber-300' : 'text-blue-300'}`}>
+          {value ? `= ${value}` : marks}
+        </p>
+      </div>
+    );
+  };
+  return (
+    <div>
+      <div className="grid grid-cols-2 gap-2 max-w-[15rem]">{corners.map(corner)}</div>
+      <p className="text-xs text-slate-500 mt-1">
+        {corners.some((cell) => grid?.[cell]?.value)
+          ? 'The corners already worked out, and in amber the ones still open.'
+          : odd.size === 0
+            ? 'The four corners of the rectangle.'
+            : odd.size === 1
+              ? 'Three corners match; the one in amber is the odd one out.'
+              : `The corners in amber are the ones that differ (${odd.size} of four).`}
+      </p>
+    </div>
+  );
+};
+
+/** A unique loop: the ring, in the order it closes. */
+const LoopShape = ({ loopCells, grid }) => {
+  if (!Array.isArray(loopCells) || loopCells.length === 0) return null;
+  return (
+    <div>
+      <div className="flex flex-wrap items-center gap-1">
+        {loopCells.map((cell, i) => (
+          <span key={cell} className="flex items-center gap-1">
+            <span
+              className={`px-2 py-1 rounded-lg text-xs border ${
+                (grid?.[cell]?.candidates ?? []).length > 2
+                  ? 'border-amber-600/70 bg-amber-950/30 text-amber-300'
+                  : 'border-blue-700/70 bg-blue-950/30 text-blue-300'
+              }`}
+            >
+              {cellRef(cell)}
+            </span>
+            {i < loopCells.length - 1 && <span className="text-slate-600" aria-hidden="true">→</span>}
+          </span>
+        ))}
+        <span className="text-slate-600" aria-hidden="true">↩</span>
+      </div>
+      <p className="text-xs text-slate-500 mt-1">
+        The ring closes back on itself; the cells in amber carry something extra.
+      </p>
+    </div>
+  );
+};
+
 const formatTime = (seconds) => {
   const s = Math.max(0, Math.floor(seconds || 0));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
@@ -459,6 +535,11 @@ export default function CurrentStepCard({
             </div>
 
             <Explanation explanation={explanation} legend={legendFor(legendCell)} />
+
+            {currentStep.rectangle && (
+              <RectangleShape rectangle={currentStep.rectangle} grid={grid} />
+            )}
+            {currentStep.loopCells && <LoopShape loopCells={currentStep.loopCells} grid={grid} />}
 
             {(currentStep.technique === 'Deep Forcing Chain' || currentStep.technique === 'Hypothesis Mode') && currentStep.chain && (
               <ChainTrace

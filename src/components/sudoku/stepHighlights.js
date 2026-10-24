@@ -41,6 +41,21 @@ export const buildFocusedCandidates = (step, grid, colors) => {
     return candidateColorMap;
   }
 
+  // The uniqueness family is about a pair of digits and sometimes an extra:
+  // the pair in the focus colour, the extra in the second colour the ALS
+  // sets already use.
+  if (Array.isArray(step.pairDigits) && step.pairDigits.length === 2) {
+    const map = {};
+    step.pairDigits.forEach((digit) => {
+      map[digit] = colors.focusDigit || DEFAULT_COLORS.focusDigit;
+    });
+    (step.extraDigits ?? []).forEach((digit) => {
+      map[digit] = '#f59e0b';
+    });
+    if (step.digit && map[step.digit] === undefined) map[step.digit] = '#f59e0b';
+    return map;
+  }
+
   if (step.technique === 'ALS-XZ' && step.xDigit && step.zDigit) {
     return {
       [step.xDigit]: '#f59e0b',

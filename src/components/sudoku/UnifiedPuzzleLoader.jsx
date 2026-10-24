@@ -7,7 +7,8 @@ import TextPuzzleUpload from './TextPuzzleUpload';
 import { analyzeDifficulty } from './difficultyAnalyzer';
 import { base44 } from '@/api/base44Client';
 import { findMySavedPuzzle, savePuzzle } from '@/api/playerData';
-import { solveSudoku, countSolutions } from './solver';
+import { solveSudoku } from './solver';
+import { UNIQUENESS_MANY, UNIQUENESS_ONE, establishUniqueness, uniquenessNote } from './uniqueness';
 import { toast } from "@/components/ui/use-toast";
 import { useDialog } from '@/hooks/useDialog';
 
@@ -40,14 +41,16 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded, u
         setSavingPuzzle(false);
         return;
       }
-      if (countSolutions(gridForSolving, 2) > 1) {
+      // How many answers it has, counted once, here. More than one is
+      // worth knowing - it usually means a misread photo or a typo - but
+      // it does not stop the player: the puzzle loads, and the techniques
+      // that need a single answer switch themselves off for it.
+      const answers = establishUniqueness(puzzle.map((v) => v || 0));
+      if (answers.state !== UNIQUENESS_ONE) {
         toast({
-          title: 'Not a proper Sudoku',
-          description: 'This puzzle has more than one solution, so the mentor could not tell right entries from wrong ones. Check the givens and try again.',
-          variant: 'destructive',
+          title: answers.state === UNIQUENESS_MANY ? 'More than one answer' : 'Answer count unknown',
+          description: `${uniquenessNote(answers.state)} Worth checking the givens against the original.`,
         });
-        setSavingPuzzle(false);
-        return;
       }
 
       // Signed-out players can still play a pasted puzzle; only saving to

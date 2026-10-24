@@ -1,5 +1,5 @@
 // Sudoku Logic Engine - Human-style solving techniques
-import { findXCycle, find3DMedusa, findALSXZ, findUniqueRectangle, findBUGPlus1, findFinnedXWing } from './chainEngine';
+import { findXCycle, find3DMedusa, findALSXZ, findFinnedXWing } from './chainEngine';
 import {
   findJellyfish,
   findEmptyRectangle,
@@ -9,6 +9,8 @@ import {
   findFrankenFish,
   findMutantFish,
 } from './fishEngine';
+import { UNIQUENESS_FINDERS } from './uniquenessEngine';
+import { UNIQUENESS_UNKNOWN, uniquenessAllowed } from './uniqueness';
 import { makeStep } from './stepShape';
 
 // Helper functions
@@ -59,6 +61,11 @@ const normalizeUnit = (unit) => {
   return unitOf(type, index);
 };
 
+// The uniqueness family, looked up by its own module rather than by a list
+// kept here: a technique is gated by being in that module, so the guard
+// cannot be forgotten when one is added.
+const IS_UNIQUENESS = new Set(Object.values(UNIQUENESS_FINDERS));
+
 // Techniques in teaching order: the hint is always the easiest that applies.
 const TECHNIQUE_ORDER = () => [
   findNakedSingle,
@@ -85,22 +92,45 @@ const TECHNIQUE_ORDER = () => [
   findFinnedJellyfish,
   findSashimiFish,
   findALSXZ,
-  findUniqueRectangle,
-  findBUGPlus1,
+  ...Object.values(UNIQUENESS_FINDERS),
   findFrankenFish,
   findMutantFish,
 ];
 
-export const findNextLogicStep = (grid, focusedDigit = null) => {
+/**
+ * The easiest technique that applies to this board, or null.
+ *
+ * @param {any[]} grid
+ * @param {number|null} [focusedDigit] only steps about this digit
+ * @param {{ uniqueness?: string }} [options]
+ *   uniqueness  what is known about the puzzle's answer count, from
+ *               uniqueness.js. The uniqueness family only runs when it is
+ *               established as exactly one; the default says nothing is
+ *               known, so the family stays silent unless a caller has done
+ *               the work to establish it.
+ */
+export const findNextLogicStep = (grid, focusedDigit = null, options = {}) => {
+  const { uniqueness = UNIQUENESS_UNKNOWN } = options;
+  const allowUniqueness = uniquenessAllowed(uniqueness);
   for (const find of TECHNIQUE_ORDER()) {
+    if (!allowUniqueness && IS_UNIQUENESS.has(find)) continue;
     const step = find(grid, focusedDigit);
     if (step) return makeStep(step);
   }
   return null;
 };
 
-// Find all instances of a specific technique
-export const findAllTechniqueInstances = (grid, techniqueName) => {
+/**
+ * Every instance of one technique on this board, for the Techniques panel's
+ * counts and its "show me" button. Same guard as findNextLogicStep: a
+ * uniqueness technique returns nothing at all unless the puzzle is known to
+ * have exactly one answer.
+ *
+ * @param {any[]} grid
+ * @param {string} techniqueName
+ * @param {{ uniqueness?: string }} [options]
+ */
+export const findAllTechniqueInstances = (grid, techniqueName, options = {}) => {
   // Mapping of technique names to their detection functions
   const techniqueMap = {
     'Naked Single': findNakedSingle,
@@ -128,14 +158,16 @@ export const findAllTechniqueInstances = (grid, techniqueName) => {
     'Finned Jellyfish': findFinnedJellyfish,
     'Sashimi Fish': findSashimiFish,
     'ALS-XZ': findALSXZ,
-    'Unique Rectangle Type 1': findUniqueRectangle,
-    'BUG+1': findBUGPlus1,
+    ...UNIQUENESS_FINDERS,
     'Franken Fish': findFrankenFish,
     'Mutant Fish': findMutantFish,
   };
 
   const findFunc = techniqueMap[techniqueName];
   if (!findFunc) return [];
+  if (UNIQUENESS_FINDERS[techniqueName] && !uniquenessAllowed(options.uniqueness ?? UNIQUENESS_UNKNOWN)) {
+    return [];
+  }
 
   // Call the function in 'returnAll' mode to get only currently visible instances
   const results = findFunc(grid, null, true);

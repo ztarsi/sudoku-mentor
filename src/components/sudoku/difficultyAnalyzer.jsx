@@ -19,6 +19,7 @@
 import { generateCandidates, findNextLogicStep, applyLogicStep, eliminateCandidatesFromPeers } from './logicEngine';
 import { findForcingChain, findHypothesis } from './forcingChainEngine';
 import { techniqueTier, teachingRank, WHAT_IF_TECHNIQUES } from './techniqueCatalog';
+import { establishUniqueness } from './uniqueness';
 
 /** The tier a what-if step is counted under in the per-tier breakdown. */
 export const WHAT_IF_TIER = 'What-if';
@@ -53,7 +54,20 @@ const TECHNIQUE_SCORES = {
   'X-Cycle': 8,
   'Finned X-Wing': 8,
   'ALS-XZ': 9,
+  // The uniqueness family. Type 1 has scored 9 since the shelves were cut,
+  // and the rest of the family sits with it: the argument is the same one,
+  // and a puzzle that needs any of it is on the top shelf. The BUG
+  // variants and the loops are a rung above, as BUG+1 already was - they
+  // ask the player to read the whole board rather than four cells.
   'Unique Rectangle Type 1': 9,
+  'Unique Rectangle Type 2': 9,
+  'Unique Rectangle Type 3': 9,
+  'Unique Rectangle Type 4': 9,
+  'Unique Rectangle Type 5': 9,
+  'Unique Rectangle Type 6': 9,
+  'Hidden Unique Rectangle': 9,
+  'Avoidable Rectangle Type 1': 9,
+  'Avoidable Rectangle Type 2': 9,
   // Colouring across every digit, and the fish nobody spots by eye: a
   // puzzle that needs one of these is on the top shelf by definition.
   '3D Medusa': 9,
@@ -61,6 +75,9 @@ const TECHNIQUE_SCORES = {
   'Finned Jellyfish': 9,
   'Sashimi Fish': 9,
   'BUG+1': 10,
+  'BUG+2': 10,
+  'BUG+3': 10,
+  'Unique Loop': 10,
   'Franken Fish': 10,
   'Mutant Fish': 10
 };
@@ -126,6 +143,11 @@ const shelfFor = (path) => {
 export const startSolvePath = (puzzleArray, options = {}) => {
   const { whatIf = false, whatIfDepth = WHAT_IF_DEPTH, maxSteps = MAX_STEPS } = options;
   let grid = buildGrid(puzzleArray);
+  // The uniqueness family only applies to a puzzle with exactly one answer.
+  // The analyser establishes that the way the app does - once, from the
+  // givens - so the path it reports is the path a player would be walked
+  // through, uniqueness steps included.
+  const { state: uniqueness } = establishUniqueness(puzzleArray);
   const steps = [];
   let stalled = false;
   let finished = false;
@@ -146,7 +168,7 @@ export const startSolvePath = (puzzleArray, options = {}) => {
       }
       if (Date.now() > deadline) break;
 
-      let step = findNextLogicStep(grid, null);
+      let step = findNextLogicStep(grid, null, { uniqueness });
       if (!step && whatIf) {
         step = findForcingChain(grid, whatIfDepth) || findHypothesis(grid, whatIfDepth);
       }

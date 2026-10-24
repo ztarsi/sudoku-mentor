@@ -7,8 +7,10 @@ import {
   TIERS,
   COUNT_SEARCH,
   matchTechniques,
+  needsUniqueness,
   tierColor,
 } from '../techniqueCatalog';
+import { UNIQUENESS_UNKNOWN, uniquenessAllowed, uniquenessNote, uniquenessShortNote } from '../uniqueness';
 
 /**
  * The Techniques list, built to stay useful at fifty-odd names.
@@ -23,6 +25,12 @@ import {
  * useTechniqueCounts). A count this panel has not been given is shown as
  * not known yet, with a button that computes it, rather than as a number
  * from the previous board.
+ *
+ * The techniques that only hold when the puzzle has exactly one answer are
+ * a case of their own. On a grid that has more than one, or whose count
+ * never finished, they are not countable at all - so they are shown as
+ * unavailable, with the reason, instead of as "none here", which would read
+ * as "there is no pattern here" rather than "this cannot be used here".
  */
 
 const TIERS_OPEN_KEY = 'sudoku-mentor:technique-tiers-open';
@@ -51,6 +59,7 @@ function TechniqueRow({
   count,
   showTier = false,
   countsOff,
+  unavailable = null,
   onSelectTechnique,
   onHighlight,
   onCount,
@@ -73,7 +82,11 @@ function TechniqueRow({
         )}
       </div>
 
-      {countsOff || isSearch ? null : known && count > 0 ? (
+      {countsOff || isSearch ? null : unavailable ? (
+        <span className="shrink-0 text-xs text-slate-500 italic" title={unavailable}>
+          not available here
+        </span>
+      ) : known && count > 0 ? (
         <button
           onClick={() => onHighlight(tech.name)}
           className="shrink-0 text-xs px-1.5 py-0.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded transition-colors"
@@ -100,6 +113,7 @@ export default function TechniquePanel({
   expanded,
   onToggleExpanded,
   noAssistMode,
+  uniqueness = UNIQUENESS_UNKNOWN,
   counts = {},
   counting = false,
   searchingForcingChain,
@@ -124,6 +138,12 @@ export default function TechniquePanel({
   // No Assist earns a clean record, so nothing on this board may be counted.
   // Reading about a technique is not assistance and stays available.
   const countsOff = !!noAssistMode;
+
+  // Why the uniqueness family is unavailable on this grid, or null when it
+  // is fine. Reading how one works stays available either way.
+  const uniquenessOff = !uniquenessAllowed(uniqueness);
+  const whyUnavailable = (tech) =>
+    uniquenessOff && needsUniqueness(tech.name) ? uniquenessShortNote(uniqueness) : null;
 
   const applies = useMemo(
     () => (countsOff ? [] : TECHNIQUES.filter((tech) => counts[tech.name] > 0)),
@@ -216,6 +236,7 @@ export default function TechniquePanel({
                       key={tech.name}
                       tech={tech}
                       count={counts[tech.name]}
+                      unavailable={whyUnavailable(tech)}
                       showTier
                       {...rowProps}
                     />
@@ -289,6 +310,13 @@ export default function TechniquePanel({
 
                             {open && (
                               <div className="pl-7 pr-1 pb-2">
+                                {uniquenessOff &&
+                                  !countsOff &&
+                                  techniques.some((tech) => needsUniqueness(tech.name)) && (
+                                    <p className="text-xs text-slate-400 mb-2">
+                                      {uniquenessNote(uniqueness)}
+                                    </p>
+                                  )}
                                 {tier.scanNote && !countsOff && (
                                   <div className="mb-2">
                                     <p className="text-xs text-slate-400 mb-1">{tier.scanNote}</p>
@@ -324,6 +352,7 @@ export default function TechniquePanel({
                                     key={tech.name}
                                     tech={tech}
                                     count={counts[tech.name]}
+                                    unavailable={whyUnavailable(tech)}
                                     {...rowProps}
                                   />
                                 ))}
