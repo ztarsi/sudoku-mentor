@@ -55,7 +55,8 @@ describe('explainStep on real engine steps', () => {
   const techniques = [
     'Naked Single', 'Hidden Single', 'Pointing Pair', 'Pointing Triple', 'Claiming',
     'Naked Pair', 'Hidden Pair', 'Naked Triple', 'Hidden Triple', 'Naked Quad', 'Hidden Quad',
-    'X-Wing', 'Swordfish', 'XY-Wing', 'XYZ-Wing', 'WXYZ-Wing',
+    'X-Wing', 'Swordfish', 'Jellyfish', 'Empty Rectangle', 'XY-Wing', 'XYZ-Wing', 'WXYZ-Wing',
+    '3D Medusa', 'Finned Swordfish', 'Finned Jellyfish', 'Sashimi Fish', 'Franken Fish', 'Mutant Fish',
   ];
   for (const { puzzle } of library) {
     const grid = gridFrom(puzzle);

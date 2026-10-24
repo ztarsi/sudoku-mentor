@@ -13,7 +13,11 @@
 // Optional, technique-specific: unit, orientation, pairDigits,
 // subsetDigits (the digits a subset of any size is about), zCells, finCells,
 // strongLinks, chains, chain, contradiction, contradictionCell,
-// contradictoryDigit, als1, als2, xDigit, zDigit.
+// contradictoryDigit, als1, als2, xDigit, zDigit, fishSize, sashimi,
+// baseUnits and coverUnits (a fish whose lines are not all rows or all
+// columns), crossing and linkUnit (Empty Rectangle), medusaRule,
+// medusaWitness and colorGroups (a colouring step's two colours, the
+// surviving one first).
 //
 // A chain step (the alternating-inference family) also carries:
 //   chainNodes   the nodes in order, each { cells, cell, digit, kind,

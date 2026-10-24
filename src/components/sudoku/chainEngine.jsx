@@ -1,6 +1,6 @@
 // Advanced Chain-Based Logic Engine for Expert Sudoku Techniques
 
-import { getRow, getCol, getBox, getRowIndices, getColIndices, getBoxIndices, arePeers } from './gridUnits';
+import { getRow, getCol, getBox, getRowIndices, getColIndices, getBoxIndices, arePeers, cellName } from './gridUnits';
 
 // Strong Link: If one candidate is false, the other must be true
 const buildLinkGraph = (grid) => {
@@ -161,6 +161,173 @@ export const findXCycle = (grid, focusedDigit, returnAll = false) => {
   return returnAll ? allInstances : null;
 };
 
+
+// 3D Medusa: colouring every digit at once.
+//
+// X-Cycle colours one digit along its conjugate pairs. Medusa adds the
+// other half of the picture: inside a cell with exactly two candidates,
+// one of the two is true, which is a strong link as well. Colour both
+// kinds of link together and the colouring spans every digit on the board.
+//
+// Every link is an exactly-one-of-two, so within a component one colour is
+// entirely true and the other entirely false. Two conclusions follow, and
+// both are implemented here because the second is the common one:
+//
+//   a cell that meets one colour twice - two candidates of the same cell
+//   in the same colour - cannot have that colour true, because a cell
+//   holds one digit;
+//
+//   a unit that meets one colour twice - the same digit in two cells of
+//   one row, column or box, both in the same colour - cannot have that
+//   colour true either.
+//
+// Either way that colour is false, and every candidate wearing it goes.
+export const find3DMedusa = (grid, focusedDigit = null, returnAll = false) => {
+  const allInstances = [];
+
+  // A node is one candidate: cell * 10 + digit.
+  const nodeCell = (node) => Math.floor(node / 10);
+  const nodeDigit = (node) => node % 10;
+
+  const adjacency = new Map();
+  const join = (a, b) => {
+    if (!adjacency.has(a)) adjacency.set(a, new Set());
+    if (!adjacency.has(b)) adjacency.set(b, new Set());
+    adjacency.get(a).add(b);
+    adjacency.get(b).add(a);
+  };
+
+  const units = [
+    ...Array.from({ length: 9 }, (_, i) => ({ type: 'row', indices: getRowIndices(i), name: `row ${i + 1}` })),
+    ...Array.from({ length: 9 }, (_, i) => ({ type: 'column', indices: getColIndices(i), name: `column ${i + 1}` })),
+    ...Array.from({ length: 9 }, (_, i) => ({ type: 'box', indices: getBoxIndices(i), name: `box ${i + 1}` })),
+  ];
+
+  // Strong links of the first kind: a digit with exactly two homes in a unit.
+  for (const unit of units) {
+    for (let digit = 1; digit <= 9; digit++) {
+      const spots = unit.indices.filter(
+        (i) => grid[i].value === null && grid[i].candidates.includes(digit)
+      );
+      if (spots.length === 2) join(spots[0] * 10 + digit, spots[1] * 10 + digit);
+    }
+  }
+  // And of the second kind: a cell with exactly two candidates left.
+  for (let i = 0; i < 81; i++) {
+    if (grid[i].value !== null || grid[i].candidates.length !== 2) continue;
+    const [d1, d2] = grid[i].candidates;
+    join(i * 10 + d1, i * 10 + d2);
+  }
+
+  const colorOf = new Map();
+  for (const start of adjacency.keys()) {
+    if (colorOf.has(start)) continue;
+
+    const component = [];
+    colorOf.set(start, 0);
+    const queue = [start];
+    let consistent = true;
+    while (queue.length > 0) {
+      const node = queue.shift();
+      component.push(node);
+      for (const next of adjacency.get(node)) {
+        if (!colorOf.has(next)) {
+          colorOf.set(next, 1 - colorOf.get(node));
+          queue.push(next);
+        } else if (colorOf.get(next) === colorOf.get(node)) {
+          // An odd cycle of exactly-one-of-two constraints cannot be
+          // coloured, and nothing may be concluded from it.
+          consistent = false;
+        }
+      }
+    }
+    if (!consistent || component.length < 3) continue;
+
+    const colors = [
+      component.filter((n) => colorOf.get(n) === 0),
+      component.filter((n) => colorOf.get(n) === 1),
+    ];
+    if (colors[0].length === 0 || colors[1].length === 0) continue;
+
+    // Which colour contradicts itself, and by which of the two rules.
+    let falseColor = -1;
+    let rule = null;
+    let witness = null;
+    for (let c = 0; c < 2 && falseColor === -1; c++) {
+      const nodes = colors[c];
+      for (let i = 0; i < nodes.length && falseColor === -1; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+          const a = nodes[i];
+          const b = nodes[j];
+          if (nodeCell(a) === nodeCell(b)) {
+            falseColor = c;
+            rule = 'cell';
+            witness = [a, b];
+            break;
+          }
+          if (nodeDigit(a) === nodeDigit(b) && arePeers(nodeCell(a), nodeCell(b))) {
+            falseColor = c;
+            rule = 'unit';
+            witness = [a, b];
+            break;
+          }
+        }
+      }
+    }
+    if (falseColor === -1) continue;
+
+    const eliminations = colors[falseColor].map((n) => ({ cell: nodeCell(n), digit: nodeDigit(n) }));
+    if (focusedDigit && !eliminations.some((e) => e.digit === focusedDigit)) continue;
+
+    const cellsOf = (nodes) => [...new Set(nodes.map(nodeCell))];
+    const trueColor = 1 - falseColor;
+    const falseCells = new Set(cellsOf(colors[falseColor]));
+    const trueCells = new Set(cellsOf(colors[trueColor]));
+    // A cell can wear both colours, when two of its candidates are in the
+    // network; those are left plain rather than given one of the two tints.
+    const onlyTrue = [...trueCells].filter((c) => !falseCells.has(c)).sort((a, b) => a - b);
+    const onlyFalse = [...falseCells].filter((c) => !trueCells.has(c)).sort((a, b) => a - b);
+    const name = (node) => `${cellName(nodeCell(node))}'s ${nodeDigit(node)}`;
+    const clash = rule === 'cell'
+      ? `${cellName(nodeCell(witness[0]))} would have to be both ${nodeDigit(witness[0])} and ${nodeDigit(witness[1])}`
+      : `${cellName(nodeCell(witness[0]))} and ${cellName(nodeCell(witness[1]))} would both be ${nodeDigit(witness[0])}, and they share a ${
+          getRow(nodeCell(witness[0])) === getRow(nodeCell(witness[1])) ? 'row'
+          : getCol(nodeCell(witness[0])) === getCol(nodeCell(witness[1])) ? 'column' : 'box'
+        }`;
+
+    const step = {
+      technique: '3D Medusa',
+      digit: null,
+      baseCells: cellsOf(component),
+      targetCells: [...new Set(eliminations.map((e) => e.cell))],
+      medusaRule: rule,
+      medusaWitness: witness.map((n) => ({ cell: nodeCell(n), digit: nodeDigit(n) })),
+      // The two colours for the board, the surviving one first and the
+      // false one second, in the two tints the ALS sets already use.
+      colorGroups: [onlyTrue, onlyFalse],
+      strongLinks: component.flatMap((node) =>
+        [...adjacency.get(node)]
+          .filter((other) => other > node)
+          .map((other) => ({
+            from: { cell: nodeCell(node), digit: nodeDigit(node) },
+            to: { cell: nodeCell(other), digit: nodeDigit(other) },
+          }))
+      ),
+      eliminations,
+      explanation:
+        `3D Medusa: strong links on every digit - a digit with two homes in a unit, and the two candidates of a ` +
+        `bi-value cell - chain these candidates into one network, two-coloured so that one colour is entirely true ` +
+        `and the other entirely false. ${rule === 'cell' ? 'A cell' : 'A unit'} meets one colour twice here: ` +
+        `${clash}. That colour cannot be the true one, so every candidate in it is eliminated` +
+        `${witness ? ` (${name(witness[0])} and ${name(witness[1])} among them)` : ''}.`,
+    };
+
+    if (returnAll) allInstances.push(step);
+    else return step;
+  }
+
+  return returnAll ? allInstances : null;
+};
 
 // Almost Locked Set (ALS) - XZ Rule
 export const findALSXZ = (grid, focusedDigit, returnAll = false) => {
@@ -490,6 +657,14 @@ export const findFinnedXWing = (grid, focusedDigit, returnAll = false) => {
             ...l2.positions.filter(p => !commonCovers.includes(o.coverOf(p))),
           ];
           if (fins.length === 0 || fins.length > 2) continue;
+
+          // Both corners of the X-Wing occupied. A base line left with a
+          // single candidate inside the cover lines is the sashimi shape,
+          // which fishEngine reports as a Sashimi Fish at every size, so
+          // one pattern never carries two names.
+          const coreCount = (line) =>
+            line.positions.filter(p => commonCovers.includes(o.coverOf(p))).length;
+          if (coreCount(l1) < 2 || coreCount(l2) < 2) continue;
 
           const eliminations = [];
           for (const cover of commonCovers) {

@@ -78,8 +78,9 @@ or a step. Nothing in here touches React or the network.
 | --- | --- |
 | `gridUnits.js` | rows, columns, boxes, peers, cell names (`R5C3`) |
 | `solver.jsx` | backtracking solver; the source of truth for "the solution" |
-| `logicEngine.jsx` | named techniques from Naked Single to XY-Wing, in order; `findNextLogicStep`, `findAllTechniqueInstances`, `applyLogicStep` |
-| `chainEngine.jsx` | X-Cycle, Finned X-Wing, ALS-XZ, Unique Rectangle, BUG+1 |
+| `logicEngine.jsx` | named techniques from Naked Single to the wings, in order; `findNextLogicStep`, `findAllTechniqueInstances`, `applyLogicStep` |
+| `chainEngine.jsx` | the colouring and set techniques: X-Cycle, 3D Medusa, Finned X-Wing, ALS-XZ, Unique Rectangle, BUG+1 |
+| `fishEngine.jsx` | the rest of the fish family and the single-digit patterns: Jellyfish, the finned and sashimi forms, Franken and Mutant fish, Empty Rectangle |
 | `aicEngine.js` | alternating inference chains: the named short chains (Skyscraper, Two-String Kite, W-Wing, Remote Pairs), the general X-Chain, XY-Chain and Alternating Chain, and the richer forms (grouped nodes, continuous loops, almost-locked-set nodes) |
 | `restrictedCommon.js` | almost locked sets and the restricted-common check they are joined by, shared by `aicEngine` and the ALS techniques |
 | `forcingChainEngine.jsx` | what-if search: `applyValueAndPropagate` (naked and hidden singles to a fixpoint), Cell Forcing Chains by convergence, Hypothesis Mode by contradiction |
@@ -146,10 +147,14 @@ scoping on `SudokuPuzzle` and `SolveRecord`; the repo cannot express that.
 
 ## Adding a technique
 
-1. Implement the finder in `logicEngine.jsx` (or `chainEngine.jsx`, or
-   `aicEngine.js` for a chain), return through `makeStep`, and add it to
-   `TECHNIQUE_ORDER()`.
-2. Add its name, tier and learn-more text to `techniqueCatalog.js`.
+1. Implement the finder in `logicEngine.jsx` (or `chainEngine.jsx` for a
+   colouring or set technique, `fishEngine.jsx` for a fish or a
+   single-digit pattern, `aicEngine.js` for a chain), return through
+   `makeStep`, and add it to `TECHNIQUE_ORDER()` and to the map
+   `findAllTechniqueInstances` reads.
+2. Add its name, tier, `count` (live, scan or search) and learn-more text
+   to `techniqueCatalog.js`, and score it in `difficultyAnalyzer.jsx` so
+   the shelf every library puzzle rates stays what it was.
 3. Add Beginner and Expert explanations in `explainStep.js`.
 4. Run the oracle tests. If the library never exercises it, add a puzzle
    that does; `oracleAll.spec.js` requires every named technique to appear.

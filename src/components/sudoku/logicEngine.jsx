@@ -1,5 +1,14 @@
 // Sudoku Logic Engine - Human-style solving techniques
-import { findXCycle, findALSXZ, findUniqueRectangle, findBUGPlus1, findFinnedXWing } from './chainEngine';
+import { findXCycle, find3DMedusa, findALSXZ, findUniqueRectangle, findBUGPlus1, findFinnedXWing } from './chainEngine';
+import {
+  findJellyfish,
+  findEmptyRectangle,
+  findFinnedSwordfish,
+  findFinnedJellyfish,
+  findSashimiFish,
+  findFrankenFish,
+  findMutantFish,
+} from './fishEngine';
 import { CHAIN_FINDERS } from './aicEngine';
 import { makeStep } from './stepShape';
 
@@ -65,6 +74,8 @@ const TECHNIQUE_ORDER = () => [
   findHiddenQuad,
   findXWing,
   findSwordfish,
+  findJellyfish,
+  findEmptyRectangle,
   findXYWing,
   findXYZWing,
   findWXYZWing,
@@ -77,12 +88,20 @@ const TECHNIQUE_ORDER = () => [
   CHAIN_FINDERS['Remote Pairs'],
   // Colouring keeps its place: the player has already learned it.
   findXCycle,
+  find3DMedusa,
   CHAIN_FINDERS['X-Chain'],
   CHAIN_FINDERS['XY-Chain'],
   findFinnedXWing,
+  findFinnedSwordfish,
+  findFinnedJellyfish,
+  findSashimiFish,
   findALSXZ,
   findUniqueRectangle,
   findBUGPlus1,
+  findFrankenFish,
+  findMutantFish,
+  // The general chain and its richer forms are the last deductions the
+  // mentor has before the what-if search.
   CHAIN_FINDERS['Alternating Chain'],
   CHAIN_FINDERS['Grouped X-Chain'],
   CHAIN_FINDERS['Grouped Alternating Chain'],
@@ -115,14 +134,22 @@ export const findAllTechniqueInstances = (grid, techniqueName) => {
     'Hidden Quad': findHiddenQuad,
     'X-Wing': findXWing,
     'Swordfish': findSwordfish,
+    'Jellyfish': findJellyfish,
+    'Empty Rectangle': findEmptyRectangle,
     'XY-Wing': findXYWing,
     'XYZ-Wing': findXYZWing,
     'WXYZ-Wing': findWXYZWing,
     'X-Cycle': findXCycle,
+    '3D Medusa': find3DMedusa,
     'Finned X-Wing': findFinnedXWing,
+    'Finned Swordfish': findFinnedSwordfish,
+    'Finned Jellyfish': findFinnedJellyfish,
+    'Sashimi Fish': findSashimiFish,
     'ALS-XZ': findALSXZ,
     'Unique Rectangle Type 1': findUniqueRectangle,
     'BUG+1': findBUGPlus1,
+    'Franken Fish': findFrankenFish,
+    'Mutant Fish': findMutantFish,
     ...CHAIN_FINDERS,
   };
 

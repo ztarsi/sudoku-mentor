@@ -63,12 +63,15 @@ describe('the solve path', () => {
     expect(analyzeSolvePath(puzzle('Lunch Puzzle')).hardestTechnique).toBe('Naked Triple');
     // An expert one that needs a wing
     expect(analyzeSolvePath(puzzle('Deep Waters')).hardestTechnique).toBe('XY-Wing');
-    // A diabolical one whose hardest step is a chain. It used to need
-    // colouring (X-Cycle); since the chain family landed (#67) a Skyscraper
-    // explains the same position one rung earlier, which is the point.
-    expect(analyzeSolvePath(puzzle("Devil's Den")).hardestTechnique).toBe('Skyscraper');
-    // And one whose hardest step is a four-candidate wing
-    expect(analyzeSolvePath(puzzle('Witching Hour')).hardestTechnique).toBe('XYZ-Wing');
+    // Two diabolical ones that need a single-digit box pattern. Both used
+    // to peak higher - a colouring chain and a four-candidate wing - until
+    // #72 put the Empty Rectangle on the ladder in front of them and it
+    // explained the same positions one rung lower.
+    expect(analyzeSolvePath(puzzle("Devil's Den")).hardestTechnique).toBe('Empty Rectangle');
+    expect(analyzeSolvePath(puzzle('Witching Hour')).hardestTechnique).toBe('Empty Rectangle');
+    // And one on the top shelf that the named ladder now finishes on its
+    // own, with colouring across every digit as its hardest step.
+    expect(analyzeSolvePath(puzzle('Night Owl')).hardestTechnique).toBe('3D Medusa');
   });
 
   it('says when named techniques alone are enough', () => {
@@ -200,12 +203,13 @@ describe('named-technique coverage, by shelf', () => {
   });
 
   it('keeps the ground the chain family gained on the Ultimate shelf', () => {
-    // Before the chain family (#67) the Ultimate shelf was 91.7% named,
-    // with every one of its seven puzzles needing what-if somewhere. The
-    // chains moved it to 94.3%, with one puzzle fully named. The floor is
-    // a little under that so a later batch can only push it up.
+    // The Ultimate shelf was 91.7% named before the fish (#72) and 92.6%
+    // after them; the chain family (#67) moved it to 94.4%, and 37 what-if
+    // steps became 31. The floors sit a little under that so a later batch
+    // can only push them up.
     const ultimate = report.rows.find((r) => r.shelf === 'ultimate');
-    expect(ultimate.namedShare).toBeGreaterThan(0.92);
+    expect(ultimate.namedShare).toBeGreaterThan(0.93);
+    expect(ultimate.whatIf).toBeLessThan(37);
     expect(ultimate.needWhatIf).toBeLessThan(ultimate.puzzles);
     expect(report.namedShare).toBeGreaterThan(0.97);
   });

@@ -34,7 +34,7 @@ export const TIERS = [
   {
     level: 'Ultimate',
     color: 'violet',
-    scanNote: 'These cost too much to count while you play. Scan runs every one of them on the board as it stands now, and looks at longer chains than a hint will show you; it takes a few seconds.',
+    scanNote: 'These cost too much to count while you play. Scan runs every one of them on the board as it stands now, and looks at longer chains than a hint will show you; it takes a second or two. Or count one row on its own.',
   },
   {
     level: 'Forcing Chains',
@@ -169,6 +169,24 @@ export const TECHNIQUES = [
     icon: Lightbulb,
   },
   {
+    name: 'Jellyfish',
+    tier: 'Expert',
+    count: COUNT_LIVE,
+    formal: 'Basic Fish (four lines)',
+    aliases: ['fish', 'basic fish', '4-fish', 'jelly fish'],
+    description: 'A Swordfish one size up: four lines against four.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'Empty Rectangle',
+    short: 'Empty Rect.',
+    tier: 'Expert',
+    count: COUNT_LIVE,
+    aliases: ['empty rectangle', 'er', 'single digit pattern', 'box pattern', 'crossing lines'],
+    description: "A digit's places in one box lie on one row and one column, crossing at an empty cell.",
+    icon: Lightbulb,
+  },
+  {
     name: 'XY-Wing',
     tier: 'Expert',
     count: COUNT_LIVE,
@@ -241,6 +259,15 @@ export const TECHNIQUES = [
     icon: Lightbulb,
   },
   {
+    name: '3D Medusa',
+    tier: 'Ultimate',
+    count: COUNT_SCAN,
+    formal: '3D Medusa Colouring',
+    aliases: ['medusa', 'colouring', 'coloring', 'multi-digit colouring', 'multi colouring'],
+    description: 'Colouring across every digit at once, inside cells as well as along units.',
+    icon: Lightbulb,
+  },
+  {
     name: 'X-Chain',
     tier: 'Ultimate',
     count: COUNT_SCAN,
@@ -261,9 +288,36 @@ export const TECHNIQUES = [
     name: 'Finned X-Wing',
     tier: 'Ultimate',
     count: COUNT_SCAN,
-    formal: 'Finned Fish',
-    aliases: ['finned fish', 'sashimi', 'fish'],
+    formal: 'Finned Fish (two lines)',
+    aliases: ['finned fish', 'fish'],
     description: 'X-Wing pattern with additional fin cells.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'Finned Swordfish',
+    tier: 'Ultimate',
+    count: COUNT_SCAN,
+    formal: 'Finned Fish (three lines)',
+    aliases: ['finned fish', 'fish', 'finned swordfish'],
+    description: 'A Swordfish spoiled by one or two extra candidates in a base line.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'Finned Jellyfish',
+    tier: 'Ultimate',
+    count: COUNT_SCAN,
+    formal: 'Finned Fish (four lines)',
+    aliases: ['finned fish', 'fish', 'finned jellyfish'],
+    description: 'The same fin, on the four-line fish.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'Sashimi Fish',
+    tier: 'Ultimate',
+    count: COUNT_SCAN,
+    formal: 'Sashimi Finned Fish',
+    aliases: ['sashimi', 'sashimi x-wing', 'sashimi swordfish', 'sashimi jellyfish', 'finned fish', 'fish'],
+    description: 'A finned fish whose spoiled corner is empty rather than occupied.',
     icon: Lightbulb,
   },
   {
@@ -291,6 +345,22 @@ export const TECHNIQUES = [
     formal: 'Bivalue Universal Grave + 1',
     aliases: ['bivalue universal grave', 'bug', 'uniqueness'],
     description: 'Bivalue Universal Grave plus one tri-value cell.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'Franken Fish',
+    tier: 'Ultimate',
+    count: COUNT_SCAN,
+    aliases: ['fish', 'franken', 'franken fish', 'box fish'],
+    description: 'A fish that uses a box as one of its lines.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'Mutant Fish',
+    tier: 'Ultimate',
+    count: COUNT_SCAN,
+    aliases: ['fish', 'mutant', 'mutant fish'],
+    description: 'A fish whose lines mix rows, columns and boxes freely.',
     icon: Lightbulb,
   },
   {
@@ -504,6 +574,18 @@ export const TECHNIQUE_DETAILS = {
     example: 'The 4s in rows 2, 5, and 9 all fall in columns 1, 4, and 8. Remove 4 from those columns in the other rows.',
     strategy: '1. Pick a digit\n2. Find three rows whose candidate cells fall in only three columns\n3. Erase the digit from those columns in the other rows'
   },
+  'Jellyfish': {
+    plain: 'The same pattern as an X-Wing and a Swordfish, one size bigger. Pick a number and find four rows where it can only go in the same four columns (two, three or four spots in each row). Each of those four rows needs one copy of the number, and only those four columns can hold them, so the four columns are completely used up by these rows. Erase the number from every other cell in those four columns. It works the same way with rows and columns swapped. Four is as far as the family goes: if you tried five rows, the four rows you left out would form a Jellyfish of their own on the other four columns, so there is nothing new to find.',
+    description: 'A digit occupies at most four cells in each of four rows, all inside the same four columns. The digit is removed from those columns outside the four rows, and symmetrically for columns. A size-five fish is the complement of a size-four fish on a 9x9 grid, so larger sizes are redundant. A pattern that collapses to a smaller fish is reported as that smaller fish.',
+    example: 'The 7s in rows 1, 3, 6 and 8 all fall in columns 2, 4, 5 and 9. Remove 7 from those four columns in every other row, for instance from R5C4.',
+    strategy: '1. Pick a digit\n2. Find four rows where it has two, three or four spots each\n3. Check that all those spots fall in only four columns\n4. Erase the digit from those four columns in the other rows\n5. Try it again with columns and rows swapped'
+  },
+  'Empty Rectangle': {
+    plain: 'Pick a number and one 3x3 box. Look at where that number can still go in the box. If every one of those places sits on a single row or a single column of the box, then the box must take its number from that row or from that column - never from the four cells away from both, which is the empty rectangle the pattern is named after. That is useful because it ties the row to the column: if the box does not use the row, it must use the column. Now find a line somewhere else where the same number has only two possible homes, one of them on the box\'s column. Then the cell where the box\'s row meets the other home can never be the number. If it were, the box could not use its row, so it would use its column; that would empty the rest of the column, which pushes the two-home line onto its other end - and that end shares a line with the cell we started from. Two copies of one number in a line is impossible, so the starting cell is ruled out.',
+    description: 'In one box, all candidates for a digit lie on one row and one column of that box, with at least one candidate off each of them, so the box\'s digit is on the crossing row or the crossing column. Combined with a conjugate pair on the same digit in a line outside the box that meets the crossing column, the digit is eliminated where the crossing row meets the far end of that pair; and symmetrically with rows and columns exchanged.',
+    example: 'In box 5 the only 4s are R4C4, R4C6 and R6C4, so they lie on row 4 and column 4 and the box takes its 4 from one of those lines. Row 8 has only two 4s, R8C4 and R8C9. Then R4C9 cannot be 4: it would force the box onto column 4, the column onto R8C4 is then impossible, so row 8 would need R8C9, which shares column 9 with R4C9.',
+    strategy: '1. Pick a digit and a box where it has three or four places left\n2. Check that they all lie on one row and one column of the box, with at least one off each\n3. Look along the crossing column for a line with exactly two places for the digit, one of them in that column\n4. Erase the digit where the crossing row meets the other place\n5. Repeat with rows and columns swapped'
+  },
   'XY-Wing': {
     plain: 'Three cells with two pencil marks each, arranged like a hinge. The middle cell holds numbers A and B. One outer cell holds A and C, the other holds B and C. Whichever number the middle cell takes, it pushes one outer cell to C. So C is guaranteed to land in one of the outer cells, and any cell that shares a row, column, or box with both outer cells can never be C.',
     description: 'A pivot with candidates {X, Y} sees two wings, {X, Z} and {Y, Z}. Either value of the pivot forces a wing to be Z, so Z is removed from every cell that sees both wings.',
@@ -594,11 +676,35 @@ export const TECHNIQUE_DETAILS = {
     example: 'Colour the 6s along a chain. R2C4 sees a blue 6 and a green 6, so R2C4 cannot be 6.',
     strategy: '1. Pick a digit\n2. Mark units where it has exactly two spots and link them\n3. Colour the chain alternately\n4. Erase the digit from cells that see both colours'
   },
+  '3D Medusa': {
+    plain: 'Colouring, but across every number at once. Two kinds of pair give you a certainty: a number that has only two possible homes in a row, column or box (one of those two is it), and a cell with only two numbers left (one of those two is it). Chain those pairs together and colour them alternately, like a checkerboard, writing the colour on the pencil mark rather than on the cell. One whole colour is right and the other is wrong; we just do not know which. So look for a colour that contradicts itself. If one cell ends up with two marks of the same colour, that colour would make the cell two numbers at once. If one row, column or box ends up with the same number twice in one colour, that colour would put a number twice in a line. Either way that colour is wrong, so every pencil mark wearing it can be erased.',
+    description: 'Colouring extended to all digits. Strong links are conjugate pairs (a digit with exactly two positions in a unit) and bi-value cells (a cell with exactly two candidates). Candidates are the nodes; the graph is two-coloured per component, and one colour is entirely true. Two contradictions are checked: two same-coloured candidates in one cell, and two same-coloured candidates of one digit in one unit. The contradicted colour is false and all of its candidates are eliminated.',
+    example: 'A colouring on several digits reaches R5C3 twice: its 2 and its 7 are both blue. Blue would make R5C3 two digits at once, so blue is false and every blue candidate on the board goes, R5C3\'s 2 and 7 among them.',
+    strategy: '1. Mark every place where a digit has only two homes in a unit, and every cell with only two marks left\n2. Start from one mark and colour along those pairs, alternating\n3. Look for one cell holding two marks of the same colour\n4. Look for one row, column or box holding the same digit twice in one colour\n5. Erase every mark of the colour you caught'
+  },
   'Finned X-Wing': {
     plain: 'Almost an X-Wing: a number is limited to two columns in two rows, except for one or two stray extra spots (the "fin") that spoil the rectangle. Either the fin is the number, or it is not. If it is not, the X-Wing works as usual. If it is, then cells near the fin cannot be the number. Cells that are ruled out both ways can be erased.',
     description: 'An X-Wing with one or two extra candidates (the fin) in one of the base rows. Eliminations survive only in cells that see the fin and lie in the cover columns.',
     example: 'An X-Wing on 3 in rows 1 and 5, columns 2 and 8, with a fin at R1C3. Remove 3 from R2C2 and R3C2, which see the fin.',
     strategy: '1. Find a near-X-Wing with one or two extra candidates in a base row\n2. Keep only the eliminations that see every fin cell'
+  },
+  'Finned Swordfish': {
+    plain: 'A Swordfish with a blemish. A number is almost limited to three columns across three rows, except for one or two stray extra spots in one of those rows - the "fin". Either the fin is the number or it is not. If it is not, the Swordfish is perfect and erases the number from the rest of those three columns. If it is, then every cell sharing a row, column or box with the fin cannot be the number. Only the cells ruled out both ways can be erased: those that lie in the three columns and also see every fin. Miss one fin and the conclusion is wrong, so the mentor checks all of them.',
+    description: 'A Swordfish whose base lines hold one or two extra candidates (the fin) outside the cover lines. Eliminations survive only in cover-line cells, outside the base lines, that see every fin cell: they are false whether the fin is true or false. Patterns that contain a plain fish of smaller size are left to that rung.',
+    example: 'A Swordfish on 3 in rows 2, 5 and 7 against columns 1, 4 and 8, with a fin at R2C3. Only 3s in columns 1, 4 and 8 that also see R2C3 are removed, such as R1C1.',
+    strategy: '1. Find three rows whose spots for a digit almost fit three columns\n2. Note the one or two extra spots as the fin\n3. Keep only the eliminations in those columns that see every fin cell\n4. Try it again with rows and columns swapped'
+  },
+  'Finned Jellyfish': {
+    plain: 'The same blemish as a Finned Swordfish, on the four-line fish. A number is almost limited to four columns across four rows, apart from one or two stray spots in one of those rows. If those stray spots are not the number, the Jellyfish is perfect; if one of them is, its own row, column and box lose the number. The cells erased are the ones ruled out either way: in the four columns, and seeing every stray spot.',
+    description: 'A Jellyfish with one or two extra candidates (the fin) in a base line. Eliminations are the cover-line candidates outside the base lines that see every fin cell. Sizes above four are redundant on a 9x9 grid, finned or not.',
+    example: 'A Jellyfish on 6 in rows 1, 4, 5 and 9 against columns 2, 3, 7 and 8, with a fin at R1C5. Only 6s in those four columns that also see R1C5 are removed.',
+    strategy: '1. Find four rows whose spots for a digit almost fit four columns\n2. Note the one or two extra spots as the fin\n3. Keep only the eliminations in those columns that see every fin cell\n4. Try it again with rows and columns swapped'
+  },
+  'Sashimi Fish': {
+    plain: 'The same idea as a finned fish, with the spoiled corner empty instead of occupied. In a finned fish, one row keeps its two or three places inside the pattern and adds a stray one; in a sashimi fish, that row has only a single place left inside the pattern, because the corner where it should have sat is already gone. The proof does not change at all: either the stray place is the number, and its row, column and box lose it, or it is not, and the fish is perfect. Only cells ruled out both ways are erased. It is listed on its own because the shape your eye looks for is different - a gap where a corner should be - and it comes in the same sizes as the finned fish, two lines, three or four.',
+    description: 'A finned fish in which a base line has exactly one candidate inside the cover lines: the corner cell of the pattern holds no candidate. Same proof and same eliminations as the finned form - cover-line candidates outside the base lines that see every fin - at sizes two, three and four. Reported separately from Finned X-Wing, Finned Swordfish and Finned Jellyfish so that one pattern never carries two names.',
+    example: 'An X-Wing shape on 5 in rows 3 and 7 against columns 2 and 6, but R3C2 has no 5 left and row 3 has a stray 5 at R3C1. Only 5s in columns 2 and 6 that also see R3C1 are removed.',
+    strategy: '1. Look for a fish that almost works but has a corner with no mark in it\n2. Find the stray spots in that row or column: they are the fin\n3. Keep only the eliminations in the cover lines that see every fin cell'
   },
   'ALS-XZ': {
     plain: 'Find two small groups of cells, each in its own row, column, or box. In each group, the cells together hold exactly one more different pencil mark than there are cells. Such a group is "one number short of locked": remove any one of its numbers and the rest are forced. The two groups share a number, X, but every X in one group clashes with every X in the other, so only one group can take X. The group that loses X becomes locked and must contain another shared number, Z. So Z is certain to land in one of the two groups, and any cell that clashes with every Z in both groups can never be Z.',
@@ -617,6 +723,18 @@ export const TECHNIQUE_DETAILS = {
     description: 'Bivalue Universal Grave plus one: all empty cells are bi-value except one tri-value cell. That cell must take the digit that appears three times in one of its units, or the grid would have two solutions.',
     example: 'Every cell is bi-value except R5C5 = {4, 7, 9}. 7 appears three times in row 5, so R5C5 = 7.',
     strategy: '1. Check that all empty cells but one have exactly two pencil marks\n2. In the odd cell, find the mark that appears three times in its row, column, or box\n3. Place it'
+  },
+  'Franken Fish': {
+    plain: 'A fish that uses a 3x3 box as one of its lines. The reasoning is the same as an X-Wing: pick a few groups that each must contain the number, make sure no two of them share a cell, and find the same number of groups that cover every place the number could be. Since each covering group can hold the number only once, each one is used up by the groups underneath it, and any other place for the number inside a covering group is out. Be honest about this one: nobody is expected to spot it by eye, and you do not need to. The mentor finds it, shows you which groups it used, and the proof is short enough to follow even though the shape is not one you can scan for.',
+    description: 'A fish whose base or cover sets include a box, keeping the basic shape otherwise: the base lines are all rows or all columns and the cover lines are the other kind. Base sets must be pairwise disjoint in their candidates; cover sets must cover every base candidate. Candidates in cover sets outside the base sets are eliminated. Sizes two to four; patterns containing a smaller fish, locked candidates included, are left to the rung that explains them.',
+    example: 'The 9s in row 2 and in box 7 share no cell, and together they lie in column 1 and box 1. Those two cover sets can hold two 9s between them, so every other 9 in column 1 and box 1 is eliminated.',
+    strategy: '1. This one is for the mentor to find; read the groups it names on the board\n2. Check that the base groups share no cell and each must hold the digit\n3. Check that the cover groups contain every place the digit could be in the base groups\n4. Erase the digit everywhere else inside the cover groups'
+  },
+  'Mutant Fish': {
+    plain: 'The most general fish there is: its groups mix rows, columns and boxes freely on both sides. The argument is still the same one that makes an X-Wing work. A few groups that each must contain the number and share no cell between them; the same number of groups that between them cover every place the number could go; so each covering group is spoken for, and any other place for the number inside one of them is out. Again, be honest: no human spots these by eye, and nobody should feel behind for not seeing one. The mentor finds it and names the groups, and the proof is two sentences long.',
+    description: 'A fish with no restriction on the kinds of unit used: base and cover sets may each mix rows, columns and boxes. Base sets are pairwise disjoint in their candidates, the cover sets cover every base candidate, and candidates in cover sets outside the base sets are eliminated. Sizes two to four; a pattern that reduces to a basic or Franken fish, or to locked candidates, is reported as that instead.',
+    example: 'The 4s in row 5, in column 2 and in box 9 share no cell, and together they fall inside row 9, column 5 and box 4. Each of those three cover sets holds one 4 at most, so every other 4 inside them is eliminated.',
+    strategy: '1. This one is for the mentor to find; read the groups it names on the board\n2. Check that the base groups share no cell and each must hold the digit\n3. Check that the cover groups contain every place the digit could be in the base groups\n4. Erase the digit everywhere else inside the cover groups'
   },
   'Cell Forcing Chain': {
     plain: 'Take a cell with just two (or three) pencil marks. Try each one in turn and follow the forced moves. If every option ends up putting the same number in the same cell, that number is certain, no matter which option was right. This is real logic, because every possibility was checked.',
