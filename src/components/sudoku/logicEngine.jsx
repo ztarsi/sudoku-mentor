@@ -10,6 +10,7 @@ import {
   findMutantFish,
 } from './fishEngine';
 import { CHAIN_FINDERS } from './aicEngine';
+import { ALS_FINDERS } from './alsEngine';
 import { UNIQUENESS_FINDERS } from './uniquenessEngine';
 import { UNIQUENESS_UNKNOWN, uniquenessAllowed } from './uniqueness';
 import { makeStep } from './stepShape';
@@ -106,6 +107,12 @@ const TECHNIQUE_ORDER = () => [
   ...Object.values(UNIQUENESS_FINDERS),
   findFrankenFish,
   findMutantFish,
+  // The rest of the almost-locked-set family (#73), in the spec's order and
+  // ahead of the general chain, so a player meets the named shape rather
+  // than a chain that says the same thing a longer way - the rule that puts
+  // Skyscraper ahead of X-Chain. An ALS-XY-Wing is a six-node chain through
+  // sets, so behind the ALS Chain rung it could never be the hint at all.
+  ...Object.values(ALS_FINDERS),
   // The general chain and its richer forms are the last deductions the
   // mentor has before the what-if search.
   CHAIN_FINDERS['Alternating Chain'],
@@ -180,6 +187,7 @@ export const findAllTechniqueInstances = (grid, techniqueName, options = {}) => 
     'Franken Fish': findFrankenFish,
     'Mutant Fish': findMutantFish,
     ...CHAIN_FINDERS,
+    ...ALS_FINDERS,
   };
 
   const findFunc = techniqueMap[techniqueName];

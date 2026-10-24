@@ -98,7 +98,17 @@ const TECHNIQUE_SCORES = {
   'Grouped X-Chain': 10,
   'Grouped Alternating Chain': 10,
   'Continuous Loop': 10,
-  'ALS Chain': 11
+  'ALS Chain': 11,
+  // The rest of the almost-locked-set family (#73). It reads three groups
+  // at once, or a group for every mark in a cell, or a row-and-box split -
+  // past anything a player spots by scanning, and level with the general
+  // chain it sits beside on the ladder. A puzzle that needs one is on the
+  // top shelf, which is what the score has to say; the shelves themselves
+  // are re-cut once, at the end of the programme.
+  'ALS-XY-Wing': 10,
+  'Death Blossom': 10,
+  'Sue de Coq': 10,
+  'Sue de Coq, extended': 10
 };
 
 // A full solve is at most ~81 placements plus the elimination-only steps

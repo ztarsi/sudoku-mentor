@@ -103,13 +103,15 @@ const Explanation = ({ explanation, legend }) => {
 };
 
 /**
- * The walk through an alternating inference chain: one line per link, in
+ * The walk through a step whose proof is a sequence: one line per link, in
  * order, with the same prev / play / next controls the what-if replay uses.
  * A chain's proof is a sequence, so the player steps through it rather than
  * reading a wall of text (#67).
  *
  * A colouring step (X-Cycle, 3D Medusa) walks the same way (#82): its run
- * of links, then one last line for what the two ends of the run prove.
+ * of links, then one last line for what the two ends of the run prove. So
+ * does a set-based step (#73), whose links may be a case for each number a
+ * cell could be, or regions that cannot hold the same number.
  */
 const ChainLinkTrace = ({
   currentStep,
@@ -126,7 +128,9 @@ const ChainLinkTrace = ({
     ? 'How the colouring spreads:'
     : currentStep.chainClosed
     ? 'Round the loop:'
-    : 'The chain, link by link:';
+    : walk.every((link) => link.kind === 'strong' || link.kind === 'weak')
+    ? 'The chain, link by link:'
+    : 'The argument, step by step:';
   const walkLabel = colouring ? 'Walk the colouring' : 'Walk the chain';
 
   return (
