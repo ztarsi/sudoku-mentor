@@ -866,13 +866,14 @@ describe('the family on the real solve path of the top shelf', () => {
   // against the puzzle's one true answer, which is the whole promise of
   // the oracle tests.
   //
-  // Which boards those are depends on what the search hands back, so the
-  // forcing batch (#75) moved them: the proofs finish these puzzles by a
-  // different route from the trial search they replaced, and the route no
-  // longer passes a board carrying an Avoidable Rectangle. That technique
-  // keeps its own hand-built test above, with its exact elimination and
-  // its worked-out corners; what it has lost is a sighting on a library
-  // board, which is a gap in the library rather than in the detector.
+  // Which boards those are depends on what the ladder and the search hand
+  // back, so the forcing batch (#75) moved them: the proofs finish these
+  // puzzles by a different route from the trial search they replaced, and
+  // that route no longer passes a board carrying an Avoidable Rectangle or
+  // a Unique Rectangle Type 6. Both keep their own hand-built tests above,
+  // with their exact eliminations; what they have lost is a sighting on a
+  // library board, which is a gap in the library rather than in a
+  // detector, and the teaching report (#83) counts it as one.
   for (const { name, puzzle } of PUZZLES.ultimate) {
     it(`${name}: every uniqueness instance agrees with the answer`, () => {
       const solution = solutionsOf(puzzle, 1)[0];
@@ -924,7 +925,6 @@ describe('the family on the real solve path of the top shelf', () => {
       'Unique Rectangle Type 2',
       'Unique Rectangle Type 3',
       'Unique Rectangle Type 4',
-      'Unique Rectangle Type 6',
     ]);
   });
 });

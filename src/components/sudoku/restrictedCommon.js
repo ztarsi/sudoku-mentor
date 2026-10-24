@@ -118,3 +118,48 @@ export const findAlmostLockedSets = (grid, options = {}) => {
 
   return sets;
 };
+
+/**
+ * The digits that are restricted commons of two cell sets: shared by both,
+ * and with every copy in one set seeing every copy in the other.
+ *
+ * Two sets may be joined on more than one digit, which is what the larger
+ * techniques of this family are built on, so the answer is a list rather
+ * than a yes or no.
+ */
+export const restrictedCommons = (grid, cellsA, cellsB, digitsA, digitsB) =>
+  digitsA
+    .filter((d) => digitsB.includes(d))
+    .filter((d) => isRestrictedCommon(grid, cellsA, cellsB, d));
+
+/**
+ * Where a digit may be erased once it is known to land inside one of
+ * several groups: every cell that is not in any of them, still offers the
+ * digit, and sees EVERY cell of EVERY group that offers it.
+ *
+ * This is the one place the whole family's eliminations come from, and the
+ * place the family goes wrong: a single cell of a single group that the
+ * target does not see makes the hint false. One cell of one group missed is
+ * a candidate erased that the answer needs, so this is tested on its own.
+ *
+ * A group that cannot hold the digit at all breaks the deduction the caller
+ * is making ("the digit is in one of these groups"), so nothing is reported.
+ *
+ * @param {Array} grid
+ * @param {number[][]} groups the groups the digit is known to land in
+ * @param {number} digit
+ * @returns {number[]} the cells, in index order
+ */
+export const eliminationTargets = (grid, groups, digit) => {
+  if (!groups.length) return [];
+  const perGroup = groups.map((cells) => digitCells(grid, cells, digit));
+  if (perGroup.some((cells) => cells.length === 0)) return [];
+  const inside = new Set(groups.flat());
+  const out = [];
+  for (let cell = 0; cell < 81; cell++) {
+    if (inside.has(cell)) continue;
+    if (grid[cell].value !== null || !grid[cell].candidates.includes(digit)) continue;
+    if (perGroup.every((cells) => cells.every((c) => arePeers(cell, c)))) out.push(cell);
+  }
+  return out;
+};

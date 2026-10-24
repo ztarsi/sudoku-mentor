@@ -67,6 +67,9 @@ export const GLOSSARY = {
   'proof by cases': 'Every option a cell, a unit or a digit has is tried, and the conclusion is what all of them force. Sound whichever option turns out to be true, which is what makes it a proof rather than a trial.',
   'forcing chain': 'The consequences of one assumption, followed with naked and hidden singles until nothing more is forced.',
   'forcing net': 'A forcing proof that needs more than one assumption at a time: where the singles stall, both options of a further cell are tried and only what both of them force is kept.',
+  stem: 'The cell a Death Blossom hangs on: it has an almost locked set of its own for every candidate it still holds.',
+  petal: 'One of the almost locked sets hanging off a Death Blossom stem, tied to one of the stem\'s candidates by a restricted common.',
+  'two-sector disjoint subsets': 'The formal name for Sue de Coq: cells in the overlap of a line and a box holding more candidates than they have cells, with the rest of the line and the rest of the box splitting the surplus.',
 };
 
 const TERMS_BY_TECHNIQUE = {
@@ -108,6 +111,10 @@ const TERMS_BY_TECHNIQUE = {
   'Mutant Fish': ['base set', 'cover set', 'candidate'],
   '3D Medusa': ['colouring', 'strong link', 'bi-value cell', 'conjugate pair'],
   'ALS-XZ': ['Almost Locked Set (ALS)', 'restricted common', 'sees'],
+  'ALS-XY-Wing': ['Almost Locked Set (ALS)', 'restricted common', 'sees'],
+  'Death Blossom': ['Almost Locked Set (ALS)', 'restricted common', 'stem', 'petal', 'sees'],
+  'Sue de Coq': ['Almost Locked Set (ALS)', 'two-sector disjoint subsets', 'candidate', 'unit'],
+  'Sue de Coq, extended': ['Almost Locked Set (ALS)', 'two-sector disjoint subsets', 'candidate', 'unit'],
   'Unique Rectangle Type 1': ['deadly pattern', 'candidate'],
   'Unique Rectangle Type 2': ['deadly pattern', 'candidate', 'sees'],
   'Unique Rectangle Type 3': ['deadly pattern', 'candidate', 'unit', 'locked set'],
@@ -219,7 +226,9 @@ const placeLine = (placement) => {
 };
 
 /** "1 or 2", for a list of alternatives. */
-const listOr = (items) => listWords(items.map(String)).replace(/, and |\band\b/, ' or ');
+// "3 or 9", "1, 2 or 3". The comma and the spaces round "and" go with it,
+// or the line reads "3  or  9".
+const listOr = (items) => listWords(items.map(String)).replace(/,? and /, ' or ');
 
 /**
  * The half of the uniqueness argument that every technique in the family
@@ -516,6 +525,65 @@ const SIMPLE = {
     };
   },
 
+  // The rest of the almost-locked-set family (#73). Every one of these
+  // begins where the ALS-XZ lesson above leaves off - a group of cells one
+  // number short of locked - and says what happens when there are three of
+  // them, or one per mark in a cell, or one that is two numbers short.
+  'ALS-XY-Wing': (step) => {
+    const [a, middle, b] = step.alsSets ?? [];
+    const { xDigit: x, yDigit: y, zDigit: z } = step;
+    const targets = uniq(step.eliminations.map((e) => e.cell));
+    const plural = targets.length !== 1;
+    return {
+      look: `${setLook(a, 'Group A')} ${setLook(middle, 'The middle group')} ${setLook(b, 'Group B')}`,
+      why:
+        `Each group has exactly one more possible number than it has cells, so each one is one number` +
+        ` short of locked: rule out any one of its numbers and every cell in it is forced.` +
+        ` Every ${x} in group A clashes with every ${x} in the middle group, and every ${y} in the` +
+        ` middle group clashes with every ${y} in group B. Now suppose neither outer group takes ${z}.` +
+        ` Then both of them lock, so group A has to use ${x} and group B has to use ${y}. The ${x} in` +
+        ` group A leaves the middle group without one, so the middle group locks too and has to use` +
+        ` ${y} - and group B has already taken it. They clash, so that cannot be. So ${z} ends up` +
+        ` inside group A or group B. ${shortCells(targets)} ${plural ? 'clash' : 'clashes'} with every` +
+        ` ${z} in both groups, so ${plural ? 'they' : 'it'} can never be ${z}.`,
+      extra: 'Step through the links below to follow it one group at a time.',
+    };
+  },
+
+  'Death Blossom': (step) => {
+    const stem = step.stemCell;
+    const z = step.zDigit;
+    const petals = step.alsSets ?? [];
+    const stemDigits = petals.map((petal) => petal.stemDigit);
+    const targets = uniq(step.eliminations.map((e) => e.cell));
+    const plural = targets.length !== 1;
+    const petalText = petals
+      .map((petal) =>
+        petal.cells.length === 1
+          ? `the ${petal.stemDigit} goes with ${shortCell(petal.cells[0])}, which can only be ${listWords(petal.digits)}`
+          : `the ${petal.stemDigit} goes with ${shortCells(petal.cells)}, which hold only ${listWords(petal.digits)} between them`
+      )
+      .join('; ');
+    return {
+      look:
+        `Look at ${shortCell(stem)}, which can only be ${listOr(stemDigits)}. Each of those numbers has` +
+        ` a group of its own: ${petalText}.`,
+      why:
+        `Every one of those groups has exactly one more possible number than it has cells, so each is` +
+        ` one number short of locked: take one number away and the rest are forced. And every copy of` +
+        ` a number inside the group it belongs to clashes with ${shortCell(stem)}. So whichever number` +
+        ` ${shortCell(stem)} turns out to be, that number's group loses it, locks, and has to use every` +
+        ` other number it holds - ${z} among them, because all ${countWord(petals.length)} groups can` +
+        ` use ${z}. ${shortCell(stem)} has to be something, so ${z} always ends up inside one of the` +
+        ` groups. ${shortCells(targets)} ${plural ? 'clash' : 'clashes'} with every ${z} in all of them,` +
+        ` so ${plural ? 'they' : 'it'} can never be ${z}.`,
+      extra: 'Step through the cases below: one for each number the stem could be.',
+    };
+  },
+
+  'Sue de Coq': (step) => sueDeCoq(step),
+  'Sue de Coq, extended': (step) => sueDeCoq(step),
+
   'Unique Rectangle Type 1': (step) => {
     const extra = step.targetCells?.[0];
     const corners = step.baseCells.filter((c) => c !== extra);
@@ -568,6 +636,58 @@ function capitalize(s) {
 }
 
 // ---------------------------------------------------------------------------
+// Sets, in plain words.
+//
+// Every one of these starts from the ALS-XZ lesson's own sentence - a group
+// of cells with one more number than it has cells is one number short of
+// locked - so a player who has read that entry meets the same idea again
+// rather than a new one (#73).
+// ---------------------------------------------------------------------------
+
+/** One group of a set-based step, named the way ALS-XZ names its two. */
+const setLook = (set, label) => {
+  if (!set) return '';
+  const marks = [...set.digits].sort((a, b) => a - b);
+  if (set.cells.length === 1) {
+    return `${label} is the single cell ${shortCell(set.cells[0])}, which can only be ${listOr(marks)}.`;
+  }
+  return `${label} is the ${countWord(set.cells.length)} cells ${shortCells(set.cells)} - between them they can only use ${countWord(marks.length)} numbers: ${listWords(marks)}.`;
+};
+
+/** Sue de Coq and its extended form, in one set of words. */
+function sueDeCoq(step) {
+  const [overlap, line, box] = step.alsSets ?? [];
+  const digits = overlap.digits;
+  const short = digits.length - overlap.cells.length;
+  const cells = overlap.cells.length + line.cells.length + box.cells.length;
+  const lineName = step.unit?.name ?? 'the line';
+  const boxName = `box ${getBox(box.cells[0]) + 1}`;
+  const lineOnly = digits.filter((d) => !box.digits.includes(d));
+  const boxOnly = digits.filter((d) => !line.digits.includes(d));
+  const part = (set, where) =>
+    set.cells.length === 1
+      ? `${shortCell(set.cells[0])}, further along ${where}, can only be ${listOr(set.digits)}`
+      : `${shortCells(set.cells)}, further along ${where}, can only hold ${listWords(set.digits)} between them`;
+  return {
+    look:
+      `Look at the ${countWord(overlap.cells.length)} cells where ${lineName} crosses ${boxName}:` +
+      ` ${shortCells(overlap.cells)}. Between them they can only hold ${listWords(digits)} -` +
+      ` ${countWord(digits.length)} numbers for ${countWord(overlap.cells.length)} cells. So instead of being one` +
+      ` number short of locked, they are ${countWord(short)} numbers short.`,
+    why:
+      `${capitalize(part(line, lineName))}, and ${part(box, boxName)}. Every one of those numbers is on` +
+      ` the overlap's list, and the two have none in common. So all ${countWord(cells)} cells take` +
+      ` different numbers: the ones in ${lineName} cannot clash, the ones in ${boxName} cannot clash,` +
+      ` and the last two share no number to clash over. ${capitalize(countWord(cells))} cells and` +
+      ` ${countWord(digits.length)} numbers, one each, nothing left over. That means ${listWords(lineOnly)}` +
+      ` ${lineOnly.length === 1 ? 'is' : 'are'} used up inside ${lineName}, so ${lineOnly.length === 1 ? 'it goes' : 'they go'}` +
+      ` from the rest of it; and ${listWords(boxOnly)} ${boxOnly.length === 1 ? 'is' : 'are'} used up` +
+      ` inside ${boxName}, so ${boxOnly.length === 1 ? 'it goes' : 'they go'} from the rest of that.`,
+    extra: 'Step through the three groups below to see why nothing is left over.',
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Chains, in plain words.
 //
 // A chain's proof is a sequence, so it is told as a sequence: one sentence
@@ -585,11 +705,45 @@ const isGroupNode = (node) => node.cells.length > 1;
 const groupLegend = (node) =>
   `Cells written ${nodePlace(node)} count as one place: ${node.digit} is somewhere in there or nowhere in it.`;
 
-/** The one sentence a single link of a chain is worth. */
+/**
+ * The one sentence a single link is worth.
+ *
+ * Most links are a chain's own strong and weak links (#67). A set-based
+ * step (#73) can also carry a CASE - one of the values a stem cell may
+ * take - or a COUNT, two groups that cannot take the same number, because
+ * those proofs are not one line of reasoning from end to end. Each gets
+ * the same one sentence, and the card labels it for what it is.
+ */
 function linkSentence(from, to) {
   const unit = from.linkUnit?.name;
   const a = nodePlace(from);
   const b = nodePlace(to);
+
+  // A case: the stem of a Death Blossom takes one of its numbers, and the
+  // group tied to that number loses it and locks.
+  if (from.linkToNext === 'case') {
+    const set = from.linkSet;
+    const d = from.linkDigit;
+    if (set && set.cells.length === 1) {
+      return `If ${a} is ${d}, then ${shortCells(set.cells)} cannot be ${d} too. It has only ${listWords(set.digits)} left, so it has to be ${to.digit}.`;
+    }
+    if (set) {
+      return `If ${a} is ${d}, then no cell of ${shortCells(set.cells)} can be ${d} either. Those ${countWord(set.cells.length)} cells hold only ${listWords(set.digits)} between them, one number more than there are cells, so they are one number short of locked: losing the ${d} forces the rest, and one of them must be ${to.digit}.`;
+    }
+    return `If ${a} is ${d}, then ${b} must be ${to.digit}.`;
+  }
+
+  // A count: two groups that cannot take the same number, which is what
+  // makes a Sue de Coq's numbers come out exactly.
+  if (from.linkToNext === 'count') {
+    const fromDigits = from.digits ?? (from.digit === null ? [] : [from.digit]);
+    const toDigits = to.digits ?? (to.digit === null ? [] : [to.digit]);
+    const plural = to.cells.length > 1;
+    if (from.linkVia === 'digits') {
+      return `${a} can only hold ${listWords(fromDigits)} and ${b} can only hold ${listWords(toDigits)}. They have no number in common, so those cannot clash either.`;
+    }
+    return `${b} ${plural ? 'are' : 'is'} in ${unit ?? 'that row, column, or box'} with the overlap cells and can only hold ${listWords(toDigits)}, every one of them on the overlap's list of ${countWord(fromDigits.length)}. So ${plural ? 'they take numbers from that list, and never the same one as' : 'it takes one of that list, and never the same one as'} any overlap cell.`;
+  }
 
   if (from.linkToNext === 'strong') {
     if (from.linkVia === 'bivalue') {
@@ -597,7 +751,7 @@ function linkSentence(from, to) {
     }
     if (from.linkVia === 'als' && from.linkSet) {
       const set = from.linkSet;
-      return `The ${countWord(set.cells.length)} cells ${shortCells(set.cells)} hold only ${listWords(set.digits)} between them, one number more than there are cells. So if none of them is ${from.digit}, the rest are forced and one of them must be ${to.digit}.`;
+      return `The ${countWord(set.cells.length)} cells ${shortCells(set.cells)} hold only ${listWords(set.digits)} between them, one number more than there are cells, so they are one number short of locked. If none of them is ${from.digit}, the rest are forced and one of them must be ${to.digit}.`;
     }
     if (isGroupNode(from) || isGroupNode(to)) {
       return `In ${unit ?? 'that row, column, or box'}, ${from.digit} has only two possible places left, ${a} and ${b}. So if ${from.digit} is not in ${a}, it is in ${b}.`;
@@ -832,8 +986,62 @@ function forcingWalk(step) {
   return walk;
 }
 
+// What each kind of link proves, in the fewest words that are still true.
+// A chain's links are its strong and weak ones (#67); a set-based step may
+// also take one case of several, or say that two groups cannot hold the
+// same number (#73).
+const LINK_LABELS = {
+  strong: 'at least one',
+  weak: 'at most one',
+  case: 'if this, then',
+  count: 'all different',
+};
+
 /**
- * The chain as the card walks it: one entry per link, in order, each with
+ * The links of a step, in the order the player walks them.
+ *
+ * A chain's links run from each node to the next one along, and a step says
+ * so by leaving `chainLinks` out (#67). A set-based step whose proof is not
+ * one line from end to end - a case for each number a stem can take, or
+ * three groups that cannot clash - lists its links instead, each naming the
+ * two nodes it joins (#73). Either way what comes back is the same shape,
+ * so there is one walk and one replay.
+ *
+ * @param {object} step a step carrying `chainNodes`
+ * @returns {{ from: object, to: object, kind: string }[]}
+ */
+const linksOf = (step) => {
+  const nodes = step?.chainNodes;
+  if (!Array.isArray(nodes) || nodes.length < 2) return [];
+  if (Array.isArray(step.chainLinks) && step.chainLinks.length > 0) {
+    return step.chainLinks
+      .filter((link) => nodes[link.from] && nodes[link.to])
+      .map((link) => ({
+        // The link's own type and reason, read through the node the
+        // sentence is written from, so one linkSentence serves both shapes.
+        from: {
+          ...nodes[link.from],
+          linkToNext: link.type,
+          linkVia: link.via ?? null,
+          linkUnit: link.unit ?? null,
+          linkSet: link.set ?? null,
+          linkDigit: link.digit ?? null,
+        },
+        to: nodes[link.to],
+        kind: link.type,
+      }));
+  }
+  const linkCount = step.chainClosed ? nodes.length : nodes.length - 1;
+  const links = [];
+  for (let i = 0; i < linkCount; i++) {
+    const from = nodes[i];
+    links.push({ from, to: nodes[(i + 1) % nodes.length], kind: from.linkToNext });
+  }
+  return links;
+};
+
+/**
+ * The proof as the card walks it: one entry per link, in order, each with
  * the nodes it joins and the sentence that explains it. For a continuous
  * loop the last entry closes the loop back onto the first node. A
  * colouring step (#82) walks the run of links that decides it and ends on
@@ -847,7 +1055,7 @@ function forcingWalk(step) {
  *
  * @param {object} step a step carrying `chainNodes` or `forcingBranches`
  * @returns {{ index: number, from: object|null, to: object|null, strong: boolean,
- *             label: string, conclusion?: boolean, text: string,
+ *             kind?: string, label: string, conclusion?: boolean, text: string,
  *             branch?: number, tone?: string,
  *             assume?: {cell:number, digit:number},
  *             move?: {cell:number, digit:number, reason?: string} }[]}
@@ -857,23 +1065,18 @@ export function chainWalk(step) {
   const nodes = step?.chainNodes;
   if (!Array.isArray(nodes) || nodes.length < 2) return [];
   const colouring = !!step.chainColouring;
-  const linkCount = step.chainClosed ? nodes.length : nodes.length - 1;
-  const walk = [];
-  for (let i = 0; i < linkCount; i++) {
-    const from = nodes[i];
-    const to = nodes[(i + 1) % nodes.length];
-    const strong = from.linkToNext === 'strong';
-    walk.push({
-      index: i,
-      from,
-      to,
-      strong,
-      // A colouring's links are all exactly-one-of-two, which is stronger
-      // than the "at least one" a chain's solid link promises.
-      label: colouring ? 'exactly one' : strong ? 'at least one' : 'at most one',
-      text: colouring ? colorLinkSentence(from, to) : linkSentence(from, to),
-    });
-  }
+  const walk = linksOf(step).map((link, index) => ({
+    index,
+    from: link.from,
+    to: link.to,
+    strong: link.kind === 'strong',
+    kind: link.kind,
+    conclusion: false,
+    // A colouring's links are all exactly-one-of-two, which is stronger
+    // than the "at least one" a chain's solid link promises.
+    label: colouring ? 'exactly one' : LINK_LABELS[link.kind] ?? 'at most one',
+    text: colouring ? colorLinkSentence(link.from, link.to) : linkSentence(link.from, link.to),
+  }));
   const ending = colouring ? colorEnding(step) : null;
   if (ending) {
     walk.push({
@@ -881,6 +1084,7 @@ export function chainWalk(step) {
       from: nodes[nodes.length - 1],
       to: null,
       strong: false,
+      kind: 'conclusion',
       conclusion: true,
       label: ending.label,
       text: ending.text,
@@ -1008,7 +1212,8 @@ function pointing(step) {
   };
 }
 
-const countWord = (n) => ['', 'one', 'two', 'three', 'four'][n] ?? String(n);
+const countWord = (n) =>
+  ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'][n] ?? String(n);
 
 /**
  * Hidden Pair, Hidden Triple and Hidden Quad, in one set of words: the

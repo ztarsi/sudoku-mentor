@@ -194,3 +194,11 @@ Verified by the product manager on 2026-10-24: lint, typecheck, 555 tests and bu
 Two calls the developer raised, both settled by the product manager the same day and recorded in the decision log: the hint's ten-node cap stands and the Techniques panel is aligned to it, so the panel never counts a chain the hint will not teach; and "what this puzzle teaches" is accepted as a moving label, because it describes what the mentor will show you today rather than a property of the puzzle.
 
 The 31 remaining steps are positions no chain of ten nodes or fewer reaches. They are left to the almost-locked-set batch (#73) and the forcing batch (#75), not to a longer chain.
+
+## Follow-up: walkable colouring (#82)
+
+Shipped in PR #90 on 2026-10-24. X-Cycle and 3D Medusa now use this batch's replay unchanged, so the work was in deciding what a colouring's nodes are rather than in building a second walker.
+
+A colouring is a network, not a line, so walking all of it would be the wall of text the bar exists to prevent. The card walks only the run of links that proves the step, in the order the colouring spread: the two marks that clash for a unit or cell conclusion, or the two opposite-coloured marks the erased cell sees for a colour trap. A median of three lines across the library, eleven at the worst. Links read "exactly one" rather than the chain family's "at least one", because a colouring link genuinely is an exactly-one-of-two. X-Cycle also now paints its two colours in the same tints 3D Medusa and ALS-XZ use, with the doomed colour the distinguishable one.
+
+The per-shelf report was captured before and after and diffed byte-identical, which is what the issue asked for: no technique's eliminations, tier or ladder position moved.

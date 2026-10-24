@@ -149,6 +149,46 @@ describe('CurrentStepCard states', () => {
     fireEvent.click(getByRole('button', { name: 'Walk the chain' }));
   });
 
+  // A set-based step (#73) walks the same way, but its links are not a
+  // chain's: a Death Blossom takes one case for each number its stem could
+  // be, and the card must not label a case "at least one of these two".
+  it('a set step: one case per line, labelled as a case, under the deduction heading', () => {
+    const blossom = {
+      technique: 'Death Blossom',
+      digit: 8,
+      stemCell: 0,
+      zDigit: 8,
+      baseCells: [0, 27, 36, 8, 44],
+      targetCells: [40],
+      placement: null,
+      eliminations: [{ cell: 40, digit: 8 }],
+      subsetDigits: [2, 4, 8],
+      explanation: 'Death Blossom on stem R1C1.',
+      chainClosed: false,
+      chainNodes: [
+        { cells: [0], cell: 0, digit: null, digits: [2, 4], kind: 'cell', label: 'stem', truth: null, endpoint: false, linkToNext: null, linkVia: null, linkUnit: null, linkSet: null },
+        { cells: [36], cell: 36, digit: 8, digits: null, kind: 'cell', label: null, truth: true, endpoint: true, linkToNext: null, linkVia: null, linkUnit: null, linkSet: null },
+        { cells: [44], cell: 44, digit: 8, digits: null, kind: 'cell', label: null, truth: true, endpoint: true, linkToNext: null, linkVia: null, linkUnit: null, linkSet: null },
+      ],
+      chainLinks: [
+        { from: 0, to: 1, type: 'case', via: 'stem', digit: 2, unit: { type: 'column', index: 0, name: 'column 1' }, set: { cells: [27, 36], digits: [2, 3, 8] } },
+        { from: 0, to: 2, type: 'case', via: 'stem', digit: 4, unit: { type: 'column', index: 8, name: 'column 9' }, set: { cells: [8, 44], digits: [3, 4, 8] } },
+      ],
+    };
+    const { getByText, getAllByText, queryByText, container } = show({ currentStep: blossom });
+    expect(getByText('Death Blossom')).toBeTruthy();
+    expect(container.querySelector('h3 + p')?.textContent).toBe('Ultimate');
+    expect(container.querySelector('[data-tone="found"]')).not.toBeNull();
+    expect(queryByText('Reasoning by trial')).toBeNull();
+    // Walkable, as a case list rather than as a chain of links.
+    expect(getByText('The argument, step by step:')).toBeTruthy();
+    expect(getAllByText('if this, then')).toHaveLength(2);
+    expect(queryByText('at least one')).toBeNull();
+    expect(queryByText('at most one')).toBeNull();
+    expect(container.textContent).toContain('If R1C1 is 2');
+    expect(container.textContent).toContain('Link 1 of 2');
+  });
+
   it('a continuous loop says it is a loop', () => {
     const loop = {
       ...chainStep,

@@ -104,6 +104,16 @@ const TECHNIQUE_SCORES = {
   'Grouped Alternating Chain': 10,
   'Continuous Loop': 10,
   'ALS Chain': 11,
+  // The rest of the almost-locked-set family (#73). It reads three groups
+  // at once, or a group for every mark in a cell, or a row-and-box split -
+  // past anything a player spots by scanning, and level with the general
+  // chain it sits beside on the ladder. A puzzle that needs one is on the
+  // top shelf, which is what the score has to say; the shelves themselves
+  // are re-cut once, at the end of the programme.
+  'ALS-XY-Wing': 10,
+  'Death Blossom': 10,
+  'Sue de Coq': 10,
+  'Sue de Coq, extended': 10,
   // The forcing family (#75): proofs by cases, the last named rungs before
   // trial and error. Scored above every pattern on the ladder so that a
   // puzzle needing one still rates Ultimate, exactly as it did when the

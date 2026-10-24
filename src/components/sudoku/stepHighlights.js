@@ -65,11 +65,21 @@ export const buildFocusedCandidates = (step, grid, colors) => {
 
   // A chain over several digits: each node shows the digit it is about, so
   // every digit the chain touches is coloured, not only the one erased. A
+  // node may be about several at once - the stem of a Death Blossom, one
+  // region of a Sue de Coq - and then every one of them is coloured. A
   // colouring step is left out: its own two tints already say which marks
   // the step is about, and a second colour vocabulary on top of them reads
   // as noise.
   if (Array.isArray(step.chainNodes) && step.chainNodes.length > 1 && !step.chainColouring) {
-    const digits = [...new Set(step.chainNodes.map((node) => node.digit))].sort((a, b) => a - b);
+    const digits = [
+      ...new Set(
+        step.chainNodes.flatMap((node) =>
+          Array.isArray(node.digits) && node.digits.length > 0 ? node.digits : [node.digit]
+        )
+      ),
+    ]
+      .filter((digit) => typeof digit === 'number')
+      .sort((a, b) => a - b);
     if (digits.length > 1) {
       const palette = [colors.focusDigit || DEFAULT_COLORS.focusDigit, '#3b82f6', '#f59e0b', '#a855f7', '#ef4444'];
       return Object.fromEntries(digits.map((digit, i) => [digit, palette[i % palette.length]]));
@@ -133,7 +143,7 @@ const buildForcingOverlay = (step, cellSize) => {
  *
  * @returns {{ links: {from: {x:number,y:number}, to: {x:number,y:number}, strong: boolean, branch?: number}[],
  *             groups: Region[],
- *             sets: (Region & {digits:number[]})[],
+ *             sets: (Region & {digits:number[], label:string|null})[],
  *             endpoints: {x:number,y:number}[], closed: boolean,
  *             branched: boolean } | null}
  */
@@ -180,29 +190,45 @@ export const buildChainOverlay = (step, cellSize) => {
 
   const anchors = nodes.map(anchorOf);
   const closed = !!step.chainClosed;
-  const linkCount = closed ? nodes.length : nodes.length - 1;
-  const links = [];
-  for (let i = 0; i < linkCount; i++) {
-    links.push({
-      from: anchors[i],
-      to: anchors[(i + 1) % nodes.length],
-      strong: nodes[i].linkToNext === 'strong',
-    });
-  }
+  // A chain's links run from each node to the next one along. A set-based
+  // step whose proof is not one line from end to end lists its links
+  // instead, each naming the two nodes it joins, and the lines are drawn
+  // where it says rather than along the node order (#73).
+  const links = (
+    Array.isArray(step.chainLinks) && step.chainLinks.length > 0
+      ? step.chainLinks
+          .filter((link) => nodes[link.from] && nodes[link.to])
+          .map((link) => ({ from: link.from, to: link.to, strong: link.type === 'strong' }))
+      : Array.from({ length: closed ? nodes.length : nodes.length - 1 }, (_, i) => ({
+          from: i,
+          to: (i + 1) % nodes.length,
+          strong: nodes[i].linkToNext === 'strong',
+        }))
+  ).map((link) => ({ from: anchors[link.from], to: anchors[link.to], strong: link.strong }));
+
+  // An almost locked set, or one region of a Sue de Coq, is drawn as its
+  // own region with its digits for the label; `label` names the part it
+  // plays where the step says so.
+  const sets = (step.chainSets ?? []).map((set) => ({
+    ...regionOf(set.cells),
+    digits: [...set.digits],
+    label: set.label ?? null,
+  }));
+  const drawnAsSet = new Set((step.chainSets ?? []).map((set) => [...set.cells].sort((a, b) => a - b).join(',')));
+
   return {
     links,
-    groups: nodes.filter((n) => n.cells.length > 1).map(outlineOf),
-    // An almost locked set the chain passes through is drawn as its own
-    // region, distinct from a grouped node, with its digits for the label.
-    sets: (step.chainSets ?? []).map((set) => ({
-      ...regionOf(set.cells),
-      digits: [...set.digits],
-    })),
-    // One ring per cell of each end, never one ring on the middle of a
-    // group: the cell between two group cells may not be in the group.
-    endpoints: closed
-      ? []
-      : [...nodes[0].cells, ...nodes[nodes.length - 1].cells].map(centre),
+    // A node that is itself one of the regions above is drawn once, as that
+    // region, rather than outlined twice over the same cells.
+    groups: nodes
+      .filter((n) => n.cells.length > 1 && !drawnAsSet.has([...n.cells].sort((a, b) => a - b).join(',')))
+      .map(outlineOf),
+    sets,
+    // One ring per cell of every end, never one ring on the middle of a
+    // group: the cell between two group cells may not be in the group. A
+    // step says which nodes are ends; a closed loop has none, and a step
+    // proved by cases rings every place the conclusion could land.
+    endpoints: nodes.filter((n) => n.endpoint).flatMap((n) => n.cells).map(centre),
     closed,
     branched: false,
   };

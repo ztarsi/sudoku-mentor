@@ -492,6 +492,44 @@ export const TECHNIQUES = [
     icon: Lightbulb,
   },
   {
+    name: 'ALS-XY-Wing',
+    short: 'ALS-XY-Wing',
+    tier: 'Ultimate',
+    count: COUNT_SCAN,
+    formal: 'Almost Locked Set XY-Wing',
+    aliases: ['als', 'almost locked set', 'als xy', 'als xy-wing', 'wing'],
+    description: 'Three sets one number short of locked, a middle one joined to two outer ones.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'Death Blossom',
+    tier: 'Ultimate',
+    count: COUNT_SCAN,
+    formal: 'Death Blossom (stem and petals)',
+    aliases: ['als', 'almost locked set', 'blossom', 'stem', 'petal'],
+    description: 'A stem cell with a set one number short of locked for every mark it has.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'Sue de Coq',
+    tier: 'Ultimate',
+    count: COUNT_SCAN,
+    formal: 'Sue de Coq (two-sector disjoint subsets)',
+    aliases: ['als', 'almost locked set', 'sue de coq', 'sdc', 'two sector disjoint subsets'],
+    description: 'A line and a box splitting the numbers their overlap cannot use up.',
+    icon: Lightbulb,
+  },
+  {
+    name: 'Sue de Coq, extended',
+    short: 'Sue de Coq ext.',
+    tier: 'Ultimate',
+    count: COUNT_SCAN,
+    formal: 'Extended Sue de Coq',
+    aliases: ['als', 'almost locked set', 'sue de coq', 'sdc', 'extended sue de coq'],
+    description: 'The same split, one cell and one number further out.',
+    icon: Lightbulb,
+  },
+  {
     name: 'Alternating Chain',
     tier: 'Ultimate',
     count: COUNT_SCAN,
@@ -865,6 +903,30 @@ export const TECHNIQUE_DETAILS = {
     description: 'An alternating inference chain with an Almost Locked Set as a node: N cells holding N + 1 candidates. Losing digit X locks the set, which must then contain Z, so (X in set) = (Z in set) is a strong link. The links into and out of the set are restricted commons: every copy of the digit in the set sees every copy outside it.',
     example: 'Two cells in row 5 holding {2, 3, 5} between them are one number short of locked. A chain arrives on 2 and leaves on 5: if nothing in the pair is 2, both cells are forced and one of them is 5.',
     strategy: '1. Find a few cells in one row, column, or box holding one more number than there are cells\n2. Pick two of its numbers, X and Z, and use "no X means a Z" as a strong step\n3. Join it to the rest of the chain on X and on Z, checking that every copy of the digit inside the group sees every copy outside it\n4. Erase at the end only from cells that see every cell of the group that could hold the digit'
+  },
+  'ALS-XY-Wing': {
+    plain: 'Three groups of cells, each one number short of locked - the same groups the ALS-XZ lesson is about: N cells holding N+1 different pencil marks, so rule out any one of those numbers and the rest are forced. A middle group is joined to two outer groups, by a different number each time: every X in the middle group clashes with every X in the first outer group, and every Y in the middle group clashes with every Y in the second. Now take a number Z that both outer groups can use. Suppose neither of them takes it. Then both lock, so the first must use X and the second must use Y. The X in the first group pushes X out of the middle group, so the middle group locks too, and it must use Y - but the second outer group has the Y, and those two Ys clash. Impossible. So Z lands in one of the two outer groups, and any cell that clashes with every Z in both of them can never be Z.',
+    description: 'Three Almost Locked Sets A, B and C, pairwise disjoint, with X a restricted common of A and C and Y a restricted common of B and C, X not equal to Y. For any Z shared by A and B other than X or Y: without Z, A and B both lock and hold X and Y respectively; X in A empties X from C, locking C onto Y, which clashes with Y in B. So Z lies in A or B, and every cell seeing all Z candidates in both sets drops Z. Read as a chain: (Z)A = (X)A - (X)C = (Y)C - (Y)B = (Z)B.',
+    example: 'A = {3, 6} in R2C1; C = {6, 7, 9} over two cells in box 1; B = {3, 9} over two cells in column 7. X = 6 joins A to C, Y = 9 joins C to B, and every 3 that sees both the 3 in A and the 3s in B is removed.',
+    strategy: '1. Find a group one number short of locked to use as the middle\n2. Find two more such groups, sharing no cells with it or with each other, joined to it on two different numbers - every copy of the joining number in one group must clash with every copy in the other\n3. Find a third number both outer groups can use\n4. Erase it from every cell that clashes with all of its places in both outer groups'
+  },
+  'Death Blossom': {
+    plain: 'One cell, called the stem, and a group of cells for each pencil mark it still has. Every group is one number short of locked, the same as in the ALS-XZ lesson: N cells holding N+1 numbers, so lose one of them and the rest are forced. Each group is tied to one of the stem\'s numbers, and every copy of that number inside the group clashes with the stem. So whatever the stem turns out to be, the group tied to that number loses it, locks, and has to use all of its other numbers. Now suppose one number, Z, is held by every group. The stem has to be something, so one of the groups locks, and that group holds Z. Z is therefore somewhere in those groups, and any cell that clashes with every Z in all of them can never be Z.',
+    description: 'A stem cell with candidates d1..dk and an Almost Locked Set (petal) per candidate, pairwise disjoint and not containing the stem, with di a restricted common of the stem and its petal. For a digit Z shared by every petal and not a candidate of the stem: stem = di empties di from that petal, locking it onto Z. So Z lies in one of the petals, and every cell seeing all Z candidates in all of them drops Z. A two-petal blossom is an ALS-XY-Wing with a bi-value cell in the middle, so it keeps that name.',
+    example: 'R5C5 = {2, 4, 7}. The 2 petal is {2, 8} in R5C9, the 4 petal is {4, 8} over two cells in box 2, the 7 petal is {7, 8} in R9C5. Every petal can be 8, so 8 goes from any cell that clashes with all of their 8s.',
+    strategy: '1. Pick a cell with three or four marks left - the stem\n2. For each of its marks, find a group one number short of locked where every copy of that mark clashes with the stem\n3. Check the groups share no cells and none contains the stem\n4. Find a number every group can use, which the stem cannot\n5. Erase it from every cell that clashes with all of its places in every group'
+  },
+  'Sue de Coq': {
+    plain: 'Start from the idea the ALS-XZ lesson begins with - a group of cells one number short of locked - and let the group be two numbers short instead of one. The group is the cells where a row or column crosses a 3x3 box: say two cells that between them can only hold four different numbers. Two of those four will be left over. Now find one cell in the rest of the line whose marks all come from those four, and one cell in the rest of the box whose marks all come from those four, with no number in common between the two. Those four cells must now take four different numbers: the ones on the line cannot clash, the ones in the box cannot clash, and the last two share no number to clash over. Four cells, four numbers, one each, nothing left over. So the line has used up every one of the four except the one the box cell takes, and the box has used up every one except the one the line cell takes. Erase them from the rest of the line and the rest of the box.',
+    description: 'Two-sector disjoint subsets. Let C be cells in the intersection of a line and a box with candidate set D where |D| = |C| + 2. Find A in the line outside the box and Q in the box outside the line, one cell each, with candidates subsets of D and no candidate in common. The |C| + 2 cells then take all of D once each, so D minus the candidates of Q is eliminated from the rest of the line and D minus the candidates of A from the rest of the box. An intersection cell left out of C sees both and loses all of D.',
+    example: 'R5C4 and R5C5 hold {1, 2, 5, 8} between them: four candidates over two cells. R5C8 is {1, 2} and R6C6 is {5, 8}. Those four cells take 1, 2, 5 and 8 one each, so 5 and 8 go from the rest of row 5 and 1 and 2 go from the rest of box 5.',
+    strategy: '1. Look at the two or three cells where a line crosses a box\n2. Count their marks: you want exactly two more marks than cells\n3. Find one cell further along the line, and one more cell in the box, whose marks all come from that list and which share no mark with each other\n4. The whole lot now takes every mark on the list once, so erase the marks the box cell did not take from the rest of the line, and the marks the line cell did not take from the rest of the box'
+  },
+  'Sue de Coq, extended': {
+    plain: 'The same split as the plain Sue de Coq, one step further out, which is the form that actually turns up. A group one number short of locked is where the ALS-XZ lesson starts; the plain Sue de Coq takes an overlap two numbers short; this one takes an overlap three numbers short: say three cells that can only hold six different numbers. So three cells elsewhere are needed to take up the slack instead of two - at least one further along the line and at least one more in the box, their marks all drawn from the same list and sharing nothing between the line part and the box part. Count again: the cells in the overlap, plus those three, hold exactly as many numbers as there are cells, one each, nothing left over. The erasures are the same as before, from the rest of the line and the rest of the box.',
+    description: 'Sue de Coq with |D| = |C| + 3: the line part A and the box part Q hold three cells between them, at least one each, with candidates subsets of D and no candidate shared between A and Q. The |C| + 3 cells take all of D once each; D minus the candidates of Q is eliminated from the rest of the line, D minus the candidates of A from the rest of the box.',
+    example: 'R1C1, R1C2 and R1C3 hold {1, 2, 3, 4, 5, 9} between them: six candidates over three cells. R1C7 is {1, 2}, R2C2 is {3, 9} and R3C3 is {3, 4}. The six cells take all six numbers one each, so 3, 4, 5 and 9 go from the rest of row 1, and 1, 2 and 5 from the rest of box 1.',
+    strategy: '1. Look at the two or three cells where a line crosses a box\n2. Count their marks: you want exactly three more marks than cells\n3. Find three more cells, at least one further along the line and at least one more in the box, whose marks all come from that list, with nothing shared between the line cells and the box cells\n4. Erase the marks the box cells did not take from the rest of the line, and the marks the line cells did not take from the rest of the box'
   },
   'X-Cycle': {
     plain: 'Pick a number and find places where it has exactly two possible cells in a row, column, or box. Those pairs link into a chain: if one end is not the number, the other end must be. Colour the chain alternately, like a checkerboard. Exactly one colour is the true set. If a cell sees both colours it can never be the number. And if two cells of one colour clash with each other, that whole colour is wrong.',

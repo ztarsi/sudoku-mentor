@@ -41,6 +41,14 @@
 //                        one assumption at a time; null otherwise
 // and, for Hypothesis Mode only, the contradiction fields above.
 //
+// A set-based step (the almost-locked-set family) also carries:
+//   alsSets     the groups the pattern is made of, each { cells, digits }
+//               plus the part it plays: 'outer' / 'middle' for an
+//               ALS-XY-Wing, 'petal' with its stemDigit for a Death
+//               Blossom, 'overlap' / 'line' / 'box' for a Sue de Coq.
+//   stemCell    the cell a Death Blossom hangs on
+//   xDigit, yDigit, zDigit  the digits a step is joined by and erases
+//
 // A chain step (the alternating-inference family) also carries:
 //   chainNodes   the nodes in order, each { cells, cell, digit, kind,
 //                truth, endpoint, linkToNext: 'strong'|'weak'|null,
@@ -52,6 +60,16 @@
 //   chainSets    the almost locked sets the chain passes through
 //   chainLoopEliminations  per weak link of a loop, what it licenses
 //   chainNotation  the Expert notation, "(5)R1C3 = (5)R1C7 - ..."
+//   chainLinks   an explicit link list, for a step whose proof is not one
+//                line of reasoning from the first node to the last: each
+//                { from, to, type, via, digit, unit, set } naming the two
+//                node indices it joins. `type` is 'strong' or 'weak' for a
+//                chain link, 'case' for one of the values a stem cell may
+//                take, or 'count' for two groups that cannot hold the same
+//                number. Left out, the links run from each node to the next
+//                one along, which is what a chain does. `chainNodes[i]
+//                .endpoint` marks the nodes the conclusion rests on.
+//                `chainSets[i].label` names the part a region plays.
 //
 // A colouring step (X-Cycle, 3D Medusa) carries the same `chainNodes`, so
 // the card walks it and the board draws it the same way, plus:

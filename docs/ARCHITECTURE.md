@@ -84,7 +84,8 @@ or a step. Nothing in here touches React or the network.
 | `uniqueness.js` | the guard: how many answers a puzzle has, established once from its givens, and what the panel says when it is not one |
 | `fishEngine.jsx` | the rest of the fish family and the single-digit patterns: Jellyfish, the finned and sashimi forms, Franken and Mutant fish, Empty Rectangle |
 | `aicEngine.js` | alternating inference chains: the named short chains (Skyscraper, Two-String Kite, W-Wing, Remote Pairs), the general X-Chain, XY-Chain and Alternating Chain, and the richer forms (grouped nodes, continuous loops, almost-locked-set nodes) |
-| `restrictedCommon.js` | almost locked sets and the restricted-common check they are joined by, shared by `aicEngine` and the ALS techniques |
+| `alsEngine.js` | the rest of the almost-locked-set family: ALS-XY-Wing, Death Blossom, Sue de Coq and its extended form |
+| `restrictedCommon.js` | almost locked sets, the restricted-common check they are joined by, and where a digit cornered in several of them may be erased. Shared by `aicEngine` and `alsEngine`, and tested on its own, because this is where a wrong hint in that family comes from |
 | `forcingChainEngine.jsx` | the search: `applyValueAndPropagate` (naked and hidden singles to a fixpoint), the forcing proofs over a cell, a strong link or a unit, the dynamic net, and Hypothesis Mode as the trial fallback |
 | `searchLimits.js` | `NET_DEPTH`, the one stated limit the search has, on its own so the panel and the dialogs can name the number without importing the engine |
 | `whatIfSearch.js`, `whatIf.worker.js` | the same search, off the main thread and cancellable |
@@ -118,10 +119,21 @@ one sentence per link, which the hint card steps through, and
 `stepHighlights.buildChainOverlay()` turns it into the lines, regions and
 endpoint rings the board draws.
 
+A set step walks the same way. Where its proof is not one line of
+reasoning from the first node to the last - a Death Blossom takes a case
+for each number its stem could be, a Sue de Coq counts three regions that
+cannot clash - the step lists its links explicitly in `chainLinks`, each
+naming the two nodes it joins and what kind of link it is (`strong` and
+`weak` for a chain, `case`, `count` for these). `chainWalk` and
+`buildChainOverlay` read that list where it is there and fall back to "each
+node to the next" where it is not, so there is one replay and one drawing
+for every proof the mentor shows.
+
 `aicEngine` builds one implication graph per board and keeps it (in a
 WeakMap keyed by the grid) for as long as the board stands, because the
 ladder asks several chain detectors about the same board and the
-Techniques panel asks every one of them for a count.
+Techniques panel asks every one of them for a count. `alsEngine` keeps its
+sets the same way, for the same reason.
 
 ## The honesty line
 
@@ -208,9 +220,10 @@ scoping on `SudokuPuzzle` and `SolveRecord`; the repo cannot express that.
 ## Adding a technique
 
 1. Implement the finder in `logicEngine.jsx` (or `chainEngine.jsx` for a
-   colouring or set technique, `fishEngine.jsx` for a fish or a
-   single-digit pattern, `aicEngine.js` for a chain, `uniquenessEngine.jsx`
-   for one that needs the puzzle to have a single answer), return through
+   colouring technique, `fishEngine.jsx` for a fish or a single-digit
+   pattern, `aicEngine.js` for a chain, `alsEngine.js` for one built on
+   almost locked sets, `uniquenessEngine.jsx` for one that needs the puzzle
+   to have a single answer), return through
    `makeStep`, and add it to `TECHNIQUE_ORDER()` and to the map
    `findAllTechniqueInstances` reads. A uniqueness technique goes in
    `UNIQUENESS_FINDERS` and is gated for free; mark it `uniqueness: true`

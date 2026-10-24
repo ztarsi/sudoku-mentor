@@ -28,9 +28,21 @@ const buildGrid = (puzzle) =>
 // Every deductive technique in the catalog, so a technique added there
 // joins this oracle without anyone remembering to list it twice. The split
 // is by what a detector costs to run on every intermediate grid, not by
-// tier: ALS-XZ, the two unit fish and the larger finned forms are too slow
-// for every iteration and run every eighth one.
-const EXPENSIVE = ['ALS-XZ', 'Sashimi Fish', 'Finned Jellyfish', 'Franken Fish', 'Mutant Fish', 'Unique Loop'];
+// tier: ALS-XZ, the rest of the almost-locked-set family, the two unit fish
+// and the larger finned forms are too slow for every iteration and run
+// every eighth one.
+const EXPENSIVE = [
+  'ALS-XZ',
+  'ALS-XY-Wing',
+  'Death Blossom',
+  'Sue de Coq',
+  'Sue de Coq, extended',
+  'Sashimi Fish',
+  'Finned Jellyfish',
+  'Franken Fish',
+  'Mutant Fish',
+  'Unique Loop',
+];
 const CHEAP = TECHNIQUES
   .filter((t) => t.count !== COUNT_SEARCH && !EXPENSIVE.includes(t.name))
   .map((t) => t.name);
