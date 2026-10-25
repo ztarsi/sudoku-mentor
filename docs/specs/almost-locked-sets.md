@@ -47,3 +47,22 @@ Two notes on detection:
 - Shelf report from the oracle run: how many previously unexplained steps this batch names, on Diabolical and Ultimate.
 - The restricted-common check has its own tests and they pass on hand-built cases, including the near-misses that should report nothing.
 - A reader who has read the ALS-XZ entry can read the Death Blossom entry and recognise the same idea. If they cannot, the wording is not finished, whatever the engine does.
+
+## Outcome
+
+Shipped in PR #92 to `staging` on 2026-10-24. ALS-XY-Wing, Death Blossom, Sue de Coq and its extended form, all in the Ultimate tier behind Scan, all walkable, each drawing its sets as outlined regions with their digits. Every entry starts from the ALS-XZ lesson's own phrase, "one number short of locked", which was the point of the batch.
+
+Verified by the product manager on 2026-10-25: lint, typecheck, 733 tests and build pass on `staging` after the forcing batch landed on top.
+
+**The batch's own finding is a negative result, properly proved.** This family names none of the 31 what-if steps that were outstanding when it started. The developer went looking for a reason to doubt that: at every position where the ladder stalled there were 14 to 96 almost locked sets and up to 138 restricted-common pairs, so the raw material was there, but not one pair had a digit with a cell seeing all of its places in both, which is the elimination rule the whole family shares. Sue de Coq was measured separately and fails for a different reason: on boards that dense, an outside cell almost always carries a mark the overlap cannot use. Raising the set-size cap from three cells to four changed nothing. Those positions are simply not set-shaped, and the forcing batch is what reached them.
+
+Where it does land: **ALS-XY-Wing is the hint on 7 steps across 3 Ultimate puzzles**, taking them from the generic chain family. Golden Nugget and Swordfish Hunt now report it as the hardest rung they need, where they used to say Grouped X-Chain and ALS Chain. A named shape instead of a chain saying the same thing a longer way round is the better lesson for the same position.
+
+Death Blossom, Sue de Coq and Sue de Coq extended are never the hint on a library puzzle, though the oracle walk counts 152 blossoms and 50 Sue de Coqs across the library's intermediate grids. They are another entry in the [teaching coverage](teaching-coverage.md) gap (#88), not a fault in the detectors.
+
+Five calls the developer made, all accepted:
+
+- **The four sit ahead of the general chain block,** not behind it. An ALS-XY-Wing is a six-node chain through sets, so behind the ALS Chain rung it could never be the hint at all. Same rule that already puts Skyscraper ahead of X-Chain.
+- **A two-petal Death Blossom is reported as an ALS-XY-Wing,** and three bi-value cells stay an XY-Wing. Plain before rich, one name per idea.
+- **Sue de Coq needs at least two overlap cells.** A single overlap cell with three marks is the same deduction but it is really a naked triple spread over a line and a box, not what the name means.
+- All four scored at 10, level with the chain they sit beside, so no puzzle changed shelf.
