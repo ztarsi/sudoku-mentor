@@ -113,6 +113,38 @@ The oracle run already walks every library puzzle step by step, so this is a rep
 
 Secondary, once analytics exist: the hint-to-apply ratio on the Expert and Diabolical shelves, and the share of sessions on those shelves that end in a solve.
 
+## Outcome: the programme is closed
+
+All seven batches shipped to `staging` on 24 October 2026 and were verified from the test suite by the product manager on 25 October. Lint, typecheck, 733 tests and the build pass.
+
+| Batch | Issue | PR |
+| --- | --- | --- |
+| Subsets and wings | #70 | #77 |
+| The Techniques panel at scale, and the analyser | #71 | #78 |
+| Alternating inference chains | #67 | #86 |
+| Fish and single-digit patterns | #72 | #81 |
+| Almost locked sets | #73 | #92 |
+| Uniqueness | #74 | #87 |
+| Forcing chains and nets | #75 | #94 |
+
+Plus two pieces the programme turned up as it went: the never-taught report (#83, PR #85) and walkable colouring for X-Cycle and 3D Medusa (#82, PR #90).
+
+**The result against the target set out above.**
+
+| Shelf | Target | Actual |
+| --- | --- | --- |
+| Easy, Medium, Hard | 100% named | 100% |
+| Expert, Diabolical | 100% named, no what-if card | 100%, none |
+| Ultimate | named but for a stated handful | **100%, none** |
+
+1303 of 1303 library solve-path steps are explained by a named technique. The Ultimate shelf answered 41 steps with reasoning by trial when the programme began and answers none now, so the library prints no what-if note anywhere. Hypothesis Mode still exists for imported puzzles the proofs cannot finish, which is the honest last resort it was always meant to be. The catalog went from 16 techniques to 61.
+
+**What the programme did not fix, and in one case made worse.** The second measure, added partway through when the never-taught report exposed it: the library teaches **32 of the 61** techniques, and 29 are never the hint on any puzzle. That number was 10 of 31 when the report first ran. The engine moved and the library did not, so the gap widened as the programme succeeded on its own terms. [Teaching coverage](teaching-coverage.md) (#88) is the work that closes it, and it is mostly puzzle sourcing rather than engineering.
+
+Two other things the programme surfaced, each now its own issue: [what a player downloads before the first board](first-board-payload.md) (#91), where the bundle reached 956 kB against a quality bar that promises a digit within ten seconds on a phone; and #95, where the library's Ultimate shelf takes 13.2 seconds to label its rows because it re-measures twenty fixed puzzles on every visit.
+
+**Still to do before any of this reaches players:** `main` has diverged with eight platform-bot commits that conflict with this work and must be reconciled first; nobody has played any of it, since every verification here is the test suite and the analyser; and the shelf re-cut this programme deferred is still outstanding.
+
 ## Out of scope for the whole programme
 
 - New puzzles and the generator. The analyser in #71 is the vetting step the generator will need, but generating is a separate roadmap item.

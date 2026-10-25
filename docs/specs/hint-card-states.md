@@ -16,7 +16,7 @@ Each situation the player can be in has its own clear card, and the card always 
 | --- | --- |
 | Idle | One line, "Stuck? Ask for a hint," and the Hint button. |
 | Found (deduction) | The technique name and tier as the heading. Chips for every digit involved (a Naked Pair on 1 and 2 shows both; eliminations show the digit erased). Look / Why it works / What to do at the chosen level. Buttons: Apply, Next hint. The legend names a cell from this hint. |
-| What-if | A visibly different heading and colour, wording along the lines of "No named technique applies. Reasoning by trial." Then the chain replay as today. Same buttons. |
+| What-if | A visibly different heading and colour, wording along the lines of "No named technique applies. Reasoning by trial." Then the chain replay as today. Same buttons. (Amended 2026-10-24 by #75: this state now applies to Hypothesis Mode alone. The forcing techniques are proofs by cases, so they carry the deduction heading and their own Forcing tier. The state itself is unchanged; fewer steps use it.) |
 | Searching | "Looking for a what-if chain..." with Cancel, inside the same card. |
 | No Assist | The card shows the timer and "Hints are off in No Assist." |
 | Solved | The techniques this puzzle used, marking the ones the player placed themselves. Time and errors. "Next puzzle on this shelf" and "Try the shelf above". |
