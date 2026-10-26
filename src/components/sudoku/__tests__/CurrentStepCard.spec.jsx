@@ -8,8 +8,12 @@ import CurrentStepCard from '../panel/CurrentStepCard';
 const noop = () => {};
 const base = {
   currentStep: null, grid: null, noAssistMode: false, onNextStep: noop, onApplyStep: noop,
-  onSelectTechnique: noop, chainPlaybackIndex: 0, onChainPlaybackChange: noop, isPlayingChain: false, onToggleChainPlayback: noop,
+  onSelectTechnique: noop,
 };
+
+/** The one playback the card offers: a button that starts the board's. */
+const animator = (container) =>
+  [...container.querySelectorAll('button')].filter((b) => /Animate on the board/.test(b.textContent ?? ''));
 const show = (props) => render(<CurrentStepCard {...base} {...props} />);
 afterEach(() => cleanup());
 
@@ -132,27 +136,22 @@ describe('CurrentStepCard states', () => {
     expect(container.querySelector('[data-tone="whatif"]')).toBeNull();
   });
 
-  it('a chain: one line per link, each labelled by what it proves', () => {
-    const { getByText, getAllByText, container } = show({ currentStep: chainStep });
-    expect(getByText('The chain, link by link:')).toBeTruthy();
-    expect(getAllByText('at least one')).toHaveLength(2);
-    expect(getAllByText('at most one')).toHaveLength(1);
-    expect(container.textContent).toContain('Link 1 of 3');
+  // One walker, one stage (#97). A proof of more than one step is walked on
+  // the board, so the card offers the one button that starts it and keeps
+  // no list, no controls and no step counter of its own.
+  it('a chain: one animator, and no second playback in the card', () => {
+    const { container } = show({ currentStep: chainStep });
+    expect(animator(container)).toHaveLength(1);
+    expect(container.textContent).not.toContain('The chain, link by link:');
+    expect(container.textContent).not.toMatch(/Link \d+ of \d+/);
+    expect(container.querySelector('button[aria-label="Next chain link"]')).toBeNull();
+    expect(container.querySelector('button[aria-label="Previous chain link"]')).toBeNull();
   });
 
-  it('a chain: the player can step through it link by link', () => {
-    const onChainPlaybackChange = vi.fn();
-    const { getByRole } = show({ currentStep: chainStep, onChainPlaybackChange });
-    fireEvent.click(getByRole('button', { name: 'Next chain link' }));
-    expect(onChainPlaybackChange).toHaveBeenCalledWith(1);
-    expect(getByRole('button', { name: 'Previous chain link' }).hasAttribute('disabled')).toBe(true);
-    fireEvent.click(getByRole('button', { name: 'Walk the chain' }));
-  });
-
-  // A set-based step (#73) walks the same way, but its links are not a
-  // chain's: a Death Blossom takes one case for each number its stem could
-  // be, and the card must not label a case "at least one of these two".
-  it('a set step: one case per line, labelled as a case, under the deduction heading', () => {
+  // A set-based step (#73) is walkable too: a Death Blossom takes one case
+  // for each number its stem could be. The card names it and offers the
+  // animator; the wording of each case belongs to the walk.
+  it('a set step: named with its tier, in the deduction tone, walkable on the board', () => {
     const blossom = {
       technique: 'Death Blossom',
       digit: 8,
@@ -175,21 +174,18 @@ describe('CurrentStepCard states', () => {
         { from: 0, to: 2, type: 'case', via: 'stem', digit: 4, unit: { type: 'column', index: 8, name: 'column 9' }, set: { cells: [8, 44], digits: [3, 4, 8] } },
       ],
     };
-    const { getByText, getAllByText, queryByText, container } = show({ currentStep: blossom });
+    const { getByText, queryByText, container } = show({ currentStep: blossom });
     expect(getByText('Death Blossom')).toBeTruthy();
     expect(container.querySelector('h3 + p')?.textContent).toBe('Ultimate');
     expect(container.querySelector('[data-tone="found"]')).not.toBeNull();
     expect(queryByText('Reasoning by trial')).toBeNull();
-    // Walkable, as a case list rather than as a chain of links.
-    expect(getByText('The argument, step by step:')).toBeTruthy();
-    expect(getAllByText('if this, then')).toHaveLength(2);
-    expect(queryByText('at least one')).toBeNull();
-    expect(queryByText('at most one')).toBeNull();
-    expect(container.textContent).toContain('If R1C1 is 2');
-    expect(container.textContent).toContain('Link 1 of 2');
+    // Walkable, on the board: the case-by-case words are the animation's
+    // captions now, and they are checked where they are built.
+    expect(animator(container)).toHaveLength(1);
+    expect(container.textContent).not.toContain('The argument, step by step:');
   });
 
-  it('a continuous loop says it is a loop', () => {
+  it('a continuous loop is named as one and walkable on the board', () => {
     const loop = {
       ...chainStep,
       technique: 'Continuous Loop',
@@ -199,8 +195,8 @@ describe('CurrentStepCard states', () => {
       ),
     };
     const { getByText, container } = show({ currentStep: loop });
-    expect(getByText('Round the loop:')).toBeTruthy();
-    expect(container.textContent).toContain('Link 1 of 4');
+    expect(getByText('Continuous Loop')).toBeTruthy();
+    expect(animator(container)).toHaveLength(1);
   });
 
   // A colouring's proof is a network, so the card walks the run of links
@@ -224,14 +220,12 @@ describe('CurrentStepCard states', () => {
     ],
   };
 
-  it('a colouring: the same walk as a chain, one line per link and one for the clash', () => {
-    const { getByText, getAllByText, container } = show({ currentStep: colouringStep });
-    expect(getByText('How the colouring spreads:')).toBeTruthy();
-    expect(getAllByText('exactly one')).toHaveLength(2);
-    expect(getAllByText('so that colour is out')).toHaveLength(1);
-    expect(container.textContent).toContain('Step 1 of 3');
-    expect(container.textContent).toContain('the only two places for 5 are R1C1 and R1C3');
-    expect(container.textContent).toContain('have come out the same colour');
+  it('a colouring: walkable on the board, with no second walk in the card', () => {
+    const { getByText, container } = show({ currentStep: colouringStep });
+    expect(getByText('X-Cycle')).toBeTruthy();
+    expect(animator(container)).toHaveLength(1);
+    expect(container.textContent).not.toContain('How the colouring spreads:');
+    expect(container.textContent).not.toMatch(/Step \d+ of \d+/);
   });
 
   // A forcing proof is a deduction: it is named on the card under its own
@@ -269,15 +263,12 @@ describe('CurrentStepCard states', () => {
     expect(getByText('How this proof works')).toBeTruthy();
   });
 
-  it('a forcing proof: the card walks it case by case', () => {
-    const onChainPlaybackChange = vi.fn();
-    const { getByText, getByRole, container } = show({ currentStep: forcingStep, onChainPlaybackChange });
-    expect(getByText('The proof, case by case:')).toBeTruthy();
-    expect(container.textContent).toContain('Suppose R4C2 is 7.');
-    expect(container.textContent).toContain('Every case was checked, so R6C4 is 2.');
-    expect(container.textContent).toContain('Step 1 of 7');
-    fireEvent.click(getByRole('button', { name: 'Next chain link' }));
-    expect(onChainPlaybackChange).toHaveBeenCalledWith(1);
+  it('a forcing proof: walkable on the board, and only there', () => {
+    const { container } = show({ currentStep: forcingStep });
+    expect(animator(container)).toHaveLength(1);
+    expect(container.textContent).not.toContain('The proof, case by case:');
+    expect(container.textContent).not.toContain('Suppose R4C2 is 7.');
+    expect(container.querySelector('button[aria-label="Next chain link"]')).toBeNull();
   });
 
   it('a net that stopped at its limit says so on the card', () => {
@@ -302,14 +293,6 @@ describe('CurrentStepCard states', () => {
     const { container } = show({ currentStep: net });
     expect(container.textContent).toContain('held up to 5 suppositions at once');
     expect(container.textContent).not.toContain('did not reach');
-  });
-
-  it('a colouring: the player can step through it', () => {
-    const onChainPlaybackChange = vi.fn();
-    const { getByRole } = show({ currentStep: colouringStep, onChainPlaybackChange });
-    fireEvent.click(getByRole('button', { name: 'Next chain link' }));
-    expect(onChainPlaybackChange).toHaveBeenCalledWith(1);
-    fireEvent.click(getByRole('button', { name: 'Walk the colouring' }));
   });
 
   it('searching: the wait and a Cancel button', () => {

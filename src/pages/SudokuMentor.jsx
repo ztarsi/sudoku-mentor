@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo, Suspense } from 'react';
 import SudokuGrid from '@/components/sudoku/SudokuGrid';
 import HintAnimationControls from '@/components/sudoku/HintAnimationControls';
+import { useHintAnimation, setHintAnimation } from '@/components/sudoku/hintAnimation';
 import DigitStrip from '@/components/sudoku/DigitStrip';
 import LogicPanel from '@/components/sudoku/LogicPanel';
 import LessonSheet, { SIDE_SHEET_WIDTH } from '@/components/sudoku/LessonSheet';
@@ -13,7 +14,6 @@ import { resolveShortcut, isTypingTarget } from '@/components/sudoku/keyboardSho
 import { findNextLogicStep, onlySinglesRemain } from '@/components/sudoku/logicEngine';
 import { UNIQUENESS_MANY, UNIQUENESS_ONE, uniquenessNote } from '@/components/sudoku/uniqueness';
 import { searchWhatIf, isCancelled, isTimedOut, HINT_TIME_BUDGET_MS } from '@/components/sudoku/whatIfSearch';
-import { chainWalk } from '@/components/sudoku/explainStep';
 import { NET_DEPTH } from '@/components/sudoku/searchLimits';
 import {
   buildRemovalMap,
@@ -121,7 +121,9 @@ export default function SudokuMentor() {
   const boardAreaRef = useRef(/** @type {HTMLDivElement | null} */ (null));
   const stripCardRef = useRef(/** @type {HTMLDivElement | null} */ (null));
   const [boardMax, setBoardMax] = useState(null);
-  const [chainPlaybackIndex, setChainPlaybackIndex] = useState(0);
+  // The hint animation's current frame, read from its own store so it is
+  // not threaded through the page's props (#97).
+  const hintAnimation = useHintAnimation();
   const [showAppInfo, setShowAppInfo] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   // What this puzzle taught: one entry per presented hint, marked when the
@@ -360,7 +362,7 @@ export default function SudokuMentor() {
   const handleNextStep = useCallback(async (force = false) => {
     if (effectiveNoAssist) return; // Block hints in no assist mode
     if (hintSearchRef.current) return; // a search is already running
-    setChainPlaybackIndex(0); // Reset playback for new hint
+    setHintAnimation(null); // a new hint, so the old animation is gone
     setSheetOpen(true); // the lesson sheet, where the lesson is not a column
     setOnboarding(onHintAsked);
 
@@ -583,7 +585,7 @@ export default function SudokuMentor() {
       setFocusedCandidates(null);
       setRemovalCandidates(null);
       setHighlightedDigit(null);
-      setChainPlaybackIndex(0);
+      setHintAnimation(null);
       setLessonLog([]);
       setNothingLeft(false);
     },
@@ -830,28 +832,19 @@ export default function SudokuMentor() {
   // The case the player is standing on, as ghost digits on the board.
   //
   // A forcing proof has several cases, and they disagree with each other -
-  // that is the point of it - so only the one being walked is shown, up to
-  // the line the player has reached. The walk says which case each of its
-  // lines belongs to, so there is no second idea of what a case is here.
+  // that is the point of it - so only the one being shown is drawn, up to
+  // the frame the animation has reached. The frame carries the placements
+  // its case has forced so far, so there is one idea of what a case is and
+  // one thing driving it (#97).
   const ghostGrid = useMemo(() => {
-    if (!Array.isArray(currentStep?.forcingBranches)) return game.grid;
-    const walk = chainWalk(currentStep);
-    if (walk.length === 0) return game.grid;
-    const here = Math.min(Math.max(chainPlaybackIndex ?? 0, 0), walk.length - 1);
-    const branch = walk[here].branch;
-    if (typeof branch !== 'number') return game.grid;
-
-    const ghosts = new Map();
-    for (const line of walk.slice(0, here + 1)) {
-      if (line.branch !== branch) continue;
-      const placed = line.assume || line.move;
-      if (placed && !ghosts.has(placed.cell)) ghosts.set(placed.cell, placed.digit);
-    }
-    if (ghosts.size === 0) return game.grid;
+    const ghosts = hintAnimation?.frames?.[hintAnimation.index]?.ghosts;
+    if (!Array.isArray(ghosts) || ghosts.length === 0) return game.grid;
+    const byCell = new Map();
+    for (const { cell, digit } of ghosts) if (!byCell.has(cell)) byCell.set(cell, digit);
     return game.grid.map((cell, idx) =>
-      ghosts.has(idx) ? { ...cell, ghostValue: ghosts.get(idx) } : cell
+      byCell.has(idx) ? { ...cell, ghostValue: byCell.get(idx) } : cell
     );
-  }, [game.grid, currentStep, chainPlaybackIndex]);
+  }, [game.grid, hintAnimation]);
 
   // The first visit's prompts: which are on screen now, and what moves them on.
   const prompts = visiblePrompts(onboarding, { hasStep: currentStep !== null, canHint: !effectiveNoAssist && !phone });
@@ -892,7 +885,6 @@ export default function SudokuMentor() {
         colors={colors}
         currentStep={currentStep}
         highlightedSteps={highlightedSteps}
-        playbackIndex={chainPlaybackIndex}
         rejectedInput={game.rejectedInput}
         onCellClick={handleCellClick}
         onCellInput={game.handleCellInput}
@@ -981,8 +973,6 @@ export default function SudokuMentor() {
       cardPrompt={prompts.card ? { text: CARD_PROMPT, onDismiss: () => setOnboarding((s) => dismissPrompt(s, 'card')) } : null}
       searchingHint={searchingHint}
       onCancelHintSearch={cancelHintSearch}
-      onChainPlaybackChange={setChainPlaybackIndex}
-      chainPlaybackIndex={chainPlaybackIndex}
       onHighlightTechnique={handleHighlightTechnique}
     />
   );

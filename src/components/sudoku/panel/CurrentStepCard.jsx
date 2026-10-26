@@ -2,11 +2,11 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Lightbulb, Eye, Sparkles, Check, FlaskConical, Timer, Trophy, Play, ChevronRight, Loader2, X, Sprout } from 'lucide-react';
 import { LEVEL_COLORS, TECHNIQUE_INFO, isTrialTechnique } from '../techniqueCatalog';
-import { explainStep, readExplainLevel, writeExplainLevel, legendFor, chainWalk } from '../explainStep';
+import { explainStep, readExplainLevel, writeExplainLevel, legendFor } from '../explainStep';
 
 import { cellName as cellRef } from '../gridUnits';
 import Callout from '../Callout';
-import HintAnimator, { canAnimate } from './HintAnimator';
+import HintAnimator from './HintAnimator';
 
 /**
  * Beginner / Expert switch for the explanation text. The selected option is
@@ -104,145 +104,10 @@ const Explanation = ({ explanation, legend }) => {
 };
 
 /**
- * The walk through a step whose proof is a sequence: one line per link, in
- * order, with the same prev / play / next controls the what-if replay uses.
- * A chain's proof is a sequence, so the player steps through it rather than
- * reading a wall of text (#67).
- *
- * A colouring step (X-Cycle, 3D Medusa) walks the same way (#82): its run
- * of links, then one last line for what the two ends of the run prove. So
- * does a set-based step (#73), whose links may be a case for each number a
- * cell could be, or regions that cannot hold the same number.
- */
-// The chip in front of each line of the walk. A chain labels its links by
-// how strong they are; a forcing proof labels each line by what it is
-// doing, and says so in colour: the supposition, the moves it forces, the
-// case breaking, and what the cases prove together.
-const WALK_TONES = {
-  blue: 'bg-blue-950 text-blue-300',
-  slate: 'bg-slate-700 text-slate-300',
-  red: 'bg-red-950 text-red-300',
-  emerald: 'bg-emerald-950 text-emerald-300',
-  amber: 'bg-amber-950 text-amber-300',
-};
-
-const ChainLinkTrace = ({
-  currentStep,
-  chainPlaybackIndex,
-  onChainPlaybackChange,
-  isPlayingChain,
-  onToggleChainPlayback,
-}) => {
-  const walk = chainWalk(currentStep);
-  if (walk.length === 0) return null;
-  const here = Math.min(Math.max(chainPlaybackIndex ?? 0, 0), walk.length - 1);
-  const colouring = !!currentStep.chainColouring;
-  const forcing = !!currentStep.forcingBranches;
-  // A trial has one case and proves nothing, so it is not walked as a proof.
-  const trial = isTrialTechnique(currentStep.technique);
-  const heading = forcing
-    ? trial
-      ? 'The test, step by step:'
-      : 'The proof, case by case:'
-    : colouring
-    ? 'How the colouring spreads:'
-    : currentStep.chainClosed
-    ? 'Round the loop:'
-    : walk.every((link) => link.kind === 'strong' || link.kind === 'weak')
-    ? 'The chain, link by link:'
-    : 'The argument, step by step:';
-  const walkLabel = forcing
-    ? (trial ? 'Walk the test' : 'Walk the proof')
-    : colouring
-    ? 'Walk the colouring'
-    : 'Walk the chain';
-  const unitWord = forcing || colouring ? 'Step' : 'Link';
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-base font-medium text-slate-300">{heading}</p>
-        <div className="flex gap-2">
-          <button
-            onClick={() => onChainPlaybackChange?.(Math.max(0, here - 1))}
-            disabled={here === 0}
-            className="p-1.5 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-600 rounded transition-colors"
-            title="Previous link"
-            aria-label="Previous chain link"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <button
-            onClick={onToggleChainPlayback}
-            className={`p-1.5 ${isPlayingChain ? 'bg-red-600 hover:bg-red-500' : 'bg-blue-600 hover:bg-blue-500'} rounded transition-colors`}
-            title={isPlayingChain ? 'Pause' : walkLabel}
-            aria-label={isPlayingChain ? 'Pause the walk' : walkLabel}
-          >
-            {isPlayingChain ? (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6" />
-              </svg>
-            ) : (
-              <Play className="w-4 h-4" aria-hidden="true" />
-            )}
-          </button>
-          <button
-            onClick={() => onChainPlaybackChange?.(Math.min(walk.length - 1, here + 1))}
-            disabled={here >= walk.length - 1}
-            className="p-1.5 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-600 rounded transition-colors"
-            title="Next link"
-            aria-label="Next chain link"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-        </div>
-      </div>
-      <ol className="bg-slate-800 rounded-xl p-4 max-h-72 overflow-y-auto space-y-2">
-        {walk.map((link, idx) => (
-          <li key={idx}>
-            <button
-              onClick={() => onChainPlaybackChange?.(idx)}
-              aria-current={idx === here}
-              className={`w-full flex items-start gap-2 text-sm text-left p-2 rounded hover:bg-slate-700/50 transition-colors ${
-                idx === here ? 'bg-blue-900/30 border border-blue-600' : ''
-              }`}
-            >
-              <span className={`font-bold shrink-0 ${idx === here ? 'text-blue-300' : 'text-slate-500'}`}>
-                {idx + 1}.
-              </span>
-              <span className="min-w-0">
-                <span
-                  className={`inline-block mr-2 px-1.5 py-0.5 rounded text-xs font-medium ${
-                    WALK_TONES[link.tone]
-                      ?? (link.conclusion
-                        ? WALK_TONES.amber
-                        : link.strong
-                        ? WALK_TONES.blue
-                        : WALK_TONES.slate)
-                  }`}
-                >
-                  {link.label}
-                </span>
-                <span className={idx === here ? 'text-white' : 'text-slate-300'}>{link.text}</span>
-              </span>
-            </button>
-          </li>
-        ))}
-      </ol>
-      <div className="text-xs text-slate-500 text-center">
-        {unitWord} {here + 1} of {walk.length}
-      </div>
-    </div>
-  );
-};
-
-/**
- * The "current hint" card: technique badge, explanation, chain trace,
- * eliminations, and placement summary - or the hint prompt when idle.
+ * The "current hint" card: technique badge, explanation, the shape a
+ * pattern makes, eliminations and placement summary - or the hint prompt
+ * when idle. A proof of more than one step is walked on the board, by the
+ * one animator there is (#97), not in a second list in here.
  */
 
 /**
@@ -421,10 +286,6 @@ export default function CurrentStepCard({
   searching = false,
   onCancelSearch,
   onSelectTechnique,
-  chainPlaybackIndex,
-  onChainPlaybackChange,
-  isPlayingChain,
-  onToggleChainPlayback,
   solved = null,
   lessonLog = [],
   onNextPuzzle,
@@ -568,23 +429,12 @@ export default function CurrentStepCard({
 
             <Explanation explanation={explanation} legend={legendFor(legendCell)} />
 
-            {explainLevel === 'simple' && canAnimate(currentStep) && <HintAnimator step={currentStep} />}
+            <HintAnimator step={currentStep} grid={grid} level={explainLevel} />
 
             {currentStep.rectangle && (
               <RectangleShape rectangle={currentStep.rectangle} grid={grid} />
             )}
             {currentStep.loopCells && <LoopShape loopCells={currentStep.loopCells} grid={grid} />}
-
-            {((Array.isArray(currentStep.chainNodes) && currentStep.chainNodes.length > 1) ||
-              Array.isArray(currentStep.forcingBranches)) && (
-              <ChainLinkTrace
-                currentStep={currentStep}
-                chainPlaybackIndex={chainPlaybackIndex}
-                onChainPlaybackChange={onChainPlaybackChange}
-                isPlayingChain={isPlayingChain}
-                onToggleChainPlayback={onToggleChainPlayback}
-              />
-            )}
 
             {currentStep.forcingNet && <NetNote net={currentStep.forcingNet} />}
 

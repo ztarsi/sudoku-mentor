@@ -26,7 +26,6 @@ export default function SudokuGrid({
   colors,
   currentStep,
   highlightedSteps = [],
-  playbackIndex,
   rejectedInput = null,
   maxSize = null,
   onCellClick,
@@ -124,13 +123,19 @@ export default function SudokuGrid({
 
   // Highlight flags are derived from the presented steps at render time;
   // the grid data itself stays purely game state.
-  // While a hint animation plays, the overlay owns the picture: the step's
-  // own highlights would give the conclusion away before the animation does.
+  //
+  // While a hint animation plays, the overlay owns the picture: everything
+  // the step would otherwise draw at rest stands down for its duration -
+  // the highlighted cells, the marks it is about, and above all the red
+  // marks it is going to erase. An animation that opens on its own answer
+  // has nothing left to show.
   const animating = !!useHintAnimation();
   const highlightSets = useMemo(
     () => buildHighlightSets(animating ? [] : highlightedSteps ?? []),
     [highlightedSteps, animating]
   );
+  const shownRemovals = animating ? null : removalCandidates;
+  const shownFocused = animating ? null : focusedCandidates;
 
   const handleTouchStart = (e, cellIndex) => {
     const touch = e.touches[0];
@@ -186,7 +191,9 @@ export default function SudokuGrid({
     if (contextMenu.cellIndex !== null && focusedDigit) onToggleCandidate(contextMenu.cellIndex, focusedDigit);
   };
 
+  // The ALS bridge, which the animation also draws in its own time.
   const alsLinks = useMemo(() => {
+    if (animating) return [];
     if (currentStep?.technique !== 'ALS-XZ' || !currentStep.als1 || !currentStep.als2) return [];
     const links = [];
     const { als1, als2, zDigit, xDigit } = currentStep;
@@ -205,7 +212,7 @@ export default function SudokuGrid({
         links.push({ from: getCellCenter(xCell1), to: getCellCenter(xCell2), color: '#f59e0b', type: 'bridge', strokeWidth: 4, dashArray: '8,4' });
     return links;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep, grid, overlayCellSize]);
+  }, [animating, currentStep, grid, overlayCellSize]);
 
   // The chain overlay (#67): the nodes in order, strong links solid and
   // weak links dashed, a group drawn as one outlined region so the player
@@ -331,8 +338,8 @@ export default function SudokuGrid({
                   hasError={validationErrors.includes(index)}
                   borderClasses={`${borderRight} ${borderBottom}`}
                   focusedDigit={focusedDigit}
-                  focusedCandidates={focusedCandidates}
-                  removalCandidates={removalCandidates?.[index]}
+                  focusedCandidates={shownFocused}
+                  removalCandidates={shownRemovals?.[index]}
                   candidateMode={candidateMode}
                   candidatesVisible={candidatesVisible}
                   colors={colors}
@@ -369,7 +376,7 @@ export default function SudokuGrid({
 
             {/* Chain overlay: the nodes in order, strong links solid and
                 weak links dashed, groups outlined as one node, a continuous
-                loop closed. Playback reveals one link at a time. */}
+                loop closed. The animation draws its own picture over it. */}
             {chainOverlay && overlaySize > 0 && (
               <svg
                 className="absolute inset-0 pointer-events-none"
@@ -466,11 +473,9 @@ export default function SudokuGrid({
                     readable at rest; the link the player is standing on is
                     drawn heavier as they walk it. */}
                 {chainOverlay.links.map((link, i) => {
-                  // A branching proof has no single cursor on the board,
-                  // so its cases are told apart by colour and all drawn in
-                  // full; a chain's current link is drawn heavier as the
-                  // player walks it.
-                  const here = !chainOverlay.branched && playbackIndex != null && i === playbackIndex;
+                  // The whole step at rest: what the player is standing
+                  // on is the animation's business, and it draws its own
+                  // picture over this one (#97).
                   const stroke = link.branch != null ? BRANCH_COLORS[link.branch % BRANCH_COLORS.length] : '#3b82f6';
                   return (
                     <line
@@ -480,10 +485,10 @@ export default function SudokuGrid({
                       x2={link.to.x}
                       y2={link.to.y}
                       stroke={stroke}
-                      strokeWidth={(link.strong ? 3 : 2) * (here ? 1.8 : 1)}
+                      strokeWidth={link.strong ? 3 : 2}
                       strokeDasharray={link.strong ? undefined : '5,5'}
                       strokeLinecap="round"
-                      opacity={here ? 1 : 0.6}
+                      opacity={0.6}
                       data-chain-link={i}
                       data-chain-branch={link.branch != null ? link.branch : undefined}
                       data-chain-strong={link.strong ? 'true' : 'false'}

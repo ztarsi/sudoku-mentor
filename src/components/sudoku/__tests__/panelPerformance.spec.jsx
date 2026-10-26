@@ -64,8 +64,6 @@ const panel = (grid, extra = {}) => (
     onHighlightTechnique={noop}
     onNextStep={noop}
     onApplyStep={noop}
-    onChainPlaybackChange={noop}
-    chainPlaybackIndex={0}
     onCancelHintSearch={noop}
     onAssistUsed={noop}
     onNextPuzzle={noop}

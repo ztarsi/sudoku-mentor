@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Play, Pause, ChevronLeft, ChevronRight, RotateCcw, FastForward, X } from 'lucide-react';
 import { setHintAnimation, useHintAnimation } from './hintAnimation';
+import { usePrefersReducedMotion } from '@/hooks/useMediaQuery';
 
 const FRAME_MS = 3500;
 
@@ -15,6 +16,7 @@ const Btn = ({ label, onClick, disabled = false, primary = false, children }) =>
 /** Caption and playback controls shown right under the board. */
 export default function HintAnimationControls() {
   const anim = useHintAnimation();
+  const reduced = usePrefersReducedMotion();
   const index = anim?.index;
   const playing = anim?.playing;
   const last = anim ? anim.frames.length - 1 : 0;
@@ -27,9 +29,14 @@ export default function HintAnimationControls() {
   }, [anim, playing, index, last]);
 
   if (!anim) return null;
+  // Reduced motion: the caption still changes with the frame, it just does
+  // not slide in, and nothing advances until the player says so.
+  const caption = reduced
+    ? { initial: false, animate: { opacity: 1, y: 0 }, transition: { duration: 0 } }
+    : { initial: { opacity: 0, y: 4 }, animate: { opacity: 1, y: 0 } };
   return (
     <div className="absolute inset-0 z-10 overflow-y-auto rounded-[inherit] bg-slate-900 border border-violet-600/60 p-2 sm:p-3 flex flex-col justify-center gap-2">
-      <motion.p key={index} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} aria-live="polite"
+      <motion.p key={index} {...caption} aria-live="polite"
         className="text-slate-100 text-sm sm:text-base leading-snug">
         {anim.frames[index].caption}
       </motion.p>
@@ -40,7 +47,7 @@ export default function HintAnimationControls() {
             {playing ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}{playing ? 'Pause' : 'Play'}
           </Btn>
         ) : (
-          <Btn primary label="Replay" onClick={() => go(0, true)}><RotateCcw className="w-4 h-4" />Replay</Btn>
+          <Btn primary label="Replay" onClick={() => go(0, !reduced)}><RotateCcw className="w-4 h-4" />Replay</Btn>
         )}
         <Btn label="Next" onClick={() => go(Math.min(last, index + 1))} disabled={index === last}><ChevronRight className="w-4 h-4" /></Btn>
         <Btn label="Show result" onClick={() => go(last)} disabled={index === last}><FastForward className="w-4 h-4" /></Btn>
