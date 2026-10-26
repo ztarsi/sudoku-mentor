@@ -396,13 +396,13 @@ const SIMPLE = {
       return {
         look,
         why: `Colour the chain alternately, like a checkerboard. Exactly one colour is the real set of ${d}s. Here, two cells of the same colour share a row, column, or box, which is impossible for a real set. So that colour is wrong, and ${d} can be erased from every cell of that colour.`,
-        extra: 'Step through the colouring below to watch it spread, one link at a time.',
+        extra: 'Animate it on the board to watch the colouring spread, one link at a time.',
       };
     }
     return {
       look,
       why: `Colour the chain alternately, like a checkerboard. Exactly one colour is the real set of ${d}s; we just do not know which. A cell that shares a row, column, or box with a cell of each colour would clash with the real ${d} either way, so it can never be ${d}.`,
-      extra: 'Step through the colouring below to watch it spread, one link at a time.',
+      extra: 'Animate it on the board to watch the colouring spread, one link at a time.',
     };
   },
 
@@ -546,7 +546,7 @@ const SIMPLE = {
         ` ${y} - and group B has already taken it. They clash, so that cannot be. So ${z} ends up` +
         ` inside group A or group B. ${shortCells(targets)} ${plural ? 'clash' : 'clashes'} with every` +
         ` ${z} in both groups, so ${plural ? 'they' : 'it'} can never be ${z}.`,
-      extra: 'Step through the links below to follow it one group at a time.',
+      extra: 'Animate it on the board to follow it one group at a time.',
     };
   },
 
@@ -577,7 +577,7 @@ const SIMPLE = {
         ` use ${z}. ${shortCell(stem)} has to be something, so ${z} always ends up inside one of the` +
         ` groups. ${shortCells(targets)} ${plural ? 'clash' : 'clashes'} with every ${z} in all of them,` +
         ` so ${plural ? 'they' : 'it'} can never be ${z}.`,
-      extra: 'Step through the cases below: one for each number the stem could be.',
+      extra: 'Animate it on the board: one case for each number the stem could be.',
     };
   },
 
@@ -683,7 +683,7 @@ function sueDeCoq(step) {
       ` ${lineOnly.length === 1 ? 'is' : 'are'} used up inside ${lineName}, so ${lineOnly.length === 1 ? 'it goes' : 'they go'}` +
       ` from the rest of it; and ${listWords(boxOnly)} ${boxOnly.length === 1 ? 'is' : 'are'} used up` +
       ` inside ${boxName}, so ${boxOnly.length === 1 ? 'it goes' : 'they go'} from the rest of that.`,
-    extra: 'Step through the three groups below to see why nothing is left over.',
+    extra: 'Animate it on the board to see why nothing is left over.',
   };
 }
 
@@ -887,7 +887,7 @@ const forcingWhy = (step) => {
   }
 
   const netNote = net
-    ? ` This one needed a net: where the forced moves ran out, the proof tried both options of another cell and kept only what both of them force. The cases below say which.${
+    ? ` This one needed a net: where the forced moves ran out, the proof tried both options of another cell and kept only what both of them force. Animating it shows which.${
         branches.some((b) => b.limited)
           ? ' It stopped at the depth the mentor allows, so there may be more it did not reach.'
           : ''
@@ -902,7 +902,7 @@ function forcingPlain(step) {
   return {
     look: forcingLook(step),
     why: forcingWhy(step),
-    extra: 'Step through the proof below, one case at a time.',
+    extra: 'Animate it on the board to watch the proof, one case at a time.',
   };
 }
 
@@ -914,6 +914,7 @@ const caseOutcome = (branch) => {
       label: 'breaks the board',
       tone: 'red',
       text: `${capitalize(plainContradiction(outcome.text || 'the board breaks'))}. So this option was never possible.`,
+      notation: `Contradiction: ${outcome.text || 'the grid becomes invalid'}. Branch refuted.`,
     };
   }
   if (outcome.kind === 'survives') {
@@ -921,12 +922,23 @@ const caseOutcome = (branch) => {
       label: 'the one left',
       tone: 'emerald',
       text: 'Nothing breaks here, and every other option did. So this is the one that must be true.',
+      notation: 'No contradiction; every other branch refuted.',
     };
   }
   if (outcome.kind === 'forces') {
-    return { label: 'and so', tone: 'emerald', text: `This case ends with ${outcome.text}.` };
+    return {
+      label: 'and so',
+      tone: 'emerald',
+      text: `This case ends with ${outcome.text}.`,
+      notation: `Branch forces ${outcome.text}.`,
+    };
   }
-  return { label: 'and so', tone: 'emerald', text: 'This case rubs out the shared pencil marks.' };
+  return {
+    label: 'and so',
+    tone: 'emerald',
+    text: 'This case rubs out the shared pencil marks.',
+    notation: 'Branch forces the common eliminations.',
+  };
 };
 
 /**
@@ -950,6 +962,7 @@ function forcingWalk(step) {
       strong: true,
       label: name,
       text: `Suppose ${shortCell(branch.assume.cell)} is ${branch.assume.digit}.`,
+      notation: `${name}: ${shortCell(branch.assume.cell)} = ${branch.assume.digit}`,
     });
     (branch.proof ?? []).forEach((move) => {
       push({
@@ -958,6 +971,7 @@ function forcingWalk(step) {
         tone: 'slate',
         label: move.net ? 'net' : 'then',
         text: `${shortCell(move.cell)} must be ${move.digit}. ${capitalize(move.reason || '')}.`,
+        notation: `=> ${shortCell(move.cell)} = ${move.digit}${move.net ? ' (net)' : ''}`,
       });
     });
     if (branch.skipped > 0) {
@@ -966,6 +980,7 @@ function forcingWalk(step) {
         tone: 'slate',
         label: 'then',
         text: `${branch.skipped} more forced move${branch.skipped === 1 ? '' : 's'} follow${branch.skipped === 1 ? 's' : ''} the same way.`,
+        notation: `=> ${branch.skipped} further forced placement${branch.skipped === 1 ? '' : 's'}`,
       });
     }
     push({ branch: i, ...caseOutcome(branch) });
@@ -981,10 +996,73 @@ function forcingWalk(step) {
       text: placement
         ? `Every case was checked, so ${shortCell(placement.cell)} is ${placement.digit}.`
         : `Every case was checked, so ${(step.eliminations ?? []).length === 1 ? 'that pencil mark' : 'those pencil marks'} can go.`,
+      notation: `All branches exhausted => ${resultNotation(step)}`,
     });
   }
   return walk;
 }
+
+// ---------------------------------------------------------------------------
+// The same walk in the Expert's own notation (#97)
+//
+// Every line of the walk carries two wordings: the plain-English one a
+// beginner reads, and the standard notation an experienced solver would
+// write the same link in. The animation's captions follow whichever
+// explanation level the player has chosen, so both have to exist per line
+// rather than per step.
+// ---------------------------------------------------------------------------
+
+/** Simple colouring's two rules, under the names the literature gives them. */
+const COLOUR_RULE_NOTATION = {
+  wrap: 'Colour wrap: two cells of one colour share a unit',
+  trap: 'Colour trap: a candidate sees both colours',
+  cell: 'Colour wrap: one cell holds two marks of one colour',
+};
+
+/** `=` for a strong link, `-` for a weak one, in the usual way. */
+const LINK_GLYPH = { strong: '=', weak: '-', case: '=>', count: '!=' };
+
+/** A node as the notation writes it: `(5)R1C3`, or `(5)R1C1/R1C2` grouped. */
+const nodeNotation = (node) => {
+  const digits = Array.isArray(node.digits) && node.digits.length > 0
+    ? node.digits.join('')
+    : node.digit == null ? '' : String(node.digit);
+  return `(${digits})${nodePlace(node)}`;
+};
+
+/** What justifies a link, in standard terms. */
+const linkBasis = (from) => {
+  if (from.linkVia === 'bivalue') return 'bivalue cell';
+  if (from.linkVia === 'cell') return 'same cell';
+  if (from.linkVia === 'digits') return 'no common digit';
+  if (from.linkVia === 'als' && from.linkSet) {
+    return `ALS ${from.linkSet.cells.map(shortCell).join(',')} on ${[...from.linkSet.digits].sort((a, b) => a - b).join('')}`;
+  }
+  if (from.linkToNext === 'case' && from.linkDigit != null) return `case ${from.linkDigit}`;
+  return from.linkUnit?.name ?? null;
+};
+
+/** One link, in notation: `(5)R1C1 = (5)R1C3, conjugate pair in row 1`. */
+const linkNotation = (from, to, { conjugate = false } = {}) => {
+  const glyph = LINK_GLYPH[from.linkToNext] ?? '-';
+  const basis = linkBasis(from);
+  const named = conjugate && basis && from.linkVia !== 'bivalue' ? `conjugate pair in ${basis}` : basis;
+  return `${nodeNotation(from)} ${glyph} ${nodeNotation(to)}${named ? `, ${named}` : ''}`;
+};
+
+/** `R1C9 <> 5, R2C9 <> 5` or `R4C9 = 5`: what the step concludes. */
+const resultNotation = (step) => {
+  if (step.placement) return `${shortCell(step.placement.cell)} = ${step.placement.digit}`;
+  const byDigit = new Map();
+  for (const e of step.eliminations ?? []) {
+    if (!byDigit.has(e.digit)) byDigit.set(e.digit, []);
+    byDigit.get(e.digit).push(shortCell(e.cell));
+  }
+  return [...byDigit.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([digit, cells]) => `${cells.join(',')} <> ${digit}`)
+    .join('; ');
+};
 
 // What each kind of link proves, in the fewest words that are still true.
 // A chain's links are its strong and weak ones (#67); a set-based step may
@@ -1076,6 +1154,7 @@ export function chainWalk(step) {
     // than the "at least one" a chain's solid link promises.
     label: colouring ? 'exactly one' : LINK_LABELS[link.kind] ?? 'at most one',
     text: colouring ? colorLinkSentence(link.from, link.to) : linkSentence(link.from, link.to),
+    notation: linkNotation(link.from, link.to, { conjugate: colouring }),
   }));
   const ending = colouring ? colorEnding(step) : null;
   if (ending) {
@@ -1088,6 +1167,7 @@ export function chainWalk(step) {
       conclusion: true,
       label: ending.label,
       text: ending.text,
+      notation: `${COLOUR_RULE_NOTATION[step.colorRule] ?? 'Colour contradiction'} => ${resultNotation(step)}`,
     });
   }
   return walk;
@@ -1140,7 +1220,7 @@ function chainPlain(step) {
   return {
     look,
     why: chainConclusion(step),
-    extra: 'Step through the chain below to watch it build, one link at a time.',
+    extra: 'Animate it on the board to watch the chain build, one link at a time.',
   };
 }
 
@@ -1304,7 +1384,7 @@ function medusa(step) {
     return {
       look,
       why: `One colour lands twice in the same cell here: ${shortCell(a.cell)} would have to be ${a.digit} and ${b.digit} at once. A cell holds one number, so that colour cannot be the right one. Every pencil mark wearing it can go.`,
-      extra: 'Step through the colouring below to watch it spread, one link at a time.',
+      extra: 'Animate it on the board to watch the colouring spread, one link at a time.',
     };
   }
   const line =
@@ -1314,7 +1394,7 @@ function medusa(step) {
   return {
     look,
     why: `One colour lands twice in ${line} here: ${shortCell(a.cell)} and ${shortCell(b.cell)} would both be ${a.digit}. A number goes once in a row, column, or box, so that colour cannot be the right one. Every pencil mark wearing it can go.`,
-    extra: 'Step through the colouring below to watch it spread, one link at a time.',
+    extra: 'Animate it on the board to watch the colouring spread, one link at a time.',
   };
 }
 

@@ -310,9 +310,11 @@ describe('the colouring wording a beginner reads', () => {
     }
   });
 
-  it('tells the player the walk is there', () => {
+  // The walk is on the board now (#97), so the line that points at it has
+  // to point there: a colouring's proof is watched, not read below.
+  it('tells the player where the walk is', () => {
     for (const { step, grid } of steps()) {
-      expect(explainStep(step, grid, 'simple').extra).toContain('Step through the colouring');
+      expect(explainStep(step, grid, 'simple').extra).toContain('Animate it on the board');
     }
   });
 

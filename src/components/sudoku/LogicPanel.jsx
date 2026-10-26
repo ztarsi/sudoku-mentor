@@ -6,7 +6,6 @@ import TechniquePanel from './panel/TechniquePanel';
 import CurrentStepCard from './panel/CurrentStepCard';
 import PanelInfoModal from './panel/PanelInfoModal';
 import { findAllTechniqueInstances } from './logicEngine';
-import { chainWalk } from './explainStep';
 import { useTechniqueCounts } from './useTechniqueCounts';
 import { LIVE_COUNT_TECHNIQUES, SCAN_TECHNIQUES, needsUniqueness } from './techniqueCatalog';
 import { UNIQUENESS_UNKNOWN, uniquenessAllowed } from './uniqueness';
@@ -42,8 +41,6 @@ export default function LogicPanel({
   noAssistMode,
   onHighlightTechnique,
   onNextStep,
-  onChainPlaybackChange,
-  chainPlaybackIndex,
   searchingHint = false,
   onCancelHintSearch,
   onAssistUsed,
@@ -75,7 +72,6 @@ export default function LogicPanel({
   const [scanResults, setScanResults] = useState({});
   const [searchingForcingChain, setSearchingForcingChain] = useState(false);
   const [showDeepSearchModal, setShowDeepSearchModal] = useState(false);
-  const [isPlayingChain, setIsPlayingChain] = useState(false);
 
   // A scan describes one board. When the board changes, its results are
   // dropped, and a scan still running for the old grid has to know it is
@@ -181,29 +177,6 @@ export default function LogicPanel({
     }
   };
 
-  // Walk playback: every proof the card walks - a chain, a colouring, or a
-  // forcing proof case by case - counts the lines chainWalk() produces, so
-  // there is one length and one walker rather than one per family.
-  useEffect(() => {
-    const maxSteps = chainWalk(currentStep).length;
-    if (isPlayingChain && maxSteps > 0) {
-      if (chainPlaybackIndex < maxSteps - 1) {
-        const timer = setTimeout(() => {
-          onChainPlaybackChange?.(chainPlaybackIndex + 1);
-        }, 800);
-        return () => clearTimeout(timer);
-      } else {
-        setIsPlayingChain(false);
-      }
-    }
-  }, [isPlayingChain, chainPlaybackIndex, currentStep, onChainPlaybackChange]);
-
-  // Reset playback when currentStep changes
-  useEffect(() => {
-    onChainPlaybackChange?.(0);
-    setIsPlayingChain(false);
-  }, [currentStep, onChainPlaybackChange]);
-
   const handleTechniqueClick = (techniqueName) => {
     const instances = findAllTechniqueInstances(grid, techniqueName, { uniqueness });
     if (instances.length > 0 && onHighlightTechnique) {
@@ -244,17 +217,6 @@ export default function LogicPanel({
         hintPrompt={hintPrompt}
         cardPrompt={cardPrompt}
         onSelectTechnique={setSelectedTechnique}
-        chainPlaybackIndex={chainPlaybackIndex}
-        onChainPlaybackChange={onChainPlaybackChange}
-        isPlayingChain={isPlayingChain}
-        onToggleChainPlayback={() => {
-          if (!isPlayingChain) {
-            setIsPlayingChain(true);
-            onChainPlaybackChange?.(0);
-          } else {
-            setIsPlayingChain(false);
-          }
-        }}
       />
 
       <TechniquePanel
