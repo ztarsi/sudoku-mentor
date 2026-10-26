@@ -67,6 +67,15 @@ describe('DigitStrip', () => {
     expect(getByRole('button', { name: 'Pencil' }).getAttribute('aria-pressed')).toBe('false');
   });
 
+  // One strip with the same controls at every width (18 September). Shift
+  // +digit is a shortcut with no affordance, so without the button a player
+  // with a mouse has no way to place a pencil mark at all.
+  it('offers the pencil button at every width', () => {
+    expect(renderStrip({ touch: false }).getByRole('button', { name: 'Pencil' })).toBeTruthy();
+    cleanup();
+    expect(renderStrip({ touch: true }).getByRole('button', { name: 'Pencil' })).toBeTruthy();
+  });
+
   it('disables Undo, Redo and Erase when there is nothing to do', () => {
     const { getByRole, onUndo } = renderStrip();
     expect((getByRole('button', { name: 'Undo' })).hasAttribute("disabled")).toBe(true);

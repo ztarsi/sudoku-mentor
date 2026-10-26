@@ -134,6 +134,9 @@ export default function DigitStrip({
             </button>
           </div>
         ))}
+        {/* One strip with the same controls at every width: Shift+digit is
+            a shortcut with no affordance, so the button is the only way a
+            player with a mouse can place a pencil mark. */}
         <button
           type="button"
           onClick={() => onPencilModeChange(!pencilMode)}
