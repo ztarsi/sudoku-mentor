@@ -25,6 +25,10 @@ What the product is, who it is for, and where it is going is defined in [docs/PR
 - [Vitest](https://vitest.dev/) for the test suite
 - Custom constraint-propagation and search engines for the Sudoku logic
 
+## Start here
+
+`docs/HANDOVER.md` is the full brief: what the product is, how work gets dispatched and verified, where it stands, what is open, which decisions are already made, and the lessons worth not relearning. Then `docs/PRODUCT.md` for the product itself, `CLAUDE.md` for the rules every session reads first, and `docs/STAGING.md` for branches and releases.
+
 ## Development
 
 ```bash
