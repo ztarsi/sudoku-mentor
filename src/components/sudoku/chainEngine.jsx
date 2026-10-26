@@ -270,6 +270,11 @@ export const findXCycle = (grid, focusedDigit, returnAll = false) => {
           colorWitness: witness ? witness.map((cell) => ({ cell, digit })) : null,
           colorTarget: target,
           ...(walk && walk.length > 1 ? { chainNodes: walk, chainColouring: true } : {}),
+          // The animation reads the colours as the colouring found them,
+          // either side of the proof, and which colour a wrap kills.
+          colorA,
+          colorB,
+          wrappedColor: rule === 'wrap' ? wrappedColor : null,
           eliminations,
           explanation: rule === 'wrap'
             ? `Simple coloring on digit ${digit}: two cells of the same color share a unit, so that whole color is false and ${digit} can be removed from all of its cells.`

@@ -1,6 +1,8 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import Cell from './Cell';
 import CellContextMenu from './CellContextMenu';
+import HintAnimationOverlay from './HintAnimationOverlay';
+import { useHintAnimation } from './hintAnimation';
 import { buildHighlightSets, buildChainOverlay } from './stepHighlights';
 import { commonUnit } from './gridUnits';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
@@ -122,9 +124,12 @@ export default function SudokuGrid({
 
   // Highlight flags are derived from the presented steps at render time;
   // the grid data itself stays purely game state.
+  // While a hint animation plays, the overlay owns the picture: the step's
+  // own highlights would give the conclusion away before the animation does.
+  const animating = !!useHintAnimation();
   const highlightSets = useMemo(
-    () => buildHighlightSets(highlightedSteps ?? []),
-    [highlightedSteps]
+    () => buildHighlightSets(animating ? [] : highlightedSteps ?? []),
+    [highlightedSteps, animating]
   );
 
   const handleTouchStart = (e, cellIndex) => {
@@ -207,21 +212,24 @@ export default function SudokuGrid({
   // sees one node, and a continuous loop drawn closed. The base and target
   // colours already in use, and nothing new. The geometry is a pure helper
   // so the drawing can be checked without a browser.
+  // While the animation plays it owns the picture, here too: the step's
+  // own chain would draw the whole proof before the animation reaches it.
   const chainOverlay = useMemo(
-    () => buildChainOverlay(currentStep, overlayCellSize),
-    [currentStep, overlayCellSize]
+    () => buildChainOverlay(animating ? null : currentStep, overlayCellSize),
+    [animating, currentStep, overlayCellSize]
   );
 
   // A colouring step (3D Medusa) carries its two colours as cell lists,
   // the surviving colour first. Mapped once, not per cell.
   const colorGroupOf = useMemo(() => {
+    if (animating) return null;
     const groups = currentStep?.colorGroups;
     if (!Array.isArray(groups) || groups.length !== 2) return null;
     const map = new Map();
     groups[0]?.forEach((cell) => map.set(cell, 1));
     groups[1]?.forEach((cell) => map.set(cell, 2));
     return map;
-  }, [currentStep]);
+  }, [animating, currentStep]);
 
   // Hoisted out of the 81-cell render loop (it was recomputed per cell).
   const alsUnits = useMemo(() => {
@@ -345,6 +353,8 @@ export default function SudokuGrid({
                 />
               );
             })}
+
+            <HintAnimationOverlay size={overlaySize} />
 
             {/* ALS-XZ link overlay */}
             {alsLinks.length > 0 && overlaySize > 0 && (
@@ -514,5 +524,3 @@ export default function SudokuGrid({
     </>
   );
 }
-
-
