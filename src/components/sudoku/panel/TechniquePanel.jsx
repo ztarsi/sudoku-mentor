@@ -1,10 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Info, ChevronDown, ChevronUp, ChevronRight, Search, X } from 'lucide-react';
 import {
   LEVEL_COLORS,
   TECHNIQUES,
   TIERS,
+  COUNT_SCAN,
   COUNT_SEARCH,
   matchTechniques,
   needsUniqueness,
@@ -25,6 +26,13 @@ import { UNIQUENESS_UNKNOWN, uniquenessAllowed, uniquenessNote, uniquenessShortN
  * useTechniqueCounts). A count this panel has not been given is shown as
  * not known yet, with a button that computes it, rather than as a number
  * from the previous board.
+ *
+ * A Scan of the expensive tiers reports here too, rather than in a dialog
+ * over the board the counts are about (issue #105). Its rows say they are
+ * counting, each count arrives in the row and, when there is something to
+ * find, at the top under "On this board"; the tier carries one line of
+ * progress with a way to stop it, and one line saying what was found. The
+ * result is announced once, when it is known, rather than row by row.
  *
  * The techniques that only hold when the puzzle has exactly one answer are
  * a case of their own. On a grid that has more than one, or whose count
@@ -68,6 +76,7 @@ function TechniqueRow({
   showTier = false,
   countsOff,
   unavailable = null,
+  pending = false,
   onSelectTechnique,
   onHighlight,
   onCount,
@@ -104,6 +113,10 @@ function TechniqueRow({
         </button>
       ) : known ? (
         <span className="shrink-0 text-xs text-slate-500">none here</span>
+      ) : pending ? (
+        // A Scan is on its way to this row. Offering Count here would ask
+        // the player to pay twice for the same number.
+        <span className="shrink-0 text-xs text-slate-500">counting…</span>
       ) : (
         <button
           onClick={() => onCount(tech.name)}
@@ -124,6 +137,7 @@ export default function TechniquePanel({
   uniqueness = UNIQUENESS_UNKNOWN,
   counts = {},
   counting = false,
+  scan = null,
   searchingForcingChain,
   onSelectTechnique,
   onHighlight,
@@ -152,6 +166,44 @@ export default function TechniquePanel({
   const uniquenessOff = !uniquenessAllowed(uniqueness);
   const whyUnavailable = (tech) =>
     uniquenessOff && needsUniqueness(tech.name) ? uniquenessShortNote(uniqueness) : null;
+
+  // What a Scan is doing, in one line, and what it found, in one more.
+  // Thirty-three rows of progress were the defect this replaced (#105), so
+  // neither line grows with the catalog.
+  const scanning = !!scan?.running;
+  const scanned = !!scan && !scan.running && Array.isArray(scan.found);
+  const foundCount = scanned ? scan.found.length : 0;
+  // Only the result is announced, and only once it is known: a polite
+  // region refreshed per detector would read the catalog out loud.
+  const scanAnnouncement = (level) => {
+    if (!scanned) return '';
+    const where = scan.cancelled ? `Scan stopped at ${scan.done} of ${scan.total}.` : 'Scan finished.';
+    if (foundCount === 0) {
+      return scan.cancelled
+        ? `${where} Nothing found before it stopped.`
+        : `${where} Nothing in the ${level} tier applies to this board.`;
+    }
+    return (
+      `${where} ${foundCount} of ${scan.total} ${level} technique${foundCount === 1 ? '' : 's'} ` +
+      `appl${foundCount === 1 ? 'ies' : 'y'} to this board: ${scan.found.join(', ')}. ` +
+      'They are listed under On this board, at the top of the Techniques panel.'
+    );
+  };
+
+  // The techniques a Scan finds join "On this board" at the top of the
+  // panel, which is the point of it - and which pushes the tier the player
+  // pressed Scan in, with its progress line and its Cancel, down the page
+  // under their eyes: 700 px of it at 1440x900, measured, which takes both
+  // off the screen. So the scan's own line is kept in view for as long as
+  // it has something to say. "nearest" moves nothing while the line is
+  // still visible, and finds whatever is doing the scrolling by itself:
+  // the page in a column, the sheet on a narrower width.
+  const scanLine = useRef(/** @type {any} */ (null));
+  const scanStep = scan?.running ? `counting ${scan.done}` : scanned ? 'done' : null;
+  useEffect(() => {
+    if (scanStep === null) return;
+    scanLine.current?.scrollIntoView?.({ block: 'nearest' });
+  }, [scanStep]);
 
   const applies = useMemo(
     () => (countsOff ? [] : TECHNIQUES.filter((tech) => counts[tech.name] > 0)),
@@ -245,6 +297,7 @@ export default function TechniquePanel({
                       tech={tech}
                       count={counts[tech.name]}
                       unavailable={whyUnavailable(tech)}
+                      pending={scanning && tech.count === COUNT_SCAN}
                       showTier
                       {...rowProps}
                     />
@@ -270,8 +323,13 @@ export default function TechniquePanel({
                               {...rowProps}
                             />
                           ))
-                        ) : counting ? (
+                        ) : counting || scanning ? (
                           <p className="text-sm text-slate-400">Checking the board…</p>
+                        ) : scanned ? (
+                          <p className="text-sm text-slate-400">
+                            Nothing counted applies here, the tier you scanned included. Ask for a
+                            hint, or try Search.
+                          </p>
                         ) : (
                           <p className="text-sm text-slate-400">
                             Nothing counted so far applies here. Scan the Ultimate tier, or ask for a
@@ -279,7 +337,7 @@ export default function TechniquePanel({
                           </p>
                         )}
                       </div>
-                      {applies.length > 0 && counting && (
+                      {applies.length > 0 && (counting || scanning) && (
                         <p className="text-xs text-slate-500 mt-1">Still checking the rest…</p>
                       )}
                     </div>
@@ -331,13 +389,47 @@ export default function TechniquePanel({
                                 {tier.scanNote && !countsOff && (
                                   <div className="mb-2">
                                     <p className="text-xs text-slate-400 mb-1">{tier.scanNote}</p>
+                                    {/* One button, so the press that starts a
+                                        Scan is the press that stops it and
+                                        focus never leaves the control the
+                                        player used (#105, #109). */}
                                     <button
                                       onClick={onUltimateScan}
-                                      className="px-2 py-1 bg-violet-600 hover:bg-violet-500 text-white text-xs rounded inline-flex items-center gap-1 transition-colors"
+                                      aria-busy={scanning}
+                                      className={`px-2 py-1 ${
+                                        scanning ? 'bg-slate-600 hover:bg-slate-500' : 'bg-violet-600 hover:bg-violet-500'
+                                      } text-white text-xs rounded inline-flex items-center gap-1 transition-colors`}
+                                      title={scanning ? 'Stop the scan' : 'Count every technique in this tier on the board as it stands now'}
                                     >
-                                      <Search className="w-3 h-3" aria-hidden="true" />
-                                      Scan this board
+                                      {scanning ? (
+                                        <span className="animate-spin rounded-full h-3 w-3 border-b border-white" aria-hidden="true" />
+                                      ) : (
+                                        <Search className="w-3 h-3" aria-hidden="true" />
+                                      )}
+                                      {scanning ? 'Cancel' : 'Scan this board'}
                                     </button>
+                                    <p className="sr-only" role="status" aria-live="polite">
+                                      {scanAnnouncement(tier.level)}
+                                    </p>
+                                    <div ref={scanLine}>
+                                      {scanning && (
+                                        <p className="text-xs text-slate-400 mt-1" data-testid="scan-progress">
+                                          Counting… {scan.done} of {scan.total}.
+                                        </p>
+                                      )}
+                                      {scanned && (
+                                        <p className="text-xs text-slate-400 mt-1" data-testid="scan-result">
+                                          {scan.cancelled && `Stopped at ${scan.done} of ${scan.total}. `}
+                                          {foundCount === 0
+                                            ? scan.cancelled
+                                              ? 'Nothing found before it stopped.'
+                                              : 'Nothing in this tier applies to this board.'
+                                            : `${foundCount} of ${scan.total} appl${foundCount === 1 ? 'ies' : 'y'} to this board${
+                                                scan.cancelled ? ' so far' : ''
+                                              }, listed at the top under “On this board”.`}
+                                        </p>
+                                      )}
+                                    </div>
                                   </div>
                                 )}
                                 {tier.searchNote && !countsOff && (
@@ -368,6 +460,7 @@ export default function TechniquePanel({
                                     tech={tech}
                                     count={counts[tech.name]}
                                     unavailable={whyUnavailable(tech)}
+                                    pending={scanning && tech.count === COUNT_SCAN}
                                     {...rowProps}
                                   />
                                 ))}

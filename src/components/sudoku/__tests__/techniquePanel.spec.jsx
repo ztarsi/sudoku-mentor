@@ -285,3 +285,154 @@ describe('the techniques that need the puzzle to have one answer', () => {
     expect(view.getAllByText('(1)').length).toBeGreaterThan(0);
   });
 });
+
+// A Scan reports into this panel, which is the whole of issue #105: the
+// counts are about the board, so the board stays on screen and the answer
+// arrives where the live counts already are. What the panel owes the player
+// is three things that do not grow with the catalog - rows that say they
+// are counting, one line of progress with a way to stop it, and one line
+// saying what was found - plus one announcement when the answer is known.
+describe('a Scan, reported in the panel rather than over the board', () => {
+  const SCAN_TOTAL = TECHNIQUES.filter((tech) => tech.tier === 'Ultimate').length;
+  const openUltimate = (view) => {
+    fireEvent.click(view.getByRole('button', { name: /^Ultimate/ }));
+    return view;
+  };
+  const running = (done = 0) => ({
+    grid: null, total: SCAN_TOTAL, done, running: true, cancelled: false, found: null,
+  });
+  const finished = (found, extra = {}) => ({
+    grid: null, total: SCAN_TOTAL, done: SCAN_TOTAL, running: false, cancelled: false, found, ...extra,
+  });
+  const liveRegion = (view) =>
+    Array.from(view.container.querySelectorAll('[role="status"]'))
+      .map((el) => el.textContent)
+      .join(' ')
+      .trim();
+
+  it('shows one line of progress for the whole tier, not one row each', () => {
+    const view = openUltimate(show({ scan: running(12) }));
+    expect(view.getByTestId('scan-progress').textContent).toContain(`12 of ${SCAN_TOTAL}`);
+    // The defect was thirty-three rows of progress. One line, and no more.
+    expect(view.queryAllByTestId('scan-progress').length).toBe(1);
+  });
+
+  it('turns Scan into the way to stop it, on the same button', () => {
+    const onUltimateScan = vi.fn();
+    const view = openUltimate(show({ scan: running(5), onUltimateScan }));
+    const cancel = view.getByRole('button', { name: /Cancel/ });
+    expect(cancel.getAttribute('aria-busy')).toBe('true');
+    expect(view.queryByRole('button', { name: /Scan this board/ })).toBeNull();
+    fireEvent.click(cancel);
+    expect(onUltimateScan).toHaveBeenCalled();
+  });
+
+  it('says the rows are counting instead of asking the player to pay twice', () => {
+    const view = openUltimate(show({ scan: running(2) }));
+    expect(view.getAllByText('counting…').length).toBeGreaterThan(5);
+    // Count is what an uncounted row offers when nothing is on its way.
+    expect(view.queryByRole('button', { name: 'Count' })).toBeNull();
+  });
+
+  it('keeps the counts that have already arrived, and offers to show them', () => {
+    const onHighlight = vi.fn();
+    const view = openUltimate(show({ scan: running(3), counts: { 'X-Cycle': 2 }, onHighlight }));
+    // In the tier, and at the top under "On this board", with the
+    // click-to-highlight that already works there.
+    expect(view.getAllByText('(2)').length).toBeGreaterThan(1);
+    fireEvent.click(within(section(view, 'On this board')).getByText('(2)'));
+    expect(onHighlight).toHaveBeenCalledWith('X-Cycle');
+  });
+
+  it('says nothing found in one line, not twenty-one rows of zero', () => {
+    const view = openUltimate(show({ scan: finished([]) }));
+    const result = view.getByTestId('scan-result');
+    expect(result.textContent).toBe('Nothing in this tier applies to this board.');
+    expect(view.queryAllByTestId('scan-result').length).toBe(1);
+    expect(view.queryByText('0 found')).toBeNull();
+    // And it is said out loud once, rather than not at all (#109).
+    expect(liveRegion(view)).toBe('Scan finished. Nothing in the Ultimate tier applies to this board.');
+  });
+
+  it('points at the answer rather than restating it, when there is one', () => {
+    const view = openUltimate(show({ scan: finished(['X-Cycle', 'ALS-XZ']), counts: { 'X-Cycle': 2, 'ALS-XZ': 1 } }));
+    expect(view.getByTestId('scan-result').textContent).toContain(`2 of ${SCAN_TOTAL} apply to this board`);
+    expect(liveRegion(view)).toBe(
+      `Scan finished. 2 of ${SCAN_TOTAL} Ultimate techniques apply to this board: X-Cycle, ALS-XZ. ` +
+        'They are listed under On this board, at the top of the Techniques panel.'
+    );
+  });
+
+  it('says where a cancelled scan got to, and keeps what it found', () => {
+    const view = openUltimate(show({ scan: finished(['X-Cycle'], { done: 9, cancelled: true }) }));
+    const result = view.getByTestId('scan-result').textContent;
+    expect(result).toContain(`Stopped at 9 of ${SCAN_TOTAL}`);
+    expect(result).toContain(`1 of ${SCAN_TOTAL} applies to this board so far`);
+    expect(liveRegion(view)).toContain(`Scan stopped at 9 of ${SCAN_TOTAL}.`);
+  });
+
+  it('announces nothing while it is still running: the result is the message', () => {
+    expect(liveRegion(openUltimate(show({ scan: running(12) })))).toBe('');
+  });
+
+  it('counts as checking the board, so the top of the panel does not read as empty', () => {
+    const view = openUltimate(show({ scan: running(1) }));
+    expect(within(section(view, 'On this board')).getByText('Checking the board…')).toBeTruthy();
+  });
+
+  it('does not tell the player to scan a tier they have just scanned', () => {
+    const view = openUltimate(show({ scan: finished([]) }));
+    const applies = section(view, 'On this board');
+    expect(within(applies).queryByText(/Scan the Ultimate tier/)).toBeNull();
+    expect(within(applies).getByText(/the tier you scanned included/)).toBeTruthy();
+  });
+
+  // What a Scan finds goes to the top of the panel, which pushes the tier
+  // the player pressed Scan in down the page: 700 px of it at 1440x900,
+  // measured, which takes the progress line and the Cancel with it. The
+  // line stays where the player can see it instead.
+  it('keeps its own line in view while the answer grows above it', () => {
+    const scrolled = [];
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = function scrollIntoView(options) {
+      scrolled.push({ text: this.textContent, options });
+    };
+    try {
+      // The tier is open before the scan starts: its Scan button is the
+      // only way to start one.
+      const view = openUltimate(show({}));
+      view.rerender(<TechniquePanel {...base} scan={running(1)} />);
+      expect(scrolled.at(-1).text).toContain(`1 of ${SCAN_TOTAL}`);
+      // Only when it has gone: a line still on screen is not moved.
+      expect(scrolled.at(-1).options).toEqual({ block: 'nearest' });
+
+      // Every count that arrives can push it further down, so every one of
+      // them brings it back.
+      view.rerender(<TechniquePanel {...base} scan={running(2)} />);
+      expect(scrolled.at(-1).text).toContain(`2 of ${SCAN_TOTAL}`);
+
+      view.rerender(<TechniquePanel {...base} scan={finished(['X-Cycle'])} />);
+      expect(scrolled.at(-1).text).toContain(`1 of ${SCAN_TOTAL} applies to this board`);
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
+  });
+
+  it('scrolls nothing when no scan has been asked for', () => {
+    const scrolled = [];
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = () => scrolled.push(1);
+    try {
+      openUltimate(show({ counts: { 'X-Cycle': 2 } }));
+      expect(scrolled).toEqual([]);
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
+  });
+
+  it('says nothing about a scan in No Assist, where nothing is counted', () => {
+    const view = openUltimate(show({ scan: running(4), noAssistMode: true }));
+    expect(view.queryByTestId('scan-progress')).toBeNull();
+    expect(view.queryByText('counting…')).toBeNull();
+  });
+});

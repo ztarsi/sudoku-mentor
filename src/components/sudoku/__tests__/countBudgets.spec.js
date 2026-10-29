@@ -29,13 +29,16 @@
 // quoting it from memory - edit the note and this test asks for the number
 // to be looked at again.
 //
-// Two things this file deliberately does not cover. The cost of a whole
-// live pass added up is asserted on mid-game boards in
-// fishAndSingleDigit.spec.js ("keeps every live count affordable", 150 ms
-// for all of them together). And the 100 ms the panel waits between
-// techniques while Scan runs, so the player can watch the list tick along,
-// is display pacing rather than detector work: it is not in this bar,
-// though it is most of what the player actually waits through today.
+// One thing this file deliberately does not cover: the cost of a whole live
+// pass added up is asserted on mid-game boards in fishAndSingleDigit.spec.js
+// ("keeps every live count affordable", 150 ms for all of them together).
+//
+// Until #105 there was a second thing, and it was most of what the player
+// actually waited through: the panel paused 100 ms between techniques while
+// Scan ran, to animate a dialog listing them. The dialog is gone and so is
+// the pause, so the detector time measured below is now very nearly the
+// whole wait, and the promise in the catalog's note is about the work
+// rather than about the animation over it.
 import { describe, it, expect } from 'vitest';
 import { findAllTechniqueInstances, generateCandidates } from '../logicEngine';
 import { LIVE_COUNT_TECHNIQUES, SCAN_TECHNIQUES, TIERS } from '../techniqueCatalog';
