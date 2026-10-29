@@ -39,6 +39,20 @@
 // the pause, so the detector time measured below is now very nearly the
 // whole wait, and the promise in the catalog's note is about the work
 // rather than about the animation over it.
+//
+// One last thing, about this file rather than about the product (#117). The
+// Scan case below is the third timing test in this repository to go red on
+// its own runtime rather than on its assertion: it measured 33 detectors on
+// all 20 library boards, quickest of three runs each, which is some 2,000
+// detector runs inside one `it`, and on a loaded shared runner that passed
+// vitest's 30-second per-test limit while the 2000 ms promise it checks was
+// still being kept with room to spare. A performance test that is itself
+// expensive ends up measuring the harness instead of the product. So when
+// writing the next one: keep the measurement cheap enough that the harness
+// cannot become the thing under test - sample only the cases that can
+// actually approach the bar, rather than every case there is - and give the
+// case an explicit timeout, so that a runner having a bad minute reads as a
+// slow test and not as a broken promise.
 import { describe, it, expect } from 'vitest';
 import { findAllTechniqueInstances, generateCandidates } from '../logicEngine';
 import { LIVE_COUNT_TECHNIQUES, SCAN_TECHNIQUES, TIERS } from '../techniqueCatalog';
@@ -100,11 +114,15 @@ const LIBRARY = Object.values(PUZZLES)
  * on them. Timing with it unknown would measure thirteen detectors
  * returning an empty array, and Unique Loop alone is two thirds of the
  * Scan total.
+ *
+ * The sample count is an argument so that the Scan case can rank the
+ * library with one run per board before it samples properly; three is what
+ * any number the bars are read against is measured with.
  */
 const SAMPLES = 3;
-const quickest = (technique, puzzle) => {
+const quickest = (technique, puzzle, samples = SAMPLES) => {
   let best = Infinity;
-  for (let sample = 0; sample < SAMPLES; sample++) {
+  for (let sample = 0; sample < samples; sample++) {
     const board = buildGrid(puzzle);
     const started = performance.now();
     findAllTechniqueInstances(board, technique, { uniqueness: UNIQUENESS_ONE });
@@ -156,7 +174,36 @@ describe('what a count may cost', () => {
     // "a second or two", at its outer edge, is two seconds.
     const SCAN_BUDGET_MS = 2 * 1000;
 
-    const boards = LIBRARY.map(({ name, puzzle }) => {
+    // How many boards are measured properly, and why not all twenty (#117).
+    //
+    // The bar is a total on the dearest board, so only the dearest board's
+    // number is ever read against it. Sampling all twenty was what made
+    // this case time out on its own runtime, so the pass below is in two
+    // parts: one run of every detector on every board, which is cheap and
+    // ranks them, and then the quickest of three on the few dearest, which
+    // is the number the bar is actually read against.
+    //
+    // The ranking is measured rather than assumed, because density does not
+    // predict it. The two densest boards are indeed the two dearest to scan,
+    // but the third dearest is Brain Teaser at 208 marks - sixteenth of the
+    // twenty by density - so a hand-picked "densest few" would have dropped
+    // the third-worst case in the library and not noticed.
+    //
+    // Nothing over the bar can hide behind this. The boards re-measured are
+    // the dearest the ranking pass found, so a board over the budget is
+    // either one of them or is beaten by one of them, and the assertion
+    // fails either way. Three rather than one, because a single run is
+    // noisy: the top two trade places run to run, and three clears the gap
+    // between second and third (about 700 ms against about 430 ms) by
+    // enough that the true worst cannot be ranked out of it.
+    const MEASURED_PROPERLY = 3;
+    const ranked = LIBRARY.map(({ name, puzzle }) => ({
+      name,
+      puzzle,
+      ranking: SCAN_TECHNIQUES.reduce((sum, technique) => sum + quickest(technique, puzzle, 1), 0),
+    })).sort((a, b) => b.ranking - a.ranking);
+
+    const boards = ranked.slice(0, MEASURED_PROPERLY).map(({ name, puzzle }) => {
       const costs = SCAN_TECHNIQUES.map((technique) => ({
         technique,
         ms: quickest(technique, puzzle),
@@ -171,7 +218,8 @@ describe('what a count may cost', () => {
     const dearest = [...worst.costs].sort((a, b) => b.ms - a.ms).slice(0, 3);
 
     // The arithmetic, printed where the next person will see it: the sum,
-    // what it is a sum of, and which detectors most of it is.
+    // what it is a sum of, which detectors most of it is, and which boards
+    // the sum was looked for on.
     out(
       `  Scan: ${SCAN_TECHNIQUES.length} detectors, worst board ${worst.name}, ` +
         `${worst.total.toFixed(0)} ms in all of the ${SCAN_BUDGET_MS} ms "a second or two" allows`
@@ -179,13 +227,18 @@ describe('what a count may cost', () => {
     for (const { technique, ms } of dearest) {
       out(`    ${technique.padEnd(24)} ${ms.toFixed(0)} ms (${((ms / worst.total) * 100).toFixed(0)}% of it)`);
     }
+    out(
+      `    measured quickest-of-${SAMPLES} on the ${MEASURED_PROPERLY} dearest of ${LIBRARY.length} boards: ` +
+        `${boards.map(({ name, total }) => `${name} ${total.toFixed(0)} ms`).join(', ')}`
+    );
 
     // Measured on the code this went in with: the two densest boards in
     // the library - X-Wing Territory at 304 pencil marks and Nightmare at
     // 303 - are also the two dearest to scan, and they trade places run to
-    // run between 760 ms and 870 ms over 33 detectors. Unique Loop is two
-    // thirds of that by itself (540-600 ms); Mutant Fish and Franken Fish
-    // are about a tenth each; the remaining 30 detectors share the rest.
+    // run between 710 ms and 950 ms over 33 detectors, with Brain Teaser
+    // third at about 430 ms. Unique Loop is two thirds of the worst board's
+    // total by itself (540-600 ms); Mutant Fish and Franken Fish are about
+    // a tenth each; the remaining 30 detectors share the rest.
     // ALS-XY-Wing, the detector #100 started with, costs 107 ms at its own
     // worst (Coffee Break, the sparsest board in the library) inside a
     // 224 ms total there. So the promise holds with better than a twofold
@@ -197,5 +250,17 @@ describe('what a count may cost', () => {
           .map(({ technique, ms }) => `${technique} ${ms.toFixed(0)} ms`)
           .join(', ')}`
     ).toBeLessThan(SCAN_BUDGET_MS);
-  });
+
+    // The second number in this test case, and it is not a budget (#117).
+    //
+    // This one is how long vitest lets the case run before it gives up, and
+    // it is harness plumbing: it bounds the measuring, not the product. The
+    // bar the player is promised is SCAN_BUDGET_MS above, it is 2000 ms, it
+    // is quoted out of the catalog note, and it does not move. This number
+    // is generous on purpose - the pass costs about twelve seconds on an
+    // idle machine, so there is an order of magnitude of headroom - because
+    // a shared runner having a bad minute must make this test slow and not
+    // make it red. If it is ever reached, the measuring has grown; make the
+    // measuring cheaper before reaching for a bigger number here.
+  }, 120_000);
 });
