@@ -369,15 +369,39 @@ export const analyzePuzzle = (puzzleArray) => {
 };
 
 /**
- * One line for a library row: what the puzzle teaches, and whether named
- * techniques are enough to finish it. Null while it is still being
- * measured, because a label is worth showing only once it is true.
+ * How hard each tier's thinking gets, in words a player choosing a puzzle
+ * has already met. The row used to lead with the measured technique's name
+ * - "Teaches up to Naked Single", "Teaches up to ALS-XZ" - which is
+ * written for us: the quality bar says explanations use no vocabulary the
+ * player has not been given (issue #107). The level leads now and the name
+ * follows in brackets, so the beginner can read the row and the enthusiast
+ * still gets the measurement.
+ */
+const CEILING = {
+  Basic: 'Beginner techniques only',
+  Intermediate: 'Up to intermediate techniques',
+  Advanced: 'Up to advanced techniques',
+  Expert: 'Up to expert techniques',
+  Ultimate: 'Up to the hardest techniques',
+  // Past the patterns: the mentor works through a cell's options instead of
+  // spotting something. A proof by cases, which is not trial and error, so
+  // the row must not call it that.
+  Forcing: 'Works through every option',
+  'What-if': 'Needs trial and error',
+};
+
+/**
+ * One line for a library row: how hard the puzzle's hardest step is, which
+ * technique that was, and whether named techniques are enough to finish
+ * it. Null while it is still being measured, because a label is worth
+ * showing only once it is true.
  */
 export const teachingLabel = (analysis) => {
   if (!analysis || !analysis.complete) return null;
-  if (!analysis.hardestTechnique) return 'Needs what-if search';
-  const upTo = `Teaches up to ${analysis.hardestTechnique}`;
-  return analysis.namedOnly ? upTo : `${upTo}, then what-if search`;
+  if (!analysis.hardestTechnique) return 'Needs trial and error throughout';
+  const ceiling = CEILING[analysis.hardestTier] || 'Up to the hardest techniques';
+  const upTo = `${ceiling} (${analysis.hardestTechnique})`;
+  return analysis.namedOnly ? upTo : `${upTo}, then trial and error`;
 };
 
 /**

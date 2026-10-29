@@ -541,6 +541,18 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
     [grid]
   );
 
+  // Progress is the player's own work, not the grid's fill level. It used
+  // to be every filled cell over 81, so a fresh puzzle opened at "31%
+  // complete" before the player had touched it: the givens, counted as
+  // progress (issue #107). The cells the player has to fill are the ones
+  // that were empty when the puzzle loaded, so those are the ones counted.
+  const playerProgress = useMemo(() => {
+    const given = grid.filter((c) => c.isFixed).length;
+    const toFill = 81 - given;
+    if (toFill <= 0) return 100;
+    return Math.round(((solvedCount - given) / toFill) * 100);
+  }, [grid, solvedCount]);
+
   return {
     grid,
     setGrid, // raw setter for non-undoable visual updates (highlights)
@@ -563,7 +575,7 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
     puzzleDifficulty,
     startTime,
     solvedCount,
-    progress: Math.round((solvedCount / 81) * 100),
+    progress: playerProgress,
     handleCellInput,
     handleToggleCandidate,
     applyStep,

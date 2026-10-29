@@ -870,9 +870,40 @@ export default function SudokuMentor() {
   const boardPrompt = prompts.board ? (
     <div className="flex justify-center">
       <Callout arrow="down" onDismiss={() => setOnboarding((s) => dismissPrompt(s, 'board'))} testId="prompt-board">
-        {touchInput ? 'Pick a digit, then tap cells' : 'Tap a cell, then a digit'}
+        {touchInput ? 'Pick a digit, then tap cells' : 'Click a cell, then a digit'}
       </Callout>
     </div>
+  ) : null;
+
+  // Which puzzle you are in, and the way to change it. On a phone the top
+  // row has the logo, Load, the account and the menu in 374px, which left
+  // the name 62px: "Brain Teaser" arrived as "Brai..." and a player could
+  // not tell which puzzle they were in (issue #107). It gets a row of its
+  // own there, where the whole name fits, rather than the chip or the
+  // difficulty being dropped to make room.
+  const puzzleButton = game.puzzleName ? (
+    <button
+      type="button"
+      onClick={() => setShowPuzzleLoader(true)}
+      className={`flex items-center gap-2 min-w-0 rounded-lg px-2 py-1 hover:bg-slate-800 transition-colors text-left ${phone ? 'w-full' : ''}`}
+      title="Change puzzle"
+      aria-label={`${game.puzzleName}${game.puzzleDifficulty ? `, ${game.puzzleDifficulty}` : ''}. Change puzzle`}
+    >
+      <span className="text-sm lg:text-lg font-medium text-white truncate min-w-0">
+        {game.puzzleName}
+      </span>
+      {game.puzzleDifficulty && (
+        <span className="px-2 py-0.5 bg-slate-800 rounded-full text-xs lg:text-sm capitalize text-slate-300 shrink-0">{game.puzzleDifficulty}</span>
+      )}
+      {player.bestTime && !phone && (
+        <span className="hidden sm:flex px-2 py-0.5 bg-emerald-900/50 border border-emerald-600/30 rounded-full text-xs lg:text-sm text-emerald-400 items-center gap-1 shrink-0" title="Your best No Assist time">
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          best {formatClock(player.bestTime)}
+        </span>
+      )}
+    </button>
   ) : null;
 
   const board = (
@@ -1007,30 +1038,7 @@ export default function SudokuMentor() {
                 )}
               </div>
 
-              {game.puzzleName ? (
-                <button
-                  type="button"
-                  onClick={() => setShowPuzzleLoader(true)}
-                  className="flex items-center gap-2 min-w-0 rounded-lg px-2 py-1 hover:bg-slate-800 transition-colors text-left"
-                  title="Change puzzle"
-                  aria-label={`${game.puzzleName}${game.puzzleDifficulty ? `, ${game.puzzleDifficulty}` : ''}. Change puzzle`}
-                >
-                  <span className="text-sm lg:text-lg font-medium text-white truncate max-w-[110px] sm:max-w-[200px] lg:max-w-[260px]">
-                    {game.puzzleName}
-                  </span>
-                  {game.puzzleDifficulty && (
-                    <span className="px-2 py-0.5 bg-slate-800 rounded-full text-xs lg:text-sm capitalize text-slate-300 shrink-0">{game.puzzleDifficulty}</span>
-                  )}
-                  {player.bestTime && !phone && (
-                    <span className="hidden sm:flex px-2 py-0.5 bg-emerald-900/50 border border-emerald-600/30 rounded-full text-xs lg:text-sm text-emerald-400 items-center gap-1 shrink-0" title="Your best No Assist time">
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      best {formatClock(player.bestTime)}
-                    </span>
-                  )}
-                </button>
-              ) : (
+              {phone ? null : puzzleButton || (
                 <p className="hidden lg:block text-base text-slate-400">Learn logic-based solving</p>
               )}
             </div>
@@ -1095,6 +1103,10 @@ export default function SudokuMentor() {
               />
             </div>
           </div>
+
+          {/* The phone's name row: the top row has no 130px to spare for it
+              (issue #107). */}
+          {phone && puzzleButton && <div className="mt-0.5 -mx-1">{puzzleButton}</div>}
         </div>
       </header>
 

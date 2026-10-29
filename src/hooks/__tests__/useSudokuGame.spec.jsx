@@ -56,6 +56,37 @@ describe('useSudokuGame', () => {
     expect(result.current.grid[idx].value).toBe(right);
   });
 
+  it('counts progress as the player\'s own work, not the givens', () => {
+    const { result } = setup();
+    act(() => {
+      result.current.loadPuzzle(PUZZLE, { name: 'Test', difficulty: 'easy' });
+    });
+
+    // A fresh puzzle used to open at "31% complete": every filled cell over
+    // 81, so the thirty givens were counted as the player's progress before
+    // they had touched it (#107).
+    const given = PUZZLE.filter(Boolean).length;
+    expect(given).toBeGreaterThan(0);
+    expect(result.current.progress).toBe(0);
+
+    const solved = solveSudoku(PUZZLE.map((v) => ({ value: v || null, candidates: [] })));
+    const toFill = 81 - given;
+    const idx = firstEmptyCell(result.current.grid);
+    act(() => {
+      result.current.handleCellInput(idx, solved[idx].value);
+    });
+    expect(result.current.progress).toBe(Math.round((1 / toFill) * 100));
+
+    // And it still reaches 100 when the puzzle is done.
+    for (let i = 0; i < 81; i++) {
+      if (PUZZLE[i]) continue;
+      act(() => {
+        result.current.handleCellInput(i, solved[i].value);
+      });
+    }
+    expect(result.current.progress).toBe(100);
+  });
+
   it('undo/redo walk real snapshots (redo used to be a stub)', () => {
     const { result } = setup();
 

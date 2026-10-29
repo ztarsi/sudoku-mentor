@@ -6,6 +6,7 @@ import OCRUpload from './OCRUpload';
 import TextPuzzleUpload from './TextPuzzleUpload';
 import { analyzeDifficulty } from './difficultyAnalyzer';
 import { base44 } from '@/api/base44Client';
+import { hasPlatform } from '@/lib/app-params';
 import { findMySavedPuzzle, savePuzzle } from '@/api/playerData';
 import { solveSudoku } from './solver';
 import { toast } from "@/components/ui/use-toast";
@@ -89,9 +90,16 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded, u
 
   if (!isOpen) return null;
 
+  // Photo import needs the extraction service, so a build with no platform
+  // behind it - staging, a local build - can never unlock it. The padlock
+  // there explained nothing and promised something that could not happen,
+  // so the tab is not offered at all; where there is a platform it is
+  // offered, and saying what it needs is the panel's job rather than a
+  // tooltip's (issue #107).
+  const photoImport = hasPlatform();
   const tabs = [
     { id: 'library', label: 'Library', icon: BookOpen },
-    { id: 'ocr', label: 'Image', icon: Camera },
+    ...(photoImport ? [{ id: 'ocr', label: 'Image', icon: Camera, locked: !user }] : []),
     { id: 'text', label: 'Text', icon: FileText }
   ];
 
@@ -127,37 +135,35 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded, u
               </button>
             </div>
             
-            {/* Tabs */}
-            <div className="flex gap-2 px-6 mt-4">
+            {/* Tabs. The row has to hold all three at 390px: it used to
+                spend 24px of padding on each side and 16px on each tab, so
+                the third was clipped to "Tex" on a phone (issue #107). The
+                three fit in one row from 360px up, and wrap rather than
+                clip below that, so no width hides a tab. */}
+            <div className="flex flex-wrap gap-1 sm:gap-2 px-3 sm:px-6 mt-4">
               {tabs.map(tab => {
                 const Icon = tab.icon;
-                // Photo import calls the Base44 extraction service, which needs
-                // an account; typing/pasting a puzzle never does.
-                const isDisabled = tab.id === 'ocr' && !user;
-                
                 return (
                   <button
                     key={tab.id}
-                    onClick={() => !isDisabled && setActiveTab(tab.id)}
-                    disabled={isDisabled}
+                    onClick={() => setActiveTab(tab.id)}
+                    aria-label={tab.locked ? `${tab.label}, needs an account` : undefined}
                     className={`
-                      flex items-center gap-2 px-4 py-3 rounded-t-lg font-medium transition-all relative
-                      ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}
+                      flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-3 rounded-t-lg font-medium transition-all relative
                       ${activeTab === tab.id
                         ? 'bg-slate-800 text-white'
                         : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
                       }
                     `}
-                    title={isDisabled ? 'Sign in to import from a photo' : ''}
                   >
-                    <Icon className="w-5 h-5" />
-                    <span>{tab.label}</span>
-                    {isDisabled && (
-                      <svg className="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <Icon className="w-5 h-5 shrink-0" aria-hidden="true" />
+                    <span className="whitespace-nowrap">{tab.label}</span>
+                    {tab.locked && (
+                      <svg className="w-4 h-4 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                       </svg>
                     )}
-                    {activeTab === tab.id && !isDisabled && (
+                    {activeTab === tab.id && (
                       <motion.div
                         layoutId="activeTab"
                         className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500"
@@ -191,10 +197,13 @@ export default function UnifiedPuzzleLoader({ isOpen, onClose, onPuzzleLoaded, u
                   />
                 ) : (
                   <div className="text-center py-12">
-                    <svg className="w-16 h-16 mx-auto text-slate-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-16 h-16 mx-auto text-slate-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
-                    <p className="text-slate-400 mb-4">Sign in to upload puzzles via image</p>
+                    <p className="text-slate-300 mb-1 font-medium">Reading a puzzle from a photo needs an account</p>
+                    <p className="text-slate-400 mb-4 max-w-sm mx-auto text-sm">
+                      The grid is read on the server, which is why this one asks you to sign in. Typing or pasting a puzzle on the Text tab never does.
+                    </p>
                     <button
                       onClick={() => base44.auth.redirectToLogin(window.location.href)}
                       className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors"
