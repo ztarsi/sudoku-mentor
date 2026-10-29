@@ -27,7 +27,7 @@ import {
   applyLogicStep,
   eliminateCandidatesFromPeers,
 } from '../logicEngine';
-import { ALS_FINDERS, ALS_TECHNIQUE_NAMES } from '../alsEngine';
+import { ALS_TECHNIQUE_NAMES } from '../alsEngine';
 import { chainWalk, explainStep } from '../explainStep';
 import { buildChainOverlay, buildFocusedCandidates } from '../stepHighlights';
 import {
@@ -605,35 +605,14 @@ describe('the family on the ladder', () => {
     }
   });
 
-  it('each detector stays well inside the 150 ms a count may cost', () => {
-    // The densest board there will ever be: a library puzzle before a
-    // single digit has been placed, where every set that will ever exist
-    // exists at once.
-    //
-    // Each one is timed three times and the quickest run is the one that
-    // counts. The budget is what the detector costs; a test runner with
-    // half a dozen other files on it at the same time is not part of that,
-    // and a single sample on a shared machine swings by half as much again
-    // (#75 measured 105 ms and 159 ms back to back for the same work). Each
-    // run gets a board of its own, because the sets are cached per grid and
-    // a second run on the same one would time the cache instead of the work.
-    const SAMPLES = 3;
-    const costs = [];
-    for (const { name, puzzle } of Object.values(PUZZLES).flat()) {
-      for (const [technique, find] of Object.entries(ALS_FINDERS)) {
-        let quickest = Infinity;
-        for (let sample = 0; sample < SAMPLES; sample++) {
-          const board = buildGrid(puzzle);
-          const started = performance.now();
-          find(board, null, true);
-          quickest = Math.min(quickest, performance.now() - started);
-        }
-        costs.push({ where: `${technique} on ${name}`, ms: quickest });
-      }
-    }
-    const worst = costs.reduce((a, b) => (a.ms > b.ms ? a : b));
-    expect(worst.ms, `the worst was ${worst.where} at ${worst.ms.toFixed(1)} ms`).toBeLessThan(150);
-  });
+  // What these four cost is asserted in countBudgets.spec.js, against the
+  // tier they are really in. The 150 ms bar that used to be measured here
+  // is the live-count promise - a count must not stutter the board while
+  // the player types - and nothing in this family is ever counted live, so
+  // that bar now sits per detector on the twenty-two COUNT_LIVE detectors,
+  // which had no assertion at all. These four are paid for inside Scan's
+  // total, bounded by what the Ultimate tier tells the player it costs
+  // (#100).
 
   it('the whole named ladder still answers inside a second', () => {
     for (const shelf of ['diabolical', 'ultimate']) {
