@@ -3,6 +3,10 @@
 // what applies to this board first, the whole ladder below it collapsed and
 // remembered, a way to find a technique by name, and counts that are never
 // stale and never guessed.
+//
+// And it opens short (#114): the count in a line, at most three rows,
+// hardest first, the rest behind a disclosure that says how many there are.
+// Twelve rows in teaching order was the defect.
 import React from 'react';
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, fireEvent, cleanup, within } from '@testing-library/react';
@@ -33,6 +37,13 @@ const section = (view, heading) => {
   return label.parentElement;
 };
 
+// The rows of the short view, in the order the player reads them. Every
+// technique row titles its name button "How <name> works".
+const appliesRows = (view) =>
+  within(view.getByTestId('applies-rows'))
+    .getAllByTitle(/^How .+ works$/)
+    .map((button) => button.textContent);
+
 describe('the Techniques list', () => {
   it('shows nothing but its own heading while collapsed', () => {
     const view = show({ expanded: false });
@@ -42,18 +53,104 @@ describe('the Techniques list', () => {
     expect(view.queryByText('Naked Single')).toBeNull();
   });
 
-  it('leads with what applies to this board, in teaching order', () => {
+  it('answers what applies in a line, before any row', () => {
     const view = show({ counts: { 'X-Wing': 1, 'Hidden Single': 3, 'Naked Pair': 0 } });
     const applies = section(view, 'On this board');
-    const names = within(applies).getAllByRole('button')
-      .map((b) => b.textContent)
-      .filter((t) => TECHNIQUES.some((tech) => (tech.short || tech.name) === t));
-    // Teaching order, not the order the counts arrived in
-    expect(names).toEqual(['Hidden Single', 'X-Wing']);
-    // The count is shown, and a technique with none is not in this section
+    // The count is the answer, in one line, so the rows are never the only
+    // way to learn how much is here.
+    expect(within(applies).getByText(/2 techniques apply here/)).toBeTruthy();
+    // Both are on screen, so the line does not also name the easiest
+    expect(within(applies).queryByText(/The easiest is/)).toBeNull();
+    // The counts are still there, and a technique with none is not
     expect(within(applies).getByText('(3)')).toBeTruthy();
     expect(within(applies).getByText('(1)')).toBeTruthy();
     expect(within(applies).queryByText('Naked Pair')).toBeNull();
+  });
+
+  it('names the easiest in the line when the rows have no room for it', () => {
+    const view = show({
+      counts: { 'Naked Single': 1, 'Hidden Single': 1, 'X-Wing': 1, Swordfish: 1 },
+    });
+    const applies = section(view, 'On this board');
+    expect(within(applies).getByText(/4 techniques apply here/)).toBeTruthy();
+    expect(within(applies).getByText(/The easiest is/)).toBeTruthy();
+    // Naked Single is the easiest and has no row of its own
+    expect(appliesRows(view)).not.toContain('Naked Single');
+    expect(within(applies).getByRole('button', { name: 'Naked Single' })).toBeTruthy();
+  });
+
+  it('leads the rows with the hardest applicable technique, not the easiest', () => {
+    // Teaching ranks: Naked Single 0, Hidden Single 1, X-Wing 11,
+    // Swordfish 12. The easiest is what the hint card is about to hand the
+    // player, so the rows start at the other end of the ladder.
+    const view = show({
+      counts: { 'Naked Single': 1, 'Hidden Single': 1, 'X-Wing': 1, Swordfish: 1 },
+    });
+    expect(appliesRows(view)).toEqual(['Swordfish', 'X-Wing', 'Hidden Single']);
+  });
+
+  it('opens short however much applies: three rows, never twelve', () => {
+    const everything = Object.fromEntries(TECHNIQUES.map((tech) => [tech.name, 2]));
+    const view = show({ counts: everything, uniqueness: 'one' });
+    expect(appliesRows(view)).toHaveLength(3);
+    expect(within(section(view, 'On this board')).getByText(
+      new RegExp(`${TECHNIQUES.length} techniques apply here`)
+    )).toBeTruthy();
+  });
+
+  it('says how many it is holding back, and shows them when asked', () => {
+    const view = show({
+      counts: { 'Naked Single': 1, 'Hidden Single': 1, 'X-Wing': 1, Swordfish: 1 },
+    });
+    // Hidden rows are visibly hidden: the control carries the count.
+    const more = view.getByRole('button', { name: /Show all 4/ });
+    expect(more.getAttribute('aria-expanded')).toBe('false');
+
+    fireEvent.click(more);
+    expect(appliesRows(view)).toEqual(['Swordfish', 'X-Wing', 'Hidden Single', 'Naked Single']);
+    const fewer = view.getByRole('button', { name: /Show fewer/ });
+    expect(fewer.getAttribute('aria-expanded')).toBe('true');
+
+    fireEvent.click(fewer);
+    expect(appliesRows(view)).toHaveLength(3);
+  });
+
+  it('offers no disclosure when nothing is hidden', () => {
+    const view = show({ counts: { 'X-Wing': 1, Swordfish: 1, 'Naked Single': 1 } });
+    expect(appliesRows(view)).toHaveLength(3);
+    expect(view.queryByRole('button', { name: /Show all/ })).toBeNull();
+  });
+
+  it('counts one applicable technique in words that fit one, and gives it the row', () => {
+    const view = show({ counts: { 'X-Wing': 2 } });
+    const applies = section(view, 'On this board');
+    expect(within(applies).getByText('1 technique applies here.')).toBeTruthy();
+    expect(within(applies).queryByText(/The easiest is/)).toBeNull();
+    expect(appliesRows(view)).toEqual(['X-Wing']);
+  });
+
+  it('opens the lesson for the technique the line names', () => {
+    const onSelectTechnique = vi.fn();
+    const view = show({
+      counts: { 'Naked Single': 1, 'Hidden Single': 1, 'X-Wing': 1, Swordfish: 1 },
+      onSelectTechnique,
+    });
+    fireEvent.click(
+      within(section(view, 'On this board')).getByRole('button', { name: 'Naked Single' })
+    );
+    expect(onSelectTechnique).toHaveBeenCalledWith('Naked Single');
+  });
+
+  it('opens short again on a new board, rather than as the last one was left', () => {
+    const view = show({ counts: { 'Naked Single': 1, 'Hidden Single': 1, 'X-Wing': 1, Swordfish: 1 } });
+    fireEvent.click(view.getByRole('button', { name: /Show all 4/ }));
+    expect(appliesRows(view)).toHaveLength(4);
+
+    // A board change drops every count at once (useTechniqueCounts)
+    view.rerender(<TechniquePanel {...base} counts={{}} counting />);
+    view.rerender(<TechniquePanel {...base} counts={{ 'Naked Single': 1, 'Hidden Single': 1, 'X-Wing': 1, Swordfish: 1 }} />);
+    expect(appliesRows(view)).toHaveLength(3);
+    expect(view.getByRole('button', { name: /Show all 4/ })).toBeTruthy();
   });
 
   it('is short: it never repeats the whole ladder at the top', () => {

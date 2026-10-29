@@ -14,10 +14,22 @@ import {
 import { UNIQUENESS_UNKNOWN, uniquenessAllowed, uniquenessNote, uniquenessShortNote } from '../uniqueness';
 
 /**
- * The Techniques list, built to stay useful at fifty-odd names.
+ * The Techniques list, built to stay useful at a hundred names.
  *
- * What applies to the board in front of the player comes first and is
- * short. Below it the whole ladder, by tier, collapsed, with each tier's
+ * What applies to the board in front of the player comes first, and it
+ * opens short: one line that answers "what applies here", then at most
+ * PREVIEW_ROWS rows, then a disclosure carrying the count of the rest. The
+ * cap is a constant rather than a share of the catalog, so the panel opens
+ * the same length at a hundred techniques as at today's sixty-one (#114).
+ *
+ * Those rows are hardest-first, the one place this panel departs from
+ * teaching order. The easiest applicable technique is the move the hint
+ * card is already about to hand the player, so leading the rows with it
+ * spends the top of the panel on what they have; it is named in the line
+ * instead, where it costs one clause. The rows are for the rest - the
+ * patterns on this board that the hint is not about to give them.
+ *
+ * Below it the whole ladder, by tier, collapsed, with each tier's
  * open-or-closed choice remembered. A filter box finds a technique by its
  * plain name, its formal name or the name a guide would use for it, so the
  * player never scrolls past tiers they do not care about.
@@ -28,7 +40,9 @@ import { UNIQUENESS_UNKNOWN, uniquenessAllowed, uniquenessNote, uniquenessShortN
  * from the previous board.
  *
  * A Scan of the expensive tiers reports here too, rather than in a dialog
- * over the board the counts are about (issue #105). Its rows say they are
+ * over the board the counts are about (issue #105). What it finds are
+ * counts like any other, so they join the same short view and are capped
+ * by it: a Scan cannot reopen the long list by a second route (#114). Its rows say they are
  * counting, each count arrives in the row and, when there is something to
  * find, at the top under "On this board"; the tier carries one line of
  * progress with a way to stop it, and one line saying what was found. The
@@ -48,6 +62,12 @@ const SEARCH_BUTTON = {
   fuchsia: 'bg-fuchsia-600 hover:bg-fuchsia-500',
   amber: 'bg-amber-600 hover:bg-amber-500',
 };
+
+// How many applicable techniques the short view lists before it offers the
+// rest behind a disclosure. A constant, not a share of the catalog: the
+// panel has to open short at a hundred techniques as well as at today's
+// sixty-one, and twelve rows was the defect (#114).
+const PREVIEW_ROWS = 3;
 
 const TIERS_OPEN_KEY = 'sudoku-mentor:technique-tiers-open';
 
@@ -148,6 +168,7 @@ export default function TechniquePanel({
 }) {
   const [query, setQuery] = useState('');
   const [openTiers, setOpenTiers] = useState(readOpenTiers);
+  const [showAll, setShowAll] = useState(false);
 
   const toggleTier = (level) => {
     setOpenTiers((prev) => {
@@ -205,10 +226,29 @@ export default function TechniquePanel({
     scanLine.current?.scrollIntoView?.({ block: 'nearest' });
   }, [scanStep]);
 
+  // Hardest first. TECHNIQUES is in teaching order, so reversing the
+  // filtered list ranks what applies without a second ordering to keep in
+  // step with it - and the ladder's own order is untouched.
   const applies = useMemo(
-    () => (countsOff ? [] : TECHNIQUES.filter((tech) => counts[tech.name] > 0)),
+    () => (countsOff ? [] : TECHNIQUES.filter((tech) => counts[tech.name] > 0).reverse()),
     [counts, countsOff]
   );
+  const easiest = applies.length > 0 ? applies[applies.length - 1] : null;
+  const shown = showAll ? applies : applies.slice(0, PREVIEW_ROWS);
+  const hidden = applies.length - shown.length;
+  // The line names the easiest exactly when the rows do not show it, which
+  // - the rows being hardest-first, so the easiest is the last to survive
+  // the cap - is exactly when something is hidden. Naming it while its own
+  // row is on screen would say the same thing twice.
+  const nameEasiest = hidden > 0;
+
+  // A new board drops every count at once (useTechniqueCounts), so the
+  // short view opens short again rather than staying as the last board
+  // left it. Counts arriving a slice at a time only ever grow the list, so
+  // an expansion the player asked for is not snapped shut under them.
+  useEffect(() => {
+    if (applies.length === 0) setShowAll(false);
+  }, [applies.length]);
   const matches = useMemo(() => matchTechniques(query), [query]);
   const filtering = query.trim().length > 0;
 
@@ -305,7 +345,8 @@ export default function TechniquePanel({
                 </div>
               ) : (
                 <>
-                  {/* What applies to this board, in teaching order */}
+                  {/* What applies to this board: the count in a line, the
+                      hardest few as rows, the rest one tap away */}
                   {!countsOff && (
                     <div>
                       <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">On this board</p>
@@ -314,15 +355,61 @@ export default function TechniquePanel({
                           out again on every tier expand (issue #109). */}
                       <div>
                         {applies.length > 0 ? (
-                          applies.map((tech) => (
-                            <TechniqueRow
-                              key={tech.name}
-                              tech={tech}
-                              count={counts[tech.name]}
-                              showTier
-                              {...rowProps}
-                            />
-                          ))
+                          <>
+                            {/* The answer in a line, so the rows are never
+                                the only way to learn how much is here, and
+                                so the count does not grow with the catalog.
+                                Where the easiest is out of sight the line
+                                names it too: that is the orientation a
+                                learner needs, and the move the hint card is
+                                about to give them. */}
+                            <p className="text-sm text-slate-300 mb-1">
+                              {applies.length === 1
+                                ? '1 technique applies here.'
+                                : `${applies.length} techniques apply here.`}
+                              {nameEasiest && (
+                                <>
+                                  {' '}
+                                  The easiest is{' '}
+                                  <button
+                                    onClick={() => onSelectTechnique(easiest.name)}
+                                    className="text-blue-400 hover:text-blue-300 hover:underline"
+                                    title={`How ${easiest.name} works`}
+                                  >
+                                    {easiest.short || easiest.name}
+                                  </button>
+                                  .
+                                </>
+                              )}
+                            </p>
+                            <div data-testid="applies-rows">
+                              {shown.map((tech) => (
+                                <TechniqueRow
+                                  key={tech.name}
+                                  tech={tech}
+                                  count={counts[tech.name]}
+                                  showTier
+                                  {...rowProps}
+                                />
+                              ))}
+                            </div>
+                            {/* Hidden rows are never silently hidden: the
+                                control carries how many there are. */}
+                            {(hidden > 0 || showAll) && (
+                              <button
+                                onClick={() => setShowAll((open) => !open)}
+                                aria-expanded={showAll}
+                                className="mt-1 inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 hover:underline"
+                              >
+                                {showAll ? (
+                                  <ChevronUp className="w-3.5 h-3.5" aria-hidden="true" />
+                                ) : (
+                                  <ChevronDown className="w-3.5 h-3.5" aria-hidden="true" />
+                                )}
+                                {showAll ? 'Show fewer' : `Show all ${applies.length}`}
+                              </button>
+                            )}
+                          </>
                         ) : counting || scanning ? (
                           <p className="text-sm text-slate-400">Checking the board…</p>
                         ) : scanned ? (
