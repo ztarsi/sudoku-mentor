@@ -26,16 +26,36 @@ export default function Callout({ children, onDismiss, arrow = 'down', className
       <span>{children}</span>
       {/* The dismiss measured 22x22, under the 24x24 that WCAG 2.2 AA asks
           for, and it sits over the board: a thumb that misses it places a
-          digit. The glyph and the padding stay as they were and an invisible
-          44x44 hit area is centred on them (issue #109). */}
+          digit (issues #109, #107).
+
+          The button itself is 44x44 now. It was a 22x22 button with an
+          invisible 44x44 pseudo-element over it, which did take the taps -
+          a click 21px out from the glyph dismissed the callout on the
+          deployed build - but every way of measuring a target, an audit
+          tool and a person with a ruler alike, reads the element's box and
+          saw 22x22. A target that cannot be measured gets reported again,
+          so it is the box that is 44x44.
+
+          The negative margin keeps the callout the size it was: the box
+          grows outwards from the glyph, 11px on each side, without taking
+          any more room in the row. The glyph stays 14px and the hover and
+          focus marks stay on the 22x22 chip, so nothing here looks
+          different; only the part that answers a thumb is bigger. The box
+          carries no rounding of its own, because a rounded corner does not
+          answer a tap: with one, two of the nine probes on the 44x44 square
+          missed. It does not shrink either - in the narrow callout on the
+          hint card the row squeezed it to 42px wide, and a target that is
+          44 only where there is room is not 44. */}
       <button
         type="button"
         onClick={onDismiss}
         aria-label="Got it"
         title="Got it"
-        className="relative p-1 rounded-lg text-amber-200/80 hover:text-amber-50 hover:bg-amber-900/60 transition-colors before:absolute before:left-1/2 before:top-1/2 before:h-11 before:w-11 before:-translate-x-1/2 before:-translate-y-1/2 before:content-['']"
+        className="group -m-[11px] h-11 w-11 shrink-0 flex items-center justify-center focus:outline-none text-amber-200/80 hover:text-amber-50 transition-colors"
       >
-        <X className="w-3.5 h-3.5" aria-hidden="true" />
+        <span className="p-1 rounded-lg transition-colors group-hover:bg-amber-900/60 group-focus-visible:ring-2 group-focus-visible:ring-amber-300">
+          <X className="w-3.5 h-3.5" aria-hidden="true" />
+        </span>
       </button>
       <span
         aria-hidden="true"
