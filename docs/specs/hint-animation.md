@@ -24,10 +24,12 @@ The founder's is the template. This spec writes it down so every technique can f
 
 ## What makes it a template rather than one animation
 
-- **One frame builder per technique.** It takes a step and returns an ordered list of frames. A frame says how much of the picture to draw and carries exactly one caption.
+- **One frame builder per family, chosen by what a step carries rather than by its name.** A builder takes a step and returns an ordered list of frames; a frame says how much of the picture to draw and carries exactly one caption. A technique joins in by carrying its family's shape, so a new technique animates without being added to a list. (Amended 2026-10-26: the first version said one builder per technique, which would not have fitted in the bundle at sixty-one techniques and would have needed editing for every new one.)
 - **The card starts it, the board draws it.** A small shared store holds the current frame, so the frame never travels down the page's prop chain.
 - **No technique invents its own playback.** One control set, one timer, one store, one overlay. A card with its own prev and next is a bug.
+- **The board stands down while an animation plays.** Everything the board draws for a step at rest gives way: the highlighted cells, the chain, the colouring tints, the set outlines, and above all the red marks the step is about to erase. Without that last one the board shows the conclusion before the first frame and the animation has nothing left to reveal. (Added 2026-10-26, found by building it: the template on `main` already did this for the highlighted cells and said why.)
 - **A frame is one idea.** If a caption needs two sentences to explain what changed, the frame is doing too much and should be two frames.
+- **Changing the explanation level mid-animation keeps your place.** A player who toggles Beginner to Expert part-way through a proof wants the same frame in other words, not a closed animation. The picture is identical at both levels, so the frame number carries over. (Decided 2026-10-26.)
 - **Captions follow the explanation level.** Beginner is the default and uses the vocabulary rules the lesson text already follows: no *candidate*, *unit*, *strong link*, *node* or *conjugate*, one idea per sentence, cells named like `R5C3`. Expert captions use the standard terms and notation. The template as built writes at one level; this is the one thing it must gain.
 - **Reduced motion is honoured.** Where the player's system asks for reduced motion, frames still change but transitions do not animate, and the animation does not start playing by itself. A feature whose whole job is motion has to take that setting seriously.
 - **A single-step proof gets no button.** One frame is not an animation, so singles, intersections and the simpler subsets do not offer one.
@@ -75,3 +77,20 @@ What goes is the second playback mechanism: the in-card list, its controls and i
 - Nobody has to ask for a hint again to see the explanation a second time.
 - One playback implementation exists in the codebase. The way to check is to look for a second set of controls and find none.
 - With reduced motion set, the animation is still usable and does not move on its own.
+
+## Outcome
+
+Rolled out in PR #102 to `staging` on 2026-10-26, on top of the `main` reconciliation in PR #101. Verified by the product manager on 2026-10-29: lint, typecheck, 760 tests and build pass, and the analyser's per-shelf report and never-taught list are byte-identical to before, so nothing about the engine moved.
+
+**Built without this spec, which is my fault.** The pull request carrying this file sat unmerged for three days while I believed CI was blocking it, so the developer built from the issue body and said so on the issue twice. It landed close to the spec anyway, and improved on it in three places, all folded in above: builders dispatch on what a step carries rather than on a technique's name, the board stands down its at-rest drawing while an animation plays, and the elimination marks in particular have to stand down or the board gives the answer away before the first frame.
+
+What shipped:
+
+- **36 techniques animate from real library steps,** plus the five forcing techniques and Hypothesis Mode from their own engines and a hand-built rectangle for the uniqueness family. The two singles correctly offer no button.
+- **Each family's frames:** chains and colouring grow a link at a time with the active link drawn heavier; forcing proofs draw each case in its own colour with the digits it forces as ghosts that reset when the next case opens; fish show the base lines, then the lines the eliminations come from, then the crosses; subsets, wings, sets, uniqueness and the box-line families show the shape, then the piece that makes it work, then what it erases, in the order their own lesson text names them.
+- **The captions are the walk's sentences,** with each link now also given in the standard notation, so the Beginner and the Expert read the same proof in their own words. No new English was written. A test asserts the two levels differ for every technique, that the Beginner captions obey the vocabulary rules, and that the picture is identical at either level.
+- **Reduced motion is honoured in all three places,** and a test caught that framer-motion's own hook caches globally, so it would have been read once per page load and never updated.
+- **One playback survives.** The in-card list, its controls, its step counter and the playback index threaded through four components are gone: 215 lines fewer outside the new builder.
+- **Nine lines of lesson text still pointed at the list that no longer exists** and now point at the animation. The developer found those only by driving the built app, which is the argument for doing that rather than trusting tests.
+
+Two things to carry forward. **17 techniques have no library step of their own to animate**, the thirteen uniqueness ones, W-Wing, Remote Pairs and the two Sue de Coqs; they animate by sharing a family's builder but are not verified on a real step. They are named explicitly in the test, so one dropping out fails rather than passing quietly, and they are the same set [teaching coverage](teaching-coverage.md) (#88) is about. And the bundle is at **980,469 bytes of the 1,000,000 budget**, 19.5 kB of headroom, which makes [#91](first-board-payload.md) the next thing that will block work rather than a tidy-up.
