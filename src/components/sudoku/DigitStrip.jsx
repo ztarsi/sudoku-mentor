@@ -123,6 +123,7 @@ export default function DigitStrip({
               onClick={hint.onClick}
               disabled={!!hint.disabled}
               aria-label="Get a hint"
+              data-hint-control
               className={`flex-1 rounded-lg text-sm font-medium flex items-center justify-center gap-1.5 transition-colors ${controlSize} ${
                 hint.disabled
                   ? 'bg-slate-800/60 text-slate-600 cursor-not-allowed'

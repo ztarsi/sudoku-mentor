@@ -1,8 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Lightbulb, Eye, Sparkles, Check, FlaskConical, Timer, Trophy, Play, ChevronRight, Loader2, X, Sprout } from 'lucide-react';
 import { LEVEL_COLORS, TECHNIQUE_INFO, isTrialTechnique } from '../techniqueCatalog';
-import { explainStep, readExplainLevel, writeExplainLevel, legendFor } from '../explainStep';
+import { announceStep, explainStep, readExplainLevel, writeExplainLevel, legendFor } from '../explainStep';
 
 import { cellName as cellRef } from '../gridUnits';
 import Callout from '../Callout';
@@ -202,6 +202,10 @@ const LoopShape = ({ loopCells, grid }) => {
   );
 };
 
+/** What the "only singles left" card says, for the live region. */
+const ONLY_SINGLES =
+  'Only singles left. Every empty cell now shows a single pencil mark; write them in to finish.';
+
 const formatTime = (seconds) => {
   const s = Math.max(0, Math.floor(seconds || 0));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
@@ -219,7 +223,20 @@ const digitsOf = (step) => {
   return { involved, removed };
 };
 
-const CardShell = ({ tone = 'slate', icon: Icon, title, subtitle, children }) => {
+/**
+ * The frame every card state shares.
+ *
+ * Every state is focusable (`tabIndex={-1}`) and takes the card ref, so the
+ * lesson that just arrived can be given focus instead of leaving it at the
+ * top of the document; `announce` is what a screen reader hears when the
+ * card appears (issue #109). Both are passed by every state rather than
+ * only the two that use them, because the shell is updated in place when
+ * one state replaces another and a ref that arrives on an update is not
+ * attached. The ring is `focus-visible`, so a lesson asked for with the
+ * keyboard shows where focus went and one asked for with the mouse does
+ * not light up under the pointer.
+ */
+const CardShell = ({ tone = 'slate', icon: Icon, title, subtitle, innerRef = null, announce = '', children }) => {
   const tones = {
     slate: { icon: 'bg-slate-800 text-slate-500', title: 'text-white' },
     found: { icon: 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg', title: 'text-white' },
@@ -229,11 +246,17 @@ const CardShell = ({ tone = 'slate', icon: Icon, title, subtitle, children }) =>
   const t = tones[tone] || tones.slate;
   return (
     <motion.div
+      ref={innerRef}
+      tabIndex={-1}
+      data-lesson-card
       data-tone={tone}
-      className={`rounded-2xl shadow-lg shadow-black/50 overflow-hidden border ${
+      className={`rounded-2xl shadow-lg shadow-black/50 overflow-hidden border focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/80 ${
         tone === 'whatif' ? 'bg-amber-950/30 border-amber-700/60' : 'bg-slate-900 border-slate-700'
       }`}
     >
+      {/* What a screen reader hears when this card appears. The region is
+          part of the card, the way the refusal line is part of the strip. */}
+      <p className="sr-only" role="status" aria-live="polite">{announce}</p>
       <div className={`px-5 py-4 border-b ${tone === 'whatif' ? 'border-amber-800/50' : 'border-slate-800'}`}>
         <div className="flex items-center gap-3">
           <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${t.icon}`}>
@@ -316,6 +339,47 @@ export default function CurrentStepCard({
     return () => clearInterval(id);
   }, [noAssistMode, solved, getElapsedSeconds]);
 
+  // ---------- Focus and speech when a lesson arrives (issue #109)
+  //
+  // Pressing "Get a hint" used to render the lesson, drop focus on <body>
+  // and say nothing. Focus now moves into the card, so the next Tab
+  // continues from the lesson, and the card's live region says what was
+  // found. Both are keyed on the step itself: re-reading the same hint, or
+  // switching between Beginner and Expert, is not a new lesson and neither
+  // moves focus nor interrupts.
+  const cardRef = useRef(/** @type {any} */ (null));
+  const stepId = currentStep
+    ? [
+        currentStep.technique,
+        currentStep.placement ? `${currentStep.placement.cell}=${currentStep.placement.digit}` : '',
+        (currentStep.eliminations ?? []).map((e) => `${e.cell}-${e.digit}`).join(','),
+      ].join('|')
+    : '';
+  // The effect reads the latest step through a ref, so it fires for a new
+  // lesson and not for every re-render of the one on screen.
+  const latest = useRef({ currentStep, grid, explainLevel });
+  latest.current = { currentStep, grid, explainLevel };
+
+  useEffect(() => {
+    if (!stepId && !nothingLeft) return;
+    const node = cardRef.current;
+    if (!node || typeof node.focus !== 'function') return;
+    // Never take focus from somewhere the player put it themselves.
+    if (node.contains(document.activeElement)) return;
+    node.focus();
+  }, [stepId, nothingLeft]);
+
+  // The region is rendered empty and filled a commit later: a screen reader
+  // announces a change to a live region, and a region that arrives with its
+  // text already in it has not changed.
+  const [announced, setAnnounced] = useState('');
+  useEffect(() => {
+    const { currentStep: step, grid: atGrid, explainLevel: level } = latest.current;
+    if (step) setAnnounced(announceStep(step, atGrid, level));
+    else if (nothingLeft) setAnnounced(ONLY_SINGLES);
+    else setAnnounced('');
+  }, [stepId, nothingLeft]);
+
   // Only trial and error wears the what-if heading and colour: a forcing
   // proof checks every option, so it is a deduction and is shown as one (#75).
   const isWhatIf = !!currentStep && isTrialTechnique(currentStep.technique);
@@ -329,7 +393,14 @@ export default function CurrentStepCard({
       seen.set(entry.technique, { count: prev.count + 1, byPlayer: prev.byPlayer + (entry.byPlayer ? 1 : 0) });
     }
     return (
-      <CardShell tone="solved" icon={Trophy} title="Solved" subtitle={`${formatTime(solved.timeInSeconds)} · ${solved.errorCount === 0 ? 'no errors' : `${solved.errorCount} error${solved.errorCount === 1 ? '' : 's'}`}`}>
+      <CardShell
+        tone="solved"
+        icon={Trophy}
+        title="Solved"
+        subtitle={`${formatTime(solved.timeInSeconds)} · ${solved.errorCount === 0 ? 'no errors' : `${solved.errorCount} error${solved.errorCount === 1 ? '' : 's'}`}`}
+        innerRef={cardRef}
+        announce={announced}
+      >
         <div className="p-4 space-y-3">
           {seen.size > 0 ? (
             <div>
@@ -366,7 +437,13 @@ export default function CurrentStepCard({
   // ---------- No Assist
   if (noAssistMode) {
     return (
-      <CardShell icon={Timer} title={formatTime(clock)} subtitle="Hints are off in No Assist.">
+      <CardShell
+        icon={Timer}
+        title={formatTime(clock)}
+        subtitle="Hints are off in No Assist."
+        innerRef={cardRef}
+        announce={announced}
+      >
         <div className="p-4 text-sm text-slate-400">Every solve is timed and recorded when it is clean. Switch No Assist off in the header to get hints again.</div>
       </CardShell>
     );
@@ -375,7 +452,14 @@ export default function CurrentStepCard({
   // ---------- Searching
   if (searching) {
     return (
-      <CardShell tone="whatif" icon={Loader2} title="Looking for a what-if chain..." subtitle="No named technique applies here.">
+      <CardShell
+        tone="whatif"
+        icon={Loader2}
+        title="Looking for a what-if chain..."
+        subtitle="No named technique applies here."
+        innerRef={cardRef}
+        announce={announced}
+      >
         <div className="p-4 space-y-3" role="status" aria-live="polite">
           <p className="text-sm text-slate-300">The board stays usable. Changing it stops the search.</p>
           <ActionRow>
@@ -395,6 +479,8 @@ export default function CurrentStepCard({
         icon={isWhatIf ? FlaskConical : Lightbulb}
         title={isWhatIf ? 'Reasoning by trial' : currentStep.technique}
         subtitle={isWhatIf ? 'No named technique applies. This hint tests a value and follows where it leads.' : techniqueInfo?.level}
+        innerRef={cardRef}
+        announce={announced}
       >
         <AnimatePresence mode="wait">
           <motion.div
@@ -471,7 +557,13 @@ export default function CurrentStepCard({
   // ---------- Only singles left
   if (nothingLeft) {
     return (
-      <CardShell icon={Sprout} title="Only singles left" subtitle="The pencil marks say the rest.">
+      <CardShell
+        icon={Sprout}
+        title="Only singles left"
+        subtitle="The pencil marks say the rest."
+        innerRef={cardRef}
+        announce={announced}
+      >
         <div className="p-4 space-y-3">
           <p className="text-base text-slate-200">Every empty cell now shows a single pencil mark; write them in to finish.</p>
           <ActionRow>
@@ -486,14 +578,20 @@ export default function CurrentStepCard({
 
   // ---------- Idle
   return (
-    <CardShell icon={Lightbulb} title="Stuck? Ask for a hint." subtitle="The mentor finds the next logical step and explains it.">
+    <CardShell
+      icon={Lightbulb}
+      title="Stuck? Ask for a hint."
+      subtitle="The mentor finds the next logical step and explains it."
+      innerRef={cardRef}
+      announce={announced}
+    >
       <div className="p-4 space-y-3">
         {hintPrompt && (
           <div>
             <Callout arrow="down" onDismiss={hintPrompt.onDismiss} testId="prompt-hint">{hintPrompt.text}</Callout>
           </div>
         )}
-        <PrimaryButton onClick={onNextStep} aria-label="Get a hint" aria-keyshortcuts="H">
+        <PrimaryButton onClick={onNextStep} aria-label="Get a hint" aria-keyshortcuts="H" data-hint-control>
           <Lightbulb className="w-4 h-4" aria-hidden="true" /> Hint
         </PrimaryButton>
       </div>

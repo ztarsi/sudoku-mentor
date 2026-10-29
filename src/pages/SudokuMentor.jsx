@@ -10,7 +10,8 @@ import ConfirmDialog from '@/components/sudoku/ConfirmDialog';
 import AccountMenu from '@/components/sudoku/AccountMenu';
 import KeyboardShortcutsDialog from '@/components/sudoku/panel/KeyboardShortcutsDialog';
 import { playErrorTone } from '@/components/sudoku/errorSound';
-import { resolveShortcut, isTypingTarget } from '@/components/sudoku/keyboardShortcuts';
+import { resolveShortcut, isTypingTarget, overlayOwnsKeyboard } from '@/components/sudoku/keyboardShortcuts';
+import { restoreFocusAfterLesson } from '@/components/sudoku/lessonFocus';
 import { findNextLogicStep, onlySinglesRemain } from '@/components/sudoku/logicEngine';
 import { UNIQUENESS_MANY, UNIQUENESS_ONE, uniquenessNote } from '@/components/sudoku/uniqueness';
 import { searchWhatIf, isCancelled, isTimedOut, HINT_TIME_BUDGET_MS } from '@/components/sudoku/whatIfSearch';
@@ -262,6 +263,8 @@ export default function SudokuMentor() {
     setFocusedCandidates(null);
     setRemovalCandidates(null);
     setNothingLeft(false);
+    // The lesson is gone; focus must not be left at the top of the document.
+    restoreFocusAfterLesson();
   }, []);
 
   const handleCellClick = useCallback(
@@ -492,6 +495,7 @@ export default function SudokuMentor() {
     setHighlightedDigit(null);
     setRemovalCandidates(null);
     setFocusedCandidates(null);
+    restoreFocusAfterLesson();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep, effectiveNoAssist, game.applyStep]);
 
@@ -601,8 +605,9 @@ export default function SudokuMentor() {
       // Typing in a text field is never a shortcut.
       if (isTypingTarget(e.target)) return;
 
-      // Any open dialog owns the keyboard: the page-level flags plus the
-      // dialogs the logic panel opens on its own (technique info, scans).
+      // Any open dialog or menu owns the keyboard: the page-level flags
+      // plus the dialogs the logic panel opens on its own (technique info,
+      // scans) and the header menu.
       const isModalOpen =
         showPuzzleLoader ||
         showColorSettings ||
@@ -610,7 +615,7 @@ export default function SudokuMentor() {
         showAppInfo ||
         showClearConfirm ||
         showHowToPlay ||
-        !!document.querySelector('[role="dialog"]');
+        overlayOwnsKeyboard();
       if (isModalOpen) return;
 
       // Holding Shift switches to candidate mode for mouse clicks too
@@ -991,7 +996,9 @@ export default function SudokuMentor() {
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 lg:gap-4 min-w-0">
               <div className="flex items-center gap-3 shrink-0">
-                <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-lg lg:rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
+                {/* The badge is the whole logo, so its "9" has to carry 4.5:1
+                    against both ends of the gradient in both themes (#109). */}
+                <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-lg lg:rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center shadow-lg shadow-blue-500/25">
                   <span className="text-white font-bold text-sm lg:text-lg">9</span>
                 </div>
                 {arrangement === 'wide' && (
@@ -1059,7 +1066,7 @@ export default function SudokuMentor() {
               <button
                 type="button"
                 onClick={() => setShowPuzzleLoader(true)}
-                className="px-2.5 lg:px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-lg lg:rounded-xl transition-all duration-200 flex items-center justify-center gap-1.5 font-medium text-sm"
+                className="px-2.5 lg:px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg lg:rounded-xl transition-all duration-200 flex items-center justify-center gap-1.5 font-medium text-sm"
                 title="Load puzzle" aria-label="Load Puzzle"
               >
                 <FolderOpen className="w-4 h-4 lg:w-5 lg:h-5 pointer-events-none" aria-hidden="true" />
@@ -1137,7 +1144,10 @@ export default function SudokuMentor() {
           open={sheetOpen}
           pinned={sheetPinned}
           onPinnedChange={handlePinnedChange}
-          onClose={() => setSheetOpen(false)}
+          onClose={() => {
+            setSheetOpen(false);
+            restoreFocusAfterLesson();
+          }}
           topOffset={headerHeight}
           bottomOffset={bottomBarHeight}
           onHeightChange={lesson === 'bottom' ? setSheetHeight : undefined}

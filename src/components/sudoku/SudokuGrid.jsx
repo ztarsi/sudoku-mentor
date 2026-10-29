@@ -110,13 +110,13 @@ export default function SudokuGrid({
 
   // DOM focus follows the selection so keyboard users can Tab to the grid
   // and screen readers hear the newly selected cell. Never steal focus
-  // from a dialog or a text field.
+  // from a dialog, an open menu or a text field.
   useEffect(() => {
     if (selectedCell === null || selectedCell === undefined) return;
     const el = document.getElementById(`sudoku-cell-${selectedCell}`);
     if (!el) return;
     const active = document.activeElement;
-    if (active && (active.closest('[role="dialog"]') || isTypingTarget(active))) return;
+    if (active && (active.closest('[role="dialog"], [role="menu"]') || isTypingTarget(active))) return;
     if (active === el) return;
     el.focus({ preventScroll: true });
   }, [selectedCell]);

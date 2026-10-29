@@ -156,6 +156,9 @@ const c1 = (i) => getCol(i) + 1;
 export const plainCell = (i) => `row ${r1(i)}, column ${c1(i)}`;
 /** "R5C1" - the notation used everywhere else; shorter and easier to scan. */
 export const shortCell = (i) => `R${r1(i)}C${c1(i)}`;
+/** The same text with R5C3 read out in full, for speech. */
+export const speakCells = (text) =>
+  String(text ?? '').replace(/\bR([1-9])C([1-9])\b/g, 'row $1, column $2');
 /** The legend shown under beginner explanations. */
 export const CELL_LEGEND = 'R5C3 means row 5, column 3.';
 
@@ -1492,6 +1495,34 @@ export function explainStep(step, grid, level = 'simple') {
     action,
     terms: [],
   };
+}
+
+/**
+ * The hint as one short line for a screen reader (issue #109).
+ *
+ * The card's heading names the technique and its "Look" and "What to do"
+ * lines say what was found and what to do with it; those are what the
+ * announcement carries. "Why it works" is left out on purpose: focus moves
+ * into the card at the same moment, so the reasoning is the next thing read
+ * from the card itself, and a status message that repeats the whole lesson
+ * talks over the player. At the Expert level there is no "Look" line, so
+ * the engine's own sentence takes its place.
+ *
+ * Cell names are spoken in full, the way the refused-entry announcement
+ * already says "row 1, column 1", because "R5C3" is a notation to read and
+ * not a phrase to hear.
+ *
+ * @param {object} step   a step object from any engine
+ * @param {Array}  grid   the current grid
+ * @param {'simple'|'detailed'} level
+ * @returns {string}
+ */
+export function announceStep(step, grid, level = 'simple') {
+  if (!step) return '';
+  const explanation = explainStep(step, grid, level);
+  if (!explanation) return '';
+  const body = [explanation.look || explanation.why, explanation.action].filter(Boolean).join(' ');
+  return speakCells(`Hint: ${step.technique}. ${body}`.trim());
 }
 
 /** True when two cells share a unit; exported for the tests. */

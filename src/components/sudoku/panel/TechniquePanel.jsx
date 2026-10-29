@@ -256,7 +256,10 @@ export default function TechniquePanel({
                   {!countsOff && (
                     <div>
                       <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">On this board</p>
-                      <div aria-live="polite">
+                      {/* Not a live region: a count that changes is not a
+                          status message, and the whole list was being read
+                          out again on every tier expand (issue #109). */}
+                      <div>
                         {applies.length > 0 ? (
                           applies.map((tech) => (
                             <TechniqueRow
