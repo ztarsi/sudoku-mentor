@@ -12,6 +12,7 @@ import KeyboardShortcutsDialog from '@/components/sudoku/panel/KeyboardShortcuts
 import { playErrorTone } from '@/components/sudoku/errorSound';
 import { resolveShortcut, isTypingTarget, overlayOwnsKeyboard } from '@/components/sudoku/keyboardShortcuts';
 import { restoreFocusAfterLesson } from '@/components/sudoku/lessonFocus';
+import { PRIMARY_GRADIENT, BADGE_GRADIENT } from '@/lib/brandGradient';
 import { findNextLogicStep, onlySinglesRemain } from '@/components/sudoku/logicEngine';
 import { UNIQUENESS_MANY, UNIQUENESS_ONE, uniquenessNote } from '@/components/sudoku/uniqueness';
 import { searchWhatIf, isCancelled, isTimedOut, HINT_TIME_BUDGET_MS } from '@/components/sudoku/whatIfSearch';
@@ -998,7 +999,7 @@ export default function SudokuMentor() {
               <div className="flex items-center gap-3 shrink-0">
                 {/* The badge is the whole logo, so its "9" has to carry 4.5:1
                     against both ends of the gradient in both themes (#109). */}
-                <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-lg lg:rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center shadow-lg shadow-blue-500/25">
+                <div className={`w-8 h-8 lg:w-10 lg:h-10 rounded-lg lg:rounded-xl ${BADGE_GRADIENT} flex items-center justify-center shadow-lg shadow-blue-500/25`}>
                   <span className="text-white font-bold text-sm lg:text-lg">9</span>
                 </div>
                 {arrangement === 'wide' && (
@@ -1066,7 +1067,7 @@ export default function SudokuMentor() {
               <button
                 type="button"
                 onClick={() => setShowPuzzleLoader(true)}
-                className="px-2.5 lg:px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg lg:rounded-xl transition-all duration-200 flex items-center justify-center gap-1.5 font-medium text-sm"
+                className={`px-2.5 lg:px-4 py-2 ${PRIMARY_GRADIENT} text-white rounded-lg lg:rounded-xl transition-all duration-200 flex items-center justify-center gap-1.5 font-medium text-sm`}
                 title="Load puzzle" aria-label="Load Puzzle"
               >
                 <FolderOpen className="w-4 h-4 lg:w-5 lg:h-5 pointer-events-none" aria-hidden="true" />
