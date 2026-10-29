@@ -19,6 +19,18 @@ const DIFFICULTY_CONFIG = {
   ultimate: { icon: Brain, color: 'violet', label: 'Ultimate' }
 };
 
+/**
+ * What a screen reader reads for one puzzle button: the name first, then
+ * what the row shows next to it. Without it the accessible name came from
+ * the preview grid, so it began with eighty-one digit and "dot" tokens
+ * (issue #109).
+ */
+const puzzleButtonLabel = (puzzle, teaching) => {
+  const clues = puzzle.puzzle.filter((v) => v !== 0).length;
+  const teaches = teachingLabel(teaching);
+  return [`${puzzle.name}, ${clues} clues given`, teaches].filter(Boolean).join(', ');
+};
+
 export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = false, user = null }) {
   const [selectedDifficulty, setSelectedDifficulty] = useState('easy');
   const [editingPuzzleId, setEditingPuzzleId] = useState(null);
@@ -179,10 +191,12 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.15, delay: Math.min(index * 0.03, 0.2) }}
               onClick={() => onSelectPuzzle(puzzle.puzzle, { name: puzzle.name, difficulty: selectedDifficulty })}
+              aria-label={puzzleButtonLabel(puzzle, teaching[puzzle.puzzle.join('')])}
               className="flex items-center gap-4 p-4 bg-slate-800/70 hover:bg-slate-700/80 border border-slate-700 rounded-2xl transition-all duration-300 group text-left"
               >
-              {/* Mini Preview */}
-              <div className="w-16 h-16 bg-slate-950 rounded-xl border border-slate-700 grid grid-cols-9 gap-0 p-1 flex-shrink-0">
+              {/* Mini Preview: a picture of the grid, not eighty-one digits
+                  to read out before the puzzle's name (issue #109). */}
+              <div aria-hidden="true" className="w-16 h-16 bg-slate-950 rounded-xl border border-slate-700 grid grid-cols-9 gap-0 p-1 flex-shrink-0">
                 {puzzle.puzzle.map((val, i) => (
                   <div
                     key={i}

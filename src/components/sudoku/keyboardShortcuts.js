@@ -24,6 +24,15 @@ export const isTypingTarget = (target) => {
 };
 
 /**
+ * True while something above the page owns the keyboard: any open dialog,
+ * or the header menu, whose items answer the arrow keys themselves. Without
+ * this the board's arrow handler stayed live under the open menu and moved
+ * the selection - and with it the focus - onto a cell (issue #109).
+ */
+export const overlayOwnsKeyboard = () =>
+  typeof document !== 'undefined' && !!document.querySelector('[role="dialog"], [role="menu"]');
+
+/**
  * Map a keydown event to a shortcut action.
  *
  * @param {KeyboardEvent|object} e
