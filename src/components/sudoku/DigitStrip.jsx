@@ -6,7 +6,8 @@ import Callout from './Callout';
 /**
  * The one input strip under the board, on every width (digit-strip spec).
  *
- * Nine digit buttons with placed counts; a digit greys out when all nine
+ * Nine digit buttons, each with how many of that digit are still to
+ * place; a digit greys out, and its count becomes a tick, when all nine
  * are in. Tapping a digit arms it (digit-first: the next cell taps place
  * it) and, when a cell is already selected, places it there at once
  * (cell-first). A pencil toggle switches the strip between placing digits
@@ -50,6 +51,15 @@ export default function DigitStrip({
   for (const cell of grid) if (cell.value) counts[cell.value] = (counts[cell.value] || 0) + 1;
 
   const digitSize = touch ? 'min-h-[44px] text-lg' : 'h-11 text-base';
+  // Nine 44px-wide keys need 396px before a single gutter, and a 390px
+  // phone leaves the strip about 374px, so the keys cannot be 44 square
+  // there; the height is (digit-strip spec). What a thumb then trips over
+  // is the gutter: at 2px, a touch landing a pixel the wrong side of a
+  // boundary placed the neighbouring digit. At 6px it places nothing, and
+  // a digit that was not placed is a far better answer than a wrong one,
+  // which costs an error and a red flash. The 3.6px per key this spends is
+  // the cheaper side of that trade (issue #107).
+  const digitGap = touch ? 'gap-1.5' : 'gap-0.5 sm:gap-1';
   const controlSize = touch ? 'min-h-[44px]' : 'h-10';
   const refusal = rejected
     ? `${rejected.digit} can't go in ${cellName(rejected.cellIndex)}`
@@ -63,10 +73,18 @@ export default function DigitStrip({
       </p>
 
       <div className={inline ? 'flex flex-wrap items-stretch gap-2' : 'space-y-1.5'}>
-      <div role="group" aria-label="Digits" className={`flex gap-0.5 sm:gap-1 ${inline ? 'flex-[4] min-w-[340px]' : ''}`}>
+      <div role="group" aria-label="Digits" className={`flex ${digitGap} ${inline ? 'flex-[4] min-w-[340px]' : ''}`}>
         {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((digit) => {
           const count = counts[digit];
           const complete = count >= 9;
+          // The number on the key is how many of that digit are left to
+          // place. It was how many were placed, which nothing said, and on
+          // a phone the first key read "1 0" - which could mean either
+          // (issue #107). Counting down teaches itself: the number falls as
+          // the player places that digit and turns into a tick at the same
+          // moment the key greys out, so the badge and the greying say one
+          // thing. A "0" that means two different things never appears.
+          const left = 9 - count;
           const selected = focusedDigit === digit;
           // A completed digit is done in solve mode, but still a pencil mark.
           const disabled = complete && !pencilMode && !selected;
@@ -77,7 +95,8 @@ export default function DigitStrip({
               onClick={() => onDigitSelect(digit)}
               disabled={disabled}
               aria-pressed={selected}
-              aria-label={`Digit ${digit}, ${count} placed${complete ? ', complete' : ''}`}
+              aria-label={complete ? `Digit ${digit}, all nine placed` : `Digit ${digit}, ${left} still to place`}
+              title={complete ? `All nine ${digit}s are placed` : `${left} of the nine ${digit}s still to place`}
               className={`relative flex-1 min-w-0 rounded-lg font-semibold transition-colors ${digitSize} ${
                 disabled
                   ? 'bg-emerald-900/30 text-emerald-700 cursor-not-allowed'
@@ -93,7 +112,7 @@ export default function DigitStrip({
                   complete ? 'bg-emerald-500 text-white' : 'bg-slate-700 text-slate-300'
                 }`}
               >
-                {complete ? '✓' : count}
+                {complete ? '✓' : left}
               </span>
             </button>
           );

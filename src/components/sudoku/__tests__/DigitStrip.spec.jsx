@@ -37,14 +37,24 @@ const renderStrip = (props = {}) => {
 afterEach(() => cleanup());
 
 describe('DigitStrip', () => {
-  it('shows a count per digit and greys a digit out once all nine are placed', () => {
+  it('counts down what is left of each digit, and greys it out at zero', () => {
     const placed = {};
     for (let i = 0; i < 9; i++) placed[i * 9 + i] = 7; // nine 7s on the diagonal
     placed[1] = 3;
-    const { getByRole } = renderStrip({ grid: gridWith(placed) });
-    expect((getByRole('button', { name: 'Digit 7, 9 placed, complete' })).hasAttribute("disabled")).toBe(true);
-    expect((getByRole('button', { name: 'Digit 3, 1 placed' })).hasAttribute("disabled")).toBe(false);
-    expect((getByRole('button', { name: 'Digit 5, 0 placed' })).hasAttribute("disabled")).toBe(false);
+    const { getByRole, getByTitle } = renderStrip({ grid: gridWith(placed) });
+    // The number on the key used to be how many were placed, which nothing
+    // said; a phone's first key read "1 0" and could mean either (#107). It
+    // is what is left to place now, so it falls as the player works and
+    // becomes a tick at the same moment the key greys out.
+    expect((getByRole('button', { name: 'Digit 7, all nine placed' })).hasAttribute("disabled")).toBe(true);
+    expect((getByRole('button', { name: 'Digit 3, 8 still to place' })).hasAttribute("disabled")).toBe(false);
+    expect((getByRole('button', { name: 'Digit 5, 9 still to place' })).hasAttribute("disabled")).toBe(false);
+    // Visibly: the badge counts down, and never shows a 0 that could be read
+    // as "none placed".
+    expect(getByRole('button', { name: /^Digit 3/ }).textContent).toBe('38');
+    expect(getByRole('button', { name: /^Digit 7/ }).textContent).toBe('7✓');
+    // And a pointer can ask what the number means without a legend on the strip.
+    expect(getByTitle('8 of the nine 3s still to place')).toBeTruthy();
   });
 
   it('keeps a completed digit tappable in pencil mode and while it is the selected digit', () => {
@@ -124,9 +134,30 @@ describe('DigitStrip', () => {
     expect(onMarksVisibleChange).toHaveBeenCalledWith(false);
   });
 
-  it('uses 44px-tall targets on touch devices', () => {
+  // The spec asks for keys "at least 44px square on touch devices" and this
+  // test used to be read as holding the product to it. It cannot: nine keys
+  // of 44px need 396px before a single gutter, and a 390px phone leaves the
+  // strip about 374px. Measured on a production build at 390x844: 39.8 x 44.
+  // So the height is the part that is 44, and it is; the width is 4.2px
+  // short of a figure that does not fit on the device the figure is for.
+  //
+  // What a thumb actually trips over there is the gutter, which was 2px: a
+  // touch landing a pixel the wrong side of a boundary placed the
+  // neighbouring digit, which costs an error and a red flash. It is 6px on
+  // touch now, measured 36.2 x 44 with 6px gutters, so a near-miss places
+  // nothing instead of the wrong thing (issue #107).
+  it('is 44px tall on touch, and spends width on the gutter rather than chasing 44', () => {
     const { getByRole } = renderStrip({ touch: true });
     expect(getByRole('button', { name: /^Digit 1/ }).className).toContain('min-h-[44px]');
     expect(getByRole('button', { name: 'Undo' }).className).toContain('min-h-[44px]');
+    const digits = getByRole('group', { name: 'Digits' });
+    expect(digits.className).toContain('gap-1.5');
+    // Nine 44px keys plus eight 6px gutters is 444px: wider than the phone.
+    expect(9 * 44 + 8 * 6).toBeGreaterThan(390);
+  });
+
+  it('keeps the tighter gutter where the pointer is precise', () => {
+    const { getByRole } = renderStrip({ touch: false });
+    expect(getByRole('group', { name: 'Digits' }).className).toContain('gap-0.5');
   });
 });
