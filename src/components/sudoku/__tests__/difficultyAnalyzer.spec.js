@@ -168,12 +168,37 @@ describe('a walk that is cut short concludes nothing', () => {
 });
 
 describe('what the library row says', () => {
-  it('describes what a puzzle teaches, and whether what-if is needed', () => {
-    expect(teachingLabel(analyzePuzzle(puzzle('Gentle Start')))).toBe('Teaches up to Naked Single');
-    expect(teachingLabel(analyzePuzzle(puzzle('Deep Waters')))).toBe('Teaches up to XY-Wing');
-    // Nothing in the library ends in "then what-if search" any more: the
-    // forcing proofs name every step of every puzzle (#75).
-    expect(teachingLabel(analyzePuzzle(puzzle('Golden Nugget')))).toBe('Teaches up to Forcing Net');
+  // The row used to lead with the measured technique's name - "Teaches up
+  // to Naked Single", "Teaches up to ALS-XZ" - to a player who has met
+  // neither, against a quality bar that says explanations use no undefined
+  // vocabulary. How hard the thinking gets leads now, in words a beginner
+  // already has, and the measurement follows in brackets for the player who
+  // wants it (#107).
+  it('says how hard the thinking gets, then which technique that was', () => {
+    expect(teachingLabel(analyzePuzzle(puzzle('Gentle Start'))))
+      .toBe('Beginner techniques only (Naked Single)');
+    expect(teachingLabel(analyzePuzzle(puzzle('Brain Teaser'))))
+      .toBe('Up to intermediate techniques (Pointing Pair)');
+    expect(teachingLabel(analyzePuzzle(puzzle('Deep Waters'))))
+      .toBe('Up to expert techniques (XY-Wing)');
+    // A forcing proof works through every option a cell has and keeps what
+    // they all force. It is a deduction, so the row must not call it trial
+    // and error (#75).
+    expect(teachingLabel(analyzePuzzle(puzzle('Golden Nugget'))))
+      .toBe('Works through every option (Forcing Net)');
+  });
+
+  it('names no technique the player has not been given, except in brackets', () => {
+    for (const list of Object.values(PUZZLES)) {
+      for (const p of list) {
+        const analysis = analyzePuzzle(p.puzzle);
+        const label = teachingLabel(analysis);
+        // Everything before the bracket is plain English: the technique's
+        // name appears once, and only there.
+        const lead = label.split(' (')[0];
+        expect(lead, p.name).not.toContain(analysis.hardestTechnique);
+      }
+    }
   });
 
   it('is measured, never assumed: a label matches the path it came from', () => {
@@ -184,10 +209,10 @@ describe('what the library row says', () => {
         expect(analysis.complete, p.name).toBe(true);
         expect(label, p.name).toBeTruthy();
         if (analysis.namedOnly) {
-          expect(label, p.name).not.toContain('what-if');
+          expect(label, p.name).not.toContain('trial and error');
           expect(analysis.whatIfSteps, p.name).toBe(0);
         } else {
-          expect(label, p.name).toContain('what-if');
+          expect(label, p.name).toContain('trial and error');
           expect(analysis.whatIfSteps, p.name).toBeGreaterThan(0);
         }
         if (analysis.hardestTechnique) {

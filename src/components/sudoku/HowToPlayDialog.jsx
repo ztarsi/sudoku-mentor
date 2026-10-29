@@ -7,7 +7,7 @@ import { useDialog } from '@/hooks/useDialog';
 // rules in one line, reachable from the menu any time (inline-onboarding spec).
 const STEPS = {
   desktop: [
-    { icon: MousePointerClick, title: 'Tap a cell, then a digit', body: 'Click any empty cell and press 1-9, or pick a digit on the strip first. Pencil (or Shift) makes it a pencil mark. Wrong digits are refused, so experiment freely.' },
+    { icon: MousePointerClick, title: 'Click a cell, then a digit', body: 'Click any empty cell and press 1-9, or pick a digit on the strip first. Pencil (or Shift) makes it a pencil mark. Wrong digits are refused, so experiment freely.' },
     { icon: Lightbulb, title: 'Stuck? Ask for a hint', body: 'Press H or the Hint button. The mentor finds the next logical technique, colours the cells involved and explains why it works.' },
     { icon: Play, title: 'Apply it, or place the digit yourself', body: 'Press A to apply the step, or place the digit yourself to practise. Tap any technique name to learn how to spot it.' },
   ],

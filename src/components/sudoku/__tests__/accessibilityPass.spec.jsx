@@ -11,7 +11,7 @@
 // jsdom test cannot take them itself, because jsdom has no layout and no
 // painted colour.
 import React from 'react';
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, fireEvent, cleanup } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import palette from 'tailwindcss/colors';
@@ -97,22 +97,60 @@ describe('the Techniques list is a list, not a status message', () => {
 });
 
 describe('the onboarding dismiss is big enough to hit', () => {
-  it('keeps a 14px glyph inside 44x44 of hit area', () => {
+  // It measured 22x22 at every viewport, under the 24x24 that WCAG 2.2 AA
+  // asks for in 2.5.8, and it sits over the board: a thumb that misses it
+  // places a digit. It was first given a 44x44 pseudo-element over a 22x22
+  // button, which did take the taps - a click 21px out from the glyph
+  // dismissed the callout on the deployed build - but the element's box,
+  // which is what any measurement reads, still said 22x22, so the failure
+  // was reported again (#107). The box itself is 44x44 now.
+  //
+  // Measured on a production build at 1440x900 and 390x844, on all three
+  // callouts the product shows: the box is 44x44, nine probes on it all
+  // answer as the dismiss, real clicks 21px out from the glyph dismiss it,
+  // elementsFromPoint finds no control under any probe, and the callout
+  // around it is the same size to a tenth of a pixel as before.
+  const dismissOf = (view) => view.getByRole('button', { name: 'Got it' });
+
+  it('is a 44x44 box, with the 14px glyph unchanged inside it', () => {
     const view = render(<Callout onDismiss={() => {}}>Stuck? Ask for a hint.</Callout>);
-    const dismiss = view.getByRole('button', { name: 'Got it' });
-    // Measured at 22x22 at every viewport, under the 24x24 that WCAG 2.2 AA
-    // asks for in 2.5.8, and it sits over the board: a thumb that misses it
-    // places a digit. The box stays 22x22 and an invisible 44x44 pseudo
-    // element centred on it takes the taps. Measured on a production build
-    // at 1440x900 and 390x844: nine probes on a 44x44 square all answer as
-    // the dismiss, and elementsFromPoint finds no control under any of them,
-    // so the bigger target steals nothing.
-    expect(dismiss.className).toContain('before:h-11');
-    expect(dismiss.className).toContain('before:w-11');
-    expect(dismiss.className).toContain('before:-translate-x-1/2');
-    expect(dismiss.className).toContain('before:-translate-y-1/2');
-    // The glyph itself does not grow: a bigger x in the callout is not the fix.
+    const dismiss = dismissOf(view);
+    expect(dismiss.className).toContain('h-11');
+    expect(dismiss.className).toContain('w-11');
+    // A bigger x in the callout is not the fix.
     expect(dismiss.querySelector('svg').getAttribute('class')).toContain('w-3.5');
+  });
+
+  it('takes no more room in the callout than the glyph did', () => {
+    const dismiss = dismissOf(render(<Callout onDismiss={() => {}}>Stuck?</Callout>));
+    // The box grows outwards, 11px a side, so the row is laid out as if it
+    // were still 22x22 and nothing in the callout moves.
+    expect(dismiss.className).toContain('-m-[11px]');
+  });
+
+  it('is 44x44 everywhere, and square, because that is what answers a tap', () => {
+    const dismiss = dismissOf(render(<Callout onDismiss={() => {}}>Stuck?</Callout>));
+    // Rounded corners do not take a tap: with rounding, two of the nine
+    // probes missed. A flex row squeezed it to 42px wide inside the hint
+    // card's callout, and a target that is 44 only where there is room is
+    // not 44.
+    expect(dismiss.className).toContain('shrink-0');
+    expect(dismiss.className).not.toMatch(/(^|\s)rounded/);
+  });
+
+  it('keeps the hover and focus marks on the glyph, not on the whole target', () => {
+    const dismiss = dismissOf(render(<Callout onDismiss={() => {}}>Stuck?</Callout>));
+    const chip = dismiss.querySelector('span');
+    expect(dismiss.className).toContain('group');
+    expect(chip.className).toContain('group-hover:bg-amber-900/60');
+    expect(chip.className).toContain('group-focus-visible:ring-2');
+  });
+
+  it('still dismisses', () => {
+    const onDismiss = vi.fn();
+    const view = render(<Callout onDismiss={onDismiss}>Stuck?</Callout>);
+    fireEvent.click(dismissOf(view));
+    expect(onDismiss).toHaveBeenCalledTimes(1);
   });
 });
 
