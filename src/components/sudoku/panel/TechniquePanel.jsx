@@ -42,11 +42,12 @@ import { UNIQUENESS_UNKNOWN, uniquenessAllowed, uniquenessNote, uniquenessShortN
  * A Scan of the expensive tiers reports here too, rather than in a dialog
  * over the board the counts are about (issue #105). What it finds are
  * counts like any other, so they join the same short view and are capped
- * by it: a Scan cannot reopen the long list by a second route (#114). Its rows say they are
- * counting, each count arrives in the row and, when there is something to
- * find, at the top under "On this board"; the tier carries one line of
- * progress with a way to stop it, and one line saying what was found. The
- * result is announced once, when it is known, rather than row by row.
+ * by it: a Scan cannot reopen the long list by a second route (#114). Its
+ * rows say they are counting, each count arrives in the row and, when
+ * there is something to find, at the top under "On this board"; the tier
+ * carries one line of progress with a way to stop it, and one line saying
+ * what was found. The result is announced once, when it is known, rather
+ * than row by row.
  *
  * The techniques that only hold when the puzzle has exactly one answer are
  * a case of their own. On a grid that has more than one, or whose count
