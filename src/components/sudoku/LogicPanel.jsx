@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import TechniqueModal from './TechniqueModal';
-import UltimateTechniqueScanModal from './UltimateTechniqueScanModal';
 import DeepSearchModal from './DeepSearchModal';
 import TechniquePanel from './panel/TechniquePanel';
 import CurrentStepCard from './panel/CurrentStepCard';
 import PanelInfoModal from './panel/PanelInfoModal';
 import { findAllTechniqueInstances } from './logicEngine';
 import { useTechniqueCounts } from './useTechniqueCounts';
+import { runInSlices } from './sliceRunner';
 import { LIVE_COUNT_TECHNIQUES, SCAN_TECHNIQUES, needsUniqueness } from './techniqueCatalog';
 import { UNIQUENESS_UNKNOWN, uniquenessAllowed } from './uniqueness';
 import { searchWhatIf, isCancelled, isTimedOut, DEEP_TIME_BUDGET_MS } from './whatIfSearch';
@@ -67,9 +67,9 @@ export default function LogicPanel({
   };
   const [techniqueIndices, setTechniqueIndices] = useState({});
   const [showInfoModal, setShowInfoModal] = useState(null);
-  const [showUltimateScan, setShowUltimateScan] = useState(false);
-  const [scanningTechnique, setScanningTechnique] = useState(null);
-  const [scanResults, setScanResults] = useState({});
+  // What a Scan is doing, or what the last one found, for the panel to
+  // report. Null when no Scan has been asked for on this board.
+  const [scan, setScan] = useState(null);
   const [searchingForcingChain, setSearchingForcingChain] = useState(false);
   const [showDeepSearchModal, setShowDeepSearchModal] = useState(false);
 
@@ -77,10 +77,14 @@ export default function LogicPanel({
   // dropped, and a scan still running for the old grid has to know it is
   // stale: its counts would describe a board the player has left behind.
   const gridRef = useRef(grid);
+  const scanRun = useRef(/** @type {any} */ (null));
   useEffect(() => {
     gridRef.current = grid;
-    setScanResults({});
+    scanRun.current?.cancel?.();
+    scanRun.current = null;
+    setScan(null);
   }, [grid]);
+  useEffect(() => () => scanRun.current?.cancel?.(), []);
 
   // Live technique counts, scans and searches are assistance: a No Assist
   // record must not be earned with them on screen.
@@ -106,24 +110,60 @@ export default function LogicPanel({
     uniqueness,
   });
 
-  const handleUltimateScan = async () => {
+  // A Scan answers "what is on this board?" for the tiers that cost too
+  // much to count live. It reports into the panel, beside the counts the
+  // cheap tiers already put there, so the board the counts are about stays
+  // on screen: the rows show that they are counting, each count joins the
+  // panel as it arrives, and the ones with instances appear at the top
+  // under "On this board" with the highlighting that already works there.
+  // The player sees one line of progress and can stop it.
+  //
+  // The work runs in slices, so nothing is paced for the look of it and the
+  // page is handed back between detectors. A board change invalidates the
+  // run, as it always has: those counts would describe a board the player
+  // has left behind.
+  const finishScan = (run, cancelled) => {
+    if (scanRun.current === run) scanRun.current = null;
+    setScan((prev) =>
+      prev && prev.grid === run.grid
+        ? { ...prev, running: false, cancelled, found: run.names.filter((name) => run.results[name] > 0) }
+        : prev
+    );
+  };
+
+  const cancelScan = () => {
+    const run = scanRun.current;
+    if (!run) return;
+    run.cancel?.();
+    finishScan(run, true);
+  };
+
+  const handleUltimateScan = () => {
+    if (scanRun.current) {
+      cancelScan();
+      return;
+    }
     onAssistUsedRef.current?.();
-    setShowUltimateScan(true);
-    setScanResults({});
 
     const scanned = grid;
-    const results = {};
-    for (const tech of SCAN_TECHNIQUES.filter(countable)) {
-      setScanningTechnique(tech);
-      await new Promise((resolve) => setTimeout(resolve, 100)); // Small delay for UI update
-      if (gridRef.current !== scanned) break; // the board changed: these counts would lie
+    const names = SCAN_TECHNIQUES.filter(countable);
+    const run = { grid: scanned, names, results: {}, cancel: null };
+    scanRun.current = run;
+    setScan({ grid: scanned, total: names.length, done: 0, running: true, cancelled: false, found: null });
 
-      results[tech] = findAllTechniqueInstances(scanned, tech, { uniqueness }).length;
-      setScanResults({ ...results });
-      recordCounts({ [tech]: results[tech] });
-    }
-
-    setScanningTechnique(null);
+    run.cancel = runInSlices(
+      names.map((name) => ({
+        key: name,
+        run: () => findAllTechniqueInstances(scanned, name, { uniqueness }).length,
+      })),
+      (name, count) => {
+        if (gridRef.current !== scanned) return; // the board changed: this count would lie
+        run.results[name] = count;
+        recordCounts({ [name]: count });
+        setScan((prev) => (prev && prev.grid === scanned ? { ...prev, done: prev.done + 1 } : prev));
+      },
+      { delayMs: 0, onDone: () => finishScan(run, false) }
+    );
   };
 
   // What-if search (forcing chains, then hypothesis) runs in a worker so
@@ -226,6 +266,7 @@ export default function LogicPanel({
         uniqueness={uniqueness}
         counts={techniqueCounts}
         counting={counting}
+        scan={scan}
         searchingForcingChain={searchingForcingChain}
         onSelectTechnique={setSelectedTechnique}
         onHighlight={handleTechniqueClick}
@@ -242,14 +283,6 @@ export default function LogicPanel({
           onClose={() => setSelectedTechnique(null)}
         />
       )}
-
-      <UltimateTechniqueScanModal
-        isOpen={showUltimateScan}
-        currentTechnique={scanningTechnique}
-        uniqueness={uniqueness}
-        results={scanResults}
-        onClose={() => setShowUltimateScan(false)}
-      />
 
       <DeepSearchModal
         isOpen={showDeepSearchModal}
