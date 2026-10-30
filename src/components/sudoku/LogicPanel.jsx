@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import TechniqueModal from './TechniqueModal';
 import DeepSearchModal from './DeepSearchModal';
 import TechniquePanel from './panel/TechniquePanel';
+import TechniqueBrowser from './panel/TechniqueBrowser';
 import CurrentStepCard from './panel/CurrentStepCard';
 import PanelInfoModal from './panel/PanelInfoModal';
 import { findAllTechniqueInstances } from './logicEngine';
@@ -56,6 +57,10 @@ export default function LogicPanel({
   cardPrompt = null,
 }) {
   const [selectedTechnique, setSelectedTechnique] = useState(null);
+  // Browsing the catalog happens in the reference dialog rather than in the
+  // column beside the board (#122). Null when it is closed; otherwise where
+  // the panel asked for it to open: a tier, a query, or neither.
+  const [browse, setBrowse] = useState(/** @type {any} */ (null));
   // The lesson comes first; the technique browser is an expert tool,
   // collapsed by default and remembered per player.
   const [techniqueExpanded, setTechniqueExpanded] = useState(readTechniquesOpen);
@@ -270,16 +275,29 @@ export default function LogicPanel({
         searchingForcingChain={searchingForcingChain}
         onSelectTechnique={setSelectedTechnique}
         onHighlight={handleTechniqueClick}
-        onCount={countNow}
+        onBrowse={setBrowse}
         onUltimateScan={handleUltimateScan}
         onWhatIfSearch={handleWhatIfSearch}
         onShowInfo={() => setShowInfoModal('techniques')}
       />
 
 
+      <TechniqueBrowser
+        browse={browse}
+        counts={techniqueCounts}
+        noAssistMode={noAssistMode}
+        uniqueness={uniqueness}
+        onSelectTechnique={setSelectedTechnique}
+        onClose={() => setBrowse(null)}
+      />
+
       {selectedTechnique && (
         <TechniqueModal
           technique={selectedTechnique}
+          count={techniqueCounts[selectedTechnique]}
+          noAssistMode={noAssistMode}
+          uniqueness={uniqueness}
+          onCount={countNow}
           onClose={() => setSelectedTechnique(null)}
         />
       )}

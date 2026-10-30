@@ -38,7 +38,7 @@ export const TIERS = [
   {
     level: 'Ultimate',
     color: 'violet',
-    scanNote: 'These cost too much to count while you play. Scan runs every one of them on the board as it stands now, and looks at longer chains than a hint will show you; it takes a second or two. Or count one row on its own.',
+    scanNote: 'These cost too much to count while you play. Scan runs every one of them on the board as it stands now, and looks at longer chains than a hint will show you; it takes a second or two. Or open one and count it on its own.',
   },
   // The two tiers the search finds, on the two sides of the honesty line
   // (#75). A forcing proof tries every option a cell, a unit or a digit

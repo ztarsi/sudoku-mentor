@@ -34,10 +34,25 @@ import { UNIQUENESS_UNKNOWN, uniquenessAllowed, uniquenessNote, uniquenessShortN
  * plain name, its formal name or the name a guide would use for it, so the
  * player never scrolls past tiers they do not care about.
  *
+ * Opening a tier adds rows for the techniques on the board and one line for
+ * the rest: "9 others, none here" rather than nine rows reading "none
+ * here" (#122). Absence is a quantity, and a quantity is a line. The same
+ * rule caps the filter's results, so no amount of catalog can turn this
+ * column into a list - what a player sees beside the board is a function of
+ * the board, never of the catalog.
+ *
+ * That leaves the panel with no way to read the ladder end to end, which is
+ * the point: browsing sixty-one names belongs in the reference, which has
+ * the width for columns and is opened by someone who means to browse. Every
+ * line that used to enumerate is now the door to it - the tier's summary
+ * opens the reference at that tier, the filter's overflow opens it at the
+ * query - so nothing is lost and nothing is listed twice.
+ *
  * Counts are handed in, already computed off the input path (see
- * useTechniqueCounts). A count this panel has not been given is shown as
- * not known yet, with a button that computes it, rather than as a number
- * from the previous board.
+ * useTechniqueCounts). A count this panel has not been given is said to be
+ * unknown, rather than shown as a number from the previous board. Asking
+ * for one is the tier's Scan, or the Count on that technique's own
+ * reference; it is never a button per row.
  *
  * A Scan of the expensive tiers reports here too, rather than in a dialog
  * over the board the counts are about (issue #105). What it finds are
@@ -70,6 +85,45 @@ const SEARCH_BUTTON = {
 // sixty-one, and twelve rows was the defect (#114).
 const PREVIEW_ROWS = 3;
 
+// How many of the filter's matches it lists before handing the rest to the
+// reference. A query is the player's own doing, so this is roomier than the
+// short view's cap - but it is a cap, because "single" matches eleven names
+// today and would match thirty at a catalog three times the size (#122).
+const MATCH_ROWS = 5;
+
+// What a tier says about the techniques in it that are not on the board, in
+// one line. Each state has a phrase, and a state is named with its own
+// count only when the line carries more than one of them: "9 others, none
+// here" reads as an answer, "9 others: 9 none here" reads as a readout.
+const REST_PHRASES = [
+  ['absent', 'none here'],
+  ['uncounted', 'not counted yet'],
+  ['searchOnly', 'found by Search'],
+  ['blocked', 'not available here'],
+];
+
+/**
+ * The one line a tier spends on everything it is not showing a row for.
+ *
+ * `total` is how many those are, `othersShown` says whether any row is
+ * above the line (so the line can say "others" rather than "techniques"),
+ * and the rest are the counts per state. Null when there is nothing to
+ * summarise, which is when every technique in the tier is on the board.
+ *
+ * @param {{ total: number, othersShown?: boolean, absent?: number,
+ *   uncounted?: number, searchOnly?: number, blocked?: number }} rest
+ * @returns {string | null}
+ */
+export const restSummary = ({ total, othersShown = false, ...states }) => {
+  if (!(total > 0)) return null;
+  const plural = total === 1 ? '' : 's';
+  const noun = othersShown ? `${total} other${plural}` : `${total} technique${plural}`;
+  const named = REST_PHRASES.filter(([key]) => (states[key] ?? 0) > 0);
+  if (named.length === 0) return noun;
+  if (named.length === 1 && states[named[0][0]] === total) return `${noun}, ${named[0][1]}`;
+  return `${noun}: ${named.map(([key, phrase]) => `${states[key]} ${phrase}`).join(', ')}`;
+};
+
 const TIERS_OPEN_KEY = 'sudoku-mentor:technique-tiers-open';
 
 export const readOpenTiers = () => {
@@ -100,12 +154,11 @@ function TechniqueRow({
   pending = false,
   onSelectTechnique,
   onHighlight,
-  onCount,
 }) {
   const known = typeof count === 'number';
   const isSearch = tech.count === COUNT_SEARCH;
   return (
-    <div className="flex items-baseline justify-between gap-2 py-0.5">
+    <div className="flex items-start justify-between gap-2 py-0.5">
       <div className="min-w-0">
         <button
           onClick={() => onSelectTechnique(tech.name)}
@@ -116,7 +169,9 @@ function TechniqueRow({
         </button>
         {showTier && <span className="ml-2 text-xs text-slate-500">{tech.tier}</span>}
         {tech.formal && (
-          <span className="block text-xs text-slate-500 truncate">also called {tech.formal}</span>
+          <span className="block text-xs text-slate-500 truncate" title={tech.formal}>
+            also called {tech.formal}
+          </span>
         )}
       </div>
 
@@ -135,17 +190,14 @@ function TechniqueRow({
       ) : known ? (
         <span className="shrink-0 text-xs text-slate-500">none here</span>
       ) : pending ? (
-        // A Scan is on its way to this row. Offering Count here would ask
-        // the player to pay twice for the same number.
         <span className="shrink-0 text-xs text-slate-500">counting…</span>
       ) : (
-        <button
-          onClick={() => onCount(tech.name)}
-          className="shrink-0 text-xs px-1.5 py-0.5 border border-slate-600 text-slate-300 hover:bg-slate-700 rounded transition-colors"
-          title="Not counted yet. Count it on the board as it stands now."
-        >
-          Count
-        </button>
+        // Not counted yet, and no button to count it: the tier it belongs to
+        // already has one that counts the whole tier, and thirty-three ways
+        // to ask for the same number is not thirty-three affordances, it is
+        // one affordance printed thirty-three times (#122). A single
+        // technique can still be counted on its own, from its reference.
+        <span className="shrink-0 text-xs text-slate-500">not counted yet</span>
       )}
     </div>
   );
@@ -162,7 +214,7 @@ export default function TechniquePanel({
   searchingForcingChain,
   onSelectTechnique,
   onHighlight,
-  onCount,
+  onBrowse,
   onUltimateScan,
   onWhatIfSearch,
   onShowInfo,
@@ -252,12 +304,38 @@ export default function TechniquePanel({
   }, [applies.length]);
   const matches = useMemo(() => matchTechniques(query), [query]);
   const filtering = query.trim().length > 0;
+  const shownMatches = matches.slice(0, MATCH_ROWS);
+  const hiddenMatches = matches.length - shownMatches.length;
 
   const rowProps = {
     countsOff,
     onSelectTechnique,
     onHighlight,
-    onCount,
+  };
+
+  // Which of a tier's techniques are not on the board, and why not, so the
+  // tier can say it in a line. The categories are the ones the player can
+  // act on differently: counted and absent, not counted yet, only ever
+  // found by Search, or not available while the puzzle has more than one
+  // answer.
+  const restOf = (techniques, here) => {
+    // Nothing is counted in No Assist, so a tier has nothing of the board
+    // to report and the line is about reading instead. Its size is already
+    // in the header, so repeating it would be the header twice.
+    if (countsOff) return `Read any of the ${techniques.length}`;
+    const states = { absent: 0, uncounted: 0, searchOnly: 0, blocked: 0 };
+    for (const tech of techniques) {
+      if (here.includes(tech)) continue;
+      if (whyUnavailable(tech)) states.blocked += 1;
+      else if (tech.count === COUNT_SEARCH) states.searchOnly += 1;
+      else if (typeof counts[tech.name] === 'number') states.absent += 1;
+      else states.uncounted += 1;
+    }
+    return restSummary({
+      ...states,
+      total: techniques.length - here.length,
+      othersShown: here.length > 0,
+    });
   };
 
   return (
@@ -332,7 +410,7 @@ export default function TechniquePanel({
                       ? 'No technique by that name'
                       : `${matches.length} technique${matches.length === 1 ? '' : 's'} match`}
                   </p>
-                  {matches.map((tech) => (
+                  {shownMatches.map((tech) => (
                     <TechniqueRow
                       key={tech.name}
                       tech={tech}
@@ -343,6 +421,17 @@ export default function TechniquePanel({
                       {...rowProps}
                     />
                   ))}
+                  {/* A query the catalog answers many times over is a
+                      reading job, and reading happens in the reference. */}
+                  {hiddenMatches > 0 && (
+                    <button
+                      onClick={() => onBrowse({ query })}
+                      className="mt-1 inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 hover:underline"
+                    >
+                      All {matches.length} in the reference
+                      <ChevronRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                    </button>
+                  )}
                 </div>
               ) : (
                 <>
@@ -433,16 +522,32 @@ export default function TechniquePanel({
 
                   {/* The whole ladder, collapsed, the player's place kept */}
                   <div>
-                    <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">
-                      Everything the mentor knows
-                    </p>
+                    {/* The ladder is here to show that there is one and
+                        where the player stands on it. Reading it end to end
+                        is the reference's job, and this is the way in. */}
+                    <div className="flex items-baseline justify-between gap-2 mb-1">
+                      <p className="text-xs uppercase tracking-wide text-slate-500">
+                        Everything the mentor knows
+                      </p>
+                      <button
+                        onClick={() => onBrowse({})}
+                        className="shrink-0 text-xs text-blue-400 hover:text-blue-300 hover:underline"
+                        title="Read the whole reference, tier by tier"
+                      >
+                        Browse all {TECHNIQUES.length}
+                      </button>
+                    </div>
                     <div className="space-y-1">
                       {TIERS.map((tier) => {
                         const techniques = TECHNIQUES.filter((tech) => tech.tier === tier.level);
                         const open = openTiers.includes(tier.level);
-                        const applying = countsOff
-                          ? 0
-                          : techniques.filter((tech) => counts[tech.name] > 0).length;
+                        // What the tier has on this board, hardest first as
+                        // the short view is, and one line for all the rest.
+                        const here = countsOff
+                          ? []
+                          : techniques.filter((tech) => counts[tech.name] > 0).reverse();
+                        const applying = here.length;
+                        const rest = restOf(techniques, here);
                         return (
                           <div key={tier.level}>
                             <button
@@ -542,16 +647,28 @@ export default function TechniquePanel({
                                     </button>
                                   </div>
                                 )}
-                                {techniques.map((tech) => (
+                                {here.map((tech) => (
                                   <TechniqueRow
                                     key={tech.name}
                                     tech={tech}
                                     count={counts[tech.name]}
-                                    unavailable={whyUnavailable(tech)}
-                                    pending={scanning && tech.count === COUNT_SCAN}
                                     {...rowProps}
                                   />
                                 ))}
+                                {/* The nine rows that read "none here" are
+                                    this one line (#122). It is also the way
+                                    to read the tier, which is what the rows
+                                    were being asked to be. */}
+                                {rest && (
+                                  <button
+                                    onClick={() => onBrowse({ tier: tier.level })}
+                                    aria-label={`${rest}. Browse the ${tier.level} tier in the reference.`}
+                                    className="flex w-full items-baseline gap-1 py-1 text-left text-xs text-slate-400 hover:text-blue-300 hover:underline"
+                                  >
+                                    <span className="min-w-0">{rest}</span>
+                                    <ChevronRight className="w-3.5 h-3.5 shrink-0 self-center" aria-hidden="true" />
+                                  </button>
+                                )}
                               </div>
                             )}
                           </div>

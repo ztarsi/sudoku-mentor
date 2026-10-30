@@ -29,3 +29,6 @@ dist-ssr
 
 .env
 base44/.app.jsonc
+
+# The stress harness writes screenshots here
+dev/panel-stress/shots
