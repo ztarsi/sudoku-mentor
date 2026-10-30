@@ -97,7 +97,7 @@ describe('the controls under the board', () => {
     const { container } = render(<HintAnimationControls />);
     // Every caption is laid out (invisible) so the player holds the height
     // of the longest one and does not jump from frame to frame...
-    const sizers = [...container.querySelectorAll('p[aria-hidden="true"]')];
+    const sizers = Array.from(container.querySelectorAll('p[aria-hidden="true"]'));
     expect(sizers.map((p) => p.textContent)).toEqual(frames.map((f) => f.caption));
     expect(sizers.every((p) => p.className.includes('invisible'))).toBe(true);
     // ...and only the live one is announced.
