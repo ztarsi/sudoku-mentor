@@ -7,11 +7,18 @@
 // And it opens short (#114): the count in a line, at most three rows,
 // hardest first, the rest behind a disclosure that says how many there are.
 // Twelve rows in teaching order was the defect.
+//
+// A tier opens the same way (#122): rows for what is on the board, then one
+// line for everything else. Nine rows reading "none here" and thirty-three
+// buttons reading "Count" were the defect that round, and the rule that
+// came out of it is that nothing beside the board enumerates absence or
+// repeats one action per row. Reading the ladder end to end belongs to the
+// reference dialog, which this panel is the door to.
 import React from 'react';
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, fireEvent, cleanup, within } from '@testing-library/react';
 import TechniquePanel from '../panel/TechniquePanel';
-import { TECHNIQUES, TIERS } from '../techniqueCatalog';
+import { TECHNIQUES, TIERS, UNIQUENESS_TECHNIQUES } from '../techniqueCatalog';
 
 const base = {
   expanded: true,
@@ -22,7 +29,7 @@ const base = {
   searchingForcingChain: false,
   onSelectTechnique: () => {},
   onHighlight: () => {},
-  onCount: () => {},
+  onBrowse: () => {},
   onUltimateScan: () => {},
   onWhatIfSearch: () => {},
   onShowInfo: () => {},
@@ -43,6 +50,23 @@ const appliesRows = (view) =>
   within(view.getByTestId('applies-rows'))
     .getAllByTitle(/^How .+ works$/)
     .map((button) => button.textContent);
+
+// How many techniques a tier holds, and the rows a tier is showing: a tier
+// row names its technique, exactly as the short view's rows do.
+const tierSize = (level) => TECHNIQUES.filter((tech) => tech.tier === level).length;
+const openTier = (view, level) => {
+  fireEvent.click(view.getByRole('button', { name: new RegExp(`^${level}`) }));
+  return view;
+};
+const tierRows = (view, level) => {
+  const header = view.getByRole('button', { name: new RegExp(`^${level}`) });
+  const body = header.nextElementSibling;
+  return body
+    ? within(body)
+        .queryAllByTitle(/^How .+ works$/)
+        .map((button) => button.textContent)
+    : [];
+};
 
 describe('the Techniques list', () => {
   it('shows nothing but its own heading while collapsed', () => {
@@ -175,35 +199,74 @@ describe('the Techniques list', () => {
     for (const tier of TIERS) {
       const header = view.getByRole('button', { name: new RegExp(`^${tier.level}`) });
       expect(header.getAttribute('aria-expanded')).toBe('false');
-      const size = TECHNIQUES.filter((t) => t.tier === tier.level).length;
-      expect(header.textContent).toContain(`${size} technique`);
+      expect(header.textContent).toContain(`${tierSize(tier.level)} technique`);
     }
-    // Collapsed means the names are not on screen
+    // Collapsed means nothing of the tier is on screen
     expect(view.queryByText('Swordfish')).toBeNull();
+    expect(view.queryByText(/not counted yet/)).toBeNull();
 
-    fireEvent.click(view.getByRole('button', { name: /^Expert/ }));
-    expect(view.getByText('Swordfish')).toBeTruthy();
+    openTier(view, 'Expert');
     expect(view.getByRole('button', { name: /^Expert/ }).getAttribute('aria-expanded')).toBe('true');
     // and only that tier
-    expect(view.queryByText('BUG+1')).toBeNull();
+    expect(view.getByRole('button', { name: /^Ultimate/ }).getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('opens a tier to what is on the board, and one line for the rest', () => {
+    const view = show({ uniqueness: 'one', counts: { Swordfish: 2, 'X-Wing': 0, Jellyfish: 0 } });
+    openTier(view, 'Expert');
+    // The two it has a count for, and no row for the nine it does not:
+    // nine rows reading "none here" was the defect (#122).
+    expect(tierRows(view, 'Expert')).toEqual(['Swordfish']);
+    expect(view.getByText(`${tierSize('Expert') - 1} others: 2 none here, 8 not counted yet`)).toBeTruthy();
+    expect(view.queryByText('X-Wing')).toBeNull();
+  });
+
+  it('says it in one line when a whole tier is counted and empty', () => {
+    const counted = Object.fromEntries(
+      TECHNIQUES.filter((tech) => tech.tier === 'Expert').map((tech) => [tech.name, 0])
+    );
+    const view = show({ uniqueness: 'one', counts: counted });
+    openTier(view, 'Expert');
+    expect(tierRows(view, 'Expert')).toEqual([]);
+    expect(view.getByText(`${tierSize('Expert')} techniques, none here`)).toBeTruthy();
+    // One line, and no more: the count of the line is the whole assertion.
+    expect(view.queryAllByText(/none here/)).toHaveLength(1);
+  });
+
+  it('opens the reference at the tier, for a player who wants to read it', () => {
+    const onBrowse = vi.fn();
+    const view = show({ uniqueness: 'one', counts: { Swordfish: 2 }, onBrowse });
+    openTier(view, 'Expert');
+    fireEvent.click(view.getByRole('button', { name: /Browse the Expert tier/ }));
+    expect(onBrowse).toHaveBeenCalledWith({ tier: 'Expert' });
+  });
+
+  it('offers the whole reference from the ladder, rather than being it', () => {
+    const onBrowse = vi.fn();
+    const view = show({ onBrowse });
+    fireEvent.click(view.getByRole('button', { name: `Browse all ${TECHNIQUES.length}` }));
+    expect(onBrowse).toHaveBeenCalledWith({});
   });
 
   it('remembers which tiers the player left open', () => {
+    const openState = (view, level) =>
+      view.getByRole('button', { name: new RegExp(`^${level}`) }).getAttribute('aria-expanded');
+
     const first = show({});
-    fireEvent.click(first.getByRole('button', { name: /^Ultimate/ }));
-    expect(first.getByText('ALS-XZ')).toBeTruthy();
+    openTier(first, 'Ultimate');
+    expect(openState(first, 'Ultimate')).toBe('true');
     cleanup();
 
     const second = show({});
-    expect(second.getByText('ALS-XZ')).toBeTruthy();
-    expect(second.queryByText('Swordfish')).toBeNull();
+    expect(openState(second, 'Ultimate')).toBe('true');
+    expect(openState(second, 'Expert')).toBe('false');
     cleanup();
 
     // and closing one is remembered too
     const third = show({});
-    fireEvent.click(third.getByRole('button', { name: /^Ultimate/ }));
+    openTier(third, 'Ultimate');
     cleanup();
-    expect(show({}).queryByText('ALS-XZ')).toBeNull();
+    expect(openState(show({}), 'Ultimate')).toBe('false');
   });
 
   it('shows how many of a tier apply without opening it', () => {
@@ -243,20 +306,19 @@ describe('finding a technique by name', () => {
 });
 
 describe('counts the player can trust', () => {
-  it('offers to count a technique whose count is not known yet', () => {
-    const onCount = vi.fn();
-    const view = show({ counts: {}, onCount });
-    fireEvent.click(view.getByRole('button', { name: /^Expert/ }));
-    const row = view.getByText('X-Wing').closest('div');
-    const button = within(row.parentElement).getAllByRole('button', { name: 'Count' })[0];
-    expect(button.getAttribute('title')).toMatch(/Not counted yet/);
-    fireEvent.click(button);
-    expect(onCount).toHaveBeenCalled();
+  it('offers one way to count a tier, never one per technique', () => {
+    const view = show({ uniqueness: 'one', counts: {} });
+    for (const tier of TIERS) openTier(view, tier.level);
+    // Thirty-three "Count" buttons inside a tier that already has one
+    // "Scan this board" was the defect (#122).
+    expect(view.queryAllByRole('button', { name: 'Count' })).toHaveLength(0);
+    expect(view.queryAllByRole('button', { name: /Scan this board/ })).toHaveLength(1);
+    expect(view.queryAllByRole('button', { name: /^Search$/ })).toHaveLength(2);
   });
 
   it('says "none here" for a counted technique with no instances, never a number', () => {
     const view = show({ counts: { 'X-Wing': 0 } });
-    fireEvent.click(view.getByRole('button', { name: /^Expert/ }));
+    fireEvent.change(view.getByLabelText('Find a technique by name'), { target: { value: 'x-wing' } });
     expect(view.getAllByText('none here').length).toBeGreaterThan(0);
     expect(view.queryByText('(0)')).toBeNull();
   });
@@ -272,8 +334,10 @@ describe('counts the player can trust', () => {
 describe('the reference dialog, and Scan', () => {
   it('is reachable for a technique that does not apply to this board', () => {
     const onSelectTechnique = vi.fn();
-    const view = show({ counts: { 'BUG+1': 0 }, onSelectTechnique });
-    fireEvent.click(view.getByRole('button', { name: /^Ultimate/ }));
+    const view = show({ counts: { 'BUG+1': 0 }, uniqueness: 'one', onSelectTechnique });
+    // Not on the board, so not a row in its tier - and still one action
+    // away by name, which is what the find box is for.
+    fireEvent.change(view.getByLabelText('Find a technique by name'), { target: { value: 'bug+1' } });
     fireEvent.click(view.getByText('BUG+1'));
     expect(onSelectTechnique).toHaveBeenCalledWith('BUG+1');
   });
@@ -301,7 +365,10 @@ describe('the reference dialog, and Scan', () => {
     const view = show({});
     fireEvent.click(view.getByRole('button', { name: /^Forcing/ }));
     expect(view.getByText(/A proof by cases, which is why these are deductions and not guesses/)).toBeTruthy();
-    expect(view.getByRole('button', { name: /Search/ })).toBeTruthy();
+    expect(view.getByRole('button', { name: /^Search$/ })).toBeTruthy();
+    // Search finds these; it does not count them, and the tier says so in
+    // the one line it spends on them.
+    expect(view.getByText(`${tierSize('Forcing')} techniques, found by Search`)).toBeTruthy();
   });
 
   // The honesty line, in the panel: the proofs and the trial are two tiers,
@@ -310,35 +377,39 @@ describe('the reference dialog, and Scan', () => {
     const view = show({});
     fireEvent.click(view.getByRole('button', { name: /^What-if/ }));
     expect(view.getByText(/assumes one candidate and erases it if the board breaks/)).toBeTruthy();
-    expect(view.getByText('Hypothesis Mode')).toBeTruthy();
+    expect(view.getByText('1 technique, found by Search')).toBeTruthy();
   });
 });
 
 describe('No Assist', () => {
   it('counts nothing and offers no scan, but still lets the player read', () => {
-    const onCount = vi.fn();
     const onSelectTechnique = vi.fn();
-    const view = show({ noAssistMode: true, counts: { 'X-Wing': 3 }, onCount, onSelectTechnique });
+    const view = show({ noAssistMode: true, counts: { 'X-Wing': 3 }, onSelectTechnique });
     expect(view.getByText(/No Assist is on, so nothing here is counted/)).toBeTruthy();
     expect(view.queryByText('On this board')).toBeNull();
     expect(view.queryByText('(3)')).toBeNull();
-    fireEvent.click(view.getByRole('button', { name: /^Expert/ }));
-    expect(view.getByText('X-Wing')).toBeTruthy();
+    openTier(view, 'Expert');
+    // Nothing is counted, so the tier has nothing of this board to show:
+    // its size, and the way to read it.
+    expect(tierRows(view, 'Expert')).toEqual([]);
+    expect(view.getByText(`Read any of the ${tierSize('Expert')}`)).toBeTruthy();
     expect(view.queryByRole('button', { name: 'Count' })).toBeNull();
     expect(view.queryByRole('button', { name: /Scan this board/ })).toBeNull();
-    expect(onCount).not.toHaveBeenCalled();
     // Reading how a technique works is not assistance, so the reference
-    // dialog stays one tap away even here.
+    // stays one tap away even here.
+    fireEvent.change(view.getByLabelText('Find a technique by name'), { target: { value: 'x-wing' } });
     fireEvent.click(view.getByText('X-Wing'));
     expect(onSelectTechnique).toHaveBeenCalledWith('X-Wing');
   });
 
   it('a chain lesson is still one click away in No Assist', () => {
-    // Reading how a technique works is not assistance: the reference dialog
+    // Reading how a technique works is not assistance: the reference
     // stays reachable while counts, Scan and Search stay off (#67).
     const onSelectTechnique = vi.fn();
     const view = show({ noAssistMode: true, onSelectTechnique });
-    fireEvent.click(view.getByRole('button', { name: /^Ultimate/ }));
+    fireEvent.change(view.getByLabelText('Find a technique by name'), {
+      target: { value: 'continuous loop' },
+    });
     fireEvent.click(view.getByRole('button', { name: 'Continuous Loop' }));
     expect(onSelectTechnique).toHaveBeenCalledWith('Continuous Loop');
     expect(view.queryByRole('button', { name: /Scan this board/ })).toBeNull();
@@ -355,8 +426,13 @@ describe('the techniques that need the puzzle to have one answer', () => {
     const view = openUltimate(show({ uniqueness: 'many', counts: { 'X-Cycle': 2 } }));
     // The reason, once, above the tier's rows.
     expect(view.getByText(/more than one answer/)).toBeTruthy();
-    // Every one of them says so, rather than reading as "no pattern here".
-    expect(view.getAllByText('not available here').length).toBeGreaterThan(5);
+    // How many of them cannot be used here, once: thirteen rows reading
+    // "not available here" is the same defect as nine reading "none here".
+    const blocked = TECHNIQUES.filter(
+      (tech) => tech.tier === 'Ultimate' && UNIQUENESS_TECHNIQUES.includes(tech.name)
+    ).length;
+    expect(view.getByText(new RegExp(`${blocked} not available here`))).toBeTruthy();
+    expect(view.queryAllByText('not available here')).toHaveLength(0);
     // And the rest of the tier is counted as usual (twice over: once under
     // "On this board" and once in the tier itself).
     expect(view.getAllByText('(2)').length).toBeGreaterThan(0);
@@ -365,15 +441,18 @@ describe('the techniques that need the puzzle to have one answer', () => {
   it('can still be read about: reading is not assistance', () => {
     const picked = [];
     const view = openUltimate(show({ uniqueness: 'many', onSelectTechnique: (n) => picked.push(n) }));
+    fireEvent.change(view.getByLabelText('Find a technique by name'), {
+      target: { value: 'unique rectangle type 1' },
+    });
     fireEvent.click(view.getByRole('button', { name: 'Unique Rect. 1' }));
     expect(picked).toEqual(['Unique Rectangle Type 1']);
   });
 
   it('say nothing at all in No Assist, where the whole list is inert', () => {
     const view = openUltimate(show({ uniqueness: 'many', noAssistMode: true }));
-    expect(view.queryByText('not available here')).toBeNull();
+    expect(view.queryByText(/not available here/)).toBeNull();
     expect(view.queryByText(/more than one answer/)).toBeNull();
-    expect(view.getByRole('button', { name: 'Unique Rect. 1' })).toBeTruthy();
+    expect(view.getByText(`Read any of the ${tierSize('Ultimate')}`)).toBeTruthy();
   });
 
   it('are counted like anything else once the puzzle is known to have one', () => {
@@ -424,10 +503,13 @@ describe('a Scan, reported in the panel rather than over the board', () => {
     expect(onUltimateScan).toHaveBeenCalled();
   });
 
-  it('says the rows are counting instead of asking the player to pay twice', () => {
-    const view = openUltimate(show({ scan: running(2) }));
-    expect(view.getAllByText('counting…').length).toBeGreaterThan(5);
-    // Count is what an uncounted row offers when nothing is on its way.
+  it('spends no row on a technique that is only being counted', () => {
+    const view = openUltimate(show({ scan: running(2), uniqueness: 'one' }));
+    // One progress line for the tier, and nothing per technique: neither a
+    // row saying it is counting nor a button offering to count it (#122).
+    expect(view.getByTestId('scan-progress').textContent).toContain(`2 of ${SCAN_TOTAL}`);
+    expect(tierRows(view, 'Ultimate')).toEqual([]);
+    expect(view.queryByText('counting…')).toBeNull();
     expect(view.queryByRole('button', { name: 'Count' })).toBeNull();
   });
 
