@@ -47,6 +47,9 @@ const single = {
   placement: { cell: 5, digit: 4 }, eliminations: [], explanation: 'Only one mark left.',
 };
 
+/** The caption the player is showing (and announcing) right now. */
+const liveCaption = (container) => container.querySelector('[data-testid="hint-animation-caption"]')?.textContent;
+
 beforeEach(() => setReducedMotion(false));
 afterEach(() => {
   cleanup();
@@ -63,7 +66,7 @@ describe('the controls under the board', () => {
   it('show the caption, the count, and one set of controls', () => {
     act(() => startHintAnimation(frames));
     const { container, getByRole } = render(<HintAnimationControls />);
-    expect(container.textContent).toContain('First, look at the 5s.');
+    expect(liveCaption(container)).toBe('First, look at the 5s.');
     expect(container.textContent).toContain('Step 1 of 3');
     expect(getByRole('button', { name: 'Previous' }).hasAttribute('disabled')).toBe(true);
     for (const label of ['Previous', 'Next', 'Show result', 'Close animation']) {
@@ -77,16 +80,63 @@ describe('the controls under the board', () => {
     act(() => startHintAnimation(frames));
     const { container, getByRole } = render(<HintAnimationControls />);
     fireEvent.click(getByRole('button', { name: 'Next' }));
-    expect(container.textContent).toContain('Then follow the link.');
+    expect(liveCaption(container)).toBe('Then follow the link.');
     fireEvent.click(getByRole('button', { name: 'Previous' }));
-    expect(container.textContent).toContain('First, look at the 5s.');
+    expect(liveCaption(container)).toBe('First, look at the 5s.');
     fireEvent.click(getByRole('button', { name: 'Show result' }));
-    expect(container.textContent).toContain('So erase the 5 there.');
+    expect(liveCaption(container)).toBe('So erase the 5 there.');
     expect(container.textContent).toContain('Step 3 of 3');
     // At the end, Play becomes Replay rather than a dead button.
     expect(getByRole('button', { name: 'Replay' })).toBeTruthy();
     fireEvent.click(getByRole('button', { name: 'Close animation' }));
     expect(container.firstChild).toBeNull();
+  });
+
+  it('stays as tall as its longest caption, without announcing the others', () => {
+    act(() => startHintAnimation(frames));
+    const { container } = render(<HintAnimationControls />);
+    // Every caption is laid out (invisible) so the player holds the height
+    // of the longest one and does not jump from frame to frame...
+    const sizers = Array.from(container.querySelectorAll('p[aria-hidden="true"]'));
+    expect(sizers.map((p) => p.textContent)).toEqual(frames.map((f) => f.caption));
+    expect(sizers.every((p) => p.className.includes('invisible'))).toBe(true);
+    // ...and only the live one is announced.
+    expect(container.querySelectorAll('[aria-live="polite"]')).toHaveLength(1);
+  });
+
+  it('takes the place of what it wraps, and gives it back on close', () => {
+    const { container, getByText, queryByTestId } = render(
+      <HintAnimationControls><div>the strip</div></HintAnimationControls>
+    );
+    // Nothing playing: the strip shows as normal.
+    expect(getByText('the strip').parentElement.className).not.toContain('invisible');
+    expect(queryByTestId('hint-animation-controls')).toBeNull();
+    act(() => startHintAnimation(frames));
+    // Playing: the strip stays mounted but hidden, and the player shares
+    // its grid cell so the card grows to whichever is taller.
+    const stripCell = getByText('the strip').parentElement;
+    expect(stripCell.className).toContain('invisible');
+    const playerCell = queryByTestId('hint-animation-controls').parentElement;
+    expect(stripCell.className).toContain('[grid-area:1/1]');
+    expect(playerCell.className).toContain('[grid-area:1/1]');
+    expect(stripCell.parentElement).toBe(playerCell.parentElement);
+    // Not laid over the strip any more: nothing is absolutely positioned,
+    // so the player can never be cut to the strip's height.
+    expect(container.innerHTML).not.toMatch(/\babsolute\b/);
+    act(() => setHintAnimation(null));
+    expect(getByText('the strip').parentElement.className).not.toContain('invisible');
+    expect(queryByTestId('hint-animation-controls')).toBeNull();
+  });
+
+  it('keeps the first line reachable if the caption ever outgrows the box', () => {
+    act(() => startHintAnimation(frames));
+    const { getByTestId } = render(<HintAnimationControls />);
+    // Vertical centring with justify-center pushed an overflowing caption's
+    // first line above the top of the scroll area, out of reach. The player
+    // centres with auto margins instead, which collapse to zero on overflow.
+    const box = getByTestId('hint-animation-controls');
+    expect(box.className).not.toContain('justify-center');
+    expect(box.firstElementChild.className).toContain('my-auto');
   });
 
   it('plays by itself, a frame at a time', () => {
@@ -132,9 +182,9 @@ describe('when the player has asked for less motion', () => {
     act(() => startHintAnimation(frames, { reducedMotion: true }));
     const { container, getByRole } = render(<HintAnimationControls />);
     fireEvent.click(getByRole('button', { name: 'Next' }));
-    expect(container.textContent).toContain('Then follow the link.');
+    expect(liveCaption(container)).toBe('Then follow the link.');
     fireEvent.click(getByRole('button', { name: 'Next' }));
-    expect(container.textContent).toContain('So erase the 5 there.');
+    expect(liveCaption(container)).toBe('So erase the 5 there.');
   });
 
   it('draws the whole frame on the board, transitions or not', () => {
