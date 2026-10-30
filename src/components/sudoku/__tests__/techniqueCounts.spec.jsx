@@ -9,6 +9,12 @@
 // The detector is mocked here so the test can say exactly how many
 // full-grid scans a keystroke causes - which is the thing that has to stay
 // at zero as the catalog grows from sixteen techniques to fifty-odd.
+//
+// And which detectors run at all (#128). Counting is easiest-tier-first and
+// stops at the first tier with an instance: a harder technique counted
+// while an easier move is on the board is a number that is four times out
+// of five about patterns the easier move will destroy. The player can still
+// ask for a tier by hand.
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, act, cleanup } from '@testing-library/react';
@@ -24,10 +30,15 @@ vi.mock('../logicEngine', () => ({
 const { useTechniqueCounts } = await import('../useTechniqueCounts');
 
 const NAMES = ['Naked Single', 'Hidden Single', 'X-Wing'];
+// Two tiers, easiest first, as the panel hands them over.
+const GROUPS = [
+  { tier: 'Basic', names: ['Naked Single', 'Hidden Single'] },
+  { tier: 'Expert', names: ['X-Wing'] },
+];
 
 let latest = null;
-function Probe({ grid, enabled, names = NAMES }) {
-  latest = useTechniqueCounts(grid, { enabled, names });
+function Probe({ grid, enabled, groups = GROUPS }) {
+  latest = useTechniqueCounts(grid, { enabled, groups });
   return null;
 }
 
@@ -66,12 +77,44 @@ describe('counting techniques on the board', () => {
   });
 
   it('fills the counts in once the board has been still for a moment', () => {
-    const grid = board({ 'Naked Single': [1], 'X-Wing': [1, 2] });
+    // Nothing easier applies, so every tier is worth counting.
+    const grid = board({ 'X-Wing': [1, 2] });
     render(<Probe grid={grid} enabled />);
     settle();
     expect(scans.sort()).toEqual([...NAMES].sort());
-    expect(latest.counts).toEqual({ 'Naked Single': 1, 'Hidden Single': 0, 'X-Wing': 2 });
+    expect(latest.counts).toEqual({ 'Naked Single': 0, 'Hidden Single': 0, 'X-Wing': 2 });
     expect(latest.counting).toBe(false);
+  });
+
+  it('stops at the first tier that has something, and counts no harder one', () => {
+    const grid = board({ 'Naked Single': [1], 'X-Wing': [1, 2] });
+    render(<Probe grid={grid} enabled />);
+    settle();
+    // The whole of Basic, because the tier is the unit; nothing after it.
+    expect(scans.sort()).toEqual(['Hidden Single', 'Naked Single']);
+    expect(latest.counts).toEqual({ 'Naked Single': 1, 'Hidden Single': 0 });
+    // And it says it has finished: a tier held back is not a tier pending.
+    expect(latest.counting).toBe(false);
+  });
+
+  it('goes on to the next tier when the easier one is empty', () => {
+    const grid = board({ 'X-Wing': [1] });
+    render(<Probe grid={grid} enabled />);
+    settle();
+    expect(scans.sort()).toEqual([...NAMES].sort());
+    expect(latest.counts['X-Wing']).toBe(1);
+  });
+
+  it('counts a tier the player asks for in spite of the gate', () => {
+    const grid = board({ 'Naked Single': [1], 'X-Wing': [1, 2] });
+    render(<Probe grid={grid} enabled />);
+    settle();
+    expect(latest.counts['X-Wing']).toBeUndefined();
+
+    scans.length = 0;
+    act(() => { latest.countTier(['X-Wing']); });
+    expect(scans).toEqual(['X-Wing']);
+    expect(latest.counts).toEqual({ 'Naked Single': 1, 'Hidden Single': 0, 'X-Wing': 2 });
   });
 
   it('does no work for a board the player has already changed', () => {
@@ -125,8 +168,55 @@ describe('counting techniques on the board', () => {
   });
 
   it('counts only the techniques it was asked for', () => {
-    render(<Probe grid={board({})} enabled names={['X-Wing']} />);
+    render(<Probe grid={board({})} enabled groups={[{ tier: 'Expert', names: ['X-Wing'] }]} />);
     settle();
     expect(scans).toEqual(['X-Wing']);
+  });
+});
+
+// The hook can only stop at a tier boundary if it is given tiers. This is
+// the wiring: flatten the groups into one list and every test above still
+// passes while the panel quietly goes back to counting everything.
+describe('the panel asks for the tiers in ladder order', () => {
+  const noop = () => {};
+  const panel = async (grid) => {
+    const { default: LogicPanel } = await import('../LogicPanel');
+    window.localStorage.setItem('sudoku-mentor:techniques-open', '1');
+    return render(
+      <LogicPanel
+        currentStep={null}
+        grid={grid}
+        uniqueness="one"
+        noAssistMode={false}
+        onHighlightTechnique={noop}
+        onNextStep={noop}
+        onApplyStep={noop}
+        onCancelHintSearch={noop}
+        onAssistUsed={noop}
+        onNextPuzzle={noop}
+        onShowSingle={noop}
+        getElapsedSeconds={() => 0}
+      />
+    );
+  };
+
+  it('runs the Basic detectors and stops, when a single is on the board', async () => {
+    await panel(board({ 'Naked Single': [1], 'X-Wing': [1, 2], 'X-Cycle': [1] }));
+    settle();
+    // Two detectors for a board where twenty-two would have run, and the
+    // nineteen harder ones would have been counting patterns the single is
+    // about to destroy.
+    expect(scans).toEqual(['Naked Single', 'Hidden Single']);
+  });
+
+  it('works down the ladder while every tier it tries is empty', async () => {
+    await panel(board({ 'X-Wing': [1] }));
+    settle();
+    // Basic, Intermediate, Advanced and then the Expert tier that has it.
+    expect(scans.slice(0, 2)).toEqual(['Naked Single', 'Hidden Single']);
+    expect(scans).toContain('X-Wing');
+    expect(scans.length).toBeGreaterThan(10);
+    // and nothing from the tiers that are only ever counted on request
+    expect(scans).not.toContain('X-Cycle');
   });
 });

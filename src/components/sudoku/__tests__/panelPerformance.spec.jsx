@@ -29,10 +29,19 @@ vi.mock('../logicEngine', async (importOriginal) => {
 });
 
 const { default: LogicPanel } = await import('../LogicPanel');
-const { generateCandidates, findNextLogicStep, applyLogicStep, eliminateCandidatesFromPeers } =
-  await import('../logicEngine');
+const {
+  generateCandidates,
+  findNextLogicStep,
+  applyLogicStep,
+  eliminateCandidatesFromPeers,
+  findAllTechniqueInstances,
+} = await import('../logicEngine');
 const { PUZZLES } = await import('../puzzles');
-const { LIVE_COUNT_TECHNIQUES } = await import('../techniqueCatalog');
+const { COUNT_LIVE, LIVE_COUNT_TECHNIQUES, TECHNIQUES } = await import('../techniqueCatalog');
+
+/** The live-counted techniques of one tier, in ladder order. */
+const liveTier = (level) =>
+  TECHNIQUES.filter((tech) => tech.tier === level && tech.count === COUNT_LIVE).map((t) => t.name);
 
 const buildGrid = (puzzle) =>
   generateCandidates(
@@ -124,13 +133,55 @@ describe('entering a digit with the Techniques list open', () => {
     expect(elapsed).toBeLessThan(250);
   });
 
-  it('counts the live tiers afterwards, once, and only those', async () => {
+  it('counts the easiest tier that has something, and stops there', async () => {
+    // The rule from #128: a count of a harder technique taken while an
+    // easier move is on the board is four times out of five a count of
+    // patterns the move is about to destroy. So the pass stops.
     const midGame = playTo(PUZZLES.diabolical[1].puzzle, 40);
+    const basic = liveTier('Basic');
+    // The premise, checked rather than assumed: if this board has no
+    // single on it, the test below is asserting something else.
+    const singles = basic.filter((name) => findAllTechniqueInstances(midGame, name).length > 0);
+    expect(singles.length, 'the fixture should have a single on it').toBeGreaterThan(0);
+
+    detectorRuns.length = 0;
+    detectorCost.ms = 0;
     render(panel(midGame));
     await letTheCountsHappen();
 
-    expect([...detectorRuns].sort()).toEqual([...LIVE_COUNT_TECHNIQUES].sort());
-    out(`  deferred count pass, mid-game board: ${LIVE_COUNT_TECHNIQUES.length} detectors, ${detectorCost.ms.toFixed(1)} ms of work, spread over slices after the paint`);
+    // The whole of the easiest tier, because a tier is the unit, and
+    // nothing after it.
+    expect([...detectorRuns].sort()).toEqual([...basic].sort());
+    out(
+      `  deferred count pass, mid-game board: ${detectorRuns.length} of ${LIVE_COUNT_TECHNIQUES.length} live detectors ` +
+        `(the rest held back by a single on the board), ${detectorCost.ms.toFixed(1)} ms of work after the paint`
+    );
+  });
+
+  it('counts every live tier on a board where nothing easy applies', async () => {
+    // Played until the singles run out: now the harder tiers are the ones
+    // worth counting, and all of them are counted.
+    let grid = playTo(PUZZLES.diabolical[1].puzzle, 40);
+    for (let i = 0; i < 200; i++) {
+      const easy = liveTier('Basic').some((name) => findAllTechniqueInstances(grid, name).length > 0);
+      if (!easy) break;
+      const step = findNextLogicStep(grid, null);
+      if (!step) break;
+      grid = applyLogicStep(grid, step);
+      if (step.placement) {
+        grid = eliminateCandidatesFromPeers(grid, step.placement.cell, step.placement.digit);
+      }
+    }
+    detectorRuns.length = 0;
+    render(panel(grid));
+    await letTheCountsHappen();
+    // Whatever the first tier with something is, everything easier than it
+    // ran too, and the pass is a prefix of the ladder.
+    const order = LIVE_COUNT_TECHNIQUES;
+    const ran = new Set(detectorRuns);
+    const prefix = order.slice(0, detectorRuns.length);
+    expect([...ran].sort()).toEqual([...prefix].sort());
+    expect(detectorRuns.length).toBeGreaterThan(liveTier('Basic').length);
   });
 
   it('pays nothing for a board change while the list is closed', async () => {

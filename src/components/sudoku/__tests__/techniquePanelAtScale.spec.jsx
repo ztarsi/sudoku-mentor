@@ -68,6 +68,7 @@ const base = {
   onSelectTechnique: () => {},
   onHighlight: () => {},
   onBrowse: () => {},
+  onCountTier: () => {},
   onUltimateScan: () => {},
   onWhatIfSearch: () => {},
   onShowInfo: () => {},
@@ -207,9 +208,10 @@ describe('the invariant: what the player sees is a function of the board', () =>
   it('spends one line per tier on everything it is not showing', () => {
     const view = everyTierOpen();
     expect(tierSummaries(view)).toHaveLength(TIERS.length);
-    // And the line is a count, not a list: nothing in it is a technique.
+    // And the line is a quantity, not a list: nothing in it is a technique
+    // name, whether it is reporting the board or offering the reading.
     for (const line of tierSummaries(view)) {
-      expect(line).toMatch(/^\d+ (other|technique)s?[,:]/);
+      expect(line).toMatch(/^(\d+ (other|technique)s?([,:]|$)|Read (any of the|the other) \d+$)/);
     }
   });
 

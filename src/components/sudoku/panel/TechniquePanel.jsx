@@ -41,6 +41,16 @@ import { UNIQUENESS_UNKNOWN, uniquenessAllowed, uniquenessNote, uniquenessShortN
  * column into a list - what a player sees beside the board is a function of
  * the board, never of the catalog.
  *
+ * Counts are taken easiest first and stop at the first tier that has
+ * something (#128). A tier after that one is not counted and says so in
+ * plain words - "there are still singles on this board" - because a count
+ * of a harder technique taken while an easier move is on the board is, four
+ * times out of five, a count of patterns that will not be there once the
+ * player makes the move. The panel used to advertise them. The mentor has
+ * always said take the easiest technique that applies; this is the panel
+ * saying the same thing. Anyone who wants the number anyway can still ask
+ * for it, per tier.
+ *
  * That leaves the panel with no way to read the ladder end to end, which is
  * the point: browsing sixty-one names belongs in the reference, which has
  * the width for columns and is opened by someone who means to browse. Every
@@ -109,6 +119,10 @@ const REST_PHRASES = [
  * above the line (so the line can say "others" rather than "techniques"),
  * and the rest are the counts per state. Null when there is nothing to
  * summarise, which is when every technique in the tier is on the board.
+ *
+ * A tier held back by the gate says why in its own line above, so the
+ * techniques it has not counted carry no clause here: the quantity is all
+ * this line is for.
  *
  * @param {{ total: number, othersShown?: boolean, absent?: number,
  *   uncounted?: number, searchOnly?: number, blocked?: number }} rest
@@ -215,6 +229,7 @@ export default function TechniquePanel({
   onSelectTechnique,
   onHighlight,
   onBrowse,
+  onCountTier,
   onUltimateScan,
   onWhatIfSearch,
   onShowInfo,
@@ -279,6 +294,27 @@ export default function TechniquePanel({
     scanLine.current?.scrollIntoView?.({ block: 'nearest' });
   }, [scanStep]);
 
+  // The easiest tier with something on this board. Everything harder than
+  // it is not counted while it stands, so the tiers after it say why rather
+  // than showing a number (#128).
+  const gate = useMemo(() => {
+    if (countsOff) return null;
+    for (const tier of TIERS) {
+      if (TECHNIQUES.some((tech) => tech.tier === tier.level && counts[tech.name] > 0)) {
+        return tier.level;
+      }
+    }
+    return null;
+  }, [counts, countsOff]);
+  const tierRank = (level) => TIERS.findIndex((tier) => tier.level === level);
+  const gateRank = gate ? tierRank(gate) : -1;
+  // Plain words, and the easiest tier is named for what it holds rather
+  // than for what we call it.
+  const gateReason =
+    gate === 'Basic'
+      ? 'There are still singles on this board, so nothing harder is counted.'
+      : `There are still ${gate} techniques on this board, so nothing harder is counted.`;
+
   // Hardest first. TECHNIQUES is in teaching order, so reversing the
   // filtered list ranks what applies without a second ordering to keep in
   // step with it - and the ladder's own order is untouched.
@@ -318,7 +354,7 @@ export default function TechniquePanel({
   // act on differently: counted and absent, not counted yet, only ever
   // found by Search, or not available while the puzzle has more than one
   // answer.
-  const restOf = (techniques, here) => {
+  const restOf = (techniques, here, gated = false) => {
     // Nothing is counted in No Assist, so a tier has nothing of the board
     // to report and the line is about reading instead. Its size is already
     // in the header, so repeating it would be the header twice.
@@ -331,9 +367,20 @@ export default function TechniquePanel({
       else if (typeof counts[tech.name] === 'number') states.absent += 1;
       else states.uncounted += 1;
     }
+    const total = techniques.length - here.length;
+    // A tier held back has nothing to report about the board, and its size
+    // is already in its header: the line is the way in, as it is in No
+    // Assist. Where some of it has been counted by hand, what that found
+    // is still worth saying.
+    if (gated && states.absent + states.blocked + states.searchOnly === 0) {
+      return here.length > 0 ? `Read the other ${total}` : `Read any of the ${techniques.length}`;
+    }
     return restSummary({
       ...states,
-      total: techniques.length - here.length,
+      // The gate's own line says why these are not counted; saying it again
+      // per quantity is the readout we keep deleting.
+      uncounted: gated ? 0 : states.uncounted,
+      total,
       othersShown: here.length > 0,
     });
   };
@@ -537,6 +584,12 @@ export default function TechniquePanel({
                         Browse all {TECHNIQUES.length}
                       </button>
                     </div>
+                    {/* Said once, for the whole ladder. Each tier it holds
+                        back says "not counted" in its header, and offers to
+                        do it anyway when it is opened. */}
+                    {gate && !countsOff && gateRank < TIERS.length - 1 && (
+                      <p className="text-xs text-slate-400 mb-2">{gateReason}</p>
+                    )}
                     <div className="space-y-1">
                       {TIERS.map((tier) => {
                         const techniques = TECHNIQUES.filter((tech) => tech.tier === tier.level);
@@ -547,7 +600,23 @@ export default function TechniquePanel({
                           ? []
                           : techniques.filter((tech) => counts[tech.name] > 0).reverse();
                         const applying = here.length;
-                        const rest = restOf(techniques, here);
+                        // Held back: something easier is on the board, and
+                        // this tier has techniques that were not counted
+                        // because of it. A tier of search-only techniques
+                        // is never counted in the first place, and one the
+                        // player has already counted in spite of the gate
+                        // has its numbers and keeps them.
+                        const gated =
+                          !countsOff &&
+                          gateRank >= 0 &&
+                          tierRank(tier.level) > gateRank &&
+                          techniques.some(
+                            (tech) =>
+                              tech.count !== COUNT_SEARCH &&
+                              !whyUnavailable(tech) &&
+                              typeof counts[tech.name] !== 'number'
+                          );
+                        const rest = restOf(techniques, here, gated);
                         return (
                           <div key={tier.level}>
                             <button
@@ -567,6 +636,7 @@ export default function TechniquePanel({
                               <span className="text-xs text-slate-500">
                                 {techniques.length} technique{techniques.length === 1 ? '' : 's'}
                                 {applying > 0 ? ` · ${applying} here` : ''}
+                                {gated ? ' · not counted' : ''}
                               </span>
                             </button>
 
@@ -579,6 +649,15 @@ export default function TechniquePanel({
                                       {uniquenessNote(uniqueness)}
                                     </p>
                                   )}
+                                {gated && !tier.scanNote && (
+                                  <button
+                                    onClick={() => onCountTier(tier.level)}
+                                    className="mb-2 px-2 py-1 border border-slate-600 text-slate-300 hover:bg-slate-700 text-xs rounded transition-colors"
+                                    title={`Count the ${tier.level} techniques on this board anyway`}
+                                  >
+                                    Count anyway
+                                  </button>
+                                )}
                                 {tier.scanNote && !countsOff && (
                                   <div className="mb-2">
                                     <p className="text-xs text-slate-400 mb-1">{tier.scanNote}</p>

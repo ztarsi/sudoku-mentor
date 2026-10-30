@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import TechniqueModal from './TechniqueModal';
 import DeepSearchModal from './DeepSearchModal';
 import TechniquePanel from './panel/TechniquePanel';
@@ -8,7 +8,7 @@ import PanelInfoModal from './panel/PanelInfoModal';
 import { findAllTechniqueInstances } from './logicEngine';
 import { useTechniqueCounts } from './useTechniqueCounts';
 import { runInSlices } from './sliceRunner';
-import { LIVE_COUNT_TECHNIQUES, SCAN_TECHNIQUES, needsUniqueness } from './techniqueCatalog';
+import { COUNT_LIVE, SCAN_TECHNIQUES, TECHNIQUES, TIERS, needsUniqueness } from './techniqueCatalog';
 import { UNIQUENESS_UNKNOWN, uniquenessAllowed } from './uniqueness';
 import { searchWhatIf, isCancelled, isTimedOut, DEEP_TIME_BUDGET_MS } from './whatIfSearch';
 import { NET_DEPTH } from './searchLimits';
@@ -109,11 +109,39 @@ export default function LogicPanel({
   const uniquenessOn = uniquenessAllowed(uniqueness);
   const countable = (name) => uniquenessOn || !needsUniqueness(name);
 
-  const { counts: techniqueCounts, counting, countNow, recordCounts } = useTechniqueCounts(grid, {
-    enabled: techniqueExpanded && !noAssistMode,
-    names: LIVE_COUNT_TECHNIQUES.filter(countable),
-    uniqueness,
-  });
+  // The live tiers, easiest first, as groups rather than as one list: the
+  // pass stops at the first tier that has something, because a count of a
+  // harder technique taken while an easier move is on the board is four
+  // times out of five a count of patterns that will not survive the move
+  // (#128). The tiers after it are not counted and say why.
+  const liveTiers = useMemo(
+    () =>
+      TIERS.map((tier) => ({
+        tier: tier.level,
+        names: TECHNIQUES.filter(
+          (tech) =>
+            tech.tier === tier.level &&
+            tech.count === COUNT_LIVE &&
+            (uniquenessOn || !needsUniqueness(tech.name))
+        ).map((tech) => tech.name),
+      })).filter((group) => group.names.length > 0),
+    [uniquenessOn]
+  );
+
+  const { counts: techniqueCounts, counting, countNow, countTier, recordCounts } = useTechniqueCounts(
+    grid,
+    {
+      enabled: techniqueExpanded && !noAssistMode,
+      groups: liveTiers,
+      uniqueness,
+    }
+  );
+
+  /** Count a tier the gate is holding back, because the player asked. */
+  const handleCountTier = (level) => {
+    onAssistUsedRef.current?.();
+    countTier(liveTiers.find((group) => group.tier === level)?.names ?? []);
+  };
 
   // A Scan answers "what is on this board?" for the tiers that cost too
   // much to count live. It reports into the panel, beside the counts the
@@ -276,6 +304,7 @@ export default function LogicPanel({
         onSelectTechnique={setSelectedTechnique}
         onHighlight={handleTechniqueClick}
         onBrowse={setBrowse}
+        onCountTier={handleCountTier}
         onUltimateScan={handleUltimateScan}
         onWhatIfSearch={handleWhatIfSearch}
         onShowInfo={() => setShowInfoModal('techniques')}
