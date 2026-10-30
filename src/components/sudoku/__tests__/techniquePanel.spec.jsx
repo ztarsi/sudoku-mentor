@@ -30,6 +30,7 @@ const base = {
   onSelectTechnique: () => {},
   onHighlight: () => {},
   onBrowse: () => {},
+  onCountTier: () => {},
   onUltimateScan: () => {},
   onWhatIfSearch: () => {},
   onShowInfo: () => {},
@@ -272,6 +273,108 @@ describe('the Techniques list', () => {
   it('shows how many of a tier apply without opening it', () => {
     const view = show({ counts: { 'X-Wing': 2, Swordfish: 1, 'XY-Wing': 0 } });
     expect(view.getByRole('button', { name: /^Expert/ }).textContent).toContain('2 here');
+  });
+});
+
+// The panel used to count every tier at once and show the numbers. Four
+// fifths of the harder ones were about patterns the easier move destroys,
+// so the harder tiers now say why they are not counted instead (#128).
+describe('counting the easiest tier first', () => {
+  // Every technique in these tiers counted and empty, so the gate is where
+  // the test puts it rather than wherever the first zero happens to be.
+  const emptyThrough = (...levels) =>
+    Object.fromEntries(
+      TECHNIQUES.filter((tech) => levels.includes(tech.tier)).map((tech) => [tech.name, 0])
+    );
+
+  it('says why, once, in plain words, for the whole ladder', () => {
+    const view = show({ uniqueness: 'one', counts: { 'Naked Single': 2 } });
+    // Once, above the tiers. Four tiers open was four copies of this
+    // sentence, which is the disease in a new costume.
+    expect(
+      view.getAllByText('There are still singles on this board, so nothing harder is counted.')
+    ).toHaveLength(1);
+    for (const level of ['Intermediate', 'Advanced', 'Expert', 'Ultimate']) openTier(view, level);
+    expect(
+      view.getAllByText('There are still singles on this board, so nothing harder is counted.')
+    ).toHaveLength(1);
+  });
+
+  it('marks the tiers it is holding back, in their headers', () => {
+    const view = show({ uniqueness: 'one', counts: { 'Naked Single': 2 } });
+    expect(view.getByRole('button', { name: /^Expert/ }).textContent).toContain('not counted');
+    expect(view.getByRole('button', { name: /^Basic/ }).textContent).not.toContain('not counted');
+    openTier(view, 'Expert');
+    // The line in the body is the way in, with no number it does not have
+    // and no "not counted yet" the header has just said.
+    expect(view.getByText(`Read any of the ${tierSize('Expert')}`)).toBeTruthy();
+    expect(view.queryByText(/not counted yet/)).toBeNull();
+  });
+
+  it('names the tier that is holding it back when it is not the singles', () => {
+    // The rule is "no easier tier", not "no singles": a board can have an
+    // Advanced technique and no Basic one.
+    const counts = { ...emptyThrough('Basic', 'Intermediate'), 'Naked Pair': 1 };
+    const view = show({ uniqueness: 'one', counts });
+    expect(
+      view.getByText('There are still Advanced techniques on this board, so nothing harder is counted.')
+    ).toBeTruthy();
+    expect(view.getByRole('button', { name: /^Expert/ }).textContent).toContain('not counted');
+  });
+
+  it('counts the tier that has something, and every tier easier than it', () => {
+    const counts = { ...emptyThrough('Basic', 'Intermediate'), 'Naked Pair': 1 };
+    const view = show({ uniqueness: 'one', counts });
+    openTier(view, 'Intermediate');
+    openTier(view, 'Advanced');
+    // Counted and empty says so; the tier with something shows its rows.
+    expect(view.getByText(`${tierSize('Intermediate')} techniques, none here`)).toBeTruthy();
+    expect(tierRows(view, 'Advanced')).toEqual(['Naked Pair']);
+  });
+
+  it('lets the player ask for a held-back tier anyway', () => {
+    const onCountTier = vi.fn();
+    const view = show({ uniqueness: 'one', counts: { 'Naked Single': 2 }, onCountTier });
+    openTier(view, 'Expert');
+    fireEvent.click(view.getByRole('button', { name: 'Count anyway' }));
+    expect(onCountTier).toHaveBeenCalledWith('Expert');
+  });
+
+  it('offers the scan tier one way to ask, not two', () => {
+    const view = show({ uniqueness: 'one', counts: { 'Naked Single': 2 } });
+    openTier(view, 'Ultimate');
+    // Scan is already the way to count this tier in spite of the gate, so
+    // the tier gains no second button under it.
+    expect(view.getByRole('button', { name: /Scan this board/ })).toBeTruthy();
+    expect(view.queryByRole('button', { name: 'Count anyway' })).toBeNull();
+    expect(view.getByText(/cost too much to count while you play/)).toBeTruthy();
+  });
+
+  it('keeps the numbers of a tier the player counted in spite of the gate', () => {
+    const counts = { 'Naked Single': 2, ...emptyThrough('Ultimate'), 'X-Cycle': 3 };
+    const view = show({ uniqueness: 'one', counts });
+    openTier(view, 'Ultimate');
+    expect(tierRows(view, 'Ultimate')).toEqual(['X-Cycle']);
+    expect(view.getByRole('button', { name: /^Ultimate/ }).textContent).not.toContain('not counted');
+    // and what it found is at the top with everything else on the board
+    expect(appliesRows(view)).toContain('X-Cycle');
+  });
+
+  it('holds nothing back when nothing easier applies', () => {
+    const counts = emptyThrough('Basic', 'Intermediate', 'Advanced', 'Expert');
+    const view = show({ uniqueness: 'one', counts });
+    expect(view.queryByText(/nothing harder is counted/)).toBeNull();
+    expect(view.getByRole('button', { name: /^Ultimate/ }).textContent).not.toContain('not counted');
+    openTier(view, 'Ultimate');
+    expect(view.getByText(/cost too much to count while you play/)).toBeTruthy();
+  });
+
+  it('says nothing about a gate in No Assist, where nothing is counted', () => {
+    const view = show({ noAssistMode: true, counts: { 'Naked Single': 2 } });
+    openTier(view, 'Expert');
+    expect(view.queryByText(/nothing harder is counted/)).toBeNull();
+    expect(view.queryByRole('button', { name: 'Count anyway' })).toBeNull();
+    expect(view.getByText(`Read any of the ${tierSize('Expert')}`)).toBeTruthy();
   });
 });
 

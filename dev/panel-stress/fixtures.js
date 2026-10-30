@@ -7,32 +7,29 @@ const byName = (predicate) => TECHNIQUES.filter(predicate).map((tech) => tech.na
 const countsFor = (entries) => Object.fromEntries(entries);
 const ultimate = byName((tech) => tech.tier === 'Ultimate');
 
-// Every live-counted technique counted, which is what a board does a moment
-// after it changes: the tiers that count live have a number for every row.
+// Every live-counted technique counted: what the panel has when nothing
+// easier applies and the whole live ladder was worth counting.
 const allLiveCounted = (value = 0) =>
   countsFor(byName((tech) => tech.count === 'live').map((name) => [name, value]));
+
+// What the panel actually has on a board with a single on it (#128): the
+// easiest tier counted, and nothing after it, because the pass stopped.
+const basicOnly = (counts) =>
+  countsFor(byName((tech) => tech.tier === 'Basic').map((name) => [name, counts[name] ?? 0]));
 
 export const FIXTURES = {
   demo: {
     label: 'Demo data',
-    note: 'A Medium board, part-solved: six techniques on it, the live tiers counted.',
+    note: 'A Medium board with singles on it: the Basic tier counted, every harder tier held back by the gate.',
     props: {
       uniqueness: 'one',
-      counts: {
-        ...allLiveCounted(0),
-        'Naked Single': 3,
-        'Hidden Single': 1,
-        'Naked Pair': 2,
-        'X-Wing': 1,
-        Swordfish: 1,
-        'X-Cycle': 2,
-      },
+      counts: basicOnly({ 'Naked Single': 3, 'Hidden Single': 1 }),
     },
   },
 
   worst: {
     label: 'Worst case',
-    note: 'Long names, an unbreakable one, a one-letter one, a four-digit count, a count of exactly 1, a scan just finished, and a grid with more than one answer.',
+    note: 'Long names, an unbreakable one, a one-letter one, a four-digit count, a count of exactly 1, a scan the player asked for anyway, and a grid with more than one answer.',
     props: {
       uniqueness: 'many',
       counts: {
@@ -70,8 +67,14 @@ export const FIXTURES = {
 
   one: {
     label: 'One',
-    note: 'Exactly one technique on the board, with exactly one instance.',
-    props: { uniqueness: 'one', counts: { ...allLiveCounted(0), 'Hidden Single': 1 } },
+    note: 'Exactly one technique on the board, with exactly one instance, and every harder tier held back by it.',
+    props: { uniqueness: 'one', counts: basicOnly({ 'Hidden Single': 1 }) },
+  },
+
+  nothingeasy: {
+    label: 'Nothing easy',
+    note: 'Every live tier counted and empty: the gate is open and the Ultimate tier is worth scanning.',
+    props: { uniqueness: 'one', counts: allLiveCounted(0) },
   },
 
   all: {
@@ -85,10 +88,10 @@ export const FIXTURES = {
 
   scanning: {
     label: 'Scanning',
-    note: 'A scan of the Ultimate tier, one detector from the end.',
+    note: 'A scan of the Ultimate tier, one detector from the end, asked for in spite of the gate.',
     props: {
       uniqueness: 'one',
-      counts: { ...allLiveCounted(0), 'Naked Single': 2 },
+      counts: basicOnly({ 'Naked Single': 2 }),
       scan: {
         grid: null,
         total: ultimate.length,

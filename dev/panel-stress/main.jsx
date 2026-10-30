@@ -107,6 +107,7 @@ function Harness() {
           onSelectTechnique={setTechnique}
           onHighlight={() => {}}
           onBrowse={setBrowse}
+          onCountTier={() => {}}
           onUltimateScan={() => {}}
           onWhatIfSearch={() => {}}
           onShowInfo={() => {}}

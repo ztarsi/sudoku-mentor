@@ -24,7 +24,7 @@ const WIDTHS = [
   { name: '1366x768', width: 1366, height: 768 },
   { name: '390x844', width: 390, height: 844 },
 ];
-const STATES = ['demo', 'worst', 'empty', 'one', 'all', 'scanning', 'noassist'];
+const STATES = ['demo', 'worst', 'empty', 'one', 'nothingeasy', 'all', 'scanning', 'noassist'];
 
 /** What the panel looks like from the outside, measured in the page. */
 const inspect = () => {
