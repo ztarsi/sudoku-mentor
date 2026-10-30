@@ -109,6 +109,7 @@ A release is acceptable when:
 - Nothing the player did is lost by a reload, a tab switch, or closing the app.
 - All actions are reachable by keyboard on desktop and by thumb on a phone.
 - Lint, type checks, tests, and the production build pass on every change.
+- **No surface beside the board enumerates absence, and none grows with the catalogue.** What a player sees while playing is a function of the board, not of how many techniques the mentor knows. Adding the sixty-second technique must not add a row anywhere a player is playing. Absence is summarised in one line, never listed; an action that applies to a group belongs to the group once, not to every row in it. (Added 2026-10-30, after the same mistake shipped three times: twenty-one rows reading "0 found" in the Scan dialog, every applicable technique in the panel's default view, and nine rows reading "none here" inside an expanded tier.)
 
 ## 9. How we measure success
 

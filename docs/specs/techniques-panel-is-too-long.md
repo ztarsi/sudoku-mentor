@@ -59,3 +59,43 @@ An inventory of everything present on the board serves none of those. It is a re
 - On every library puzzle, at every width, the panel's default state fits without scrolling beside the hint card, and a player can still reach any technique in one action.
 - Running the `break-ui` approach against it with a catalog of a hundred techniques changes nothing about the default view.
 - The founder opens it and does not call it a wall.
+
+## Round two, 30 October: the wall moved down a level
+
+The default view is fixed. Measured on staging after PR #121: three count pills, and the column scrolls by 23 pixels, which is nothing. Then a player expands a tier.
+
+| | Measured |
+| --- | --- |
+| Expanding Expert | **9 rows reading "none here"** |
+| Expanding Ultimate | **33 "Count" buttons**, one per technique |
+
+Founder, 30 October: "List on the right can still be too long sometimes, find a better solution."
+
+He is right, and this is the third appearance of one disease, so it is worth naming rather than trimming again.
+
+### What the disease is
+
+**We keep enumerating absence.** The Scan dialog printed "0 found" twenty-one times. The panel's default view listed every technique that applied. Now expanding a tier prints "none here" once per technique that does not.
+
+The tier header already reads "11 techniques · 1 here". That sentence *is* the answer. The nine rows beneath it exist only to repeat "not me", nine times, in a narrow column.
+
+**And we keep repeating an action per row.** Thirty-three "Count" buttons sit inside a tier that already has one "Scan this board" button doing exactly that for all of them. One action became thirty-three affordances.
+
+### The rule that stops a fourth time
+
+**What is shown beside the board is a function of the board, never of the catalogue.** Adding a sixty-second technique must not add a row anywhere a player is playing, unless that technique is on the board in front of them.
+
+It is testable, it survives the catalogue doubling, and it would have caught all three incidents.
+
+### What that means concretely
+
+- **Absence is summarised, never enumerated.** Expanding a tier shows the techniques that are present, then one line for the rest: "9 others, none here", which can itself expand for anyone curious. Never nine rows.
+- **One action per tier, not one per row.** "Scan this board" already counts a whole tier. The per-row "Count" buttons go.
+- **The sidebar is not a catalogue.** Browsing all sixty-one techniques belongs in the reference surface, which has width for columns and is opened by someone whose explicit intent is to browse. A narrow column beside the board is the wrong container for an index, and shortening the index does not make it the right one.
+
+### Done, from the player's side
+
+- Expanding any tier adds rows only for techniques on the board, plus at most one summary line.
+- No tier offers more than one way to count it.
+- Every technique's reference is still one action away from the panel.
+- The sidebar's row count is a function of the board, not of the catalogue, and a test asserts that with a catalogue far larger than today's.
