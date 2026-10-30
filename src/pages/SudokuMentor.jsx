@@ -968,9 +968,12 @@ export default function SudokuMentor() {
     />
   );
   const stripCard = (
-    <div ref={stripCardRef} className="relative bg-slate-900/90 backdrop-blur-sm rounded-2xl shadow-lg shadow-black/50 p-2 sm:p-3 border border-slate-700">
-      {strip}
-      <HintAnimationControls />
+    <div ref={stripCardRef} className="relative bg-slate-900/90 backdrop-blur-sm rounded-2xl shadow-lg shadow-black/50 border border-slate-700">
+      {/* While a hint animates, its caption and controls take the strip's
+          place; the card grows to fit the caption rather than cutting it. */}
+      <HintAnimationControls>
+        <div className="p-2 sm:p-3">{strip}</div>
+      </HintAnimationControls>
     </div>
   );
 
@@ -1146,7 +1149,9 @@ export default function SudokuMentor() {
           className="fixed left-0 right-0 bottom-0 bg-slate-900/95 backdrop-blur-md border-t border-slate-700 z-40"
           style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
         >
-          <div className="relative px-2 pt-1 pb-1.5">{strip}<HintAnimationControls /></div>
+          <HintAnimationControls className="rounded-none border-x-0 border-b-0">
+            <div className="relative px-2 pt-1 pb-1.5">{strip}</div>
+          </HintAnimationControls>
         </div>
       )}
 
