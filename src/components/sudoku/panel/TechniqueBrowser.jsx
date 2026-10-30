@@ -225,7 +225,10 @@ export default function TechniqueBrowser({
                             )}
                           </span>
                           {count > 0 && (
-                            <span className="shrink-0 text-xs text-emerald-400 tabular-nums">
+                            // -300 rather than -400: the themes flip the
+                            // scale end for end, so this is bright on the
+                            // dark surface and dark enough on the paper one.
+                            <span className="shrink-0 text-xs text-emerald-300 tabular-nums">
                               {count} here
                             </span>
                           )}
