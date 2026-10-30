@@ -69,9 +69,14 @@ const AWKWARD = [
   },
 ];
 
+// `?catalog=61` means today's catalog exactly, so a measurement at today's
+// size is comparable with one at any other: the awkward entries join only
+// when the size asked for leaves room for them.
+const extra = size > real.TECHNIQUES.length ? AWKWARD : [];
+
 const filler = [];
 let i = 0;
-while (real.TECHNIQUES.length + AWKWARD.length + filler.length < size) {
+while (real.TECHNIQUES.length + extra.length + filler.length < size) {
   const tier = real.TIERS[i % real.TIERS.length];
   const mine = real.TECHNIQUES.filter((tech) => tech.tier === tier.level);
   filler.push({
@@ -83,7 +88,7 @@ while (real.TECHNIQUES.length + AWKWARD.length + filler.length < size) {
   i += 1;
 }
 
-export const TECHNIQUES = [...real.TECHNIQUES, ...AWKWARD, ...filler];
+export const TECHNIQUES = [...real.TECHNIQUES, ...extra, ...filler];
 
 const terms = (tech) =>
   [tech.name, tech.short, tech.formal, ...(tech.aliases ?? [])].filter(Boolean);
