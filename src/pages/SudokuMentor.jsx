@@ -3,7 +3,6 @@ import SudokuGrid from '@/components/sudoku/SudokuGrid';
 import HintAnimationControls from '@/components/sudoku/HintAnimationControls';
 import { useHintAnimation, setHintAnimation } from '@/components/sudoku/hintAnimation';
 import DigitStrip from '@/components/sudoku/DigitStrip';
-import LogicPanel from '@/components/sudoku/LogicPanel';
 import LessonSheet, { SIDE_SHEET_WIDTH } from '@/components/sudoku/LessonSheet';
 import HeaderMenu from '@/components/sudoku/HeaderMenu';
 import ConfirmDialog from '@/components/sudoku/ConfirmDialog';
@@ -13,7 +12,8 @@ import { playErrorTone } from '@/components/sudoku/errorSound';
 import { resolveShortcut, isTypingTarget, overlayOwnsKeyboard } from '@/components/sudoku/keyboardShortcuts';
 import { restoreFocusAfterLesson } from '@/components/sudoku/lessonFocus';
 import { PRIMARY_GRADIENT, BADGE_GRADIENT } from '@/lib/brandGradient';
-import { findNextLogicStep, onlySinglesRemain } from '@/components/sudoku/logicEngine';
+import { onlySinglesRemain } from '@/components/sudoku/gridOps';
+import { loadLogicPanel, loadLogicEngine, loadedLogicEngine, warmMentor } from '@/components/sudoku/mentorLoader';
 import { UNIQUENESS_MANY, UNIQUENESS_ONE, uniquenessNote } from '@/components/sudoku/uniqueness';
 import { searchWhatIf, isCancelled, isTimedOut, HINT_TIME_BUDGET_MS } from '@/components/sudoku/whatIfSearch';
 import { NET_DEPTH } from '@/components/sudoku/searchLimits';
@@ -49,6 +49,50 @@ import { toast } from "@/components/ui/use-toast";
 const UnifiedPuzzleLoader = React.lazy(() => import('@/components/sudoku/UnifiedPuzzleLoader'));
 const ColorSettings = React.lazy(() => import('@/components/sudoku/ColorSettings'));
 const CompletionModal = React.lazy(() => import('@/components/sudoku/CompletionModal'));
+
+// The lesson panel and the technique detectors are not needed to place a
+// digit, so they arrive after the board (first-board payload, #91).
+const LogicPanel = React.lazy(loadLogicPanel);
+// Shown in the lesson column for the moment the panel's code is arriving.
+function MentorLoading() {
+  return (
+    <div role="status" className="rounded-2xl border border-slate-700 bg-slate-900/90 p-4 text-sm text-slate-300">
+      Getting the mentor ready…
+    </div>
+  );
+}
+
+// If the panel's code fails to arrive (offline before it was cached, or a
+// tab left open across a deploy), the page keeps the board and says so in
+// the lesson column, rather than losing the whole page to the error.
+class MentorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { failed: false };
+  }
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch(error) {
+    console.error('Lesson panel failed to load', error);
+  }
+  render() {
+    if (!this.state.failed) return this.props.children;
+    return (
+      <div role="alert" className="rounded-2xl border border-slate-700 bg-slate-900/90 p-4 text-sm text-slate-300 space-y-3">
+        <p>The mentor could not load. The board still works.</p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="rounded-lg bg-slate-800 px-3 py-2 text-slate-100 hover:bg-slate-700"
+        >
+          Reload to try again
+        </button>
+      </div>
+    );
+  }
+}
+
 
 const LESSON_PINNED_KEY = 'sudoku-mentor:lesson-pinned';
 const readLessonPinned = () => {
@@ -363,6 +407,18 @@ export default function SudokuMentor() {
   }, []);
   useEffect(() => () => hintSearchRef.current?.cancel(), []);
 
+  // The mentor's code arrives after the board (#91). Where the lesson is a
+  // column, the panel asks for it as soon as the page renders; where it is
+  // a sheet, nothing asks until the sheet opens, so it is also fetched once
+  // the browser is idle. Either way the first hint is normally instant, and
+  // the service worker has cached the code for offline play. Until it has
+  // arrived the lesson column says "Getting the mentor ready", and a hint
+  // asked for meanwhile shows on the strip as in progress, with Cancel.
+  // A phone has no lesson panel and no hints, so it fetches none of this
+  // until it is turned or widened into an arrangement that does.
+  const [preparingHint, setPreparingHint] = useState(false);
+  useEffect(() => (phone ? undefined : warmMentor()), [phone]);
+
   const handleNextStep = useCallback(async (force = false) => {
     if (effectiveNoAssist) return; // Block hints in no assist mode
     if (hintSearchRef.current) return; // a search is already running
@@ -370,7 +426,36 @@ export default function SudokuMentor() {
     setSheetOpen(true); // the lesson sheet, where the lesson is not a column
     setOnboarding(onHintAsked);
 
+    const engine = loadedLogicEngine();
+    if (!engine) {
+      // The first hint, asked before the mentor's code arrived (#91). Hold
+      // the slot, say so on the strip, and ask again once it is here, so the
+      // hint is computed from the page as it is then. Cancel and any change
+      // to the board drop it, as they drop a search.
+      let cancelled = false;
+      const loading = { cancel: () => { cancelled = true; setPreparingHint(false); } };
+      hintSearchRef.current = loading;
+      setPreparingHint(true);
+      try {
+        await loadLogicEngine();
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Mentor failed to load', error);
+          toast({ title: 'The mentor could not load', description: 'Check the connection and ask for the hint again.', variant: 'destructive' });
+        }
+        return;
+      } finally {
+        if (hintSearchRef.current === loading) {
+          hintSearchRef.current = null;
+          setPreparingHint(false);
+        }
+      }
+      if (!cancelled) nextStepRef.current(force);
+      return;
+    }
+
     const gridAtStart = game.grid;
+    const { findNextLogicStep } = engine;
     let step = findNextLogicStep(game.logicGrid, null, { uniqueness: game.uniqueness });
     // Only singles left (issue #54): every empty cell on the player's board
     // shows one pencil mark, and this puzzle has already taught at least one
@@ -428,6 +513,8 @@ export default function SudokuMentor() {
   }, [game.grid, game.logicGrid, game.uniqueness, game.noteAssistUsed, effectiveNoAssist, presentStep, highlightSteps, lessonLog, candidatesVisible]);
   const gridRef = useRef(game.grid);
   gridRef.current = game.grid;
+  const nextStepRef = useRef(handleNextStep);
+  nextStepRef.current = handleNextStep;
 
   // The strip's Hint button: reopen a closed sheet that still holds a
   // lesson rather than logging the same hint twice.
@@ -449,8 +536,8 @@ export default function SudokuMentor() {
   // loaded. The solved card keeps it open.
   useEffect(() => {
     if (!sheetMode || sheetPinned) return;
-    if (currentStep === null && !searchingHint && !nothingLeft && !game.completed) setSheetOpen(false);
-  }, [sheetMode, sheetPinned, currentStep, searchingHint, nothingLeft, game.completed]);
+    if (currentStep === null && !searchingHint && !preparingHint && !nothingLeft && !game.completed) setSheetOpen(false);
+  }, [sheetMode, sheetPinned, currentStep, searchingHint, preparingHint, nothingLeft, game.completed]);
   useEffect(() => {
     if (sheetMode && game.completed) setSheetOpen(true);
   }, [sheetMode, game.completed]);
@@ -959,7 +1046,7 @@ export default function SudokuMentor() {
           ? {
               onClick: handleHintButton,
               disabled: effectiveNoAssist,
-              searching: searchingHint,
+              searching: searchingHint || preparingHint,
               onCancel: cancelHintSearch,
               prompt: prompts.hint ? { text: HINT_PROMPT, onDismiss: () => setOnboarding((s) => dismissPrompt(s, 'hint')) } : null,
             }
@@ -994,6 +1081,8 @@ export default function SudokuMentor() {
 
   // One lesson panel, rendered in the column or in the sheet.
   const lessonPanel = phone ? null : (
+    <MentorBoundary>
+    <Suspense fallback={<MentorLoading />}>
     <LogicPanel
       uniqueness={game.uniqueness}
       currentStep={currentStep}
@@ -1015,6 +1104,8 @@ export default function SudokuMentor() {
       onCancelHintSearch={cancelHintSearch}
       onHighlightTechnique={handleHighlightTechnique}
     />
+    </Suspense>
+    </MentorBoundary>
   );
 
   return (
