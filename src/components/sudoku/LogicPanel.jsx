@@ -7,8 +7,7 @@ import CurrentStepCard from './panel/CurrentStepCard';
 import PanelInfoModal from './panel/PanelInfoModal';
 import { findAllTechniqueInstances } from './logicEngine';
 import { useTechniqueCounts } from './useTechniqueCounts';
-import { runInSlices } from './sliceRunner';
-import { COUNT_LIVE, SCAN_TECHNIQUES, TECHNIQUES, TIERS, needsUniqueness } from './techniqueCatalog';
+import { COUNT_SEARCH, TECHNIQUES, TIERS, needsUniqueness } from './techniqueCatalog';
 import { UNIQUENESS_UNKNOWN, uniquenessAllowed } from './uniqueness';
 import { searchWhatIf, isCancelled, isTimedOut, DEEP_TIME_BUDGET_MS } from './whatIfSearch';
 import { NET_DEPTH } from './searchLimits';
@@ -72,24 +71,7 @@ export default function LogicPanel({
   };
   const [techniqueIndices, setTechniqueIndices] = useState({});
   const [showInfoModal, setShowInfoModal] = useState(null);
-  // What a Scan is doing, or what the last one found, for the panel to
-  // report. Null when no Scan has been asked for on this board.
-  const [scan, setScan] = useState(null);
-  const [searchingForcingChain, setSearchingForcingChain] = useState(false);
   const [showDeepSearchModal, setShowDeepSearchModal] = useState(false);
-
-  // A scan describes one board. When the board changes, its results are
-  // dropped, and a scan still running for the old grid has to know it is
-  // stale: its counts would describe a board the player has left behind.
-  const gridRef = useRef(grid);
-  const scanRun = useRef(/** @type {any} */ (null));
-  useEffect(() => {
-    gridRef.current = grid;
-    scanRun.current?.cancel?.();
-    scanRun.current = null;
-    setScan(null);
-  }, [grid]);
-  useEffect(() => () => scanRun.current?.cancel?.(), []);
 
   // Live technique counts, scans and searches are assistance: a No Assist
   // record must not be earned with them on screen.
@@ -99,104 +81,52 @@ export default function LogicPanel({
     if (techniqueExpanded && !noAssistMode) onAssistUsedRef.current?.();
   }, [techniqueExpanded, noAssistMode, grid]);
 
-  // Counts for the cheap tiers, computed after the board has been still for
-  // a moment and in slices a further change cancels, so entering a digit
-  // never waits for a detector. The expensive tiers are counted only when
-  // the player asks: by tapping one row's Count, or by scanning the tier.
-  // Nothing in the uniqueness family may be counted, scanned or shown on a
-  // grid that is not known to have exactly one answer. The panel says why
-  // instead of printing a row of zeroes.
+  // Counts for every tier, computed after the board has been still for a
+  // moment and off the main thread (useTechniqueCounts, countPass.js), so
+  // entering a digit never waits for a detector, however dear (#126).
+  // Nothing in the uniqueness family may be counted or shown on a grid that
+  // is not known to have exactly one answer. The panel says why instead of
+  // printing a row of zeroes.
   const uniquenessOn = uniquenessAllowed(uniqueness);
-  const countable = (name) => uniquenessOn || !needsUniqueness(name);
 
-  // The live tiers, easiest first, as groups rather than as one list: the
-  // pass stops at the first tier that has something, because a count of a
+  // The tiers, easiest first, as groups rather than as one list: the pass
+  // stops at the first tier that has something, because a count of a
   // harder technique taken while an easier move is on the board is four
   // times out of five a count of patterns that will not survive the move
-  // (#128). The tiers after it are not counted and say why.
-  const liveTiers = useMemo(
+  // (#128). The tiers after it are not counted and say why. Only the
+  // techniques found by Search are never counted: they are proofs to look
+  // for, not patterns to count.
+  const countTiers = useMemo(
     () =>
       TIERS.map((tier) => ({
         tier: tier.level,
         names: TECHNIQUES.filter(
           (tech) =>
             tech.tier === tier.level &&
-            tech.count === COUNT_LIVE &&
+            tech.count !== COUNT_SEARCH &&
             (uniquenessOn || !needsUniqueness(tech.name))
         ).map((tech) => tech.name),
       })).filter((group) => group.names.length > 0),
     [uniquenessOn]
   );
 
-  const { counts: techniqueCounts, counting, countNow, countTier, recordCounts } = useTechniqueCounts(
-    grid,
-    {
-      enabled: techniqueExpanded && !noAssistMode,
-      groups: liveTiers,
-      uniqueness,
-    }
-  );
+  // The what-if search and the counts would otherwise compete for the same
+  // cores, on a phone above all. The search is what the player is waiting
+  // for, so counting stands aside while it runs and starts again after.
+  const [searchingForcingChain, setSearchingForcingChain] = useState(false);
+  const searching = searchingHint || searchingForcingChain;
+
+  const { counts: techniqueCounts, counting, countNow, countTier } = useTechniqueCounts(grid, {
+    enabled: techniqueExpanded && !noAssistMode,
+    paused: searching,
+    groups: countTiers,
+    uniqueness,
+  });
 
   /** Count a tier the gate is holding back, because the player asked. */
   const handleCountTier = (level) => {
     onAssistUsedRef.current?.();
-    countTier(liveTiers.find((group) => group.tier === level)?.names ?? []);
-  };
-
-  // A Scan answers "what is on this board?" for the tiers that cost too
-  // much to count live. It reports into the panel, beside the counts the
-  // cheap tiers already put there, so the board the counts are about stays
-  // on screen: the rows show that they are counting, each count joins the
-  // panel as it arrives, and the ones with instances appear at the top
-  // under "On this board" with the highlighting that already works there.
-  // The player sees one line of progress and can stop it.
-  //
-  // The work runs in slices, so nothing is paced for the look of it and the
-  // page is handed back between detectors. A board change invalidates the
-  // run, as it always has: those counts would describe a board the player
-  // has left behind.
-  const finishScan = (run, cancelled) => {
-    if (scanRun.current === run) scanRun.current = null;
-    setScan((prev) =>
-      prev && prev.grid === run.grid
-        ? { ...prev, running: false, cancelled, found: run.names.filter((name) => run.results[name] > 0) }
-        : prev
-    );
-  };
-
-  const cancelScan = () => {
-    const run = scanRun.current;
-    if (!run) return;
-    run.cancel?.();
-    finishScan(run, true);
-  };
-
-  const handleUltimateScan = () => {
-    if (scanRun.current) {
-      cancelScan();
-      return;
-    }
-    onAssistUsedRef.current?.();
-
-    const scanned = grid;
-    const names = SCAN_TECHNIQUES.filter(countable);
-    const run = { grid: scanned, names, results: {}, cancel: null };
-    scanRun.current = run;
-    setScan({ grid: scanned, total: names.length, done: 0, running: true, cancelled: false, found: null });
-
-    run.cancel = runInSlices(
-      names.map((name) => ({
-        key: name,
-        run: () => findAllTechniqueInstances(scanned, name, { uniqueness }).length,
-      })),
-      (name, count) => {
-        if (gridRef.current !== scanned) return; // the board changed: this count would lie
-        run.results[name] = count;
-        recordCounts({ [name]: count });
-        setScan((prev) => (prev && prev.grid === scanned ? { ...prev, done: prev.done + 1 } : prev));
-      },
-      { delayMs: 0, onDone: () => finishScan(run, false) }
-    );
+    countTier(countTiers.find((group) => group.tier === level)?.names ?? []);
   };
 
   // What-if search (forcing chains, then hypothesis) runs in a worker so
@@ -299,13 +229,11 @@ export default function LogicPanel({
         uniqueness={uniqueness}
         counts={techniqueCounts}
         counting={counting}
-        scan={scan}
         searchingForcingChain={searchingForcingChain}
         onSelectTechnique={setSelectedTechnique}
         onHighlight={handleTechniqueClick}
         onBrowse={setBrowse}
         onCountTier={handleCountTier}
-        onUltimateScan={handleUltimateScan}
         onWhatIfSearch={handleWhatIfSearch}
         onShowInfo={() => setShowInfoModal('techniques')}
       />

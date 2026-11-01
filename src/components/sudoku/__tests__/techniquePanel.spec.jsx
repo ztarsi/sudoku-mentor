@@ -31,7 +31,6 @@ const base = {
   onHighlight: () => {},
   onBrowse: () => {},
   onCountTier: () => {},
-  onUltimateScan: () => {},
   onWhatIfSearch: () => {},
   onShowInfo: () => {},
 };
@@ -192,7 +191,11 @@ describe('the Techniques list', () => {
 
   it('says plainly when nothing counted applies', () => {
     const view = show({ counts: { 'Naked Single': 0, 'X-Wing': 0 }, counting: false });
-    expect(within(section(view, 'On this board')).getByText(/Nothing counted so far applies/)).toBeTruthy();
+    expect(
+      within(section(view, 'On this board')).getByText(
+        'None of the patterns the mentor counts is on this board. Ask for a hint, or try Search.'
+      )
+    ).toBeTruthy();
   });
 
   it('keeps every tier collapsed, with its size, until the player opens one', () => {
@@ -340,14 +343,15 @@ describe('counting the easiest tier first', () => {
     expect(onCountTier).toHaveBeenCalledWith('Expert');
   });
 
-  it('offers the scan tier one way to ask, not two', () => {
+  it('offers the Ultimate tier the same one way to ask as every other tier', () => {
     const view = show({ uniqueness: 'one', counts: { 'Naked Single': 2 } });
     openTier(view, 'Ultimate');
-    // Scan is already the way to count this tier in spite of the gate, so
-    // the tier gains no second button under it.
-    expect(view.getByRole('button', { name: /Scan this board/ })).toBeTruthy();
-    expect(view.queryByRole('button', { name: 'Count anyway' })).toBeNull();
-    expect(view.getByText(/cost too much to count while you play/)).toBeTruthy();
+    // Since #126 the Ultimate tier is counted like the rest, so held back
+    // it has the one Count anyway every held-back tier has, and no Scan
+    // button or note about cost beside it.
+    expect(view.getAllByRole('button', { name: 'Count anyway' })).toHaveLength(1);
+    expect(view.queryByRole('button', { name: /Scan this board/ })).toBeNull();
+    expect(view.queryByText(/cost too much to count while you play/)).toBeNull();
   });
 
   it('keeps the numbers of a tier the player counted in spite of the gate', () => {
@@ -366,7 +370,9 @@ describe('counting the easiest tier first', () => {
     expect(view.queryByText(/nothing harder is counted/)).toBeNull();
     expect(view.getByRole('button', { name: /^Ultimate/ }).textContent).not.toContain('not counted');
     openTier(view, 'Ultimate');
-    expect(view.getByText(/cost too much to count while you play/)).toBeTruthy();
+    // Nothing to ask for: it is counted by itself.
+    expect(view.queryByRole('button', { name: 'Count anyway' })).toBeNull();
+    expect(view.queryByRole('button', { name: /Scan this board/ })).toBeNull();
   });
 
   it('says nothing about a gate in No Assist, where nothing is counted', () => {
@@ -410,13 +416,28 @@ describe('finding a technique by name', () => {
 
 describe('counts the player can trust', () => {
   it('offers one way to count a tier, never one per technique', () => {
-    const view = show({ uniqueness: 'one', counts: {} });
+    // Nothing held back: every tier counts itself, so there is nothing to ask.
+    let view = show({ uniqueness: 'one', counts: {} });
     for (const tier of TIERS) openTier(view, tier.level);
-    // Thirty-three "Count" buttons inside a tier that already has one
-    // "Scan this board" was the defect (#122).
+    // Thirty-three "Count" buttons inside a tier that already had one way to
+    // count it was the defect (#122).
     expect(view.queryAllByRole('button', { name: 'Count' })).toHaveLength(0);
-    expect(view.queryAllByRole('button', { name: /Scan this board/ })).toHaveLength(1);
+    expect(view.queryAllByRole('button', { name: 'Count anyway' })).toHaveLength(0);
+    expect(view.queryAllByRole('button', { name: /Scan this board/ })).toHaveLength(0);
     expect(view.queryAllByRole('button', { name: /^Search$/ })).toHaveLength(2);
+    cleanup();
+    window.localStorage.clear(); // open tiers are remembered; start closed again
+
+    // A single on the board holds the rest back: each held-back tier gets
+    // exactly one Count anyway, however many techniques it holds.
+    view = show({ uniqueness: 'one', counts: { 'Naked Single': 2 } });
+    for (const tier of TIERS) openTier(view, tier.level);
+    const heldBack = TIERS.filter((tier) =>
+      view.getByRole('button', { name: new RegExp(`^${tier.level}`) }).textContent.includes('not counted')
+    );
+    expect(heldBack.map((tier) => tier.level)).toEqual(['Intermediate', 'Advanced', 'Expert', 'Ultimate']);
+    expect(view.queryAllByRole('button', { name: 'Count anyway' })).toHaveLength(heldBack.length);
+    expect(view.queryAllByRole('button', { name: 'Count' })).toHaveLength(0);
   });
 
   it('says "none here" for a counted technique with no instances, never a number', () => {
@@ -434,7 +455,7 @@ describe('counts the player can trust', () => {
   });
 });
 
-describe('the reference dialog, and Scan', () => {
+describe('the reference dialog, and Search', () => {
   it('is reachable for a technique that does not apply to this board', () => {
     const onSelectTechnique = vi.fn();
     const view = show({ counts: { 'BUG+1': 0 }, uniqueness: 'one', onSelectTechnique });
@@ -452,16 +473,6 @@ describe('the reference dialog, and Scan', () => {
     fireEvent.change(view.getByLabelText('Find a technique by name'), { target: { value: 'hypothesis' } });
     fireEvent.click(view.getByText('Hypothesis Mode'));
     expect(onSelectTechnique).toHaveBeenCalledWith('Hypothesis Mode');
-  });
-
-  it('says what Scan is about to do before it runs', () => {
-    const onUltimateScan = vi.fn();
-    const view = show({ onUltimateScan });
-    fireEvent.click(view.getByRole('button', { name: /^Ultimate/ }));
-    const scan = view.getByRole('button', { name: /Scan this board/ });
-    expect(view.getByText(/Scan runs every one of them on the board as it stands now/)).toBeTruthy();
-    fireEvent.click(scan);
-    expect(onUltimateScan).toHaveBeenCalled();
   });
 
   it('says what the Search finds for the Forcing tier before it runs', () => {
@@ -565,156 +576,88 @@ describe('the techniques that need the puzzle to have one answer', () => {
   });
 });
 
-// A Scan reports into this panel, which is the whole of issue #105: the
-// counts are about the board, so the board stays on screen and the answer
-// arrives where the live counts already are. What the panel owes the player
-// is three things that do not grow with the catalog - rows that say they
-// are counting, one line of progress with a way to stop it, and one line
-// saying what was found - plus one announcement when the answer is known.
-describe('a Scan, reported in the panel rather than over the board', () => {
-  const SCAN_TOTAL = TECHNIQUES.filter((tech) => tech.tier === 'Ultimate').length;
+// Every tier is counted in the background now, the Ultimate tier included
+// (#126), so what used to be a Scan's report is simply the panel while the
+// pass is counting. What the panel owes the player does not grow with the
+// catalog: rows for what has arrived, one line saying it is still
+// checking, and nothing per technique that is only being counted.
+describe('while the background pass is counting', () => {
   const openUltimate = (view) => {
     fireEvent.click(view.getByRole('button', { name: /^Ultimate/ }));
     return view;
   };
-  const running = (done = 0) => ({
-    grid: null, total: SCAN_TOTAL, done, running: true, cancelled: false, found: null,
-  });
-  const finished = (found, extra = {}) => ({
-    grid: null, total: SCAN_TOTAL, done: SCAN_TOTAL, running: false, cancelled: false, found, ...extra,
-  });
   const liveRegion = (view) =>
     Array.from(view.container.querySelectorAll('[role="status"]'))
       .map((el) => el.textContent)
       .join(' ')
       .trim();
-
-  it('shows one line of progress for the whole tier, not one row each', () => {
-    const view = openUltimate(show({ scan: running(12) }));
-    expect(view.getByTestId('scan-progress').textContent).toContain(`12 of ${SCAN_TOTAL}`);
-    // The defect was thirty-three rows of progress. One line, and no more.
-    expect(view.queryAllByTestId('scan-progress').length).toBe(1);
-  });
-
-  it('turns Scan into the way to stop it, on the same button', () => {
-    const onUltimateScan = vi.fn();
-    const view = openUltimate(show({ scan: running(5), onUltimateScan }));
-    const cancel = view.getByRole('button', { name: /Cancel/ });
-    expect(cancel.getAttribute('aria-busy')).toBe('true');
-    expect(view.queryByRole('button', { name: /Scan this board/ })).toBeNull();
-    fireEvent.click(cancel);
-    expect(onUltimateScan).toHaveBeenCalled();
-  });
+  const ultimateZeros = () =>
+    Object.fromEntries(TECHNIQUES.filter((tech) => tech.tier !== 'Forcing' && tech.tier !== 'What-if').map((tech) => [tech.name, 0]));
 
   it('spends no row on a technique that is only being counted', () => {
-    const view = openUltimate(show({ scan: running(2), uniqueness: 'one' }));
-    // One progress line for the tier, and nothing per technique: neither a
-    // row saying it is counting nor a button offering to count it (#122).
-    expect(view.getByTestId('scan-progress').textContent).toContain(`2 of ${SCAN_TOTAL}`);
+    const view = openUltimate(show({ counting: true, uniqueness: 'one' }));
+    // Neither a row saying it is counting nor a button offering to count
+    // it (#122), and no progress line to replace them.
     expect(tierRows(view, 'Ultimate')).toEqual([]);
     expect(view.queryByText('counting…')).toBeNull();
     expect(view.queryByRole('button', { name: 'Count' })).toBeNull();
+    expect(view.queryByTestId('scan-progress')).toBeNull();
   });
 
   it('keeps the counts that have already arrived, and offers to show them', () => {
     const onHighlight = vi.fn();
-    const view = openUltimate(show({ scan: running(3), counts: { 'X-Cycle': 2 }, onHighlight }));
+    const view = openUltimate(show({ counting: true, counts: { 'X-Cycle': 2 }, onHighlight }));
     // In the tier, and at the top under "On this board", with the
     // click-to-highlight that already works there.
     expect(view.getAllByText('(2)').length).toBeGreaterThan(1);
     fireEvent.click(within(section(view, 'On this board')).getByText('(2)'));
     expect(onHighlight).toHaveBeenCalledWith('X-Cycle');
+    expect(view.getByText('Still checking the rest…')).toBeTruthy();
   });
 
-  it('says nothing found in one line, not twenty-one rows of zero', () => {
-    const view = openUltimate(show({ scan: finished([]) }));
-    const result = view.getByTestId('scan-result');
-    expect(result.textContent).toBe('Nothing in this tier applies to this board.');
-    expect(view.queryAllByTestId('scan-result').length).toBe(1);
+  it('says nothing found in one line, not rows of zero', () => {
+    const view = openUltimate(show({ counts: ultimateZeros(), uniqueness: 'one' }));
+    expect(
+      within(section(view, 'On this board')).getAllByText(/None of the patterns the mentor counts/)
+    ).toHaveLength(1);
     expect(view.queryByText('0 found')).toBeNull();
-    // And it is said out loud once, rather than not at all (#109).
-    expect(liveRegion(view)).toBe('Scan finished. Nothing in the Ultimate tier applies to this board.');
+    expect(view.queryByText('(0)')).toBeNull();
+    expect(tierRows(view, 'Ultimate')).toEqual([]);
   });
 
-  it('points at the answer rather than restating it, when there is one', () => {
-    const view = openUltimate(show({ scan: finished(['X-Cycle', 'ALS-XZ']), counts: { 'X-Cycle': 2, 'ALS-XZ': 1 } }));
-    expect(view.getByTestId('scan-result').textContent).toContain(`2 of ${SCAN_TOTAL} apply to this board`);
-    expect(liveRegion(view)).toBe(
-      `Scan finished. 2 of ${SCAN_TOTAL} Ultimate techniques apply to this board: X-Cycle, ALS-XZ. ` +
-        'They are listed under On this board, at the top of the Techniques panel.'
-    );
-  });
-
-  it('says where a cancelled scan got to, and keeps what it found', () => {
-    const view = openUltimate(show({ scan: finished(['X-Cycle'], { done: 9, cancelled: true }) }));
-    const result = view.getByTestId('scan-result').textContent;
-    expect(result).toContain(`Stopped at 9 of ${SCAN_TOTAL}`);
-    expect(result).toContain(`1 of ${SCAN_TOTAL} applies to this board so far`);
-    expect(liveRegion(view)).toContain(`Scan stopped at 9 of ${SCAN_TOTAL}.`);
-  });
-
-  it('announces nothing while it is still running: the result is the message', () => {
-    expect(liveRegion(openUltimate(show({ scan: running(12) })))).toBe('');
+  it('announces nothing while it is counting: counts are not status messages', () => {
+    expect(liveRegion(openUltimate(show({ counting: true })))).toBe('');
   });
 
   it('counts as checking the board, so the top of the panel does not read as empty', () => {
-    const view = openUltimate(show({ scan: running(1) }));
+    const view = openUltimate(show({ counting: true }));
     expect(within(section(view, 'On this board')).getByText('Checking the board…')).toBeTruthy();
   });
 
-  it('does not tell the player to scan a tier they have just scanned', () => {
-    const view = openUltimate(show({ scan: finished([]) }));
-    const applies = section(view, 'On this board');
-    expect(within(applies).queryByText(/Scan the Ultimate tier/)).toBeNull();
-    expect(within(applies).getByText(/the tier you scanned included/)).toBeTruthy();
+  it('never tells the player to scan, anywhere in the panel', () => {
+    const view = show({ counts: ultimateZeros(), uniqueness: 'one' });
+    for (const tier of TIERS) openTier(view, tier.level);
+    expect(view.queryByText(/Scan/)).toBeNull();
+    expect(view.queryByRole('button', { name: /Scan/ })).toBeNull();
   });
 
-  // What a Scan finds goes to the top of the panel, which pushes the tier
-  // the player pressed Scan in down the page: 700 px of it at 1440x900,
-  // measured, which takes the progress line and the Cancel with it. The
-  // line stays where the player can see it instead.
-  it('keeps its own line in view while the answer grows above it', () => {
-    const scrolled = [];
-    const original = Element.prototype.scrollIntoView;
-    Element.prototype.scrollIntoView = function scrollIntoView(options) {
-      scrolled.push({ text: this.textContent, options });
-    };
-    try {
-      // The tier is open before the scan starts: its Scan button is the
-      // only way to start one.
-      const view = openUltimate(show({}));
-      view.rerender(<TechniquePanel {...base} scan={running(1)} />);
-      expect(scrolled.at(-1).text).toContain(`1 of ${SCAN_TOTAL}`);
-      // Only when it has gone: a line still on screen is not moved.
-      expect(scrolled.at(-1).options).toEqual({ block: 'nearest' });
-
-      // Every count that arrives can push it further down, so every one of
-      // them brings it back.
-      view.rerender(<TechniquePanel {...base} scan={running(2)} />);
-      expect(scrolled.at(-1).text).toContain(`2 of ${SCAN_TOTAL}`);
-
-      view.rerender(<TechniquePanel {...base} scan={finished(['X-Cycle'])} />);
-      expect(scrolled.at(-1).text).toContain(`1 of ${SCAN_TOTAL} applies to this board`);
-    } finally {
-      Element.prototype.scrollIntoView = original;
-    }
-  });
-
-  it('scrolls nothing when no scan has been asked for', () => {
+  it('scrolls nothing as counts arrive', () => {
     const scrolled = [];
     const original = Element.prototype.scrollIntoView;
     Element.prototype.scrollIntoView = () => scrolled.push(1);
     try {
-      openUltimate(show({ counts: { 'X-Cycle': 2 } }));
+      const view = openUltimate(show({ counting: true }));
+      view.rerender(<TechniquePanel {...base} counting counts={{ 'X-Cycle': 2 }} />);
+      view.rerender(<TechniquePanel {...base} counts={{ 'X-Cycle': 2 }} />);
       expect(scrolled).toEqual([]);
     } finally {
       Element.prototype.scrollIntoView = original;
     }
   });
 
-  it('says nothing about a scan in No Assist, where nothing is counted', () => {
-    const view = openUltimate(show({ scan: running(4), noAssistMode: true }));
-    expect(view.queryByTestId('scan-progress')).toBeNull();
+  it('says nothing about counting in No Assist, where nothing is counted', () => {
+    const view = openUltimate(show({ counting: true, noAssistMode: true }));
+    expect(view.queryByText('Checking the board…')).toBeNull();
     expect(view.queryByText('counting…')).toBeNull();
   });
 });

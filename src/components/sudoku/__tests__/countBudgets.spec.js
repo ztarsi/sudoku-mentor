@@ -11,23 +11,20 @@
 //   wait when the player taps a single row's Count, which runs that one
 //   detector there and then. The bar is therefore per detector, at 150 ms.
 //
-//   Scan is a wait the player has asked for, and the Ultimate tier's own
-//   note says what they are about to spend: it "takes a second or two".
-//   The bar is that sentence read at its outer edge - 2000 ms - over the
-//   whole pass, because the pass is what the player waits through. Thirty
-//   odd detectors each inside a per-detector bar can still add up to a
-//   broken promise, so the Scan tier has no per-detector bar at all.
+//   The scan-tier detectors are counted off the main thread, in the
+//   background pass's worker (#126), so they cannot stutter the board and
+//   carry no per-detector bar. What they owe the player is that their
+//   counts arrive while the player is still thinking about the board: 2000
+//   ms over the whole pass on the dearest board. (Until #126 these sat
+//   behind a Scan button whose note promised "a second or two", which is
+//   where the number was first read from; it has not moved.)
 //
 // Until #100 the 150 ms bar was asserted against four COUNT_SCAN detectors
 // and against nothing else, so the twenty-two detectors where the promise
 // actually lives had no assertion at all. That is the hole this file fills.
 //
-// If the Scan total is ever exceeded there are two honest fixes, and
-// raising the number is neither: make a detector cheaper, or change what
-// the player is told. The wording and the number move together, which is
-// why the test below reads the promise out of the catalog rather than
-// quoting it from memory - edit the note and this test asks for the number
-// to be looked at again.
+// If the scan-tier total is ever exceeded the honest fix is to make a
+// detector cheaper, not to raise the number.
 //
 // One thing this file deliberately does not cover: the cost of a whole live
 // pass added up is asserted on mid-game boards in fishAndSingleDigit.spec.js
@@ -55,7 +52,7 @@
 // slow test and not as a broken promise.
 import { describe, it, expect } from 'vitest';
 import { findAllTechniqueInstances, generateCandidates } from '../logicEngine';
-import { LIVE_COUNT_TECHNIQUES, SCAN_TECHNIQUES, TIERS } from '../techniqueCatalog';
+import { LIVE_COUNT_TECHNIQUES, SCAN_TECHNIQUES } from '../techniqueCatalog';
 import { UNIQUENESS_ONE } from '../uniqueness';
 import { PUZZLES } from '../puzzles';
 
@@ -160,18 +157,20 @@ describe('what a count may cost', () => {
       .toBeLessThan(150);
   });
 
-  it('a whole Scan stays inside the second or two it promises: 2000 ms, in total', () => {
-    expect(SCAN_TECHNIQUES.length, 'nothing is counted behind Scan any more').toBeGreaterThan(0);
+  it('the background pass over the scan-tier detectors finishes inside 2000 ms, in total', () => {
+    expect(SCAN_TECHNIQUES.length, 'there are no scan-tier detectors any more').toBeGreaterThan(0);
 
-    // The promise, read out of the catalog rather than remembered: the
-    // note the player sees above the Scan button before they press it.
-    const scanNote = TIERS.find((tier) => tier.level === 'Ultimate')?.scanNote;
-    expect(scanNote, 'the Ultimate tier must tell the player what Scan costs').toBeTruthy();
-    expect(
-      scanNote,
-      'the bar below is this sentence read at its outer edge; if the wording changes the number has to change with it'
-    ).toContain('takes a second or two');
-    // "a second or two", at its outer edge, is two seconds.
+    // Where the number comes from. These detectors used to sit behind a
+    // Scan button whose note promised it "takes a second or two", and this
+    // bar was that sentence read at its outer edge. Since #126 there is no
+    // button and no note: the scan-tier detectors are counted in the same
+    // background pass as the rest, in a worker, when nothing easier is on
+    // the board. So the player no longer waits for this time, but the
+    // counts are meant to arrive while the player is still thinking about
+    // the board they are looking at; a pass that takes longer than a
+    // couple of seconds is describing a board the player has very likely
+    // already changed, and is battery spent for nothing. The number is
+    // unchanged: two seconds over the whole pass on the dearest board.
     const SCAN_BUDGET_MS = 2 * 1000;
 
     // How many boards are measured properly, and why not all twenty (#117).
@@ -222,7 +221,7 @@ describe('what a count may cost', () => {
     // the sum was looked for on.
     out(
       `  Scan: ${SCAN_TECHNIQUES.length} detectors, worst board ${worst.name}, ` +
-        `${worst.total.toFixed(0)} ms in all of the ${SCAN_BUDGET_MS} ms "a second or two" allows`
+        `${worst.total.toFixed(0)} ms in all of the ${SCAN_BUDGET_MS} ms the background pass is allowed`
     );
     for (const { technique, ms } of dearest) {
       out(`    ${technique.padEnd(24)} ${ms.toFixed(0)} ms (${((ms / worst.total) * 100).toFixed(0)}% of it)`);
@@ -233,12 +232,13 @@ describe('what a count may cost', () => {
     );
 
     // Measured on the code this went in with: the two densest boards in
-    // the library - X-Wing Territory at 304 pencil marks and Nightmare at
-    // 303 - are also the two dearest to scan, and they trade places run to
-    // run between 710 ms and 950 ms over 33 detectors, with Brain Teaser
-    // third at about 430 ms. Unique Loop is two thirds of the worst board's
-    // total by itself (540-600 ms); Mutant Fish and Franken Fish are about
-    // a tenth each; the remaining 30 detectors share the rest.
+    // the library - Garden Path at 304 pencil marks and Early Riser at 303
+    // (then called X-Wing Territory and Nightmare, #79) - are also the two
+    // dearest to scan, and they traded places run to run between 710 ms and
+    // 950 ms over 33 detectors, with Brain Teaser third at about 430 ms.
+    // Unique Loop was two thirds of the worst board's total by itself
+    // (540-600 ms) until #125 made it cheap; the worst board now totals
+    // about 300 ms, most of it Mutant Fish and Franken Fish.
     // ALS-XY-Wing, the detector #100 started with, costs 107 ms at its own
     // worst (Coffee Break, the sparsest board in the library) inside a
     // 224 ms total there. So the promise holds with better than a twofold

@@ -17,6 +17,8 @@
 // unavailable (tests, very old browsers) the search runs on the main
 // thread in a macrotask.
 
+import { serializeGrid, workersSupported } from './workerSupport';
+
 /** Time budgets (ms): the hint gives up quickly; the panel's search waits longer. */
 export const HINT_TIME_BUDGET_MS = 5000;
 export const DEEP_TIME_BUDGET_MS = 30000;
@@ -24,16 +26,6 @@ export const DEEP_TIME_BUDGET_MS = 30000;
 let nextId = 1;
 const pending = new Map();
 
-const workersSupported = () =>
-  typeof Worker !== 'undefined' && typeof URL !== 'undefined' && typeof import.meta.url === 'string';
-
-// Plain data only: the grid crosses a structured-clone boundary.
-const serializeGrid = (grid) =>
-  grid.map((cell) => ({
-    value: cell.value,
-    isFixed: !!cell.isFixed,
-    candidates: [...cell.candidates],
-  }));
 
 /**
  * @param {Array<{value: number|null, isFixed?: boolean, candidates: number[]}>} grid

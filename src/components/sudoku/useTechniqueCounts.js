@@ -6,9 +6,10 @@
 // the number from the previous board.
 //
 // So: a new grid drops every count immediately (never a stale number), work
-// starts only after the board has been still for a moment, and it runs in
-// slices that a further change cancels. A count the player asks for by
-// tapping is computed there and then, because they are waiting for it.
+// starts only after the board has been still for a moment, and a further
+// change cancels it. The work runs in a worker where there is one
+// (countPass.js, #126), so every tier is counted this way, the dearest
+// included, and nothing is left behind a button.
 //
 // And it counts easiest first, stopping at the first tier that has
 // anything (#128). Measured over all 1303 board states on the library's
@@ -20,15 +21,17 @@
 // the smaller half of the reason.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { findAllTechniqueInstances } from './logicEngine';
-import { runInSlices } from './sliceRunner';
+import { startCountPass } from './countPass';
 
 const NO_COUNTS = /** @type {Record<string, number>} */ ({});
 
 /**
  * @param {any[] | null} grid the board as it stands
- * @param {{ enabled?: boolean, groups?: { tier: string, names: string[] }[],
+ * @param {{ enabled?: boolean, paused?: boolean, groups?: { tier: string, names: string[] }[],
  *   uniqueness?: string }} options
  *   enabled     false (panel closed, or No Assist) computes nothing at all
+ *   paused      true while a what-if search runs: nothing new is started,
+ *               and the pass starts again when it ends
  *   groups      the tiers whose counts are worth having, easiest first.
  *               Each tier is counted whole; the pass stops after the first
  *               one that has an instance, because nothing harder is worth
@@ -38,12 +41,16 @@ const NO_COUNTS = /** @type {Record<string, number>} */ ({});
  *               uniqueness family counts nothing without it
  */
 export const useTechniqueCounts = (grid, options = {}) => {
-  const { enabled = false, groups = [], uniqueness } = options;
+  const { enabled = false, paused = false, groups = [], uniqueness } = options;
   // One state object, so a count can never outlive the grid it describes.
+  // The board's own pass and a tier the player asked for each say whether
+  // they are still counting, so one finishing does not speak for the other.
   const [state, setState] = useState(
-    /** @type {{ grid: any, counts: Record<string, number>, counting: boolean }} */
-    ({ grid: null, counts: NO_COUNTS, counting: false })
+    /** @type {{ grid: any, counts: Record<string, number>, passCounting: boolean, tierCounting: boolean }} */
+    ({ grid: null, counts: NO_COUNTS, passCounting: false, tierCounting: false })
   );
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
   // A key the effect can compare, so it does not re-run on every render
   // just because the caller built a fresh array; the groups themselves come
@@ -54,47 +61,42 @@ export const useTechniqueCounts = (grid, options = {}) => {
 
   useEffect(() => {
     if (!enabled || !grid) {
-      setState({ grid: null, counts: NO_COUNTS, counting: false });
+      setState({ grid: null, counts: NO_COUNTS, passCounting: false, tierCounting: false });
       return undefined;
     }
-    const wanted = groupsRef.current.filter((group) => group.names.length > 0);
-    const jobs = wanted.flatMap((group) =>
-      group.names.map((name, index) => ({
-        key: name,
-        last: index === group.names.length - 1,
-        run: () => findAllTechniqueInstances(grid, name, { uniqueness }).length,
-      }))
-    );
-    // The last technique of each tier: where the decision to go on is made.
-    const tierEnds = new Set(jobs.filter((job) => job.last).map((job) => job.key));
-    setState({ grid, counts: NO_COUNTS, counting: jobs.length > 0 });
-
-    // Set once the pass is under way, so the tier that has something can
-    // stop the ones after it. The first slice is scheduled rather than run,
-    // so this is always assigned before any result arrives.
-    let stop = /** @type {null | (() => void)} */ (null);
-    let found = false;
-    const done = () =>
-      setState((prev) => (prev.grid === grid ? { ...prev, counting: false } : prev));
-
-    stop = runInSlices(
-      jobs,
-      (name, count) => {
-        if (count > 0) found = true;
-        setState((prev) =>
-          prev.grid === grid ? { ...prev, counts: { ...prev.counts, [name]: count } } : prev
-        );
-        // The end of a tier that had something: nothing harder is counted
-        // on this board until the player clears it.
-        if (found && tierEnds.has(name)) {
-          stop?.();
-          done();
-        }
-      },
-      { onDone: done }
-    );
-    return stop;
-  }, [grid, enabled, groupsKey, uniqueness]);
+    // Standing aside for the what-if search: the pass is stopped, what it
+    // had counted stays, and nothing claims to be counting meanwhile.
+    if (paused) {
+      setState((prev) => (prev.grid === grid ? { ...prev, passCounting: false } : prev));
+      return undefined;
+    }
+    // On the same board (the pass resuming after a search), what is already
+    // counted stays and only the rest is counted. The gate is applied to
+    // what is known first: a tier that already has something is the last
+    // one worth finishing.
+    const prev = stateRef.current;
+    const known = prev.grid === grid ? prev.counts : NO_COUNTS;
+    const wanted = [];
+    for (const group of groupsRef.current) {
+      const missing = group.names.filter((name) => typeof known[name] !== 'number');
+      if (missing.length > 0) wanted.push({ tier: group.tier, names: missing });
+      if (group.names.some((name) => known[name] > 0)) break;
+    }
+    setState({
+      grid,
+      counts: known,
+      passCounting: wanted.length > 0,
+      tierCounting: prev.grid === grid && prev.tierCounting,
+    });
+    if (wanted.length === 0) return undefined;
+    return startCountPass(grid, wanted, {
+      uniqueness,
+      gate: true,
+      onCount: (name, count) =>
+        setState((p) => (p.grid === grid ? { ...p, counts: { ...p.counts, [name]: count } } : p)),
+      onDone: () => setState((p) => (p.grid === grid ? { ...p, passCounting: false } : p)),
+    });
+  }, [grid, enabled, paused, groupsKey, uniqueness]);
 
   /** Count one technique now, because the player asked for it. */
   const countNow = useCallback(
@@ -104,7 +106,7 @@ export const useTechniqueCounts = (grid, options = {}) => {
       setState((prev) =>
         prev.grid === grid
           ? { ...prev, counts: { ...prev.counts, [name]: count } }
-          : { grid, counts: { [name]: count }, counting: false }
+          : { grid, counts: { [name]: count }, passCounting: false, tierCounting: false }
       );
       return count;
     },
@@ -112,44 +114,44 @@ export const useTechniqueCounts = (grid, options = {}) => {
   );
 
   /**
-   * Count a whole tier now, because the player asked for it in spite of the
-   * gate. One state change for the lot, so a tier of eleven detectors is
-   * one render rather than eleven.
+   * Count a whole tier now, in spite of the gate, because the player asked.
+   * It goes the same way as the pass (off the main thread where it can),
+   * with no wait first, and its counts arrive as the pass's do. Asking
+   * again, or the board changing, drops the one before.
    */
+  const tierRun = useRef(/** @type {null | (() => void)} */ (null));
+  useEffect(() => () => tierRun.current?.(), [grid]);
   const countTier = useCallback(
     (/** @type {string[]} */ wanted) => {
       if (!grid || wanted.length === 0) return;
-      const found = /** @type {Record<string, number>} */ ({});
-      for (const name of wanted) {
-        found[name] = findAllTechniqueInstances(grid, name, { uniqueness }).length;
-      }
+      tierRun.current?.();
       setState((prev) =>
         prev.grid === grid
-          ? { ...prev, counts: { ...prev.counts, ...found } }
-          : { grid, counts: found, counting: false }
+          ? { ...prev, tierCounting: true }
+          : { grid, counts: NO_COUNTS, passCounting: false, tierCounting: true }
       );
+      tierRun.current = startCountPass(grid, [{ tier: 'asked', names: wanted }], {
+        uniqueness,
+        gate: false,
+        delayMs: 0,
+        onCount: (name, count) =>
+          setState((prev) =>
+            prev.grid === grid ? { ...prev, counts: { ...prev.counts, [name]: count } } : prev
+          ),
+        onDone: () => {
+          tierRun.current = null;
+          setState((prev) => (prev.grid === grid ? { ...prev, tierCounting: false } : prev));
+        },
+      });
     },
     [grid, uniqueness]
-  );
-
-  /** Record counts someone else computed (the Ultimate scan) for this grid. */
-  const recordCounts = useCallback(
-    (/** @type {Record<string, number>} */ found) => {
-      setState((prev) =>
-        prev.grid === grid
-          ? { ...prev, counts: { ...prev.counts, ...found } }
-          : { grid, counts: { ...found }, counting: false }
-      );
-    },
-    [grid]
   );
 
   return {
     // Counts describe this grid or they are not shown at all.
     counts: state.grid === grid ? state.counts : NO_COUNTS,
-    counting: state.grid === grid && state.counting,
+    counting: state.grid === grid && (state.passCounting || state.tierCounting),
     countNow,
     countTier,
-    recordCounts,
   };
 };

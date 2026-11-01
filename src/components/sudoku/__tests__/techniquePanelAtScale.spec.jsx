@@ -69,7 +69,6 @@ const base = {
   onHighlight: () => {},
   onBrowse: () => {},
   onCountTier: () => {},
-  onUltimateScan: () => {},
   onWhatIfSearch: () => {},
   onShowInfo: () => {},
 };
@@ -136,23 +135,15 @@ describe('a catalog of a hundred and eighty-three', () => {
     expect(view.queryByText('Synthetic Ultimate 1')).toBeNull();
   });
 
-  it('does not let a Scan reopen the wall by a second route', () => {
-    // A scan of the Ultimate tier at this size finds forty things. They are
-    // counts like any other, so the short view caps them like any other.
+  it('does not let the Ultimate tier reopen the wall by a second route', () => {
+    // Counted in the background at this size (#126), the Ultimate tier finds
+    // forty things. They are counts like any other, so the short view caps
+    // them like any other, while they are still arriving and after.
     const found = TECHNIQUES.filter((tech) => tech.tier === 'Ultimate').slice(0, 40);
     const counts = Object.fromEntries(found.map((tech) => [tech.name, 2]));
-    const view = show({
-      counts,
-      uniqueness: 'one',
-      scan: {
-        grid: null,
-        total: found.length,
-        done: found.length,
-        running: false,
-        cancelled: false,
-        found: found.map((tech) => tech.name),
-      },
-    });
+    const view = show({ counts, uniqueness: 'one', counting: true });
+    expect(rows(view)).toHaveLength(3);
+    view.rerender(<TechniquePanel {...base} counts={counts} uniqueness="one" />);
     expect(rows(view)).toHaveLength(3);
     expect(within(appliesSection(view)).getByText(/40 techniques apply here/)).toBeTruthy();
   });
@@ -218,8 +209,16 @@ describe('the invariant: what the player sees is a function of the board', () =>
   it('offers one way to count each tier, however many techniques it holds', () => {
     const view = everyTierOpen();
     expect(view.queryAllByRole('button', { name: 'Count' })).toHaveLength(0);
-    expect(view.queryAllByRole('button', { name: /Scan this board/ })).toHaveLength(1);
+    expect(view.queryAllByRole('button', { name: /Scan this board/ })).toHaveLength(0);
     expect(view.queryAllByRole('button', { name: /^Search$/ })).toHaveLength(2);
+    // A single is on this board, so every harder counted tier is held back,
+    // and each has exactly one way to ask for it anyway: one per tier,
+    // however many techniques the tier holds.
+    const heldBack = TIERS.filter((tier) =>
+      view.getByRole('button', { name: new RegExp(`^${tier.level}`) }).textContent.includes('not counted')
+    );
+    expect(heldBack.length).toBeGreaterThan(0);
+    expect(view.queryAllByRole('button', { name: 'Count anyway' })).toHaveLength(heldBack.length);
   });
 
   it('enumerates absence nowhere: not once per technique, not once per tier', () => {
@@ -237,13 +236,11 @@ describe('the invariant: what the player sees is a function of the board', () =>
     expect(tierSummaries(view)).toHaveLength(TIERS.length);
   });
 
-  it('holds while a Scan of ninety-nine techniques is running', () => {
-    const total = TECHNIQUES.filter((tech) => tech.tier === 'Ultimate').length;
-    const view = everyTierOpen({
-      scan: { grid: null, total, done: 12, running: true, cancelled: false, found: null },
-    });
+  it('holds while the background pass is counting', () => {
+    const view = everyTierOpen({ counting: true });
     expect(namedTechniques(view)).toHaveLength(PREVIEW_ROWS + 1 + ON_BOARD);
-    expect(view.queryAllByTestId('scan-progress')).toHaveLength(1);
+    // One line says it is still checking; no row per technique says so.
+    expect(view.getAllByText('Still checking the rest…')).toHaveLength(1);
     expect(view.queryByText('counting…')).toBeNull();
   });
 
@@ -273,7 +270,7 @@ describe('the cases the panel was never tried against', () => {
     const counts = Object.fromEntries(TECHNIQUES.map((tech) => [tech.name, 0]));
     const view = show({ counts, uniqueness: 'one', counting: false });
     const applies = appliesSection(view);
-    expect(within(applies).getByText(/Nothing counted so far applies here/)).toBeTruthy();
+    expect(within(applies).getAllByText(/None of the patterns the mentor counts is on this board/)).toHaveLength(1);
     expect(view.queryByTestId('applies-rows')).toBeNull();
     expect(view.queryByRole('button', { name: /Show all/ })).toBeNull();
   });
@@ -296,17 +293,16 @@ describe('the cases the panel was never tried against', () => {
     expect(view.queryByRole('button', { name: /Show all/ })).toBeNull();
   });
 
-  it('a scan that finds nothing at this size is still one line', () => {
-    const total = TECHNIQUES.filter((tech) => tech.tier === 'Ultimate').length;
-    const view = show({
-      counts: {},
-      uniqueness: 'one',
-      scan: { grid: null, total, done: total, running: false, cancelled: false, found: [] },
-    });
-    openTier(view, 'Ultimate');
-    expect(view.getByTestId('scan-result').textContent).toBe(
-      'Nothing in this tier applies to this board.'
+  it('an Ultimate tier of ninety-nine that finds nothing is still one line', () => {
+    // Counted in the background and empty: the tier spends one line on all
+    // of it, and the top of the panel one line on the whole board.
+    const counts = Object.fromEntries(
+      TECHNIQUES.filter((tech) => tech.tier !== 'Forcing' && tech.tier !== 'What-if').map((tech) => [tech.name, 0])
     );
-    expect(view.queryAllByTestId('scan-result')).toHaveLength(1);
+    const view = show({ counts, uniqueness: 'one' });
+    openTier(view, 'Ultimate');
+    expect(namedTechniques(view)).toHaveLength(0);
+    expect(tierSummaries(view)).toHaveLength(1);
+    expect(within(appliesSection(view)).getAllByText(/None of the patterns the mentor counts/)).toHaveLength(1);
   });
 });
