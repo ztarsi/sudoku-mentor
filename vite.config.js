@@ -14,5 +14,11 @@ export default defineConfig({
       visualEditAgent: true
     }),
     react(),
-  ]
+  ],
+  // The manifest lets CI budget what loads before the first board
+  // (scripts/bundle-budget.mjs, #91). It would land in dist/.vite/ and be
+  // served with the app, so it is written only when CI asks for it.
+  build: {
+    manifest: process.env.BUNDLE_BUDGET === '1',
+  },
 });

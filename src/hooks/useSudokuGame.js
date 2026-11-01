@@ -3,7 +3,7 @@ import {
   generateCandidates,
   applyLogicStep,
   eliminateCandidatesFromPeers,
-} from '@/components/sudoku/logicEngine';
+} from '@/components/sudoku/gridOps';
 import { solveSudoku } from '@/components/sudoku/solver';
 import {
   UNIQUENESS_NONE,
