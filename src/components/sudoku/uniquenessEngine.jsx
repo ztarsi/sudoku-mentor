@@ -849,6 +849,16 @@ const LOOP_SIZES = [6, 8];
 // prunes so hard that the budget is not approached.
 const LOOP_NODE_BUDGET = 60_000;
 
+// Each cell's row, column and box as indices into one 27-slot counter
+// (rows 0-8, columns 9-17, boxes 18-26), and a peer table, so the walk
+// below keeps its unit counts in a typed array and checks a pair in one
+// lookup (#125: the string-keyed maps were most of its cost).
+const UNITS_OF = Array.from({ length: 81 }, (_, cell) => [getRow(cell), 9 + getCol(cell), 18 + getBox(cell)]);
+const PEER = new Uint8Array(81 * 81);
+for (let x = 0; x < 81; x++) {
+  for (let y = 0; y < 81; y++) if (x !== y && arePeers(x, y)) PEER[x * 81 + y] = 1;
+}
+
 /**
  * The two conditions that make the swap legal, and they are strict.
  *
@@ -860,22 +870,34 @@ const LOOP_NODE_BUDGET = 60_000;
  * rather than branching - which also makes the loop even, and so colourable
  * in the two alternating ways the argument needs.
  */
-const isUniqueLoop = (loop) => {
-  const counts = new Map();
+const isUniqueLoop = (loop, unitCount) => {
   for (const cell of loop) {
-    for (const key of [`r${getRow(cell)}`, `c${getCol(cell)}`, `b${getBox(cell)}`]) {
-      counts.set(key, (counts.get(key) || 0) + 1);
-    }
+    const [r, c, bx] = UNITS_OF[cell];
+    if (unitCount[r] !== 2 || unitCount[c] !== 2 || unitCount[bx] !== 2) return false;
   }
-  for (const n of counts.values()) if (n !== 2) return false;
   for (const cell of loop) {
-    const partners = loop.filter((other) => other !== cell && arePeers(cell, other));
-    if (partners.length !== 2) return false;
+    let partners = 0;
+    for (const other of loop) partners += PEER[cell * 81 + other];
+    if (partners !== 2) return false;
   }
   return true;
 };
 
-export const findUniqueLoop = (grid, focusedDigit = null, returnAll = false) => {
+/**
+ * The digits a loop cell carries besides the pair, as a bitmask (bit d for
+ * digit d), or 0 for a cell holding exactly the pair.
+ */
+const extrasMask = (grid, cell, a, b) => {
+  let mask = 0;
+  for (const d of grid[cell].candidates) if (d !== a && d !== b) mask |= 1 << d;
+  return mask;
+};
+
+// The options are for the equivalence test (#125): nodeBudget lifts the
+// budget to compare this walk with the one it replaced on grids dense enough
+// to reach it, and stats, if given, counts the nodes walked and the paths
+// the early stop cut.
+export const findUniqueLoop = (grid, focusedDigit = null, returnAll = false, { nodeBudget = LOOP_NODE_BUDGET, stats = null } = {}) => {
   const all = [];
   for (let a = 1; a <= 9; a++) {
     for (let b = a + 1; b <= 9; b++) {
@@ -887,36 +909,56 @@ export const findUniqueLoop = (grid, focusedDigit = null, returnAll = false) => 
       }
       if (cells.length < LOOP_SIZES[0]) continue;
 
-      const neighbours = new Map(
-        cells.map((c) => [c, cells.filter((other) => other !== c && arePeers(c, other))])
-      );
-      let budget = LOOP_NODE_BUDGET;
+      const neighbours = new Map(cells.map((c) => [c, cells.filter((other) => PEER[c * 81 + other])]));
+      const extras = new Map(cells.map((c) => [c, extrasMask(grid, c, a, b)]));
+      let budget = nodeBudget;
 
       for (const start of cells) {
         // Each loop is walked once, from its lowest cell.
         const path = [start];
         const used = new Set([start]);
-        const unitCount = new Map();
+        const unitCount = new Int32Array(27);
         const bump = (cell, by) => {
-          for (const key of [`r${getRow(cell)}`, `c${getCol(cell)}`, `b${getBox(cell)}`]) {
-            const next = (unitCount.get(key) || 0) + by;
-            unitCount.set(key, next);
-          }
+          const [r, c, bx] = UNITS_OF[cell];
+          unitCount[r] += by;
+          unitCount[c] += by;
+          unitCount[bx] += by;
         };
-        const overfull = (cell) =>
-          [`r${getRow(cell)}`, `c${getCol(cell)}`, `b${getBox(cell)}`].some(
-            (key) => (unitCount.get(key) || 0) >= 2
-          );
+        const overfull = (cell) => {
+          const [r, c, bx] = UNITS_OF[cell];
+          return unitCount[r] >= 2 || unitCount[c] >= 2 || unitCount[bx] >= 2;
+        };
+        // What the path's cells carry besides the pair. Both only grow as
+        // the path does, so once roofCanProve says no, no longer path
+        // through these cells can prove anything, and it is not walked.
+        let roofCount = 0;
+        let roofDigits = 0;
+        const hopeless = () => !roofCanProve(roofCount, roofDigits);
+        const enter = (cell) => {
+          const mask = extras.get(cell);
+          const saved = roofDigits;
+          if (mask) {
+            roofCount++;
+            roofDigits |= mask;
+          }
+          return saved;
+        };
+        const leave = (cell, saved) => {
+          if (extras.get(cell)) roofCount--;
+          roofDigits = saved;
+        };
         bump(start, 1);
+        enter(start);
 
         const walk = () => {
           if (budget-- <= 0) return null;
+          if (stats) stats.nodes++;
           const here = path[path.length - 1];
           if (
             path.length >= LOOP_SIZES[0] &&
             path.length % 2 === 0 &&
-            arePeers(here, start) &&
-            isUniqueLoop(path)
+            PEER[here * 81 + start] &&
+            isUniqueLoop(path, unitCount)
           ) {
             const step = loopStep(grid, [...path], a, b, focusedDigit);
             if (step) {
@@ -927,6 +969,12 @@ export const findUniqueLoop = (grid, focusedDigit = null, returnAll = false) => 
           if (path.length >= LOOP_SIZES[LOOP_SIZES.length - 1]) return null;
           for (const next of neighbours.get(here)) {
             if (next < start || used.has(next) || overfull(next)) continue;
+            const saved = enter(next);
+            if (hopeless()) {
+              if (stats) stats.pruned++;
+              leave(next, saved);
+              continue;
+            }
             path.push(next);
             used.add(next);
             bump(next, 1);
@@ -934,6 +982,7 @@ export const findUniqueLoop = (grid, focusedDigit = null, returnAll = false) => 
             bump(next, -1);
             used.delete(next);
             path.pop();
+            leave(next, saved);
             if (result) return result;
           }
           return null;
@@ -946,8 +995,18 @@ export const findUniqueLoop = (grid, focusedDigit = null, returnAll = false) => 
   return returnAll ? all : null;
 };
 
+/**
+ * Whether a loop whose extra cells number roofCount, carrying between them
+ * the digits in the bitmask roofDigits, can prove anything: one extra cell
+ * (whatever it carries), or several that all carry the same single digit.
+ * This is loopStep's rule, stated once; the walk prunes with it, so a new
+ * kind of loop step must widen it here or the walk will never reach it.
+ */
+const roofCanProve = (roofCount, roofDigits) =>
+  roofCount <= 1 || (roofDigits & (roofDigits - 1)) === 0;
+
 /** What a validated loop proves, or null when it proves nothing useful. */
-const loopStep = (grid, loop, a, b, focusedDigit) => {
+export const loopStep = (grid, loop, a, b, focusedDigit) => {
   const roof = loop.filter((c) => grid[c].candidates.length > 2);
   const floor = loop.filter((c) => grid[c].candidates.length === 2);
   const ordered = [...loop];

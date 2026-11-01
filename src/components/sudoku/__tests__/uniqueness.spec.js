@@ -881,12 +881,9 @@ describe('the family on the real solve path of the top shelf', () => {
       expect(uniqueness).toBe(UNIQUENESS_ONE);
       let grid = buildGrid(puzzle);
       for (let i = 0; i < 300; i++) {
-        // The loop search is the one detector too slow to run on every
-        // grid; every eighth is what oracleAll does with the dear ones.
-        const techniques = UNIQUENESS_TECHNIQUE_NAMES.filter(
-          (t) => t !== 'Unique Loop' || i % 8 === 0
-        );
-        for (const technique of techniques) {
+        // Every detector on every grid, the loop search included: since
+        // #125 it is as cheap as the rest.
+        for (const technique of UNIQUENESS_TECHNIQUE_NAMES) {
           for (const step of findAllTechniqueInstances(grid, technique, { uniqueness })) {
             expect(step.technique).toBe(technique);
             if (step.placement) {
@@ -1095,7 +1092,7 @@ describe('what the family costs', () => {
     playTo(PUZZLES.diabolical[0].puzzle, 30),
   ];
 
-  it('is cheap enough to scan, and the loops are the only dear one', () => {
+  it('is cheap enough to scan, every detector in it', () => {
     const costs = UNIQUENESS_TECHNIQUE_NAMES.map((name) => {
       let max = 0;
       for (const grid of boards) {
@@ -1111,11 +1108,9 @@ describe('what the family costs', () => {
     // These are scan-tier, not live counts, so the budget is the one the
     // programme sets for the whole named ladder rather than one frame.
     expect(total).toBeLessThan(500);
-    // Every rectangle detector is a rounding error; only the loop search
-    // costs anything worth knowing about.
-    for (const { name, ms } of costs) {
-      if (name !== 'Unique Loop') expect(ms, name).toBeLessThan(25);
-    }
+    // Every detector is a rounding error, the loop search included since
+    // #125 (it was 637 ms here before).
+    for (const { name, ms } of costs) expect(ms, name).toBeLessThan(25);
   });
 
   it('leaves the hint path well inside its budget', () => {
