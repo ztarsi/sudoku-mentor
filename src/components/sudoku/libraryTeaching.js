@@ -21,9 +21,9 @@ export const LIBRARY_TEACHING = {
   '004050000900734600003021049035090480090000030076010920310970200009182003000060100': { complete: true, namedOnly: true, hardestTechnique: 'Naked Single', hardestTier: 'Basic' },
   // easy: Coffee Break
   '000260701680070090190004500820100040004602900050003028009300074040050036703018000': { complete: true, namedOnly: true, hardestTechnique: 'Naked Single', hardestTier: 'Basic' },
-  // easy: Nightmare
+  // easy: Early Riser
   '000000000000003085001020000000507000004000100090000000500000073002010000000040009': { complete: true, namedOnly: true, hardestTechnique: 'Hidden Single', hardestTier: 'Basic' },
-  // easy: X-Wing Territory
+  // easy: Garden Path
   '000000012000035000000600070700000300000400800100000000000120000080000040050000600': { complete: true, namedOnly: true, hardestTechnique: 'Hidden Single', hardestTier: 'Basic' },
   // medium: Brain Teaser
   '000000680000073009309000045490000000803050902000000036960000308700680000028000000': { complete: true, namedOnly: true, hardestTechnique: 'Pointing Pair', hardestTier: 'Intermediate' },
@@ -43,7 +43,7 @@ export const LIBRARY_TEACHING = {
   '020190003640000208070000900000905600000000000003080009100730000065000000000008040': { complete: true, namedOnly: true, hardestTechnique: 'Empty Rectangle', hardestTier: 'Expert' },
   // ultimate: Night Owl
   '000600400700003600000091080000000000050180003000306045040200060903000000020000100': { complete: true, namedOnly: true, hardestTechnique: '3D Medusa', hardestTier: 'Ultimate' },
-  // ultimate: Swordfish Hunt
+  // ultimate: Long Haul
   '005300000800000020070010500400005300010070006003200080060500009004000030000009700': { complete: true, namedOnly: true, hardestTechnique: 'Forcing Net', hardestTier: 'Forcing' },
   // ultimate: Golden Nugget
   '000000039000001005003050800008090006070002000100400000009080050020000600400700000': { complete: true, namedOnly: true, hardestTechnique: 'Forcing Net', hardestTier: 'Forcing' },
