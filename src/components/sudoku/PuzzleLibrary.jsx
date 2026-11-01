@@ -7,6 +7,7 @@ import { toast } from '@/components/ui/use-toast';
 
 import { PUZZLES } from './puzzles';
 import { startPuzzleAnalysis, teachingLabel } from './difficultyAnalyzer';
+import { LIBRARY_TEACHING } from './libraryTeaching';
 import { advanceInSlices } from './sliceRunner';
 export { PUZZLES };
 
@@ -104,20 +105,23 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
   ];
 
   // What each puzzle on this shelf teaches, measured rather than labelled by
-  // hand (technique-panel-at-scale spec). A solve path is a few
-  // milliseconds for most puzzles and a couple of hundred for one that
-  // leans on the what-if search, so the measuring happens after the shelf
-  // has painted, in slices short enough not to be felt, and a shelf the
-  // player leaves drops the work for the one they moved to.
-  const [teaching, setTeaching] = useState(/** @type {Record<string, any>} */ ({}));
+  // hand (technique-panel-at-scale spec). The built-in puzzles were
+  // measured once, and a test holds those answers to the live analyser
+  // (libraryTeaching.js, #95), so their labels are there on the first
+  // paint. The player's own puzzles are measured here: after the shelf has
+  // painted, in slices short enough not to be felt, and a shelf the player
+  // leaves drops the work for the one they moved to.
+  const [teaching, setTeaching] = useState(/** @type {Record<string, any>} */ (LIBRARY_TEACHING));
   const puzzlesRef = useRef(allPuzzles);
   puzzlesRef.current = allPuzzles;
   const shelfKey = allPuzzles.map(p => p.puzzle.join('')).join(',');
   useEffect(() => {
-    const tasks = puzzlesRef.current.map(p => ({
-      key: p.puzzle.join(''),
-      ...startPuzzleAnalysis(p.puzzle),
-    }));
+    const tasks = puzzlesRef.current
+      .filter(p => !LIBRARY_TEACHING[p.puzzle.join('')])
+      .map(p => ({
+        key: p.puzzle.join(''),
+        ...startPuzzleAnalysis(p.puzzle),
+      }));
     return advanceInSlices(
       tasks,
       (key, analysis) => setTeaching(prev => (prev[key] ? prev : { ...prev, [key]: analysis })),
