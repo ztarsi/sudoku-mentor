@@ -30,7 +30,7 @@ const buildGrid = (puzzle) =>
 // is by what a detector costs to run on every intermediate grid, not by
 // tier: ALS-XZ, the rest of the almost-locked-set family, the two unit fish
 // and the larger finned forms are too slow for every iteration and run
-// every eighth one.
+// every eighth one. Unique Loop was here until #125 made it cheap.
 const EXPENSIVE = [
   'ALS-XZ',
   'ALS-XY-Wing',
@@ -41,7 +41,6 @@ const EXPENSIVE = [
   'Finned Jellyfish',
   'Franken Fish',
   'Mutant Fish',
-  'Unique Loop',
 ];
 const CHEAP = TECHNIQUES
   .filter((t) => t.count !== COUNT_SEARCH && !EXPENSIVE.includes(t.name))
