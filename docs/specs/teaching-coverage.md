@@ -59,3 +59,19 @@ This is mostly not engine work. It is a sourcing problem with a vetting tool alr
 - **The never-taught list in the test output is empty, and no technique sits at one puzzle.** Both are printed by the report that shipped in #83, so this is a measurement rather than a judgement.
 - The two numbers are reported together from now on: the share of solve-path steps a named technique explains, and the share of techniques the library teaches at least twice. The first is about the engine. The second is about the product.
 - Once analytics exist: the share of players who are shown a technique above the Advanced tier at all, which today is bounded by the library rather than by their skill.
+
+## Outcome
+
+PR #136, 2026-11-01. The two numbers, as the spec asked them reported:
+
+| | Before | After |
+| --- | --- | --- |
+| Library solve-path steps a named technique explains | 100% | 100% |
+| Techniques taught by at least two library puzzles (trial and error excluded) | 25 of 60 | **52 of 60** |
+| Techniques never the hint | 29 | 8 (7, and Hypothesis Mode) |
+| Library puzzles | 20 | 48 |
+
+- **Curated by generation, gated by the analyser.** 57,321 random unique puzzles and 75,862 variations of the hardest were walked on the same path the report counts. A puzzle was kept only when its path was complete, needed no trial and error and taught a wanted technique, and a greedy cover chose the fewest that bring every technique to two: 28, each on the shelf it earns (Hard 1 to 3, Expert 2 to 4, Diabolical 2 to 5, Ultimate 7 to 28). No existing puzzle moved, and their paths are unchanged.
+- **What the generator could not reach.** Remote Pairs, Avoidable Rectangle Type 2, BUG+1, BUG+2, BUG+3, Mutant Fish and Continuous Loop were never once the hint in 133,000 boards, and Digit Forcing Chain was the hint only on Platinum Blonde. By this spec's rule the ladder is not bent for them: on real boards an easier technique takes their positions first. Whether to accept that or reach them through practice mode is the founder's call.
+- **The Techniques list stops advertising what the library cannot deliver.** Each technique's reference has a "Where to meet it" line: the puzzles that teach it, with shelves, or that none does yet.
+- **The larger library found an engine defect,** which is the argument for this spec in one example: hints showed 3D Medusa proofs of up to 15 nodes, past the ten-node cap, a case twenty puzzles never produced. Colourings now walk their shortest proof, and one still too long is not offered as a hint.
