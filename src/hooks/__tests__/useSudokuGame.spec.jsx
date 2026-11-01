@@ -7,7 +7,7 @@
 import React, { StrictMode } from 'react';
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { renderHook, act, cleanup } from '@testing-library/react';
-import { useSudokuGame, REJECTED_INPUT_TTL_MS } from '../useSudokuGame';
+import { useSudokuGame, REJECTED_INPUT_TTL_MS, HISTORY_LIMIT } from '../useSudokuGame';
 import { PUZZLES } from '@/components/sudoku/puzzles';
 import { solveSudoku } from '@/components/sudoku/solver';
 
@@ -650,5 +650,206 @@ describe('useSudokuGame assistance and play clock', () => {
       expect(second.result.current.assistUsed).toBe(true);
       window.localStorage.removeItem(key);
     });
+  });
+});
+
+describe('useSudokuGame undo survives a reload (#106)', () => {
+  const KEY = 'test:sudoku-undo';
+  const solved = solveSudoku(PUZZLE.map((v) => ({ value: v || null, candidates: [] })));
+  const empties = PUZZLE.map((v, i) => (v ? -1 : i)).filter((i) => i >= 0);
+  // A pencil mark the game will let the player erase: not the answer's.
+  const erasableMark = (grid, cell) => {
+    const mark = grid[cell].candidates.find((d) => d !== solved[cell].value);
+    expect(mark, `cell ${cell} has a mark besides its answer`).toBeDefined();
+    return mark;
+  };
+
+  beforeEach(() => window.localStorage.removeItem(KEY));
+  afterEach(() => {
+    cleanup();
+    window.localStorage.removeItem(KEY);
+  });
+
+  const playMoves = (n) => {
+    const first = renderHook(() => useSudokuGame({ persistKey: KEY }), { wrapper: strictWrapper });
+    act(() => { first.result.current.loadPuzzle(PUZZLE, { name: 'Gentle Start', difficulty: 'easy' }); });
+    for (let k = 0; k < n; k++) {
+      const idx = empties[k];
+      act(() => { first.result.current.handleCellInput(idx, solved[idx].value); });
+    }
+    return first;
+  };
+  const reload = () => {
+    const hook = renderHook(() => useSudokuGame({ persistKey: KEY }), { wrapper: strictWrapper });
+    let restored = false;
+    act(() => { restored = hook.result.current.restoreSavedGame(); });
+    expect(restored).toBe(true);
+    return hook;
+  };
+  const tamper = (edit) => {
+    const saved = JSON.parse(window.localStorage.getItem(KEY));
+    edit(saved);
+    window.localStorage.setItem(KEY, JSON.stringify(saved));
+  };
+
+  it('undo walks back through moves made before the reload, and redo forward again', () => {
+    const first = playMoves(3);
+    act(() => { first.result.current.undo(); }); // leaves one move to redo
+    first.unmount();
+
+    const hook = reload();
+    expect(hook.result.current.canUndo).toBe(true);
+    expect(hook.result.current.canRedo).toBe(true);
+    expect(hook.result.current.grid[empties[1]].value).toBe(solved[empties[1]].value);
+    expect(hook.result.current.grid[empties[2]].value).toBeNull();
+
+    act(() => { hook.result.current.redo(); });
+    expect(hook.result.current.grid[empties[2]].value).toBe(solved[empties[2]].value);
+    act(() => { hook.result.current.undo(); });
+    act(() => { hook.result.current.undo(); });
+    act(() => { hook.result.current.undo(); });
+    expect(hook.result.current.canUndo).toBe(false);
+    for (const i of empties.slice(0, 3)) expect(hook.result.current.grid[i].value).toBeNull();
+    // Every given is still the given, in place and fixed.
+    PUZZLE.forEach((v, i) => {
+      if (v) expect(hook.result.current.grid[i]).toMatchObject({ value: v, isFixed: true });
+    });
+  });
+
+  it('keeps pencil marks in the saved moves', () => {
+    const first = playMoves(1);
+    const cell = empties[5];
+    const before = [...first.result.current.grid[cell].candidates];
+    const mark = erasableMark(first.result.current.grid, cell);
+    act(() => { first.result.current.handleToggleCandidate(cell, mark); });
+    expect(first.result.current.grid[cell].candidates).not.toContain(mark);
+    first.unmount();
+    const hook = reload();
+    expect(hook.result.current.grid[cell].candidates).not.toContain(mark);
+    act(() => { hook.result.current.undo(); });
+    expect(hook.result.current.grid[cell].candidates).toEqual(before);
+  });
+
+  it('saves one board and only what each move changed, at most HISTORY_LIMIT moves either side', () => {
+    const first = playMoves(1);
+    const cell = empties[10];
+    const mark = erasableMark(first.result.current.grid, cell);
+    // Toggle one mark off and on until the history is longer than the limit.
+    for (let k = 0; k < HISTORY_LIMIT + 20; k++) {
+      act(() => { first.result.current.handleToggleCandidate(cell, mark); });
+    }
+    const raw = window.localStorage.getItem(KEY);
+    const saved = JSON.parse(raw);
+    expect(saved.v).toBe(2);
+    expect(saved.history.moves.length).toBe(HISTORY_LIMIT);
+    expect(saved.history.index).toBe(HISTORY_LIMIT);
+    // Each move is the one cell it changed.
+    expect(saved.history.moves.every((m) => /^\d+:[1-9]*$/.test(m))).toBe(true);
+    // Five hundred moves of history, and the whole save is still small.
+    expect(raw.length).toBeLessThan(10_000);
+    first.unmount();
+    const hook = reload();
+    for (let k = 0; k < HISTORY_LIMIT; k++) act(() => { hook.result.current.undo(); });
+    expect(hook.result.current.canUndo).toBe(false);
+  });
+
+  it('resumes without history, rather than wrongly, when the saved history does not fit the board', () => {
+    playMoves(2).unmount();
+    // A history whose current move is not the saved board.
+    tamper((saved) => { saved.history.moves[saved.history.index - 1] = ''; });
+    let hook = reload();
+    expect(hook.result.current.grid[empties[1]].value).toBe(solved[empties[1]].value);
+    expect(hook.result.current.canUndo).toBe(false);
+    hook.unmount();
+  });
+
+  it('refuses a saved history holding a digit the game would have refused', () => {
+    playMoves(2).unmount();
+    const wrong = (solved[empties[0]].value % 9) + 1;
+    // The first move now places a wrong digit, and the second puts it right.
+    tamper((saved) => {
+      saved.history.moves[0] = `${empties[0]}:=${wrong}`;
+      saved.history.moves[1] = `${empties[0]}:=${solved[empties[0]].value};${empties[1]}:=${solved[empties[1]].value}`;
+    });
+    const hook = reload();
+    expect(hook.result.current.canUndo).toBe(false);
+    hook.unmount();
+  });
+
+  it('restores a save from before #106, which has no history', () => {
+    playMoves(2).unmount();
+    tamper((saved) => { delete saved.history; });
+    const hook = reload();
+    expect(hook.result.current.grid[empties[1]].value).toBe(solved[empties[1]].value);
+    expect(hook.result.current.canUndo).toBe(false);
+  });
+
+  it('keeps a short history when storage is too full for the long one', () => {
+    const first = playMoves(1);
+    const cell = empties[10];
+    const mark = erasableMark(first.result.current.grid, cell);
+    for (let k = 0; k < 60; k++) act(() => { first.result.current.handleToggleCandidate(cell, mark); });
+    const setItem = Storage.prototype.setItem;
+    const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (key, value) {
+      if (key === KEY && JSON.parse(value).history?.moves?.length > 25) throw new Error('QuotaExceededError');
+      return setItem.call(this, key, value);
+    });
+    act(() => { first.result.current.handleToggleCandidate(cell, mark); });
+    spy.mockRestore();
+    const saved = JSON.parse(window.localStorage.getItem(KEY));
+    expect(saved.history.moves.length).toBe(25);
+    expect(saved.history.index).toBe(25);
+    first.unmount();
+  });
+
+  it('keeps the board when storage is too full for any history', () => {
+    const first = playMoves(1);
+    const setItem = Storage.prototype.setItem;
+    const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (key, value) {
+      if (key === KEY && value.includes('"history":{')) throw new Error('QuotaExceededError');
+      return setItem.call(this, key, value);
+    });
+    const idx = empties[1];
+    act(() => { first.result.current.handleCellInput(idx, solved[idx].value); });
+    spy.mockRestore();
+    const saved = JSON.parse(window.localStorage.getItem(KEY));
+    expect(saved.history).toBeNull();
+    expect(saved.cells[idx].value).toBe(solved[idx].value);
+    first.unmount();
+  });
+});
+
+describe('useSudokuGame records only moves that change something', () => {
+  it('typing a digit over the same digit adds no undo step', () => {
+    const { result } = setup();
+    act(() => { result.current.loadPuzzle(PUZZLE); });
+    const solved = solveSudoku(PUZZLE.map((v) => ({ value: v || null, candidates: [] })));
+    const idx = firstEmptyCell(result.current.grid);
+    act(() => { result.current.handleCellInput(idx, solved[idx].value); });
+    act(() => { result.current.handleCellInput(idx, solved[idx].value); });
+    act(() => { result.current.undo(); });
+    // One press takes the digit back out: there was only one move.
+    expect(result.current.grid[idx].value).toBeNull();
+    expect(result.current.canUndo).toBe(false);
+  });
+});
+
+describe('useSudokuGame applyStep that changes nothing', () => {
+  it('is not counted as an applied hint and adds no undo step', () => {
+    const { result } = setup();
+    act(() => { result.current.loadPuzzle(PUZZLE); });
+    const solved = solveSudoku(PUZZLE.map((v) => ({ value: v || null, candidates: [] })));
+    const idx = firstEmptyCell(result.current.grid);
+    const step = { technique: 'Naked Single', placement: { cell: idx, digit: solved[idx].value }, eliminations: [], baseCells: [idx], targetCells: [idx] };
+    let first = null;
+    let again = null;
+    act(() => { first = result.current.applyStep(step); });
+    act(() => { again = result.current.applyStep(step); });
+    expect(first).toBe(true);
+    expect(again).toBe(false);
+    expect(result.current.hintsUsed).toBe(1);
+    act(() => { result.current.undo(); });
+    expect(result.current.grid[idx].value).toBeNull();
+    expect(result.current.canUndo).toBe(false);
   });
 });
