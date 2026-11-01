@@ -232,12 +232,13 @@ describe('what a count may cost', () => {
     );
 
     // Measured on the code this went in with: the two densest boards in
-    // the library - X-Wing Territory at 304 pencil marks and Nightmare at
-    // 303 - are also the two dearest to scan, and they trade places run to
-    // run between 710 ms and 950 ms over 33 detectors, with Brain Teaser
-    // third at about 430 ms. Unique Loop is two thirds of the worst board's
-    // total by itself (540-600 ms); Mutant Fish and Franken Fish are about
-    // a tenth each; the remaining 30 detectors share the rest.
+    // the library - Garden Path at 304 pencil marks and Early Riser at 303
+    // (then called X-Wing Territory and Nightmare, #79) - are also the two
+    // dearest to scan, and they traded places run to run between 710 ms and
+    // 950 ms over 33 detectors, with Brain Teaser third at about 430 ms.
+    // Unique Loop was two thirds of the worst board's total by itself
+    // (540-600 ms) until #125 made it cheap; the worst board now totals
+    // about 300 ms, most of it Mutant Fish and Franken Fish.
     // ALS-XY-Wing, the detector #100 started with, costs 107 ms at its own
     // worst (Coffee Break, the sparsest board in the library) inside a
     // 224 ms total there. So the promise holds with better than a twofold
