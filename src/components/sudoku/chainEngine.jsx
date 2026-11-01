@@ -1,6 +1,16 @@
 // Advanced Chain-Based Logic Engine for Expert Sudoku Techniques
 
 import { getRow, getCol, getRowIndices, getColIndices, getBoxIndices, arePeers, cellName } from './gridUnits';
+import { SCAN_CHAIN_NODES, fitsAHint } from './aicEngine';
+
+// A colouring is held to the same caps as an alternating chain (#88: the
+// larger library found 3D Medusa hints of 11, 13 and 15 nodes). A hint never
+// walks the player through more than HINT_CHAIN_NODES (fitsAHint); one whose shortest
+// proof is longer is still counted, up to SCAN_CHAIN_NODES as a chain is,
+// but it is not offered as the next lesson, and the ladder moves on to the
+// next rung, as it does for a chain past the cap.
+const tooLong = (walk, returnAll) =>
+  returnAll ? Array.isArray(walk) && walk.length > SCAN_CHAIN_NODES : !fitsAHint({ chainNodes: walk });
 
 // Strong Link: If one candidate is false, the other must be true
 const buildLinkGraph = (grid) => {
@@ -51,24 +61,50 @@ const buildLinkGraph = (grid) => {
 
 const edgeKey = (a, b) => (a < b ? `${a}:${b}` : `${b}:${a}`);
 
-/** Every node from here back to where this colouring started. */
-const colorAncestry = (parentOf, node) => {
-  const up = [];
-  for (let at = node; at !== undefined; at = parentOf.get(at)) up.push(at);
-  return up;
+// The shortest run of links joining two coloured marks, over the whole
+// colouring rather than the tree it happened to spread along (#88). The
+// tree's path up to where the two spreads meet and back down can be twice
+// as long as it needs to be, and the spec's promise is the shortest run.
+// Every run between two marks of one colouring alternates colours, so any
+// shortest one proves the same thing.
+
+/** A breadth-first spread from `a`: each mark it reaches, and where from. */
+const spreadFrom = (adjacency, a) => {
+  const cameFrom = new Map([[a, undefined]]);
+  const queue = [a];
+  for (let head = 0; head < queue.length; head++) {
+    for (const next of adjacency.get(queue[head]) ?? []) {
+      if (cameFrom.has(next)) continue;
+      cameFrom.set(next, queue[head]);
+      queue.push(next);
+    }
+  }
+  return cameFrom;
+};
+/** The run from where `spread` started to `b`, or null if it never got there. */
+const runTo = (spread, b) => {
+  if (!spread.has(b)) return null;
+  const run = [];
+  for (let at = b; at !== undefined; at = spread.get(at)) run.push(at);
+  return run.reverse();
 };
 
 /**
- * The run of links joining two coloured marks: up from the first, through
- * the node where the two spreads meet, and back down to the second.
+ * Of the pairs [a, b] that `pairs` yields, the one joined by the shortest
+ * run, and that run. One spread per distinct first mark, however many
+ * partners it has.
  */
-const colorRun = (parentOf, a, b) => {
-  const up = colorAncestry(parentOf, a);
-  const down = colorAncestry(parentOf, b);
-  const depth = new Map(up.map((node, i) => [node, i]));
-  const meet = down.find((node) => depth.has(node));
-  if (meet === undefined) return null;
-  return [...up.slice(0, depth.get(meet) + 1), ...down.slice(0, down.indexOf(meet)).reverse()];
+const shortestPairRun = (adjacency, pairs) => {
+  const spreads = new Map();
+  let best = null;
+  for (const pair of pairs) {
+    const [a, b] = pair;
+    if (!spreads.has(a)) spreads.set(a, spreadFrom(adjacency, a));
+    const run = runTo(spreads.get(a), b);
+    // The pair itself, not a copy: callers look up what they know about it.
+    if (run && (best === null || run.length < best.run.length)) best = { pair, run };
+  }
+  return best;
 };
 
 /**
@@ -142,9 +178,6 @@ export const findXCycle = (grid, focusedDigit, returnAll = false) => {
 
       const component = [];
       colorOf.set(start, 0);
-      // Where the colouring reached each cell from, so the run of links
-      // between any two of them can be read back off the spread.
-      const parentOf = new Map();
       const queue = [start];
       let consistent = true;
       while (queue.length > 0) {
@@ -153,7 +186,6 @@ export const findXCycle = (grid, focusedDigit, returnAll = false) => {
         for (const next of adjacency.get(cell)) {
           if (!colorOf.has(next)) {
             colorOf.set(next, 1 - colorOf.get(cell));
-            parentOf.set(next, cell);
             queue.push(next);
           } else if (colorOf.get(next) === colorOf.get(cell)) {
             // Odd cycle of XOR constraints: impossible on a grid with valid
@@ -176,17 +208,22 @@ export const findXCycle = (grid, focusedDigit, returnAll = false) => {
       // to, and the two marks the player is shown at the end.
       let wrapPair = null;
       let wrappedColor = -1;
+      // Of the pairs that wrap, the one with the shortest run between
+      // them, so the card walks as few links as the proof needs.
+      let wrapRun = null;
       [colorA, colorB].forEach((cells, index) => {
-        if (wrapPair) return;
-        for (let i = 0; i < cells.length && !wrapPair; i++) {
+        if (wrappedColor !== -1) return;
+        const pairs = [];
+        for (let i = 0; i < cells.length; i++) {
           for (let j = i + 1; j < cells.length; j++) {
-            if (arePeers(cells[i], cells[j])) {
-              wrapPair = [cells[i], cells[j]];
-              wrappedColor = index;
-              break;
-            }
+            if (arePeers(cells[i], cells[j])) pairs.push([cells[i], cells[j]]);
           }
         }
+        if (pairs.length === 0) return;
+        const best = shortestPairRun(adjacency, pairs);
+        wrapPair = best ? best.pair : pairs[0];
+        wrapRun = best ? best.run : null;
+        wrappedColor = index;
       });
 
       if (wrappedColor !== -1) {
@@ -225,23 +262,31 @@ export const findXCycle = (grid, focusedDigit, returnAll = false) => {
         // sees, which is what makes that cell dead either way. The
         // shortest such run is taken, so the player walks as few links as
         // the proof needs.
-        const target = rule === 'trap' ? eliminations[0].cell : null;
+        // For a trap, of every cell it erases, the one whose two
+        // opposite-coloured marks are joined by the shortest run, so a trap
+        // with one short proof is never dropped for a long one.
+        let target = null;
         let witness = wrapPair;
+        let run = wrapRun;
         if (rule === 'trap') {
-          let best = null;
-          for (const a of colorA) {
-            if (!arePeers(target, a)) continue;
-            for (const b of colorB) {
-              if (!arePeers(target, b)) continue;
-              const run = colorRun(parentOf, a, b);
-              if (run && (!best || run.length < best.length)) {
-                best = run;
-                witness = [a, b];
+          const pairs = [];
+          const targetOf = new Map();
+          for (const { cell } of eliminations) {
+            for (const a of colorA) {
+              if (!arePeers(cell, a)) continue;
+              for (const b of colorB) {
+                if (!arePeers(cell, b)) continue;
+                const pair = [a, b];
+                targetOf.set(pair, cell);
+                pairs.push(pair);
               }
             }
           }
+          const best = shortestPairRun(adjacency, pairs);
+          witness = best ? best.pair : null;
+          run = best ? best.run : null;
+          target = best ? targetOf.get(best.pair) : eliminations[0].cell;
         }
-        const run = witness ? colorRun(parentOf, witness[0], witness[1]) : null;
         const walk = run
           ? colorChainNodes(run, {
               cellOf: (cell) => cell,
@@ -281,6 +326,7 @@ export const findXCycle = (grid, focusedDigit, returnAll = false) => {
             : `Simple coloring on digit ${digit}: chained strong links split these cells into two colors, one of which must be true. Any outside ${digit} that sees both colors can be eliminated.`
         };
 
+        if (tooLong(walk, returnAll)) continue;
         if (returnAll) {
           allInstances.push(step);
         } else {
@@ -365,9 +411,6 @@ export const find3DMedusa = (grid, focusedDigit = null, returnAll = false) => {
 
     const component = [];
     colorOf.set(start, 0);
-    // Where the colouring reached each mark from, so the run of links
-    // between any two of them can be read back off the spread.
-    const parentOf = new Map();
     const queue = [start];
     let consistent = true;
     while (queue.length > 0) {
@@ -376,7 +419,6 @@ export const find3DMedusa = (grid, focusedDigit = null, returnAll = false) => {
       for (const next of adjacency.get(node)) {
         if (!colorOf.has(next)) {
           colorOf.set(next, 1 - colorOf.get(node));
-          parentOf.set(next, node);
           queue.push(next);
         } else if (colorOf.get(next) === colorOf.get(node)) {
           // An odd cycle of exactly-one-of-two constraints cannot be
@@ -397,26 +439,36 @@ export const find3DMedusa = (grid, focusedDigit = null, returnAll = false) => {
     let falseColor = -1;
     let rule = null;
     let witness = null;
+    // Of the pairs that clash in that colour, the one with the shortest
+    // run between them is the one the card walks: the eliminations are the
+    // whole colour either way, so only the length of the proof changes.
+    let run = null;
     for (let c = 0; c < 2 && falseColor === -1; c++) {
       const nodes = colors[c];
-      for (let i = 0; i < nodes.length && falseColor === -1; i++) {
+      const pairs = [];
+      const ruleOf = new Map();
+      for (let i = 0; i < nodes.length; i++) {
         for (let j = i + 1; j < nodes.length; j++) {
           const a = nodes[i];
           const b = nodes[j];
-          if (nodeCell(a) === nodeCell(b)) {
-            falseColor = c;
-            rule = 'cell';
-            witness = [a, b];
-            break;
-          }
-          if (nodeDigit(a) === nodeDigit(b) && arePeers(nodeCell(a), nodeCell(b))) {
-            falseColor = c;
-            rule = 'unit';
-            witness = [a, b];
-            break;
-          }
+          const clash =
+            nodeCell(a) === nodeCell(b)
+              ? 'cell'
+              : nodeDigit(a) === nodeDigit(b) && arePeers(nodeCell(a), nodeCell(b))
+                ? 'unit'
+                : null;
+          if (!clash) continue;
+          const pair = [a, b];
+          ruleOf.set(pair, clash);
+          pairs.push(pair);
         }
       }
+      if (pairs.length === 0) continue;
+      const best = shortestPairRun(adjacency, pairs);
+      falseColor = c;
+      witness = best ? best.pair : pairs[0];
+      rule = ruleOf.get(witness);
+      run = best ? best.run : null;
     }
     if (falseColor === -1) continue;
 
@@ -442,7 +494,6 @@ export const find3DMedusa = (grid, focusedDigit = null, returnAll = false) => {
     // The run of links the card walks (#82): from one of the two marks
     // that clash to the other, which is the part of the network that
     // proves this colour wrong.
-    const run = colorRun(parentOf, witness[0], witness[1]);
     const walk = run
       ? colorChainNodes(run, { cellOf: nodeCell, digitOf: nodeDigit, colorOf: (n) => colorOf.get(n), edges })
       : null;
@@ -478,6 +529,7 @@ export const find3DMedusa = (grid, focusedDigit = null, returnAll = false) => {
         `${witness ? ` (${name(witness[0])} and ${name(witness[1])} among them)` : ''}.`,
     };
 
+    if (tooLong(walk, returnAll)) continue;
     if (returnAll) allInstances.push(step);
     else return step;
   }

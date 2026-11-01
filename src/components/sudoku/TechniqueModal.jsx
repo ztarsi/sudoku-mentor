@@ -1,7 +1,8 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
-import { TECHNIQUE_DETAILS, needsUniqueness } from './techniqueCatalog';
+import { TECHNIQUE_DETAILS, needsUniqueness, techniqueTier } from './techniqueCatalog';
+import { whereTaughtLine } from './whereTaught';
 import { UNIQUENESS_UNKNOWN, uniquenessAllowed, uniquenessShortNote } from './uniqueness';
 import { useDialog } from '@/hooks/useDialog';
 
@@ -94,6 +95,16 @@ export default function TechniqueModal({
                 <p className="text-slate-200 leading-relaxed text-base">{details.plain}</p>
               </div>
             )}
+
+            {/* Where a player will be shown it, or that no puzzle does yet:
+                the reference must not imply a lesson the library cannot
+                deliver (#88). */}
+            <div>
+              <h3 className="text-lg font-semibold text-slate-200 mb-2">Where to meet it</h3>
+              <p className="text-slate-300 leading-relaxed" data-testid="where-taught">
+                {whereTaughtLine(technique, techniqueTier(technique))}
+              </p>
+            </div>
 
             {/* Description */}
             <div>

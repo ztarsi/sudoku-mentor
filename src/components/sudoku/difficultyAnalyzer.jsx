@@ -286,7 +286,14 @@ export const startSolvePath = (puzzleArray, options = {}) => {
 // the last few. Only completed walks: one cut short by a time budget says
 // nothing about the rest. The path handed back is shared, so read it, do
 // not change it.
-const PATH_CACHE_LIMIT = 64;
+// Room for both walks (named, and with the what-if search) of every library
+// puzzle with space to spare. At 64 it held twenty puzzles' worth; the
+// teaching-coverage batch (#88) took the library to forty-eight, the cache
+// began evicting paths the next test needed, and the run re-walked them.
+// It is a ceiling, not an allocation: in the app it fills only with the
+// puzzles a player imports, since the library's own answers are
+// precomputed (libraryTeaching.js).
+const PATH_CACHE_LIMIT = 160;
 const pathCache = new Map();
 
 /**
@@ -670,6 +677,16 @@ export const formatTechniqueTeachingReport = (report) => {
       lines.push(line);
     }
   }
+
+  // The number the teaching-coverage spec judges by (#88), beside the one the
+  // programme has always reported: not whether the mentor can explain what
+  // the library holds, but whether a player will meet each technique twice.
+  // The what-if fallback is left out, as the library does not set out to
+  // teach trial and error.
+  const teachable = report.rows.filter((row) => !row.whatIf);
+  const twice = teachable.filter((row) => row.puzzles.length >= 2).length;
+  lines.push('');
+  lines.push(`taught by at least two library puzzles, the target (#88): ${twice} of ${teachable.length}`);
 
   if (report.unlisted.length > 0) {
     lines.push('');

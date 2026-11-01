@@ -188,18 +188,17 @@ describe('what the library row says', () => {
       .toBe('Works through every option (Forcing Net)');
   });
 
-  it('names no technique the player has not been given, except in brackets', () => {
-    for (const list of Object.values(PUZZLES)) {
-      for (const p of list) {
-        const analysis = analyzePuzzle(p.puzzle);
-        const label = teachingLabel(analysis);
-        // Everything before the bracket is plain English: the technique's
-        // name appears once, and only there.
-        const lead = label.split(' (')[0];
-        expect(lead, p.name).not.toContain(analysis.hardestTechnique);
-      }
-    }
-  });
+  // One test per puzzle since the library reached forty-eight (#88).
+  for (const p of Object.values(PUZZLES).flat()) {
+    it(`${p.name}: names no technique the player has not been given, except in brackets`, () => {
+      const analysis = analyzePuzzle(p.puzzle);
+      const label = teachingLabel(analysis);
+      // Everything before the bracket is plain English: the technique's
+      // name appears once, and only there.
+      const lead = label.split(' (')[0];
+      expect(lead, p.name).not.toContain(analysis.hardestTechnique);
+    });
+  }
 
   it('is measured, never assumed: a label matches the path it came from', () => {
     for (const [shelf, list] of Object.entries(PUZZLES)) {

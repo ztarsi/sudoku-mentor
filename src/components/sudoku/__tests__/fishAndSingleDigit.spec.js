@@ -33,6 +33,7 @@ import {
 } from '../techniqueCatalog';
 import { PUZZLES } from '../puzzles';
 import { establishUniqueness } from '../uniqueness';
+import { fitsAHint } from '../aicEngine';
 import { cellName } from '../gridUnits';
 
 const NEW_TECHNIQUES = [
@@ -561,8 +562,14 @@ describe('the teaching ladder', () => {
         const rung = RUNGS.findIndex((rungNames) => rungNames.includes(step.technique));
         if (rung > 0) {
           for (const easier of RUNGS.slice(0, rung).flat()) {
+            // A colouring whose proof walks more links than a hint may show
+            // is found and counted, but is not a lesson the hint can give,
+            // the same rule the alternating chains have always had
+            // (fitsAHint, HINT_CHAIN_NODES). The larger library (#88) met one, a 3D
+            // Medusa whose shortest proof is longer than that, on Cold Snap.
+            const showable = findAllTechniqueInstances(grid, easier, { uniqueness }).filter(fitsAHint);
             expect(
-              findAllTechniqueInstances(grid, easier, { uniqueness }),
+              showable,
               `${name}: the hint was ${step.technique} while a ${easier} was on the board`
             ).toEqual([]);
           }
