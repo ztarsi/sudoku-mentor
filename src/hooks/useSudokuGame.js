@@ -12,6 +12,7 @@ import {
   uniquenessAllowed,
 } from '@/components/sudoku/uniqueness';
 import { getPeers } from '@/components/sudoku/gridUnits';
+import { currentPuzzleName } from '@/components/sudoku/puzzles';
 
 // Digits a cell could still hold given only the placed digits around it.
 const validCandidates = (grid, cellIndex) => {
@@ -600,7 +601,8 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
     setHistory(history);
     setErrorCount(saved.errorCount || 0);
     setCompleted(false);
-    setPuzzleName(saved.puzzleName ?? null);
+    // A game saved before its puzzle was renamed resumes under today's name.
+    setPuzzleName(currentPuzzleName(saved.puzzleName ?? null));
     setPuzzleDifficulty(saved.puzzleDifficulty ?? null);
     setStartTime(saved.startTime || Date.now());
     setHintsUsed(saved.hintsUsed || 0);
