@@ -69,45 +69,39 @@ npm run build
 
 ## 5. Where the product stands today
 
+Updated 1 November 2026.
+
 ### Shipped to players
 
-The **UX pass** was released from `staging` to `main` on 19 September as pull request #61: one adaptive page replacing a separate mobile page, one digit strip at every width, designed hint-card states, a header in words with one menu, dark and paper themes, and inline onboarding prompts instead of a modal tour. Seven specs, issues #28 to #34, plus three follow-ups.
+The **UX pass** was released from `staging` to `main` on 19 September as pull request #61: one adaptive page replacing a separate mobile page, one digit strip at every width, designed hint-card states, a header in words with one menu, dark and paper themes, and inline onboarding prompts instead of a modal tour.
 
 ### Complete on `staging`, not yet released
 
-The **technique coverage programme**, issue #69, spec `docs/specs/technique-coverage.md`. Seven batches, all merged and verified, 24 and 25 October. The result:
+Everything below is merged to `staging` and was verified there by driving https://sdm.pilia.net in a browser, not by reading pull requests. **None of it is on `main`.** The release is the next big step and needs the founder's go (section 6).
 
-| | Before | After |
-| --- | --- | --- |
-| Techniques in the catalog | 16 | 61 |
-| Library steps explained by a named technique | 1204 of 1245 | **1303 of 1303** |
-| Ultimate shelf steps answered by trial | 41 | **0** |
+- **The technique coverage programme** (#69, batches #67, #70 to #75, #82, #83): 16 techniques to 61, and every one of the library's solve-path steps explained by a named technique.
+- **The hint animation template** (#97) and the reconciliation of `main` into `staging` (#98).
+- **The 29 October UX review's findings**: hint focus and announcement, menu focus, library names, contrast (#109); Scan as an answer rather than an animation (#105); the board, strip and library pass (#107); the Techniques panel opening short (#114, #122); counting only the easiest tier with something on it (#128); count budgets that assert the right promises (#100, #117).
+- **1 November**, all in one session at the founder's word "do all of it now":
+  - What loads before the first board (#91, PR #130): 908 kB to 630 kB, the first digit on a throttled phone at 3.9 s instead of 4.7 s, and CI budgeting that payload rather than the total.
+  - Unique Loop made cheap (#125, PR #131): 637 ms to under 2 ms, proved identical on 348 grids.
+  - Undo survives a reload (#106, PR #132).
+  - Three puzzles renamed without losing best times, and the naming rule as a test (#79, PR #133).
+  - The library's labels precomputed and held to the live analyser by a test (#95, PR #134): 18 s to 15 ms on the Ultimate shelf.
+  - Scan retired: every tier counted in a background worker (#126, PR #135).
+  - Teaching coverage (#88, PR #136): 52 of 60 techniques taught at least twice, from 25; the library is 48 puzzles. Check whether #136 is merged before you start: it was green-pending when this was written.
 
-Every step of every one of the twenty library puzzles is now explained by a named technique. Hypothesis Mode, the trial-and-error fallback, still exists for imported puzzles the proofs cannot finish, which is the honest last resort it was always meant to be.
+### What is still unverified
 
-The batches, for the record: subsets and wings (#70), the Techniques panel at scale plus the difficulty analyser (#71), alternating inference chains (#67), fish and single-digit patterns (#72), almost locked sets (#73), uniqueness (#74), forcing chains and nets (#75). Plus the never-taught report (#83) and walkable colouring (#82).
-
-### The verification gap you are inheriting
-
-**Nobody has played any of it.** Every verification recorded for the coverage programme is the test suite and the difficulty analyser. That is strong evidence the hints are *correct* and no evidence that the cards *read well*, that the two colour tints survive the paper theme, or that a 61-technique panel is usable at phone width. Each batch's issue comment ends with a "worth checking on staging" list. None of those lists has been walked by a human or by a browser session.
-
-If you do one thing first, do that.
+Everything that depends on the Base44 platform: sign-in, saved puzzles, solve records, best times, photo import. Staging has no platform behind it, so none of these can be checked until a release reaches the live app. #79 changed how best times are looked up (a renamed puzzle is looked up under every name it has had), so best times are the first thing to spot-check after the release.
 
 ## 6. What is open, in the order I would take it
 
-1. ~~#98, reconcile `main` into `staging`.~~ **Done**, PR #101, 26 October. `main` and `staging` no longer diverge.
-2. ~~#97, the hint animation template.~~ **Done**, PR #102, 26 October. 36 techniques animate from real library steps; the spec is `docs/specs/hint-animation.md` and carries the outcome.
-3. **Play the thing on staging**, per section 5. This is now the first thing.
-4. **#88, teaching coverage.** This is the biggest gap in the product and the most interesting problem left. The library teaches **32 of the 61** techniques; 29 are never the hint on any puzzle, X-Wing among them. That number was 10 of 31 before the programme: the engine moved and the library did not, so the gap widened as the programme succeeded. A mentor that knows 61 techniques and teaches 32 is not a better teacher than one that knows 32. Spec is `docs/specs/teaching-coverage.md`; the target is every technique taught by at least two puzzles, and it is mostly puzzle sourcing, gated by the analyser.
-5. **#91, what a player downloads before the first board.** The build is at 980,469 bytes against a hard 1,000,000 budget, so 19.5 kB of headroom: this is the next thing that will block work rather than a tidy-up. Every technique engine loads before the board, against a quality bar that promises a digit within ten seconds on a phone. The CI check sums every chunk, so lazy loading cannot move it, which is the actual bug. Spec is `docs/specs/first-board-payload.md`. **Do not raise that budget again.**
-6. **#95**, the library's Ultimate shelf takes 13 seconds to label its rows, because it re-measures twenty fixed puzzles on every visit.
-7. **#79**, two puzzle names promise techniques their puzzle never needs: "X-Wing Territory" on Easy needs only a Hidden Single, and "Swordfish Hunt" never needs a Swordfish.
-8. **The shelf re-cut** the programme deferred. Six library puzzles' hardest technique moved during it. Decide with the analyser's numbers whether any puzzle is on the wrong shelf.
-9. **A release to `main`,** on the founder's go, once the above is in order. Then he deploys the Base44 checkpoint and the five platform-dependent features get spot-checked on the live app: sign-in, saved puzzles, solve records, best times, photo import. Staging cannot test those.
-
-**#100, the count budgets assert the wrong promises.** A timing test flaked once on the shared runner and I wrongly called CI blocked; it was green three minutes later. The real finding, which the developer brought with measurements, is that the test asserts the live-count promise against four detectors that are only ever counted behind Scan, while the 22 live-counted detectors have no assertion at all. Decided 29 October and in progress: the 150 ms bar moves onto the live-counted detectors, and the Scan tier gets a total bar of 2000 ms derived from what the product tells the player, that Scan takes a second or two.
-
-Also still open from earlier: #35, library and completion.
+1. **Release `staging` to `main`,** on the founder's go. It carries everything in section 5. Then he deploys the Base44 checkpoint, and the five platform-dependent features get spot-checked on the live app, best times first.
+2. **The last eight techniques of #88.** Remote Pairs, Avoidable Rectangle Type 2, BUG+1, +2, +3, Mutant Fish and Continuous Loop were never once the hint in 133,000 generated boards, and Digit Forcing Chain is taught by one puzzle. This is now a decision for the founder rather than a search: accept them as redundant on real boards (the spec's own rule), or build practice mode, where a position is chosen so the technique is the next step.
+3. **The Ultimate shelf is 28 puzzles long.** It works, but it may want grouping by what each puzzle teaches, which is also the first half of practice mode.
+4. **#35, library and completion,** the oldest open spec.
+5. From the roadmap: learning on the phone (the phone is No Assist until it is answered), graduated hints, analytics, full offline play. The service worker caches what it has fetched, so the mentor works offline once it has been loaded online, but nothing is precached.
 
 ## 7. Decisions already made. Do not re-litigate these.
 
@@ -126,6 +120,12 @@ The full log is `docs/PRODUCT.md` section 13, newest first, with reasons. The on
 - **"What this puzzle teaches" is a label that moves.** It describes what the mentor will show you today, not a property of the puzzle. The shelf is the stable promise.
 - **The forcing net's depth limit is five,** chosen by measurement: the lowest depth at which every library puzzle can be finished by name.
 - **The Base44 hint animation is the template** for all animations. Founder, 26 October.
+- **CI budgets what loads before the first board, not the total** (#91). 680,000 bytes, with the reason beside the number in `scripts/bundleClosure.js`. The total is reported, never enforced: splitting code is the change that helps a player, and a total punishes it. Do not raise the first-board number to make something fit; move the thing out of the first board.
+- **There is no Scan button.** Every tier but the search-only ones is counted in a background worker, easiest first, stopping at the first tier with something (#126, #128).
+- **The hint's ten-node cap applies to colourings too** (`fitsAHint`). A longer proof is counted but not offered as the next lesson.
+- **Undo survives a reload,** up to 500 moves back and 500 forward, saved as only what each move changed (#106).
+- **A puzzle's name may not name a technique it does not need,** and renaming a puzzle keeps its former names so best times are not orphaned (#79).
+- **The shelves were re-cut once, on 1 November, and nothing moved.** Every puzzle rates exactly its shelf, and a test holds that.
 
 ## 8. Hard-won lessons
 
@@ -141,6 +141,9 @@ The full log is `docs/PRODUCT.md` section 13, newest first, with reasons. The on
 - **`src/pages/OAuthConsent.jsx` and `src/components/AuthLayout.jsx` are platform-generated.** Leave them alone; lint and typecheck skip them.
 - **Cells are named `R5C3`** everywhere, with a legend in the hint card.
 - **No model identifiers** in commits, code, comments or anything pushed to the repository.
+- **Run `/code-review` on every change, and fix what it finds before merging.** On 1 November it found real defects in every one of seven pull requests, including two behaviour bugs I had introduced and one fix of mine that broke on an identity lookup. Then run the suite again: the tests caught the last of those.
+- **More data finds more bugs.** Twenty puzzles had never produced a colouring longer than a hint may show; forty-eight did at once. When the library grows, expect the engine tests to find things, and treat each as a finding, not as a test to loosen.
+- **A slow test suite on a busy machine reads as a broken one.** The oracle and library tests sit near vitest's 30-second limit. Do not run a generator or a second suite beside them and then believe a timeout. Split a test that walks the whole library into one case per puzzle rather than raising a limit.
 
 ## 9. The analyser, which is your instrument
 

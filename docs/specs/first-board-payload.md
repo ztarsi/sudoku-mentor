@@ -40,3 +40,19 @@ What matters to the player is what arrives before the first board. That is the e
 - Measured on a production build at phone width with the connection and processor throttled: time to first paint, and time to first accepted digit. Both recorded in the issue so the next change has a number to beat.
 - The entry-chunk budget in CI is a number with a reason written beside it, and the total is reported but not enforced.
 - The first hint on a cold load is either instant or visibly getting ready, never silent.
+
+## Outcome
+
+Shipped in PR #130 to `staging` on 2026-11-01 and verified there. The lesson panel and every technique detector now load after the board; the board needs only four grid operations, which moved to their own module.
+
+Measured on a production build at phone width, with the processor slowed four times and the connection at 1.6 Mbps, three runs each:
+
+| | Before | After |
+| --- | --- | --- |
+| JavaScript before the first digit | 908 kB | 630 kB |
+| First board on screen | 3.9 s | 3.2 s |
+| First digit accepted | 4.7 s | 3.9 s |
+
+- **The measure.** CI budgets the first board at 680,000 bytes, read from the Vite manifest, with the reason written beside the number, and fails if the engine or the lesson panel slips back into it. Checked by putting the engine back: the check failed. The total is reported and not enforced.
+- **The first hint.** Where the lesson is a column, the panel's code is requested as the page renders; where it is a sheet, it is fetched once the browser is idle. A hint asked for before it arrives shows as in progress, with Cancel. If the code cannot arrive at all, the board keeps working and the column says the mentor could not load.
+- **Offline,** as the spec asked to be written down: the service worker caches every file it fetches, so a player who has opened the app once online has the mentor offline. One who goes offline within a second or two of a first visit gets the board and that message. Precaching belongs to the offline roadmap item.
