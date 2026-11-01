@@ -2,8 +2,9 @@
 // unique solution, and shelf labels must not lie at the extremes (the
 // "ultimate" shelf once carried two singles-solvable puzzles).
 import { describe, it, expect } from 'vitest';
-import { PUZZLES } from '../puzzles';
-import { analyzeDifficulty, analyzePuzzle, teachingLabel } from '../difficultyAnalyzer';
+import { PUZZLES, FORMER_PUZZLE_NAMES, currentPuzzleName, puzzleNamesOverTime } from '../puzzles';
+import { analyzeDifficulty, analyzePuzzle, analyzeSolvePath, teachingLabel } from '../difficultyAnalyzer';
+import { TECHNIQUES } from '../techniqueCatalog';
 
 const boxOf = (i) => Math.floor(i / 27) * 3 + Math.floor((i % 9) / 3);
 
@@ -128,3 +129,40 @@ describe('built-in puzzle library', () => {
     }
   });
 });
+
+describe('puzzle names keep their promises (#79)', () => {
+  const all = Object.values(PUZZLES).flat();
+
+  // The rule: a puzzle's name may not name a technique unless the analyser
+  // says solving it needs that technique. Everything else about naming is
+  // free. "X-Wing Territory" and "Swordfish Hunt" broke it.
+  it('names a technique only when the puzzle needs it', () => {
+    const named = (puzzleName, techName) =>
+      new RegExp(`(^|[^A-Za-z])${techName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}($|[^A-Za-z])`, 'i').test(puzzleName);
+    for (const { name, puzzle } of all) {
+      const used = new Set(analyzeSolvePath(puzzle).steps.map((step) => step.technique));
+      for (const tech of TECHNIQUES) {
+        for (const word of [tech.name, tech.short].filter(Boolean)) {
+          if (named(name, word)) expect(used.has(tech.name), `${name} names ${word} but never needs it`).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('maps every former name to a puzzle the library still has, and only those', () => {
+    const names = new Set(all.map((p) => p.name));
+    for (const [former, now] of Object.entries(FORMER_PUZZLE_NAMES)) {
+      expect(names.has(now), now).toBe(true);
+      expect(names.has(former), `${former} is a former name and must not be reused`).toBe(false);
+      expect(currentPuzzleName(former)).toBe(now);
+      expect(puzzleNamesOverTime(now)).toEqual([now, former]);
+    }
+    expect(currentPuzzleName('Gentle Start')).toBe('Gentle Start');
+    expect(currentPuzzleName('My own puzzle')).toBe('My own puzzle');
+    expect(currentPuzzleName(null)).toBeNull();
+    expect(puzzleNamesOverTime('Gentle Start')).toEqual(['Gentle Start']);
+    // Inherited object keys are not former names.
+    expect(currentPuzzleName('toString')).toBe('toString');
+  });
+});
+
