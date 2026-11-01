@@ -33,8 +33,11 @@ jobs:
       - name: Test
         run: npm test
 
+      # BUNDLE_BUDGET=1 writes the Vite manifest the budget step reads.
       - name: Build
         run: npm run build
+        env:
+          BUNDLE_BUDGET: '1'
 
       # The build must produce a servable page that boots the app and ships
       # the what-if worker as its own chunk.
@@ -48,20 +51,16 @@ jobs:
           test -f dist/manifest.webmanifest
           test -f dist/sw.js
 
-      # Budget: all JavaScript in the build, uncompressed, every chunk
-      # counted. The build is about 935 kB today; raise this number
-      # deliberately, not by accident.
+      # Budget: what a player downloads before the first board (#91,
+      # docs/specs/first-board-payload.md). The script measures the entry
+      # chunk, the route that shows the board, and their static imports,
+      # and fails if that is over its budget or if the technique engine or
+      # the lesson panel has slipped into it. The budget and its reason are
+      # written beside the number in scripts/bundle-budget.mjs.
       #
-      # Raised from 900 kB for the uniqueness family (#74), which added
-      # 45 kB: an engine, thirteen reference entries and their plain
-      # wordings. The coverage programme (#69) is what drives this number,
-      # and the two batches left in it will each add tens of kilobytes, so
-      # it is worth a look rather than another nudge. Note that splitting
-      # code into lazy chunks does not move this total, because it sums
-      # every chunk; if what we care about is what a player downloads
-      # before the first board, this should measure the entry chunks.
-      - name: Check the bundle-size budget
-        run: |
-          total=$(cat dist/assets/*.js | wc -c)
-          echo "JavaScript total: $total bytes"
-          test "$total" -le 1000000
+      # The total of all JavaScript is reported, not enforced. It used to be
+      # (1,000,000 bytes, last raised for #74), which punished the one change
+      # that helps the player: moving code out of the first board does not
+      # shrink the total, it adds a few hundred bytes of chunk overhead.
+      - name: Check the first-board budget
+        run: node scripts/bundle-budget.mjs dist
