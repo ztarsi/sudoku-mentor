@@ -21,25 +21,26 @@ export const LEVEL_COLORS = {
 
 // How a technique's count on the current board is paid for.
 //
-//   live    cheap enough to count while the panel is open, off the input path
-//   scan    only when the player asks, on the tier's Scan button
+//   live    cheap enough to count on the main thread, a slice at a time,
+//           without stuttering the board: under 150 ms a detector
+//   scan    too dear for that bar on some boards. Counted in the same
+//           background pass, which runs in a worker (countPass.js, #126);
+//           until then these sat behind a Scan button
 //   search  not a count at all: the what-if search, on the Search button
+//
+// Both live and scan techniques are counted automatically, easiest tier
+// first; the difference is only which bar each is held to (countBudgets).
 export const COUNT_LIVE = 'live';
 export const COUNT_SCAN = 'scan';
 export const COUNT_SEARCH = 'search';
 
-// The tiers, in teaching order. `scanNote` is what the Scan button promises
-// before it runs, so the player knows what they are about to spend.
+// The tiers, in teaching order.
 export const TIERS = [
   { level: 'Basic', color: 'emerald' },
   { level: 'Intermediate', color: 'blue' },
   { level: 'Advanced', color: 'purple' },
   { level: 'Expert', color: 'orange' },
-  {
-    level: 'Ultimate',
-    color: 'violet',
-    scanNote: 'These cost too much to count while you play. Scan runs every one of them on the board as it stands now, and looks at longer chains than a hint will show you; it takes a second or two. Or open one and count it on its own.',
-  },
+  { level: 'Ultimate', color: 'violet' },
   // The two tiers the search finds, on the two sides of the honesty line
   // (#75). A forcing proof tries every option a cell, a unit or a digit
   // has and keeps what they all force, so it proves its conclusion; it is

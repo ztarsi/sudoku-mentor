@@ -18,7 +18,6 @@ import palette from 'tailwindcss/colors';
 import Callout from '../Callout';
 import PuzzleLibrary from '../PuzzleLibrary';
 import TechniquePanel from '../panel/TechniquePanel';
-import { TECHNIQUES } from '../techniqueCatalog';
 import { PRIMARY_GRADIENT, BADGE_GRADIENT } from '@/lib/brandGradient';
 
 afterEach(() => cleanup());
@@ -59,7 +58,7 @@ describe('the Techniques list is a list, not a status message', () => {
   const base = {
     expanded: true, onToggleExpanded: () => {}, noAssistMode: false, counts: {},
     counting: false, searchingForcingChain: false, onSelectTechnique: () => {},
-    onHighlight: () => {}, onCount: () => {}, onUltimateScan: () => {},
+    onHighlight: () => {}, onCount: () => {},
     onWhatIfSearch: () => {}, onShowInfo: () => {},
   };
   const show = (props) => render(<TechniquePanel {...base} {...props} />);
@@ -79,20 +78,6 @@ describe('the Techniques list is a list, not a status message', () => {
     expect(liveText(view)).toBe('');
     fireEvent.click(view.getByRole('button', { name: /^Basic/ }));
     expect(liveText(view)).toBe('');
-  });
-
-  it('still announces a Scan, which is a status message', () => {
-    const total = TECHNIQUES.filter((tech) => tech.tier === 'Ultimate').length;
-    const view = show({
-      scan: { grid: null, total, done: total, running: false, cancelled: false, found: ['X-Cycle'] },
-    });
-    fireEvent.click(view.getByRole('button', { name: /^Ultimate/ }));
-    // What #112 added on the Scan path must survive a change made for this
-    // issue: one announcement, once the answer is known.
-    const said = Array.from(view.container.querySelectorAll('[role="status"]'))
-      .map((el) => el.textContent)
-      .join(' ');
-    expect(said).toContain('X-Cycle');
   });
 });
 

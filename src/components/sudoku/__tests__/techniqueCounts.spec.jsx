@@ -37,8 +37,8 @@ const GROUPS = [
 ];
 
 let latest = null;
-function Probe({ grid, enabled, groups = GROUPS }) {
-  latest = useTechniqueCounts(grid, { enabled, groups });
+function Probe({ grid, enabled, paused = false, groups = GROUPS }) {
+  latest = useTechniqueCounts(grid, { enabled, paused, groups });
   return null;
 }
 
@@ -113,6 +113,9 @@ describe('counting techniques on the board', () => {
 
     scans.length = 0;
     act(() => { latest.countTier(['X-Wing']); });
+    // It goes the way the pass does (#126), so it is not done in the same
+    // render; with no stillness to wait for, it is done on the next turn.
+    settle();
     expect(scans).toEqual(['X-Wing']);
     expect(latest.counts).toEqual({ 'Naked Single': 1, 'Hidden Single': 0, 'X-Wing': 2 });
   });
@@ -157,14 +160,72 @@ describe('counting techniques on the board', () => {
     expect(latest.counts).toEqual({ 'BUG+1': 1 });
   });
 
-  it('takes the counts a scan produced', () => {
-    const grid = board({});
-    render(<Probe grid={grid} enabled={false} />);
-    act(() => { latest.recordCounts({ 'ALS-XZ': 4 }); });
-    expect(latest.counts).toEqual({ 'ALS-XZ': 4 });
+  // While a what-if search runs, counting stands aside (#126): the search is
+  // what the player is waiting for, and on a phone the two would compete
+  // for the same cores.
+  it('starts nothing while paused, and keeps what it had already counted', () => {
+    const grid = board({ 'X-Wing': [1, 2] });
+    const { rerender } = render(<Probe grid={grid} enabled />);
+    settle();
+    expect(latest.counts['X-Wing']).toBe(2);
+
+    scans.length = 0;
+    rerender(<Probe grid={grid} enabled paused />);
+    settle();
     expect(scans).toEqual([]);
-    // and drops them when the board changes
-    cleanup();
+    expect(latest.counts['X-Wing']).toBe(2);
+  });
+
+  it('counts again once the pause is over', () => {
+    const grid = board({ 'X-Wing': [1, 2] });
+    const { rerender } = render(<Probe grid={grid} enabled paused />);
+    settle();
+    expect(scans).toEqual([]);
+
+    rerender(<Probe grid={grid} enabled />);
+    settle();
+    expect(scans.sort()).toEqual([...NAMES].sort());
+    expect(latest.counts['X-Wing']).toBe(2);
+    expect(latest.counting).toBe(false);
+  });
+
+  it('after a pause on the same board, keeps its counts and does not count them again', () => {
+    const grid = board({ 'X-Wing': [1, 2] });
+    const { rerender } = render(<Probe grid={grid} enabled />);
+    settle();
+    expect(scans.sort()).toEqual([...NAMES].sort());
+    rerender(<Probe grid={grid} enabled paused />);
+    expect(latest.counting).toBe(false); // nothing claims to count while paused
+    scans.length = 0;
+    rerender(<Probe grid={grid} enabled />);
+    settle();
+    // Everything was already counted for this board: nothing is run again,
+    // and nothing on screen was wiped and refilled.
+    expect(scans).toEqual([]);
+    expect(latest.counts['X-Wing']).toBe(2);
+    expect(latest.counting).toBe(false);
+  });
+
+  it('a pause while counting stops claiming to count', () => {
+    const grid = board({ 'X-Wing': [1, 2] });
+    const { rerender } = render(<Probe grid={grid} enabled />);
+    expect(latest.counting).toBe(true);
+    rerender(<Probe grid={grid} enabled paused />);
+    expect(latest.counting).toBe(false);
+  });
+
+  it('after a pause, does not go past a tier that already had something', () => {
+    const grid = board({ 'Naked Single': [1], 'X-Wing': [1, 2] });
+    const { rerender } = render(<Probe grid={grid} enabled />);
+    settle();
+    expect(latest.counts['Naked Single']).toBe(1);
+    expect(latest.counts['X-Wing']).toBeUndefined();
+    rerender(<Probe grid={grid} enabled paused />);
+    scans.length = 0;
+    rerender(<Probe grid={grid} enabled />);
+    settle();
+    expect(scans).toEqual([]);
+    expect(latest.counts['X-Wing']).toBeUndefined();
   });
 
   it('counts only the techniques it was asked for', () => {
@@ -179,10 +240,10 @@ describe('counting techniques on the board', () => {
 // passes while the panel quietly goes back to counting everything.
 describe('the panel asks for the tiers in ladder order', () => {
   const noop = () => {};
-  const panel = async (grid) => {
+  const panel = async (grid, props = {}) => {
     const { default: LogicPanel } = await import('../LogicPanel');
     window.localStorage.setItem('sudoku-mentor:techniques-open', '1');
-    return render(
+    const element = (extra) => (
       <LogicPanel
         currentStep={null}
         grid={grid}
@@ -196,8 +257,12 @@ describe('the panel asks for the tiers in ladder order', () => {
         onNextPuzzle={noop}
         onShowSingle={noop}
         getElapsedSeconds={() => 0}
+        {...props}
+        {...extra}
       />
     );
+    const view = render(element({}));
+    return { ...view, update: (extra) => view.rerender(element(extra)) };
   };
 
   it('runs the Basic detectors and stops, when a single is on the board', async () => {
@@ -216,7 +281,31 @@ describe('the panel asks for the tiers in ladder order', () => {
     expect(scans.slice(0, 2)).toEqual(['Naked Single', 'Hidden Single']);
     expect(scans).toContain('X-Wing');
     expect(scans.length).toBeGreaterThan(10);
-    // and nothing from the tiers that are only ever counted on request
+    // and nothing from the Ultimate tier after it: Expert had something
     expect(scans).not.toContain('X-Cycle');
+  });
+
+  // The Ultimate tier used to wait behind a Scan button. It is counted like
+  // any other tier now (#126), when nothing easier is on the board.
+  it('counts the Ultimate tier by itself when nothing easier applies', async () => {
+    await panel(board({ 'X-Cycle': [1, 2] }));
+    settle();
+    expect(scans).toContain('X-Cycle');
+    expect(scans).toContain('ALS-XZ');
+    // and the Forcing and what-if tiers are never counted: Search finds them
+    expect(scans).not.toContain('Cell Forcing Chain');
+  });
+
+  // The what-if search and the counts would compete for the same cores;
+  // the search is what the player is waiting for, so counting stands aside
+  // while it runs and starts again after (#126).
+  it('counts nothing while a hint search is running, and counts after it ends', async () => {
+    const grid = board({ 'Naked Single': [1] });
+    const view = await panel(grid, { searchingHint: true });
+    settle();
+    expect(scans).toEqual([]);
+    view.update({ searchingHint: false });
+    settle();
+    expect(scans).toEqual(['Naked Single', 'Hidden Single']);
   });
 });
