@@ -95,8 +95,117 @@ const writeSavedGame = (key, snapshot) => {
   try {
     window.localStorage.setItem(key, JSON.stringify(snapshot));
   } catch {
-    // Private mode / quota: playing still works, resuming won't.
+    // Quota: the board matters more than its undo history, so try again
+    // with a short history, then with none. Private mode: playing still
+    // works, resuming won't.
+    if (!snapshot.history) return;
+    for (const history of [snapshot.shortHistory?.() ?? null, null]) {
+      try {
+        window.localStorage.setItem(key, JSON.stringify({ ...snapshot, history }));
+        return;
+      } catch {
+        // try the next
+      }
+    }
   }
+};
+
+// Undo survives a reload (#106). The history is saved with the board as
+// one full board and then, for each move, only the cells it changed. A cell
+// is written as nothing for a given, "=5" for a placed digit, or its pencil
+// marks ("137", or nothing when it has none); a board is its 81 cells
+// comma-separated, and a move is "index:cell" pairs separated by ";". A move
+// costs tens of bytes, so the window can be long: up to HISTORY_LIMIT moves
+// back from the current one and as many forward (the redo tail).
+//
+// A placed cell has no pencil marks anywhere in this hook (placing clears
+// them, and so does every step), so a cell's code is its digit or its marks,
+// never both.
+export const HISTORY_LIMIT = 500;
+const cellCode = (c) => (c.isFixed ? '' : c.value !== null ? `=${c.value}` : c.candidates.join(''));
+// Boards and moves in the history are never mutated, so each is encoded
+// once, however many times the game is saved.
+const encodedBoards = new WeakMap();
+const encodeCells = (grid) => {
+  let text = encodedBoards.get(grid);
+  if (text === undefined) {
+    text = grid.map(cellCode).join(',');
+    encodedBoards.set(grid, text);
+  }
+  return text;
+};
+const encodedMoves = new WeakMap(); // the later board -> { from, text }
+const encodeMove = (from, to) => {
+  const cached = encodedMoves.get(to);
+  if (cached && cached.from === from) return cached.text;
+  const changed = [];
+  for (let i = 0; i < 81; i++) {
+    if (from[i] === to[i]) continue;
+    const code = cellCode(to[i]);
+    if (code !== cellCode(from[i])) changed.push(`${i}:${code}`);
+  }
+  const text = changed.join(';');
+  encodedMoves.set(to, { from, text });
+  return text;
+};
+// One cell from its code over the given cell, or null if it does not fit.
+const decodeCell = (code, given) => {
+  if (given.isFixed) return code === '' ? given : null;
+  if (/^=[1-9]$/.test(code)) return { ...given, value: Number(code[1]), candidates: [] };
+  if (/^[1-9]*$/.test(code)) return { ...given, value: null, candidates: [...code].map(Number) };
+  return null;
+};
+const decodeCells = (text, givensGrid) => {
+  if (typeof text !== 'string') return null;
+  const parts = text.split(',');
+  if (parts.length !== 81) return null;
+  const grid = parts.map((code, i) => decodeCell(code, givensGrid[i]));
+  return grid.every(Boolean) ? grid : null;
+};
+const decodeMove = (text, from, givensGrid) => {
+  if (typeof text !== 'string') return null;
+  const grid = from.slice();
+  if (text === '') return grid;
+  for (const pair of text.split(';')) {
+    const m = /^(\d{1,2}):(.*)$/.exec(pair);
+    const i = m ? Number(m[1]) : -1;
+    if (!(i >= 0 && i < 81)) return null;
+    const cell = decodeCell(m[2], givensGrid[i]);
+    if (!cell) return null;
+    grid[i] = cell;
+  }
+  return grid;
+};
+const historyWindow = ({ stack, index }, limit = HISTORY_LIMIT) => {
+  if (index < 0 || stack.length === 0) return null;
+  const start = Math.max(0, index - limit);
+  const end = Math.min(stack.length, index + limit + 1);
+  const moves = [];
+  for (let k = start + 1; k < end; k++) moves.push(encodeMove(stack[k - 1], stack[k]));
+  return { base: encodeCells(stack[start]), moves, index: index - start };
+};
+/**
+ * The saved history as grids, or null when it does not fit: wrong shape,
+ * a cell the givens do not allow, a digit the game would have refused, or
+ * a current move that is not the saved board. A null history means the
+ * game resumes with undo starting from the restored board.
+ */
+const readHistory = (saved, givensGrid, restored, accepts) => {
+  const h = saved?.history;
+  if (!h || typeof h.base !== 'string' || !Array.isArray(h.moves) || !Number.isInteger(h.index)) return null;
+  let grid = decodeCells(h.base, givensGrid);
+  if (!grid) return null;
+  const stack = [grid];
+  for (const move of h.moves) {
+    grid = decodeMove(move, grid, givensGrid);
+    if (!grid) return null;
+    stack.push(grid);
+  }
+  if (h.index < 0 || h.index >= stack.length) return null;
+  if (!stack.every(accepts)) return null;
+  if (encodeCells(stack[h.index]) !== encodeCells(restored)) return null;
+  stack[h.index] = restored;
+  return { stack, index: h.index };
 };
 
 const clearSavedGame = (key) => {
@@ -203,13 +312,23 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
   // Commit a player-visible move: set the grid and push a snapshot,
   // truncating any redo tail. Never called from inside a setState updater,
   // so StrictMode double-invocation cannot corrupt the history.
+  //
+  // A move that changes nothing the player can see (a digit typed over the
+  // same digit, a step whose erasures were already gone) is not recorded,
+  // or Undo would spend a press on it and appear to do nothing.
+  // Returns whether the move was recorded.
+  const gridRef = useRef(grid);
+  gridRef.current = grid;
   const commit = useCallback((newGrid) => {
+    if (encodeCells(gridRef.current) === encodeCells(newGrid)) return false;
+    gridRef.current = newGrid;
     setGrid(newGrid);
     setHistory((h) => {
       const stack = h.stack.slice(0, h.index + 1);
       stack.push(newGrid);
       return { stack, index: stack.length - 1 };
     });
+    return true;
   }, []);
 
   const handleCellInput = useCallback(
@@ -331,7 +450,9 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
           step.placement.digit
         );
       }
-      commit(newGrid);
+      // A step whose erasures were already gone changes nothing, and is not
+      // an applied hint: there is nothing to undo and nothing was taught.
+      if (!commit(newGrid)) return false;
       setHintsUsed((n) => n + 1);
       return true;
     },
@@ -453,11 +574,30 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
       };
     });
 
+    // The saved history, if it fits (readHistory). A move the game would
+    // have refused, a digit that is not the answer's when there is one
+    // answer, or a clash in a row, column or box when there are more, means
+    // the save is not trusted and undo starts here, as before #106.
+    // With one answer, the check is the one input makes: every digit is the
+    // answer's, and no cell has lost the answer's pencil mark while keeping
+    // others. With more than one, a full check per move would mean a solve
+    // per move, so it is the clash test, and input's own check still guards
+    // every digit typed after the reload.
+    const accepts = (g) =>
+      uniquenessAllowed(answers.state)
+        ? g.every((c, i) =>
+            c.value !== null
+              ? c.value === solved[i].value
+              : c.candidates.length === 0 || c.candidates.includes(solved[i].value)
+          )
+        : computeConflicts(g).length === 0;
+    const history = readHistory(saved, givensGrid, restored, accepts) || { stack: [restored], index: 0 };
+
     loadSeq.current++;
     setUniqueness(answers.state);
     setSolution(solved);
     setGrid(restored);
-    setHistory({ stack: [restored], index: 0 });
+    setHistory(history);
     setErrorCount(saved.errorCount || 0);
     setCompleted(false);
     setPuzzleName(saved.puzzleName ?? null);
@@ -473,6 +613,8 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
   // Persist the in-progress game so a reload (or a return tomorrow) resumes
   // where the player left off instead of rolling a new random puzzle.
   const snapshotRef = useRef(null);
+  // Still version 2: the history is an extra field that older builds ignore,
+  // so a save survives a rollback as well as a reload.
   snapshotRef.current = () => ({
     v: 2,
     givens: grid.map((c) => (c.isFixed ? c.value : 0)),
@@ -485,12 +627,14 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
     assistUsed,
     playedMs: elapsedMs(),
     completed,
+    history: historyWindow(history),
+    shortHistory: () => historyWindow(history, 25),
     savedAt: Date.now(),
   });
   useEffect(() => {
     if (!persistKey || !solution) return;
     writeSavedGame(persistKey, snapshotRef.current());
-  }, [persistKey, grid, solution, puzzleName, puzzleDifficulty, startTime, errorCount, hintsUsed, completed, elapsedMs]);
+  }, [persistKey, grid, history, solution, puzzleName, puzzleDifficulty, startTime, errorCount, hintsUsed, assistUsed, completed, elapsedMs]);
 
   // The play clock advances without grid changes, so also save when the
   // tab is hidden, when the page is about to go away, and when this hook
