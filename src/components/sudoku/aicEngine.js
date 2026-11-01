@@ -48,6 +48,14 @@ export const HINT_CHAIN_NODES = 10;
 /** How far the Techniques panel's Scan may go. */
 export const SCAN_CHAIN_NODES = 16;
 
+/**
+ * Whether a step's proof is short enough to be shown as a hint: true for
+ * any step that walks no chain, and for one whose walk is within
+ * HINT_CHAIN_NODES. The engine holds chains and colourings to it, and the
+ * ladder tests ask it, so the rule is stated once.
+ */
+export const fitsAHint = (step) => !(Array.isArray(step?.chainNodes) && step.chainNodes.length > HINT_CHAIN_NODES);
+
 /** The chain techniques, in the teaching order of the catalog's ladder. */
 export const CHAIN_TECHNIQUES = [
   'Skyscraper',

@@ -916,12 +916,23 @@ describe('the family on the real solve path of the top shelf', () => {
   it('and the walk really does reach the family, by name', () => {
     // Exact on purpose: a technique that quietly stopped firing on these
     // boards would fail here, and so would one that started.
+    // The teaching-coverage batch (#88) added twenty-one Ultimate puzzles,
+    // and the walk now meets seven more of the family than it did, Unique
+    // Loop and all three BUG variants among them. Avoidable Rectangle Type 2
+    // is the one it still never meets.
     expect([...seenOnThePath].sort()).toEqual([
+      'Avoidable Rectangle Type 1',
+      'BUG+1',
+      'BUG+2',
+      'BUG+3',
       'Hidden Unique Rectangle',
+      'Unique Loop',
       'Unique Rectangle Type 1',
       'Unique Rectangle Type 2',
       'Unique Rectangle Type 3',
       'Unique Rectangle Type 4',
+      'Unique Rectangle Type 5',
+      'Unique Rectangle Type 6',
     ]);
   });
 });

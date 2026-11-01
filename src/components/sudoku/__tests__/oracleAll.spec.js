@@ -13,6 +13,7 @@ import {
 import { findWhatIfStep, findForcingChain, findForcingNet, findHypothesis } from '../forcingChainEngine';
 import { solveSudoku } from '../solver';
 import { PUZZLES } from '../puzzles';
+import { LIBRARY_TEACHING } from '../libraryTeaching';
 import { TECHNIQUE_INFO, TECHNIQUES, SEARCH_TECHNIQUES, TRIAL_TECHNIQUES, COUNT_SEARCH } from '../techniqueCatalog';
 import { establishUniqueness } from '../uniqueness';
 import { cellName } from '../gridUnits';
@@ -105,28 +106,15 @@ describe('every technique instance agrees with the solution', () => {
     });
   }
 
-  // Twenty puzzles cannot exercise forty-odd techniques (#83). These are
-  // the ones this walk never reaches, so it cannot check them, and each is
-  // checked elsewhere instead:
-  //
-  //   Avoidable Rectangle Type 1 needs cells already worked out, so it
-  //   only appears past the point where the named ladder stalls. It is
-  //   checked on the real solve path, what-if steps included, in
-  //   uniqueness.spec.js.
-  //
-  //   The other four appear nowhere in the library at all, and are checked
-  //   against hand-built grids in uniqueness.spec.js.
+  // Twenty puzzles could not exercise forty-odd techniques (#83); the
+  // teaching-coverage batch (#88) took the library to forty-eight, and this
+  // walk now reaches every named technique but one. Avoidable Rectangle
+  // Type 2 appears nowhere in the library, and is checked against
+  // hand-built grids in uniqueness.spec.js.
   //
   // The list is exact on purpose: a technique that quietly stops firing
   // fails this test, and so does one the library starts covering.
-  const NOT_ON_THE_NAMED_WALK = [
-    'Unique Rectangle Type 5',
-    'Avoidable Rectangle Type 1',
-    'Avoidable Rectangle Type 2',
-    'BUG+2',
-    'BUG+3',
-    'Unique Loop',
-  ];
+  const NOT_ON_THE_NAMED_WALK = ['Avoidable Rectangle Type 2'];
 
   it('the library exercises every named technique it can reach', () => {
     const missing = CHEAP.concat(EXPENSIVE).filter((t) => !seen[t]);
@@ -201,11 +189,14 @@ describe('the search engines agree with the solution (Ultimate shelf)', () => {
     );
   });
 
-  it('a forcing proof is tried before a net, and a net before a trial', () => {
-    // The order matters for the honesty line as much as for speed: a
-    // position that has a proof must never be shown as a trial.
-    let checked = 0;
-    for (const { puzzle } of PUZZLES.ultimate) {
+  // One test per puzzle, since the teaching-coverage batch (#88) took the
+  // Ultimate shelf from seven puzzles to twenty-eight: one test walking all
+  // of them outgrew the per-test limit, which bounds the harness, not the
+  // product.
+  for (const { name, puzzle } of PUZZLES.ultimate) {
+    it(`${name}: a forcing proof is tried before a net, and a net before a trial`, () => {
+      // The order matters for the honesty line as much as for speed: a
+      // position that has a proof must never be shown as a trial.
       let grid = buildGrid(puzzle);
       const { state: uniqueness } = establishUniqueness(puzzle);
       for (let i = 0; i < 400; i++) {
@@ -219,14 +210,19 @@ describe('the search engines agree with the solution (Ultimate shelf)', () => {
           if (chain) expect(whole.technique).toBe(chain.technique);
           else if (net) expect(whole.technique).toBe(net.technique);
           else expect(whole.technique).toBe('Hypothesis Mode');
-          checked++;
           step = whole;
         }
         grid = applyLogicStep(grid, step);
         if (step.placement) grid = eliminateCandidatesFromPeers(grid, step.placement.cell, step.placement.digit);
       }
-    }
-    expect(checked).toBeGreaterThan(0);
+    });
+  }
+  // Not vacuous: the shelf holds puzzles whose path does reach the search,
+  // read from the analyser's precomputed answers rather than from whichever
+  // of the tests above happened to run.
+  it('the shelf reaches the search at all', () => {
+    const reaching = PUZZLES.ultimate.filter((p) => LIBRARY_TEACHING[p.puzzle.join('')]?.hardestTier === 'Forcing');
+    expect(reaching.length).toBeGreaterThan(0);
   });
 });
 

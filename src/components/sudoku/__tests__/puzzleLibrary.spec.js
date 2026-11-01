@@ -105,16 +105,17 @@ describe('built-in puzzle library', () => {
   // the library is explained end to end by named techniques, the forcing
   // proofs included, and the library prints no what-if note anywhere. A
   // puzzle that needed trial and error again would show up here.
-  it('no shelf runs past the named techniques any more', () => {
-    for (const [shelf, list] of Object.entries(PUZZLES)) {
-      for (const p of list) {
+  // One test per puzzle since the library reached forty-eight (#88).
+  for (const [shelf, list] of Object.entries(PUZZLES)) {
+    for (const p of list) {
+      it(`${shelf}: ${p.name} runs no further than the named techniques`, () => {
         const analysis = analyzePuzzle(p.puzzle);
         expect(analysis.complete, p.name).toBe(true);
         expect(analysis.namedOnly, `${shelf}: ${p.name}`).toBe(true);
         expect(analysis.whatIfSteps, `${shelf}: ${p.name}`).toBe(0);
-      }
+      });
     }
-  });
+  }
 
   it('every puzzle can say what it teaches', () => {
     for (const list of Object.values(PUZZLES)) {
