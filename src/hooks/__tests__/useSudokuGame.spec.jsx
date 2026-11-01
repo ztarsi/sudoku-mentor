@@ -853,3 +853,18 @@ describe('useSudokuGame applyStep that changes nothing', () => {
     expect(result.current.canUndo).toBe(false);
   });
 });
+
+describe('useSudokuGame resumes a renamed puzzle under its new name (#79)', () => {
+  it('a game saved as "X-Wing Territory" comes back as "Garden Path"', () => {
+    const KEY = 'test:sudoku-renamed';
+    window.localStorage.removeItem(KEY);
+    const first = renderHook(() => useSudokuGame({ persistKey: KEY }), { wrapper: strictWrapper });
+    act(() => { first.result.current.loadPuzzle(PUZZLE, { name: 'X-Wing Territory', difficulty: 'easy' }); });
+    first.unmount();
+    const hook = renderHook(() => useSudokuGame({ persistKey: KEY }), { wrapper: strictWrapper });
+    act(() => { hook.result.current.restoreSavedGame(); });
+    expect(hook.result.current.puzzleName).toBe('Garden Path');
+    hook.unmount();
+    window.localStorage.removeItem(KEY);
+  });
+});

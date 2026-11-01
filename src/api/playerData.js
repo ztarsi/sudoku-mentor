@@ -5,6 +5,7 @@
 // or deletes a record that another player created, whatever the server
 // would allow.
 import { base44 } from '@/api/base44Client';
+import { puzzleNamesOverTime } from '@/components/sudoku/puzzles';
 
 const mine = (user, extra = {}) => ({ ...extra, created_by: user.email });
 
@@ -22,15 +23,25 @@ export const listMyNoAssistRecords = async (user) => {
   return base44.entities.SolveRecord.filter(mine(user, { no_assist: true }));
 };
 
-/** The player's best clean time for a puzzle, in seconds, or null. */
+/**
+ * The player's best clean time for a puzzle, in seconds, or null. A library
+ * puzzle that has been renamed (#79) is looked up under every name it has
+ * had, so a record set before the rename still counts.
+ */
 export const bestNoAssistTime = async (user, puzzleName) => {
   if (!user?.email || !puzzleName) return null;
-  const records = await base44.entities.SolveRecord.filter(
-    mine(user, { puzzle_name: puzzleName, no_assist: true }),
-    'time_seconds',
-    1
+  const bests = await Promise.all(
+    puzzleNamesOverTime(puzzleName).map(async (name) => {
+      const records = await base44.entities.SolveRecord.filter(
+        mine(user, { puzzle_name: name, no_assist: true }),
+        'time_seconds',
+        1
+      );
+      return records.length > 0 ? records[0].time_seconds : null;
+    })
   );
-  return records.length > 0 ? records[0].time_seconds : null;
+  const times = bests.filter((t) => typeof t === 'number');
+  return times.length > 0 ? Math.min(...times) : null;
 };
 
 export const createSolveRecord = async (user, record) => {
