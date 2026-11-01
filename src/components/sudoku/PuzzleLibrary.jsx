@@ -5,7 +5,7 @@ import { listMyPuzzles, listMyNoAssistRecords, renamePuzzle, deletePuzzle } from
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/components/ui/use-toast';
 
-import { PUZZLES } from './puzzles';
+import { PUZZLES, currentPuzzleName } from './puzzles';
 import { startPuzzleAnalysis, teachingLabel } from './difficultyAnalyzer';
 import { advanceInSlices } from './sliceRunner';
 export { PUZZLES };
@@ -60,9 +60,12 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
   // Create a map of puzzle names to best times
   const bestTimesMap = React.useMemo(() => {
     const map = {};
+    // Under the name the puzzle has now: a record set before a library
+    // puzzle was renamed (#79) still counts.
     solveRecords.forEach(record => {
-      if (!map[record.puzzle_name] || record.time_seconds < map[record.puzzle_name]) {
-        map[record.puzzle_name] = record.time_seconds;
+      const name = currentPuzzleName(record.puzzle_name);
+      if (!map[name] || record.time_seconds < map[name]) {
+        map[name] = record.time_seconds;
       }
     });
     return map;

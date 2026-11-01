@@ -50,7 +50,7 @@ export const PUZZLES = {
       ]
     },
     {
-      name: 'Nightmare',
+      name: 'Early Riser',
       puzzle: [
         0,0,0,0,0,0,0,0,0,
         0,0,0,0,0,3,0,8,5,
@@ -64,7 +64,7 @@ export const PUZZLES = {
       ]
     },
     {
-      name: 'X-Wing Territory',
+      name: 'Garden Path',
       puzzle: [
         0,0,0,0,0,0,0,1,2,
         0,0,0,0,3,5,0,0,0,
@@ -214,7 +214,7 @@ export const PUZZLES = {
       ]
     },
     {
-      name: 'Swordfish Hunt',
+      name: 'Long Haul',
       puzzle: [
         0,0,5,3,0,0,0,0,0,
         8,0,0,0,0,0,0,2,0,
@@ -299,3 +299,29 @@ export const PUZZLES = {
     }
   ]
 };
+
+// Names a library puzzle has had before (#79). A puzzle name may not contain
+// a technique's name unless the analyser says the puzzle needs it, and two
+// did ("X-Wing Territory" never needs an X-Wing, "Swordfish Hunt" never a
+// Swordfish); "Nightmare" sat on the Easy shelf. Solve records and saved
+// games carry the name a puzzle had when they were made, so every place
+// that reads a name back goes through currentPuzzleName, and a best time
+// set under the old name still counts under the new one.
+export const FORMER_PUZZLE_NAMES = {
+  Nightmare: 'Early Riser',
+  'X-Wing Territory': 'Garden Path',
+  'Swordfish Hunt': 'Long Haul',
+};
+
+/** A library puzzle's name today, given any name it has had. */
+export const currentPuzzleName = (name) =>
+  (typeof name === 'string' && Object.prototype.hasOwnProperty.call(FORMER_PUZZLE_NAMES, name)
+    ? FORMER_PUZZLE_NAMES[name]
+    : name);
+
+/** Every name a puzzle has been recorded under: today's first. */
+export const puzzleNamesOverTime = (name) => [
+  name,
+  ...Object.keys(FORMER_PUZZLE_NAMES).filter((former) => FORMER_PUZZLE_NAMES[former] === name),
+];
+
