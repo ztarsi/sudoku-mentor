@@ -43,6 +43,9 @@ import { useArrangement } from '@/hooks/useArrangement';
 import { useDialog } from '@/hooks/useDialog';
 import { AnimatePresence, motion } from 'framer-motion';
 import { toast } from "@/components/ui/use-toast";
+import PracticeBar from '@/components/sudoku/PracticeBar';
+import { loadDrills, drillFound, practiceLine } from '@/components/sudoku/practice';
+import { encodeCells } from '@/components/sudoku/boardCode';
 
 // Dialogs that carry their own weight (OCR, colour presets, confetti) load
 // on first open rather than with the page.
@@ -153,6 +156,13 @@ export default function SudokuMentor() {
   // a column, a side sheet, a bottom sheet, or nowhere on a phone.
   const { arrangement, lesson, stripFixed, touch: touchInput } = useArrangement();
   const phone = arrangement === 'phone';
+  // The technique being practised and where the player is in its drills
+  // (#139), or null when not practising.
+  const [practice, setPractice] = useState(/** @type {any} */ (null));
+  const practising = practice !== null;
+  const practiceRef = useRef(practice);
+  practiceRef.current = practice;
+  const practiceBarRef = useRef(null);
   const sheetMode = lesson === 'side' || lesson === 'bottom';
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetPinned, setSheetPinned] = useState(readLessonPinned);
@@ -199,6 +209,9 @@ export default function SudokuMentor() {
 
   const game = useSudokuGame({
     persistKey: 'sudoku-mentor:game',
+    // A drill is never saved: the player's own game stays in storage, and
+    // Stop restores it exactly as it was (#139).
+    persistPaused: practising,
     onWrongInput: (cellIndex, digit) => {
       playErrorTone();
       setSrAnnouncement(
@@ -206,6 +219,8 @@ export default function SudokuMentor() {
       );
     },
     onSolved: ({ timeInSeconds, errorCount, hintsUsed, assistUsed, puzzleName, puzzleDifficulty }) => {
+      // Finishing a practice board is not a solve: no completion, no record.
+      if (practiceRef.current) return;
       setCompletionStats({ timeInSeconds, errorCount });
       setShowCompletion(true);
 
@@ -277,11 +292,13 @@ export default function SudokuMentor() {
     const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
     if (observer && stripCardRef.current) observer.observe(stripCardRef.current);
     if (observer && headerRef.current) observer.observe(headerRef.current);
+    // The practice bar's height changes as its line wraps or says it is found.
+    if (observer && practiceBarRef.current) observer.observe(practiceBarRef.current);
     return () => {
       window.removeEventListener('resize', measure);
       observer?.disconnect();
     };
-  }, [stripFixed, bottomBarHeight, arrangement]);
+  }, [stripFixed, bottomBarHeight, arrangement, practising]);
 
   // The No Assist clock: in the header switch, and in the phone's status strip.
   const [clock, setClock] = useState(0);
@@ -654,13 +671,32 @@ export default function SudokuMentor() {
   }, [game.solvedCount, doClearGrid]);
 
   const markUserLoadRef = useRef(() => {});
+  // What a new board clears: the lesson, its highlights and its animation.
+  const resetLesson = () => {
+    setCurrentStep(null);
+    setHighlightedSteps([]);
+    setFocusedCandidates(null);
+    setRemovalCandidates(null);
+    setHighlightedDigit(null);
+    setHintAnimation(null);
+    setLessonLog([]);
+    setNothingLeft(false);
+  };
+  // A practice drill is loaded through here too, with its board (#139); any
+  // other load ends practice. Returns whether the puzzle was loaded.
   const handleLoadPuzzle = useCallback(
-    (puzzle, puzzleMeta = null) => {
-      const result = game.loadPuzzle(puzzle, puzzleMeta);
+    (puzzle, puzzleMeta = null, { board = null, keepPractice = false } = {}) => {
+      const result = game.loadPuzzle(puzzle, puzzleMeta, board === null ? undefined : { board });
+      if (!keepPractice) setPractice(null);
+      if (!result.ok && result.reason === 'bad-board') {
+        toast({ title: 'Could not open that position', description: 'Its board does not fit the puzzle.', variant: 'destructive' });
+        return false;
+      }
       if (!result.ok && result.reason === 'no-solution') {
         toast({ title: 'Invalid puzzle', description: 'This puzzle has no valid solution.', variant: 'destructive' });
-        return;
+        return false;
       }
+      if (!result.ok) return false;
       // More than one answer, or a count that did not finish: the player
       // is told plainly and keeps playing. What goes away is the family of
       // techniques that only holds when there is a single answer.
@@ -672,14 +708,8 @@ export default function SudokuMentor() {
       }
       markUserLoadRef.current();
       setShowPuzzleLoader(false);
-      setCurrentStep(null);
-      setHighlightedSteps([]);
-      setFocusedCandidates(null);
-      setRemovalCandidates(null);
-      setHighlightedDigit(null);
-      setHintAnimation(null);
-      setLessonLog([]);
-      setNothingLeft(false);
+      resetLesson();
+      return true;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [game.loadPuzzle]
@@ -922,6 +952,91 @@ export default function SudokuMentor() {
   });
   markUserLoadRef.current = markUserLoad;
 
+  // ---------- Practice mode (#139) ----------
+  // A drill is a real position from a library puzzle's solve path with the
+  // technique on it. The player looks for it and makes the move it allows;
+  // the bar above the board says when they have.
+  const gameRef = useRef(game);
+  gameRef.current = game;
+  const openDrill = useCallback(
+    (technique, drill) =>
+      handleLoadPuzzle([...drill.puzzle].map(Number), { name: `Practice: ${technique}`, difficulty: null }, { board: drill.board, keepPractice: true }),
+    [handleLoadPuzzle]
+  );
+  // Back to the player's own game, exactly as they left it: the board, the
+  // undo history, the clock, the errors, the hints and the assistance. A
+  // game they had finished comes back as a fresh copy, since restoring a
+  // finished board would finish it a second time.
+  const stopPractice = useCallback(() => {
+    const back = practiceRef.current?.returnTo ?? null;
+    setPractice(null);
+    if (back && gameRef.current.restoreGame(back)) resetLesson();
+    else if (back) handleLoadPuzzle(back.givens, { name: back.puzzleName, difficulty: back.puzzleDifficulty });
+    else gameRef.current.clearGrid();
+  }, [handleLoadPuzzle]);
+  const handlePractise = useCallback(
+    async (technique) => {
+      if (effectiveNoAssist) return;
+      const drills = await loadDrills(technique);
+      if (drills.length === 0) return;
+      // Where Stop goes back to: the player's game as it stands, or,
+      // practising a second technique, the game they left first.
+      const returnTo = practiceRef.current ? practiceRef.current.returnTo : gameRef.current.exportGame();
+      // Practice begins only if its board opened: a drill that fails to load
+      // leaves no practice line over the player's own puzzle.
+      if (!openDrill(technique, drills[0])) return;
+      setPractice({ technique, drills, index: 0, instances: null, found: false, returnTo });
+    },
+    [effectiveNoAssist, openDrill]
+  );
+  const nextDrill = useCallback(() => {
+    const current = practiceRef.current;
+    if (!current || current.index + 1 >= current.drills.length) return;
+    const index = current.index + 1;
+    if (!openDrill(current.technique, current.drills[index])) {
+      stopPractice();
+      return;
+    }
+    setPractice({ ...current, index, instances: null, found: false });
+  }, [openDrill, stopPractice]);
+  // What the technique proves on the drill's board, once that board is up.
+  const drillBoard = practice ? practice.drills[practice.index].board : null;
+  useEffect(() => {
+    if (!practice || practice.instances !== null || encodeCells(game.grid) !== drillBoard) return undefined;
+    let cancelled = false;
+    loadLogicEngine().then(({ findAllTechniqueInstances }) => {
+      if (cancelled) return;
+      const instances = findAllTechniqueInstances(game.grid, practice.technique, { uniqueness: game.uniqueness });
+      setPractice((p) => (p && p.technique === practice.technique && p.index === practice.index ? { ...p, instances } : p));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [practice, drillBoard, game.grid, game.uniqueness]);
+  // Found: the player's board shows one instance carried out.
+  useEffect(() => {
+    if (!practice?.instances || practice.found) return;
+    if (drillFound(practice.instances, game.grid)) setPractice((p) => (p ? { ...p, found: true } : p));
+  }, [practice, game.grid]);
+  // No Assist switched on mid-drill ends practice: it is assistance.
+  useEffect(() => {
+    if (practice && effectiveNoAssist) stopPractice();
+  }, [practice, effectiveNoAssist, stopPractice]);
+  const practiceBar = practice ? (
+    <div ref={practiceBarRef}>
+    <PracticeBar
+      technique={practice.technique}
+      line={practiceLine(practice.technique, practice.drills[practice.index])}
+      position={practice.index + 1}
+      total={practice.drills.length}
+      found={practice.found}
+      onShow={() => practice.instances && handleHighlightTechnique(practice.instances)}
+      onNext={nextDrill}
+      onStop={stopPractice}
+    />
+    </div>
+  ) : null;
+
   // The case the player is standing on, as ghost digits on the board.
   //
   // A forcing proof has several cases, and they disagree with each other -
@@ -1103,6 +1218,7 @@ export default function SudokuMentor() {
       searchingHint={searchingHint}
       onCancelHintSearch={cancelHintSearch}
       onHighlightTechnique={handleHighlightTechnique}
+      onPractise={handlePractise}
     />
     </Suspense>
     </MentorBoundary>
@@ -1215,6 +1331,7 @@ export default function SudokuMentor() {
           <div className={`grid gap-6 xl:gap-8 ${arrangement === 'wide' ? 'grid-cols-[1fr,380px]' : 'grid-cols-[1fr,300px]'}`}>
             <div className="space-y-4 min-w-0">
               {statusStrip}
+              {practiceBar}
               {boardPrompt}
               {board}
               {stripCard}
@@ -1226,6 +1343,7 @@ export default function SudokuMentor() {
         ) : (
           <div className="mx-auto w-full max-w-[600px] space-y-4">
             {statusStrip}
+            {practiceBar}
             {boardPrompt}
             {board}
             {!stripFixed && stripCard}

@@ -97,7 +97,8 @@ Everything that depends on the Base44 platform: sign-in, saved puzzles, solve re
 
 ## 6. What is open, in the order I would take it
 
-1. **Release `staging` to `main`,** on the founder's go. It carries everything in section 5. Then he deploys the Base44 checkpoint, and the five platform-dependent features get spot-checked on the live app, best times first.
+1. **Released to `main` on 2 November (PR #138).** What remains is the founder's Base44 checkpoint deploy and the spot-check of the five platform-dependent features on the live app, best times first. Confirm with him that both happened.
+1b. **Practice mode (#139)** was built on 2 November; check its pull request is merged and verify it on staging from the player's side if that has not been recorded.
 2. **The last eight techniques of #88.** Remote Pairs, Avoidable Rectangle Type 2, BUG+1, +2, +3, Mutant Fish and Continuous Loop were never once the hint in 133,000 generated boards, and Digit Forcing Chain is taught by one puzzle. This is now a decision for the founder rather than a search: accept them as redundant on real boards (the spec's own rule), or build practice mode, where a position is chosen so the technique is the next step.
 3. **The Ultimate shelf is 28 puzzles long.** It works, but it may want grouping by what each puzzle teaches, which is also the first half of practice mode.
 4. **#35, library and completion,** the oldest open spec.
@@ -143,7 +144,7 @@ The full log is `docs/PRODUCT.md` section 13, newest first, with reasons. The on
 - **No model identifiers** in commits, code, comments or anything pushed to the repository.
 - **Run `/code-review` on every change, and fix what it finds before merging.** On 1 November it found real defects in every one of seven pull requests, including two behaviour bugs I had introduced and one fix of mine that broke on an identity lookup. Then run the suite again: the tests caught the last of those.
 - **More data finds more bugs.** Twenty puzzles had never produced a colouring longer than a hint may show; forty-eight did at once. When the library grows, expect the engine tests to find things, and treat each as a finding, not as a test to loosen.
-- **A slow test suite on a busy machine reads as a broken one.** The oracle and library tests sit near vitest's 30-second limit. Do not run a generator or a second suite beside them and then believe a timeout. Split a test that walks the whole library into one case per puzzle rather than raising a limit.
+- **A slow test suite on a busy machine reads as a broken one.** The engine and library tests walk every puzzle, so they grow with the library. Do not run a generator or a second suite beside them and then believe a timeout. The per-case limit in `vitest.config.js` is harness plumbing (90 s since 2 November, with the reason beside it); product budgets are asserted inside the tests and are never raised to go green. A test that walks the whole library in one case is better split per puzzle, which several now are.
 
 ## 9. The analyser, which is your instrument
 

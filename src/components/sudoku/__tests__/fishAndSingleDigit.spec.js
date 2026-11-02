@@ -32,6 +32,7 @@ import {
   teachingRank,
 } from '../techniqueCatalog';
 import { PUZZLES } from '../puzzles';
+import { LIBRARY_TEACHING } from '../libraryTeaching';
 import { establishUniqueness } from '../uniqueness';
 import { fitsAHint } from '../aicEngine';
 import { cellName } from '../gridUnits';
@@ -551,9 +552,10 @@ describe('the teaching ladder', () => {
     ['Franken Fish'], ['Mutant Fish'],
   ];
 
-  it('never offers a new rung while an easier one is on the board', () => {
-    const reached = new Set();
-    for (const { name, puzzle } of Object.values(PUZZLES).flat()) {
+  // One case per puzzle, since a library of forty-eight (#88) outgrew one
+  // case's time.
+  for (const { name, puzzle } of Object.values(PUZZLES).flat()) {
+    it(`${name}: never offers a new rung while an easier one is on the board`, () => {
       let grid = buildGrid(puzzle);
       const { state: uniqueness } = establishUniqueness(puzzle);
       for (let n = 0; n < 300; n++) {
@@ -573,20 +575,19 @@ describe('the teaching ladder', () => {
               `${name}: the hint was ${step.technique} while a ${easier} was on the board`
             ).toEqual([]);
           }
-          reached.add(step.technique);
         }
         grid = applyLogicStep(grid, step);
         if (step.placement) grid = eliminateCandidatesFromPeers(grid, step.placement.cell, step.placement.digit);
       }
-    }
-    // The walk really reached this batch's rungs on the library.
-    expect([...reached]).toContain('Empty Rectangle');
-    expect([...reached]).toContain('3D Medusa');
-    expect([...reached]).toContain('Finned Swordfish');
-    // The uniqueness rungs are in the list above so that nothing may be
-    // offered while one of them applies. The walk itself never reaches
-    // them: on this library they only come up past the point where the
-    // named ladder stalls, which uniqueness.spec.js walks instead.
+    });
+  }
+
+  // The walk really reaches this batch's rungs on the library: read from
+  // the library's precomputed answers, which their own test holds to the
+  // live analyser (#95), rather than from whichever cases above ran.
+  it('the library reaches this batch\'s rungs', () => {
+    const taught = new Set(Object.values(LIBRARY_TEACHING).flatMap((entry) => entry.teaches));
+    for (const name of ['Empty Rectangle', '3D Medusa', 'Finned Swordfish']) expect([...taught]).toContain(name);
   });
 
   it('prefers a single to a Jellyfish on a board that holds both', () => {

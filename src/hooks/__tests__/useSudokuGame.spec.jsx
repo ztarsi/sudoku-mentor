@@ -868,3 +868,75 @@ describe('useSudokuGame resumes a renamed puzzle under its new name (#79)', () =
     window.localStorage.removeItem(KEY);
   });
 });
+
+describe('useSudokuGame opens a position mid-solve (#139)', () => {
+  const solved = solveSudoku(PUZZLE.map((v) => ({ value: v || null, candidates: [] })));
+  const cells = (fill) => PUZZLE.map((v, i) => (v ? '' : fill(i))).join(',');
+
+  it('starts from the board given, digits and marks, with undo starting there', () => {
+    const { result } = setup();
+    const first = PUZZLE.findIndex((v) => v === 0);
+    const board = cells((i) => (i === first ? `=${solved[i].value}` : '19'));
+    let outcome = /** @type {any} */ (null);
+    act(() => { outcome = result.current.loadPuzzle(PUZZLE, { name: 'Practice: X-Wing' }, { board }); });
+    expect(outcome?.ok).toBe(true);
+    expect(result.current.grid[first].value).toBe(solved[first].value);
+    const other = PUZZLE.findIndex((v, i) => v === 0 && i !== first);
+    expect(result.current.grid[other].candidates).toEqual([1, 9]);
+    expect(result.current.canUndo).toBe(false);
+  });
+
+  it('refuses a board that does not fit the givens, or holds a wrong digit, and loads nothing', () => {
+    const { result } = setup();
+    act(() => { result.current.loadPuzzle(PUZZLE, { name: 'Before' }); });
+    const first = PUZZLE.findIndex((v) => v === 0);
+    const wrong = (solved[first].value % 9) + 1;
+    for (const board of ['1,2,3', cells((i) => (i === first ? `=${wrong}` : ''))]) {
+      let outcome = null;
+      act(() => { outcome = result.current.loadPuzzle(PUZZLE, { name: 'Practice' }, { board }); });
+      expect(outcome).toEqual({ ok: false, reason: 'bad-board' });
+      expect(result.current.puzzleName).toBe('Before');
+    }
+  });
+});
+
+describe('useSudokuGame lends the board to practice and gets the game back (#139)', () => {
+  const KEY = 'test:sudoku-practice';
+  const solved = solveSudoku(PUZZLE.map((v) => ({ value: v || null, candidates: [] })));
+  const empties = PUZZLE.map((v, i) => (v ? -1 : i)).filter((i) => i >= 0);
+  afterEach(() => window.localStorage.removeItem(KEY));
+
+  it('saves nothing while paused, so the player\'s own game stays in storage', () => {
+    let paused = false;
+    const hook = renderHook(() => useSudokuGame({ persistKey: KEY, persistPaused: paused }), { wrapper: strictWrapper });
+    act(() => { hook.result.current.loadPuzzle(PUZZLE, { name: 'Mine', difficulty: 'easy' }); });
+    act(() => { hook.result.current.handleCellInput(empties[0], solved[empties[0]].value); });
+    const mine = window.localStorage.getItem(KEY);
+    paused = true;
+    hook.rerender();
+    act(() => { hook.result.current.loadPuzzle(PUZZLE, { name: 'Practice: X-Wing' }); });
+    act(() => { hook.result.current.handleCellInput(empties[1], solved[empties[1]].value); });
+    hook.unmount();
+    expect(window.localStorage.getItem(KEY)).toBe(mine);
+  });
+
+  it('restores an exported game exactly: board, undo, errors, hints and assistance', () => {
+    const { result } = renderHook(() => useSudokuGame({ persistKey: KEY }), { wrapper: strictWrapper });
+    act(() => { result.current.loadPuzzle(PUZZLE, { name: 'Mine', difficulty: 'easy' }); });
+    act(() => { result.current.handleCellInput(empties[0], solved[empties[0]].value); });
+    act(() => { result.current.handleCellInput(empties[1], (solved[empties[1]].value % 9) + 1); }); // refused: an error
+    act(() => { result.current.noteHintUsed(); });
+    const snapshot = result.current.exportGame();
+    act(() => { result.current.loadPuzzle(PUZZLE, { name: 'Practice: X-Wing' }); });
+    expect(result.current.errorCount).toBe(0);
+    let restored = false;
+    act(() => { restored = result.current.restoreGame(snapshot); });
+    expect(restored).toBe(true);
+    expect(result.current.puzzleName).toBe('Mine');
+    expect(result.current.grid[empties[0]].value).toBe(solved[empties[0]].value);
+    expect(result.current.errorCount).toBe(1);
+    expect(result.current.hintsUsed).toBe(1);
+    expect(result.current.assistUsed).toBe(true);
+    expect(result.current.canUndo).toBe(true);
+  });
+});
