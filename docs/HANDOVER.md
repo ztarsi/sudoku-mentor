@@ -144,7 +144,7 @@ The full log is `docs/PRODUCT.md` section 13, newest first, with reasons. The on
 - **No model identifiers** in commits, code, comments or anything pushed to the repository.
 - **Run `/code-review` on every change, and fix what it finds before merging.** On 1 November it found real defects in every one of seven pull requests, including two behaviour bugs I had introduced and one fix of mine that broke on an identity lookup. Then run the suite again: the tests caught the last of those.
 - **More data finds more bugs.** Twenty puzzles had never produced a colouring longer than a hint may show; forty-eight did at once. When the library grows, expect the engine tests to find things, and treat each as a finding, not as a test to loosen.
-- **A slow test suite on a busy machine reads as a broken one.** The oracle and library tests sit near vitest's 30-second limit. Do not run a generator or a second suite beside them and then believe a timeout. Split a test that walks the whole library into one case per puzzle rather than raising a limit.
+- **A slow test suite on a busy machine reads as a broken one.** The engine and library tests walk every puzzle, so they grow with the library. Do not run a generator or a second suite beside them and then believe a timeout. The per-case limit in `vitest.config.js` is harness plumbing (90 s since 2 November, with the reason beside it); product budgets are asserted inside the tests and are never raised to go green. A test that walks the whole library in one case is better split per puzzle, which several now are.
 
 ## 9. The analyser, which is your instrument
 
