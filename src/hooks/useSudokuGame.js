@@ -13,6 +13,7 @@ import {
 } from '@/components/sudoku/uniqueness';
 import { getPeers } from '@/components/sudoku/gridUnits';
 import { currentPuzzleName } from '@/components/sudoku/puzzles';
+import { cellCode, encodeCells, decodeCell, decodeCells } from '@/components/sudoku/boardCode';
 
 // Digits a cell could still hold given only the placed digits around it.
 const validCandidates = (grid, cellIndex) => {
@@ -112,29 +113,12 @@ const writeSavedGame = (key, snapshot) => {
 };
 
 // Undo survives a reload (#106). The history is saved with the board as
-// one full board and then, for each move, only the cells it changed. A cell
-// is written as nothing for a given, "=5" for a placed digit, or its pencil
-// marks ("137", or nothing when it has none); a board is its 81 cells
-// comma-separated, and a move is "index:cell" pairs separated by ";". A move
-// costs tens of bytes, so the window can be long: up to HISTORY_LIMIT moves
-// back from the current one and as many forward (the redo tail).
-//
-// A placed cell has no pencil marks anywhere in this hook (placing clears
-// them, and so does every step), so a cell's code is its digit or its marks,
-// never both.
+// one full board and then, for each move, only the cells it changed, in the
+// board format of boardCode.js; a move is "index:cell" pairs separated by
+// ";". A move costs tens of bytes, so the window can be long: up to
+// HISTORY_LIMIT moves back from the current one and as many forward (the
+// redo tail).
 export const HISTORY_LIMIT = 500;
-const cellCode = (c) => (c.isFixed ? '' : c.value !== null ? `=${c.value}` : c.candidates.join(''));
-// Boards and moves in the history are never mutated, so each is encoded
-// once, however many times the game is saved.
-const encodedBoards = new WeakMap();
-const encodeCells = (grid) => {
-  let text = encodedBoards.get(grid);
-  if (text === undefined) {
-    text = grid.map(cellCode).join(',');
-    encodedBoards.set(grid, text);
-  }
-  return text;
-};
 const encodedMoves = new WeakMap(); // the later board -> { from, text }
 const encodeMove = (from, to) => {
   const cached = encodedMoves.get(to);
@@ -148,20 +132,6 @@ const encodeMove = (from, to) => {
   const text = changed.join(';');
   encodedMoves.set(to, { from, text });
   return text;
-};
-// One cell from its code over the given cell, or null if it does not fit.
-const decodeCell = (code, given) => {
-  if (given.isFixed) return code === '' ? given : null;
-  if (/^=[1-9]$/.test(code)) return { ...given, value: Number(code[1]), candidates: [] };
-  if (/^[1-9]*$/.test(code)) return { ...given, value: null, candidates: [...code].map(Number) };
-  return null;
-};
-const decodeCells = (text, givensGrid) => {
-  if (typeof text !== 'string') return null;
-  const parts = text.split(',');
-  if (parts.length !== 81) return null;
-  const grid = parts.map((code, i) => decodeCell(code, givensGrid[i]));
-  return grid.every(Boolean) ? grid : null;
 };
 const decodeMove = (text, from, givensGrid) => {
   if (typeof text !== 'string') return null;
@@ -230,9 +200,14 @@ const clearSavedGame = (key) => {
  *   timeInSeconds is PLAY time: the clock pauses while the tab is hidden
  *   and survives a reload, so a resumed game never counts the days away.
  *
- * @param {{ onSolved?: Function, onWrongInput?: Function, persistKey?: string }} [options]
+ * @param {{ onSolved?: Function, onWrongInput?: Function, persistKey?: string, persistPaused?: boolean }} [options]
  */
-export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}) {
+export function useSudokuGame({ onSolved, onWrongInput, persistKey = null, persistPaused = false } = {}) {
+  // While paused (a practice drill is on the board, #139), nothing is saved,
+  // so the player's own game stays in storage untouched. Read at the moment
+  // of saving, so a save triggered by the very render that pauses is skipped.
+  const persistPausedRef = useRef(persistPaused);
+  persistPausedRef.current = persistPaused;
   const [grid, setGrid] = useState(createEmptyGrid);
   const [solution, setSolution] = useState(null);
   // How many answers this puzzle has, established once from its givens and
@@ -479,7 +454,11 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
    * Load a puzzle (array of 81 ints, 0 = empty). Synchronous - the solver
    * runs in milliseconds. Returns { ok, reason? }.
    */
-  const loadPuzzle = useCallback((puzzle, meta = null, { withCandidates = true } = {}) => {
+  // `board`, when given, is where play starts instead of the bare givens:
+  // a position mid-solve in the format of boardCode.js, as practice drills
+  // are stored (#139). It must fit the givens, and every digit on it must be
+  // one the game would have accepted, or nothing is loaded.
+  const loadPuzzle = useCallback((puzzle, meta = null, { withCandidates = true, board = null } = {}) => {
     const seq = ++loadSeq.current;
 
     const newGrid = createEmptyGrid();
@@ -498,7 +477,15 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
     if (answers.state === UNIQUENESS_NONE) return { ok: false, reason: 'no-solution' };
     if (seq !== loadSeq.current) return { ok: false, reason: 'superseded' };
 
-    const startGrid = withCandidates ? generateCandidates(newGrid) : newGrid;
+    let startGrid = withCandidates ? generateCandidates(newGrid) : newGrid;
+    if (board !== null) {
+      const position = decodeCells(board, newGrid);
+      const fits =
+        position &&
+        position.every((c, i) => c.isFixed || c.value === null || !uniquenessAllowed(answers.state) || c.value === solved[i].value);
+      if (!fits) return { ok: false, reason: 'bad-board' };
+      startGrid = position;
+    }
     setUniqueness(answers.state);
     setSolution(solved);
     setGrid(startGrid);
@@ -547,12 +534,13 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
   }, [persistKey, stopClock]);
 
   /**
-   * Restore a game saved by this hook (see persistKey). Returns true when a
-   * usable, unfinished game was restored.
+   * Restore a game from a snapshot in the saved format: everything the
+   * player had, the board, the undo history, the clock, the errors, the
+   * hints and the assistance. Returns true when a usable, unfinished game
+   * was restored.
    */
-  const restoreSavedGame = useCallback(() => {
-    const saved = readSavedGame(persistKey);
-    if (!saved || saved.completed) return false;
+  const restoreGame = useCallback((saved) => {
+    if (!saved || saved.completed || !Array.isArray(saved.givens) || saved.givens.length !== 81) return false;
 
     const givensGrid = createEmptyGrid();
     saved.givens.forEach((value, index) => {
@@ -610,11 +598,16 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
     // Resume the play clock from where it stopped, never from wall time.
     startClock(typeof saved.playedMs === 'number' ? saved.playedMs : 0);
     return true;
-  }, [persistKey, startClock]);
+  }, [startClock]);
+
+  /** Restore the game saved by this hook (see persistKey). */
+  const restoreSavedGame = useCallback(() => restoreGame(readSavedGame(persistKey)), [persistKey, restoreGame]);
 
   // Persist the in-progress game so a reload (or a return tomorrow) resumes
   // where the player left off instead of rolling a new random puzzle.
   const snapshotRef = useRef(null);
+  const solutionRef = useRef(solution);
+  solutionRef.current = solution;
   // Still version 2: the history is an extra field that older builds ignore,
   // so a save survives a rollback as well as a reload.
   snapshotRef.current = () => ({
@@ -633,19 +626,28 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
     shortHistory: () => historyWindow(history, 25),
     savedAt: Date.now(),
   });
+  /** The game as it stands, in the saved format, or null with no puzzle. */
+  const exportGame = useCallback(
+    () => (solutionRef.current ? JSON.parse(JSON.stringify(snapshotRef.current())) : null),
+    []
+  );
+  const persistNow = () => {
+    if (persistKey && !persistPausedRef.current) writeSavedGame(persistKey, snapshotRef.current());
+  };
   useEffect(() => {
     if (!persistKey || !solution) return;
-    writeSavedGame(persistKey, snapshotRef.current());
+    persistNow();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [persistKey, grid, history, solution, puzzleName, puzzleDifficulty, startTime, errorCount, hintsUsed, assistUsed, completed, elapsedMs]);
 
   // The play clock advances without grid changes, so also save when the
   // tab is hidden, when the page is about to go away, and when this hook
   // unmounts (route change).
-  const solutionRef = useRef(solution);
-  solutionRef.current = solution;
   useEffect(() => {
     if (!persistKey || !solution || typeof document === 'undefined') return undefined;
-    const save = () => writeSavedGame(persistKey, snapshotRef.current());
+    const save = () => {
+      if (!persistPausedRef.current) writeSavedGame(persistKey, snapshotRef.current());
+    };
     const onVisibility = () => { if (document.hidden) save(); };
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('pagehide', save);
@@ -732,5 +734,7 @@ export function useSudokuGame({ onSolved, onWrongInput, persistKey = null } = {}
     loadPuzzle,
     clearGrid,
     restoreSavedGame,
+    restoreGame,
+    exportGame,
   };
 }
