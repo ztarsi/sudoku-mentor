@@ -25,6 +25,10 @@ What the product is, who it is for, and where it is going is defined in [docs/PR
 - [Vitest](https://vitest.dev/) for the test suite
 - Custom constraint-propagation and search engines for the Sudoku logic
 
+## Start here
+
+`docs/HANDOVER.md` is the full brief: what the product is, how work gets dispatched and verified, where it stands, what is open, which decisions are already made, and the lessons worth not relearning. Then `docs/PRODUCT.md` for the product itself, `CLAUDE.md` for the rules every session reads first, and `docs/STAGING.md` for branches and releases.
+
 ## Development
 
 ```bash
@@ -50,7 +54,7 @@ Branches: pull requests target `staging`, which the staging server deploys autom
 | `src/hooks/useSudokuPlayer.js` | Shared account state: user, colors, best times. |
 | `src/components/sudoku/logicEngine.jsx` | Core techniques: singles, pointing/claiming, pairs/triples, fish, XY-Wing. |
 | `src/components/sudoku/chainEngine.jsx` | Expert techniques: X-Cycle coloring, ALS-XZ, Unique Rectangle, BUG+1, Finned X-Wing. |
-| `src/components/sudoku/forcingChainEngine.jsx` | What-if engines: cell forcing chains and hypothesis (contradiction) search. |
+| `src/components/sudoku/forcingChainEngine.jsx` | The search: forcing proofs (cell, digit, unit, double and dynamic nets) and hypothesis (contradiction) search as the trial fallback. |
 | `src/components/sudoku/solver.jsx` | Bitmask MRV backtracking solver (computes the reference solution). |
 | `src/components/sudoku/difficultyAnalyzer.jsx` | Rates puzzle difficulty by simulating a solve. |
 | `src/components/sudoku/puzzles.js` | Built-in puzzle library (pure data). |

@@ -9,7 +9,12 @@ import { describe, it, expect } from 'vitest';
 import { analyzeDifficulty } from '../difficultyAnalyzer';
 import { applyValueAndPropagate } from '../forcingChainEngine';
 import { findAllTechniqueInstances, generateCandidates } from '../logicEngine';
-import { findBUGPlus1 } from '../chainEngine';
+// The uniqueness family lives in its own module now, behind the guard that
+// keeps it off a grid without a single answer. These tests call BUG+1
+// directly, the way a unit test of one detector should; the guard itself is
+// tested in uniqueness.spec.js.
+import { findBUGPlus1 } from '../uniquenessEngine';
+import { UNIQUENESS_ONE } from '../uniqueness';
 import { PUZZLES } from '../puzzles';
 
 const createEmptyGrid = () =>
@@ -139,7 +144,9 @@ describe('Unique Rectangle Type 1', () => {
   };
 
   it('finds a textbook UR Type 1 and removes the UR digits from the roof corner', () => {
-    const instances = findAllTechniqueInstances(buildUR(), 'Unique Rectangle Type 1');
+    const instances = findAllTechniqueInstances(buildUR(), 'Unique Rectangle Type 1', {
+      uniqueness: UNIQUENESS_ONE,
+    });
     expect(instances.length).toBeGreaterThan(0);
 
     const step = instances[0];
@@ -161,7 +168,9 @@ describe('Unique Rectangle Type 1', () => {
       if (grid[i].candidates.length === 0) grid[i].candidates = [4, 5, 6, 7, 8, 9];
     }
 
-    expect(findAllTechniqueInstances(grid, 'Unique Rectangle Type 1')).toHaveLength(0);
+    expect(
+      findAllTechniqueInstances(grid, 'Unique Rectangle Type 1', { uniqueness: UNIQUENESS_ONE })
+    ).toHaveLength(0);
   });
 });
 

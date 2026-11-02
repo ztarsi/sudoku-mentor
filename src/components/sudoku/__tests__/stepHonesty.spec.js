@@ -1,16 +1,15 @@
 // Every claim an explanation makes about the board must be true of the
 // board. These tests check the structured fields the engines now emit
 // (unit, orientation, pairDigits) against the grid itself, on every
-// instance the library produces, and check that what-if narratives never
-// call a case split a deduction.
+// instance the library produces, and check that a what-if narrative's
+// every reason is true of the board it was given for.
 import { describe, it, expect } from 'vitest';
 import { generateCandidates, findAllTechniqueInstances } from '../logicEngine';
-import { findHypothesis, applyValueAndPropagate } from '../forcingChainEngine';
+import { findHypothesis, refutes } from '../forcingChainEngine';
 import { applyLogicStep, findNextLogicStep } from '../logicEngine';
-import { getPeers } from '../gridUnits';
 import { explainStep } from '../explainStep';
 import { buildHighlightSets } from '../stepHighlights';
-import { ALL_UNITS, getRow, getCol } from '../gridUnits';
+import { ALL_UNITS, getPeers, getRow, getCol, cellName } from '../gridUnits';
 import { PUZZLES } from '../puzzles';
 
 const gridFrom = (puzzle) =>
@@ -160,16 +159,17 @@ describe('single explanations only claim what the grid shows', () => {
     let checked = 0;
     for (const puzzle of PUZZLES.ultimate) {
       const grid = gridFrom(puzzle.puzzle);
-      const step = findHypothesis(grid, 20);
+      const step = findHypothesis(grid);
       if (!step) continue;
       expect(typeof step.contradictionText).toBe('string');
       const out = explainStep(step, grid, 'simple');
       expect(out.why).toContain(step.contradictionText);
       expect(out.why).not.toContain('no possible number at all');
-      // Every case split the trace hides is declared.
-      const splits = step.chain.filter((s) => s.action === 'place' && (s.reason || '').startsWith('Case analysis: trying'));
-      const notes = step.chain.filter((s) => s.action === 'note');
-      if (splits.length > 0) expect(notes.length).toBeGreaterThan(0);
+      // The walk ends its one case on the same dead end, and says the step
+      // is a trial rather than a proof.
+      expect(step.forcingBranches).toHaveLength(1);
+      expect(step.forcingBranches[0].outcome.text).toBe(step.contradictionText);
+      expect(out.look).toContain('not a proof');
       checked++;
     }
     expect(checked).toBeGreaterThan(0);
@@ -177,31 +177,64 @@ describe('single explanations only claim what the grid shows', () => {
 });
 
 describe('what-if narratives are honest', () => {
-  it('every "Only place for" reason is a real hidden single at that point in the chain', () => {
-    let chainsChecked = 0;
-    let caseSplits = 0;
-    for (const grid of PUZZLES.ultimate.map((p) => gridFrom(p.puzzle))) {
-      const step = findHypothesis(grid, 40);
-      if (!step?.chain) continue;
-      chainsChecked++;
-      let g = grid;
-      for (const entry of step.chain) {
-        if (entry.action !== 'place') continue;
-        const m = /^Only place for (\d) in (row|column|box) (\d)$/.exec(entry.reason);
-        if (m) {
-          const unit = ALL_UNITS.find((u) => u.type === m[2] && u.index === Number(m[3]) - 1);
-          const others = unit.indices.filter((i) => i !== entry.cell && g[i].value === null);
-          expect(others.some((i) => g[i].candidates.includes(entry.value))).toBe(false);
+  // Every reason a branch gives for a placement is checked against the
+  // board as it stood when that placement was made. The branch's moves are
+  // replayed one at a time, each placed by hand rather than propagated, so
+  // the board the claim is asked of is the board the engine had in front of
+  // it and not one further on.
+  const place = (grid, cell, digit) => {
+    const next = grid.map((c) => ({ ...c, candidates: [...c.candidates] }));
+    next[cell].value = digit;
+    next[cell].candidates = [];
+    for (const peer of getPeers(cell)) {
+      if (next[peer].value === null) next[peer].candidates = next[peer].candidates.filter((d) => d !== digit);
+    }
+    return next;
+  };
+
+  it('every "Only place for" reason is a real hidden single at that point', () => {
+    let branchesChecked = 0;
+    let hiddenChecked = 0;
+    let netMoves = 0;
+    for (const puzzle of PUZZLES.ultimate) {
+      const start = gridFrom(puzzle.puzzle);
+      const step = findHypothesis(start);
+      if (!step?.forcingBranches) continue;
+      branchesChecked++;
+      const branch = step.forcingBranches[0];
+      let g = place(start, branch.assume.cell, branch.assume.digit);
+
+      for (const move of branch.moves) {
+        const hidden = /^Only place for (\d) in (row|column|box) (\d)$/.exec(move.reason);
+        if (hidden) {
+          const unit = ALL_UNITS.find((u) => u.type === hidden[2] && u.index === Number(hidden[3]) - 1);
+          const others = unit.indices.filter((i) => i !== move.cell && g[i].value === null);
+          expect(
+            others.some((i) => g[i].candidates.includes(move.digit)),
+            `${cellName(move.cell)}=${move.digit}: "${move.reason}" should be true of the board at that point`
+          ).toBe(false);
+          hiddenChecked++;
         }
-        if (/^Case analysis/.test(entry.reason)) caseSplits++;
-        const applied = applyValueAndPropagate(g, entry.cell, entry.value);
-        if (applied.contradiction) break;
-        g = applied.grid;
+        if (move.net) {
+          // A net move says the cell cannot be its other digit. Ask the
+          // engine the same question about the board as it stands here.
+          netMoves++;
+          const [a, b] = move.net.digits;
+          const refuted = a === move.digit ? b : a;
+          if (move.reason.includes('cannot be')) {
+            expect(
+              refutes(g, move.cell, refuted),
+              `${move.reason}: the digit it rules out should really break the board`
+            ).toBe(true);
+          }
+        }
+        g = place(g, move.cell, move.digit);
       }
     }
-    expect(chainsChecked).toBeGreaterThan(0);
-    // The fix labels the second branch of a case split honestly; before it,
-    // those steps were all reported as hidden singles.
-    expect(caseSplits).toBeGreaterThan(0);
+    expect(branchesChecked).toBeGreaterThan(0);
+    expect(hiddenChecked).toBeGreaterThan(0);
+    // The trial fallback reaches for a net on the hardest of these boards,
+    // and when it does, its claims have been checked above.
+    expect(netMoves).toBeGreaterThan(0);
   });
 });

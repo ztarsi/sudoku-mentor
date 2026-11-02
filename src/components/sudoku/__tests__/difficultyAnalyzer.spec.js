@@ -1,0 +1,360 @@
+// The difficulty analyser: what a puzzle actually requires.
+//
+// Two jobs here. The first is correctness on puzzles whose answer we know:
+// the solve path, the hardest technique required, and whether named
+// techniques alone finish the job. The second is the report the whole
+// technique-coverage programme (#69) is judged by - for each shelf, the
+// share of solve-path steps a named technique explains - which is printed
+// so every later batch can be compared with the number before it. Beside
+// it, the other half of that question: which techniques the library never
+// teaches, because an easier rung always explains the same positions.
+import { describe, it, expect } from 'vitest';
+import {
+  analyzeDifficulty,
+  analyzePuzzle,
+  analyzeSolvePath,
+  formatShelfCoverageReport,
+  formatTechniqueTeachingReport,
+  shelfCoverageReport,
+  startPuzzleAnalysis,
+  techniqueTeachingReport,
+  teachingLabel,
+  WHAT_IF_TIER,
+} from '../difficultyAnalyzer';
+import { PUZZLES } from '../puzzles';
+import { TECHNIQUES, TIERS, techniqueTier } from '../techniqueCatalog';
+
+// The reports are output, not an assertion: vitest keeps console.log to
+// itself, so write straight to stdout where there is one.
+const out = (text) => {
+  const stdout = /** @type {any} */ (globalThis).process?.stdout;
+  if (stdout && typeof stdout.write === 'function') stdout.write(`${text}\n`);
+  else console.log(text);
+};
+
+const byName = (name) =>
+  Object.values(PUZZLES).flat().find((p) => p.name === name);
+
+const puzzle = (name) => {
+  const found = byName(name);
+  if (!found) throw new Error(`no library puzzle called ${name}`);
+  return found.puzzle;
+};
+
+describe('the solve path', () => {
+  it('reports every step with its technique and its tier', () => {
+    const path = analyzeSolvePath(puzzle('Gentle Start'));
+    expect(path.solved).toBe(true);
+    expect(path.complete).toBe(true);
+    expect(path.steps.length).toBeGreaterThan(40);
+    for (const step of path.steps) {
+      expect(TECHNIQUES.map((t) => t.name)).toContain(step.technique);
+      expect(step.named).toBe(true);
+      expect(step.tier).toBe(techniqueTier(step.technique));
+    }
+    // Every step is accounted for, once, under one tier
+    const tiered = Object.values(path.stepsByTier).reduce((a, b) => a + b, 0);
+    expect(tiered).toBe(path.steps.length);
+    expect(Object.keys(path.stepsByTier)).toEqual(['Basic']);
+  });
+
+  it('names the hardest technique a puzzle requires', () => {
+    // An easy puzzle that never needs more than the two singles
+    expect(analyzeSolvePath(puzzle('Gentle Start')).hardestTechnique).toBe('Naked Single');
+    // A medium one that needs the box/line family
+    expect(analyzeSolvePath(puzzle('Brain Teaser')).hardestTechnique).toBe('Pointing Pair');
+    // A hard one that needs a subset
+    expect(analyzeSolvePath(puzzle('Lunch Puzzle')).hardestTechnique).toBe('Naked Triple');
+    // An expert one that needs a wing
+    expect(analyzeSolvePath(puzzle('Deep Waters')).hardestTechnique).toBe('XY-Wing');
+    // Two diabolical ones that need a single-digit box pattern. Both used
+    // to peak higher - a colouring chain and a four-candidate wing - until
+    // #72 put the Empty Rectangle on the ladder in front of them and it
+    // explained the same positions one rung lower.
+    expect(analyzeSolvePath(puzzle("Devil's Den")).hardestTechnique).toBe('Empty Rectangle');
+    expect(analyzeSolvePath(puzzle('Witching Hour')).hardestTechnique).toBe('Empty Rectangle');
+    // And one on the top shelf that the named ladder now finishes on its
+    // own, with colouring across every digit as its hardest step.
+    expect(analyzeSolvePath(puzzle('Night Owl')).hardestTechnique).toBe('3D Medusa');
+  });
+
+  it('says when named techniques alone are enough', () => {
+    for (const name of ['Gentle Start', 'Brain Teaser', 'Lunch Puzzle', 'Deep Waters', "Devil's Den"]) {
+      const path = analyzeSolvePath(puzzle(name));
+      expect(path.namedOnly, name).toBe(true);
+      expect(path.whatIfSteps, name).toBe(0);
+      expect(path.namedShare, name).toBe(1);
+    }
+  });
+
+  it('says where the ladder of patterns stops, and what finishes the job', () => {
+    // No pattern on the ladder applies to this board at all, so the
+    // pattern-only walk stops with every cell still empty.
+    const named = analyzeSolvePath(puzzle('Golden Nugget'));
+    expect(named.complete).toBe(true); // it finished looking
+    expect(named.stalled).toBe(true);  // and found nothing more to say
+    expect(named.solved).toBe(false);
+    expect(named.namedOnly).toBe(false);
+
+    // Following the search the way the hint path does finishes it - and
+    // since the forcing batch (#75) every step it contributes is a proof by
+    // cases, which is a named technique, so nothing on this path is
+    // counted as trial and error.
+    const withSearch = analyzeSolvePath(puzzle('Golden Nugget'), { whatIf: true });
+    expect(withSearch.solved).toBe(true);
+    expect(withSearch.whatIfSteps).toBe(0);
+    expect(withSearch.namedSteps).toBe(withSearch.steps.length);
+    expect(withSearch.namedShare).toBe(1);
+    expect(withSearch.namedOnly).toBe(true);
+    expect(withSearch.stepsByTier[WHAT_IF_TIER]).toBeUndefined();
+    expect(withSearch.stepsByTier.Forcing).toBeGreaterThan(0);
+    // The hardest thing it teaches is a forcing proof, and the hardest
+    // tier is the Forcing tier rather than the what-if fallback.
+    expect(techniqueTier(withSearch.hardestTechnique)).toBe('Forcing');
+    expect(withSearch.hardestTier).toBe('Forcing');
+  });
+
+  it('counts a trial step, if one ever comes back, under the what-if tier', () => {
+    // No library puzzle needs trial and error any more, so this invariant
+    // is checked where it lives rather than on a path: the tier the report
+    // counts an unnamed step under is the tier Hypothesis Mode sits in.
+    expect(techniqueTier('Hypothesis Mode')).toBe(WHAT_IF_TIER);
+  });
+
+  it('every tier it reports is a tier the panel knows', () => {
+    const tiers = new Set();
+    for (const list of Object.values(PUZZLES)) {
+      for (const p of list) {
+        for (const tier of Object.keys(analyzeSolvePath(p.puzzle, { whatIf: true }).stepsByTier)) {
+          tiers.add(tier);
+        }
+      }
+    }
+    for (const tier of tiers) {
+      expect([...TIERS.map((t) => t.level), WHAT_IF_TIER]).toContain(tier);
+    }
+  });
+});
+
+describe('a walk that is cut short concludes nothing', () => {
+  it('reports complete: false, and the library says nothing yet', () => {
+    const cut = analyzeSolvePath(puzzle('Gentle Start'), { timeBudgetMs: -1 });
+    expect(cut.complete).toBe(false);
+    expect(cut.steps).toEqual([]);
+    // namedOnly must never be claimed from a path that was not walked out
+    expect(cut.namedOnly).toBe(false);
+    expect(teachingLabel({ ...cut, complete: false })).toBeNull();
+  });
+
+  it('a walk advanced in small chunks ends up where one long walk does', () => {
+    // The library measures a puzzle a slice at a time so the page stays
+    // responsive; the answer must not depend on how it was sliced.
+    const inOneGo = analyzeSolvePath(puzzle('Easter Monster'), { whatIf: true });
+    const run = startPuzzleAnalysis(puzzle('Easter Monster'));
+    let chunks = 0;
+    while (!run.advance(1) && chunks < 10000) chunks++;
+    const chunked = run.result();
+    expect(chunks, 'a slice of 1ms should not finish it in one go').toBeGreaterThan(0);
+    expect(chunked.complete).toBe(true);
+    expect(chunked.steps).toBe(inOneGo.steps.length);
+    expect(chunked.namedSteps).toBe(inOneGo.namedSteps);
+    expect(chunked.whatIfSteps).toBe(inOneGo.whatIfSteps);
+    expect(chunked.hardestTechnique).toBe(inOneGo.hardestTechnique);
+    expect(chunked.namedOnly).toBe(inOneGo.namedOnly);
+    expect(chunked.stepsByTier).toEqual(inOneGo.stepsByTier);
+    // A puzzle already measured costs nothing the second time.
+    expect(analyzePuzzle(puzzle('Easter Monster'))).toEqual(chunked);
+  });
+});
+
+describe('what the library row says', () => {
+  // The row used to lead with the measured technique's name - "Teaches up
+  // to Naked Single", "Teaches up to ALS-XZ" - to a player who has met
+  // neither, against a quality bar that says explanations use no undefined
+  // vocabulary. How hard the thinking gets leads now, in words a beginner
+  // already has, and the measurement follows in brackets for the player who
+  // wants it (#107).
+  it('says how hard the thinking gets, then which technique that was', () => {
+    expect(teachingLabel(analyzePuzzle(puzzle('Gentle Start'))))
+      .toBe('Beginner techniques only (Naked Single)');
+    expect(teachingLabel(analyzePuzzle(puzzle('Brain Teaser'))))
+      .toBe('Up to intermediate techniques (Pointing Pair)');
+    expect(teachingLabel(analyzePuzzle(puzzle('Deep Waters'))))
+      .toBe('Up to expert techniques (XY-Wing)');
+    // A forcing proof works through every option a cell has and keeps what
+    // they all force. It is a deduction, so the row must not call it trial
+    // and error (#75).
+    expect(teachingLabel(analyzePuzzle(puzzle('Golden Nugget'))))
+      .toBe('Works through every option (Forcing Net)');
+  });
+
+  // One test per puzzle since the library reached forty-eight (#88).
+  for (const p of Object.values(PUZZLES).flat()) {
+    it(`${p.name}: names no technique the player has not been given, except in brackets`, () => {
+      const analysis = analyzePuzzle(p.puzzle);
+      const label = teachingLabel(analysis);
+      // Everything before the bracket is plain English: the technique's
+      // name appears once, and only there.
+      const lead = label.split(' (')[0];
+      expect(lead, p.name).not.toContain(analysis.hardestTechnique);
+    });
+  }
+
+  it('is measured, never assumed: a label matches the path it came from', () => {
+    for (const [shelf, list] of Object.entries(PUZZLES)) {
+      for (const p of list) {
+        const analysis = analyzePuzzle(p.puzzle);
+        const label = teachingLabel(analysis);
+        expect(analysis.complete, p.name).toBe(true);
+        expect(label, p.name).toBeTruthy();
+        if (analysis.namedOnly) {
+          expect(label, p.name).not.toContain('trial and error');
+          expect(analysis.whatIfSteps, p.name).toBe(0);
+        } else {
+          expect(label, p.name).toContain('trial and error');
+          expect(analysis.whatIfSteps, p.name).toBeGreaterThan(0);
+        }
+        if (analysis.hardestTechnique) {
+          expect(label, p.name).toContain(analysis.hardestTechnique);
+        }
+        // The shelf the analysis puts it on is the shelf it sits on.
+        expect(analysis.shelf, p.name).toBe(shelf);
+        expect(analyzeDifficulty(p.puzzle), p.name).toBe(shelf);
+      }
+    }
+  });
+});
+
+describe('named-technique coverage, by shelf', () => {
+  const report = shelfCoverageReport(PUZZLES);
+
+  it('covers every shelf, and every step is either named or what-if', () => {
+    expect(report.rows.map((r) => r.shelf)).toEqual(Object.keys(PUZZLES));
+    for (const row of report.rows) {
+      expect(row.named + row.whatIf).toBe(row.steps);
+      expect(row.steps).toBeGreaterThan(0);
+      expect(row.namedShare).toBeGreaterThan(0);
+      expect(row.namedShare).toBeLessThanOrEqual(1);
+      // Every library puzzle is solvable by the mentor as it stands, with
+      // the what-if search where the ladder stops.
+      expect(row.unsolved, `${row.shelf}: unsolved puzzles`).toEqual([]);
+    }
+    expect(report.named + (report.steps - report.named)).toBe(report.steps);
+  });
+
+  it('keeps the whole library named, which is where the programme ends', () => {
+    // The Ultimate shelf was 91.7% named before the fish (#72), 92.6% after
+    // them, 94.4% after the chains (#67), and the forcing proofs (#75) took
+    // the last 31 what-if steps on it to none. Every shelf is fully named,
+    // which is what the coverage programme set out to reach, and a batch
+    // that gave any of it back would fail here.
+    const ultimate = report.rows.find((r) => r.shelf === 'ultimate');
+    expect(ultimate.namedShare).toBe(1);
+    expect(ultimate.whatIf).toBe(0);
+    expect(ultimate.needWhatIf).toBe(0);
+    expect(report.namedShare).toBe(1);
+  });
+
+  it('holds every shelf the programme says is fully named', () => {
+    // The targets in docs/specs/technique-coverage.md: Easy through
+    // Diabolical were already 100% named and must stay that way, and the
+    // Ultimate shelf has joined them.
+    for (const shelf of Object.keys(PUZZLES)) {
+      const row = report.rows.find((r) => r.shelf === shelf);
+      expect(row.namedShare, `${shelf} should be fully named`).toBe(1);
+      expect(row.needWhatIf, `${shelf} should need no what-if`).toBe(0);
+    }
+  });
+
+  it('prints the per-shelf report the programme is judged by', () => {
+    const text = formatShelfCoverageReport(report);
+    expect(text).toContain('named share');
+    for (const shelf of Object.keys(PUZZLES)) expect(text).toContain(shelf);
+    // Readable output, not a pass or a fail: this is the baseline every
+    // later batch of the coverage programme is measured against.
+    out(`\n${text}\n`);
+  });
+});
+
+describe('which techniques the library actually teaches', () => {
+  const report = techniqueTeachingReport(PUZZLES);
+
+  // Every step of every library puzzle, counted here independently of the
+  // report, so the report is checked against the paths and not itself.
+  const stepsPerTechnique = new Map();
+  for (const list of Object.values(PUZZLES)) {
+    for (const p of list) {
+      for (const step of analyzeSolvePath(p.puzzle, { whatIf: true }).steps) {
+        stepsPerTechnique.set(step.technique, (stepsPerTechnique.get(step.technique) || 0) + 1);
+      }
+    }
+  }
+
+  it('answers for every technique in the catalog, exactly once', () => {
+    expect(report.rows.map((r) => r.technique)).toEqual(TECHNIQUES.map((t) => t.name));
+    expect(report.taught.length + report.neverTaught.length).toBe(report.techniques);
+    // A step whose technique the catalog does not hold would be missing
+    // from the report entirely, so the report says when it meets one.
+    expect(report.unlisted).toEqual([]);
+  });
+
+  it('calls a technique taught only where a solve path uses it as a step', () => {
+    for (const row of report.rows) {
+      expect(row.steps, row.technique).toBe(stepsPerTechnique.get(row.technique) || 0);
+      expect(row.taught, row.technique).toBe(row.steps > 0);
+      // Never the hint means no puzzle at all, not simply few steps.
+      if (!row.taught) expect(row.puzzles, row.technique).toEqual([]);
+      else expect(row.puzzles.length, row.technique).toBeGreaterThan(0);
+    }
+    // The two singles are the floor: a library that teaches nothing would
+    // pass every assertion above, and this one would not.
+    for (const name of ['Naked Single', 'Hidden Single']) {
+      expect(report.taught.map((r) => r.technique), name).toContain(name);
+    }
+  });
+
+  it('names the puzzles that teach a technique, and they really do', () => {
+    for (const row of report.taught) {
+      for (const { shelf, name } of row.puzzles) {
+        expect(PUZZLES[shelf].map((p) => p.name), `${row.technique}: ${name}`).toContain(name);
+        const path = analyzeSolvePath(puzzle(name), { whatIf: true });
+        expect(path.steps.map((s) => s.technique), `${name} should teach ${row.technique}`).toContain(
+          row.technique
+        );
+      }
+      // One puzzle per name, however many steps it takes there.
+      expect(new Set(row.puzzles.map((p) => p.name)).size, row.technique).toBe(row.puzzles.length);
+    }
+  });
+
+  it('groups the answer by tier, and every tier adds up', () => {
+    expect(report.byTier.map((t) => t.tier)).toEqual(TIERS.map((t) => t.level));
+    let techniques = 0;
+    for (const tier of report.byTier) {
+      expect(tier.taught + tier.neverTaught.length, tier.tier).toBe(tier.techniques);
+      techniques += tier.techniques;
+      for (const name of tier.neverTaught) {
+        expect(techniqueTier(name), name).toBe(tier.tier);
+        expect(report.neverTaught.map((r) => r.technique), name).toContain(name);
+      }
+    }
+    // No technique sits in a tier the panel does not know, so none is lost
+    // between the tier table and the lists below it.
+    expect(techniques).toBe(report.techniques);
+  });
+
+  it('prints the list, readable without a key', () => {
+    const text = formatTechniqueTeachingReport(report);
+    // Every technique in the catalog appears, in one group or the other.
+    for (const tech of TECHNIQUES) expect(text, tech.name).toContain(tech.name);
+    expect(text).toContain('taught by at least one library puzzle');
+    expect(text).toContain('never the hint on any library puzzle');
+    // And it says, in the report's own words, why a technique can be found
+    // on a board and counted in the panel and still never be the hint.
+    expect(text).toContain('not a broken detector');
+    for (const tier of TIERS) expect(text, tier.level).toContain(tier.level);
+    // Readable output, not a pass or a fail: this is the list of techniques
+    // the library cannot currently teach anybody.
+    out(`\n${text}\n`);
+  });
+});

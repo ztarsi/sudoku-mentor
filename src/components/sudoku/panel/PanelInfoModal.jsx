@@ -6,7 +6,7 @@ import { useDialog } from '@/hooks/useDialog';
 const CONTENT = {
   techniques: {
     title: 'Techniques',
-    body: 'Browse all Sudoku solving techniques organized by difficulty. Click on technique names to learn how they work, or click the counter badges to see live examples in your current puzzle. Use the Scan button to find advanced techniques.',
+    body: 'What applies to the board in front of you comes first, with how many of each there are; tap a count to see them. Below that is the ladder, by tier, closed until you open one: a tier shows what is on your board, then one line for everything else, because a list of what is not there is not worth your column. Counting works up the ladder and stops at the first tier with something on it: on a board that still has singles, a count of anything harder is mostly patterns the single is about to destroy. A tier held back that way says so, and will count itself if you ask. Tap that line, or Browse, to read the whole reference, where every technique is set out in columns; tap any name anywhere to read how it works, whether or not it applies right now. A few techniques work only because a puzzle has exactly one answer; on a grid that has more than one they cannot be counted, and the tier says so.',
   },
 };
 

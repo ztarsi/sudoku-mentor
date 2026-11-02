@@ -8,8 +8,12 @@ import CurrentStepCard from '../panel/CurrentStepCard';
 const noop = () => {};
 const base = {
   currentStep: null, grid: null, noAssistMode: false, onNextStep: noop, onApplyStep: noop,
-  onSelectTechnique: noop, chainPlaybackIndex: 0, onChainPlaybackChange: noop, isPlayingChain: false, onToggleChainPlayback: noop,
+  onSelectTechnique: noop,
 };
+
+/** The one playback the card offers: a button that starts the board's. */
+const animator = (container) =>
+  [...container.querySelectorAll('button')].filter((b) => /Animate on the board/.test(b.textContent ?? ''));
 const show = (props) => render(<CurrentStepCard {...base} {...props} />);
 afterEach(() => cleanup());
 
@@ -40,6 +44,56 @@ describe('CurrentStepCard states', () => {
     expect(container.querySelector('[data-tone="found"]')).not.toBeNull();
   });
 
+  it('a uniqueness step: the rectangle is drawn as a rectangle, odd corner apart', () => {
+    const cells = [0, 3, 9, 12]; // R1C1, R1C4, R2C1, R2C4
+    const grid = Array.from({ length: 81 }, (_, i) => ({
+      value: null,
+      candidates: cells.includes(i) ? (i === 12 ? [1, 2, 3] : [1, 2]) : [4, 5],
+    }));
+    const step = {
+      technique: 'Unique Rectangle Type 1',
+      digit: null,
+      baseCells: cells,
+      rectangle: { corners: cells, floor: [0, 3, 9], roof: [12] },
+      pairDigits: [1, 2],
+      targetCells: [12],
+      placement: null,
+      eliminations: [{ cell: 12, digit: 1 }, { cell: 12, digit: 2 }],
+      explanation: 'x',
+    };
+    const { getByText, container } = show({ currentStep: step, grid });
+    // All four corners, named, with their marks
+    for (const name of ['R1C1', 'R1C4', 'R2C1', 'R2C4']) expect(getByText(name)).toBeTruthy();
+    expect(getByText('1 2 3')).toBeTruthy();
+    expect(getByText(/the one in amber is the odd one out/)).toBeTruthy();
+    // The odd corner is drawn apart from the three that match
+    const amber = container.querySelectorAll('.border-amber-600\\/70');
+    expect(amber.length).toBe(1);
+  });
+
+  it('a unique loop: the ring, in the order it closes', () => {
+    const loop = [0, 3, 12, 15, 24, 18];
+    const grid = Array.from({ length: 81 }, (_, i) => ({
+      value: null,
+      candidates: loop.includes(i) ? (i === 15 ? [1, 2, 3] : [1, 2]) : [4, 5],
+    }));
+    const step = {
+      technique: 'Unique Loop',
+      digit: null,
+      baseCells: loop,
+      loopCells: loop,
+      pairDigits: [1, 2],
+      targetCells: [15],
+      placement: null,
+      eliminations: [{ cell: 15, digit: 1 }, { cell: 15, digit: 2 }],
+      explanation: 'x',
+    };
+    const { getByText, container } = show({ currentStep: step, grid });
+    expect(getByText(/The ring closes back on itself/)).toBeTruthy();
+    expect(container.textContent).toContain('R1C1');
+    expect(container.textContent).toContain('R3C1');
+  });
+
   it('what-if: a visibly different heading and tone', () => {
     const step = {
       technique: 'Hypothesis Mode', digit: 8, baseCells: [0], targetCells: [40], contradictionCell: 40, contradictoryDigit: 3,
@@ -49,6 +103,196 @@ describe('CurrentStepCard states', () => {
     expect(getByText('Reasoning by trial')).toBeTruthy();
     expect(getByText(/No named technique applies/)).toBeTruthy();
     expect(container.querySelector('[data-tone="whatif"]')).not.toBeNull();
+  });
+
+  // A chain is a deduction, not a trial, and its proof is a sequence the
+  // player steps through rather than a wall of text (#67).
+  const chainStep = {
+    technique: 'Skyscraper',
+    digit: 5,
+    baseCells: [4, 0, 54, 59],
+    targetCells: [14, 23],
+    placement: null,
+    eliminations: [{ cell: 14, digit: 5 }, { cell: 23, digit: 5 }],
+    explanation: 'Alternating inference chain (5)R1C5 = (5)R1C1 - (5)R7C1 = (5)R7C6',
+    chainNotation: '(5)R1C5 = (5)R1C1 - (5)R7C1 = (5)R7C6',
+    chainClosed: false,
+    chainNodes: [
+      { cells: [4], cell: 4, digit: 5, kind: 'cell', truth: false, endpoint: true, linkToNext: 'strong', linkVia: 'unit', linkUnit: { type: 'row', index: 0, name: 'row 1' }, linkSet: null },
+      { cells: [0], cell: 0, digit: 5, kind: 'cell', truth: true, endpoint: false, linkToNext: 'weak', linkVia: 'unit', linkUnit: { type: 'column', index: 0, name: 'column 1' }, linkSet: null },
+      { cells: [54], cell: 54, digit: 5, kind: 'cell', truth: false, endpoint: false, linkToNext: 'strong', linkVia: 'unit', linkUnit: { type: 'row', index: 6, name: 'row 7' }, linkSet: null },
+      { cells: [59], cell: 59, digit: 5, kind: 'cell', truth: true, endpoint: true, linkToNext: null, linkVia: null, linkUnit: null, linkSet: null },
+    ],
+  };
+
+  it('a chain: the deduction heading and tone, never the what-if one', () => {
+    const { getByText, queryByText, container } = show({ currentStep: chainStep });
+    expect(getByText('Skyscraper')).toBeTruthy();
+    // The tier, in the heading - 'Expert' is also the explanation toggle,
+    // so look for it where the card states the technique's tier.
+    expect(container.querySelector('h3 + p')?.textContent).toBe('Expert');
+    expect(queryByText('Reasoning by trial')).toBeNull();
+    expect(container.querySelector('[data-tone="found"]')).not.toBeNull();
+    expect(container.querySelector('[data-tone="whatif"]')).toBeNull();
+  });
+
+  // One walker, one stage (#97). A proof of more than one step is walked on
+  // the board, so the card offers the one button that starts it and keeps
+  // no list, no controls and no step counter of its own.
+  it('a chain: one animator, and no second playback in the card', () => {
+    const { container } = show({ currentStep: chainStep });
+    expect(animator(container)).toHaveLength(1);
+    expect(container.textContent).not.toContain('The chain, link by link:');
+    expect(container.textContent).not.toMatch(/Link \d+ of \d+/);
+    expect(container.querySelector('button[aria-label="Next chain link"]')).toBeNull();
+    expect(container.querySelector('button[aria-label="Previous chain link"]')).toBeNull();
+  });
+
+  // A set-based step (#73) is walkable too: a Death Blossom takes one case
+  // for each number its stem could be. The card names it and offers the
+  // animator; the wording of each case belongs to the walk.
+  it('a set step: named with its tier, in the deduction tone, walkable on the board', () => {
+    const blossom = {
+      technique: 'Death Blossom',
+      digit: 8,
+      stemCell: 0,
+      zDigit: 8,
+      baseCells: [0, 27, 36, 8, 44],
+      targetCells: [40],
+      placement: null,
+      eliminations: [{ cell: 40, digit: 8 }],
+      subsetDigits: [2, 4, 8],
+      explanation: 'Death Blossom on stem R1C1.',
+      chainClosed: false,
+      chainNodes: [
+        { cells: [0], cell: 0, digit: null, digits: [2, 4], kind: 'cell', label: 'stem', truth: null, endpoint: false, linkToNext: null, linkVia: null, linkUnit: null, linkSet: null },
+        { cells: [36], cell: 36, digit: 8, digits: null, kind: 'cell', label: null, truth: true, endpoint: true, linkToNext: null, linkVia: null, linkUnit: null, linkSet: null },
+        { cells: [44], cell: 44, digit: 8, digits: null, kind: 'cell', label: null, truth: true, endpoint: true, linkToNext: null, linkVia: null, linkUnit: null, linkSet: null },
+      ],
+      chainLinks: [
+        { from: 0, to: 1, type: 'case', via: 'stem', digit: 2, unit: { type: 'column', index: 0, name: 'column 1' }, set: { cells: [27, 36], digits: [2, 3, 8] } },
+        { from: 0, to: 2, type: 'case', via: 'stem', digit: 4, unit: { type: 'column', index: 8, name: 'column 9' }, set: { cells: [8, 44], digits: [3, 4, 8] } },
+      ],
+    };
+    const { getByText, queryByText, container } = show({ currentStep: blossom });
+    expect(getByText('Death Blossom')).toBeTruthy();
+    expect(container.querySelector('h3 + p')?.textContent).toBe('Ultimate');
+    expect(container.querySelector('[data-tone="found"]')).not.toBeNull();
+    expect(queryByText('Reasoning by trial')).toBeNull();
+    // Walkable, on the board: the case-by-case words are the animation's
+    // captions now, and they are checked where they are built.
+    expect(animator(container)).toHaveLength(1);
+    expect(container.textContent).not.toContain('The argument, step by step:');
+  });
+
+  it('a continuous loop is named as one and walkable on the board', () => {
+    const loop = {
+      ...chainStep,
+      technique: 'Continuous Loop',
+      chainClosed: true,
+      chainNodes: chainStep.chainNodes.map((n, i) =>
+        i === 3 ? { ...n, linkToNext: 'weak', linkVia: 'cell', endpoint: false } : { ...n, endpoint: false }
+      ),
+    };
+    const { getByText, container } = show({ currentStep: loop });
+    expect(getByText('Continuous Loop')).toBeTruthy();
+    expect(animator(container)).toHaveLength(1);
+  });
+
+  // A colouring's proof is a network, so the card walks the run of links
+  // that decides it and ends on what the two ends prove (#82).
+  const colouringStep = {
+    technique: 'X-Cycle',
+    digit: 5,
+    baseCells: [0, 2, 20],
+    targetCells: [0, 20],
+    placement: null,
+    eliminations: [{ cell: 0, digit: 5 }, { cell: 20, digit: 5 }],
+    explanation: 'Simple coloring on digit 5.',
+    chainColouring: true,
+    colorRule: 'wrap',
+    colorWitness: [{ cell: 0, digit: 5 }, { cell: 20, digit: 5 }],
+    colorGroups: [[2], [0, 20]],
+    chainNodes: [
+      { cells: [0], cell: 0, digit: 5, kind: 'candidate', color: 1, truth: null, endpoint: true, linkToNext: 'strong', linkVia: 'unit', linkUnit: { name: 'row 1' }, linkSet: null },
+      { cells: [2], cell: 2, digit: 5, kind: 'candidate', color: 2, truth: null, endpoint: false, linkToNext: 'strong', linkVia: 'unit', linkUnit: { name: 'column 3' }, linkSet: null },
+      { cells: [20], cell: 20, digit: 5, kind: 'candidate', color: 1, truth: null, endpoint: true, linkToNext: null, linkVia: null, linkUnit: null, linkSet: null },
+    ],
+  };
+
+  it('a colouring: walkable on the board, with no second walk in the card', () => {
+    const { getByText, container } = show({ currentStep: colouringStep });
+    expect(getByText('X-Cycle')).toBeTruthy();
+    expect(animator(container)).toHaveLength(1);
+    expect(container.textContent).not.toContain('How the colouring spreads:');
+    expect(container.textContent).not.toMatch(/Step \d+ of \d+/);
+  });
+
+  // A forcing proof is a deduction: it is named on the card under its own
+  // tier, in the deduction colour, and its proof is walked case by case
+  // rather than read as a paragraph (#75).
+  const forcingStep = {
+    technique: 'Unit Forcing Chain',
+    digit: 2,
+    baseCells: [28, 31],
+    targetCells: [48],
+    placement: { cell: 48, digit: 2 },
+    eliminations: [],
+    explanation: 'engine text',
+    forcingOrigin: { kind: 'unit', cells: [28, 31], digit: 7, unitName: 'row 4', options: [{ cell: 28, digit: 7 }, { cell: 31, digit: 7 }] },
+    forcingConclusion: { kind: 'convergence', placement: { cell: 48, digit: 2 }, eliminations: [] },
+    forcingNet: null,
+    forcingBranches: [28, 31].map((cell) => ({
+      assume: { cell, digit: 7 },
+      moves: [{ cell: 48, digit: 2, reason: 'Only candidate left in R6C4' }],
+      proof: [{ cell: 48, digit: 2, reason: 'Only candidate left in R6C4' }],
+      skipped: 0,
+      outcome: { kind: 'forces', text: 'R6C4 is 2', cell: 48 },
+      net: false,
+      limited: false,
+    })),
+  };
+
+  it('a forcing proof: named with its tier, in the deduction tone, not the what-if one', () => {
+    const { getByText, container } = show({ currentStep: forcingStep });
+    expect(getByText('Unit Forcing Chain')).toBeTruthy();
+    expect(getByText('Forcing')).toBeTruthy();
+    expect(container.querySelector('[data-tone="found"]')).not.toBeNull();
+    expect(container.querySelector('[data-tone="whatif"]')).toBeNull();
+    expect(container.textContent).not.toContain('Reasoning by trial');
+    expect(getByText('How this proof works')).toBeTruthy();
+  });
+
+  it('a forcing proof: walkable on the board, and only there', () => {
+    const { container } = show({ currentStep: forcingStep });
+    expect(animator(container)).toHaveLength(1);
+    expect(container.textContent).not.toContain('The proof, case by case:');
+    expect(container.textContent).not.toContain('Suppose R4C2 is 7.');
+    expect(container.querySelector('button[aria-label="Next chain link"]')).toBeNull();
+  });
+
+  it('a net that stopped at its limit says so on the card', () => {
+    const net = {
+      ...forcingStep,
+      technique: 'Forcing Net',
+      forcingNet: { depth: 5, limited: true },
+      forcingBranches: forcingStep.forcingBranches.map((b) => ({ ...b, net: true, limited: true })),
+    };
+    const { container } = show({ currentStep: net });
+    expect(container.textContent).toContain('held up to 5 suppositions at once');
+    expect(container.textContent).toContain('there may be more to find here that the mentor did not reach');
+  });
+
+  it('a net that finished looking claims nothing about a limit', () => {
+    const net = {
+      ...forcingStep,
+      technique: 'Forcing Net',
+      forcingNet: { depth: 5, limited: false },
+      forcingBranches: forcingStep.forcingBranches.map((b) => ({ ...b, net: true })),
+    };
+    const { container } = show({ currentStep: net });
+    expect(container.textContent).toContain('held up to 5 suppositions at once');
+    expect(container.textContent).not.toContain('did not reach');
   });
 
   it('searching: the wait and a Cancel button', () => {

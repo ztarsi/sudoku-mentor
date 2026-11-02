@@ -1,17 +1,22 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo, Suspense } from 'react';
 import SudokuGrid from '@/components/sudoku/SudokuGrid';
 import HintAnimationControls from '@/components/sudoku/HintAnimationControls';
+import { useHintAnimation, setHintAnimation } from '@/components/sudoku/hintAnimation';
 import DigitStrip from '@/components/sudoku/DigitStrip';
-import LogicPanel from '@/components/sudoku/LogicPanel';
 import LessonSheet, { SIDE_SHEET_WIDTH } from '@/components/sudoku/LessonSheet';
 import HeaderMenu from '@/components/sudoku/HeaderMenu';
 import ConfirmDialog from '@/components/sudoku/ConfirmDialog';
 import AccountMenu from '@/components/sudoku/AccountMenu';
 import KeyboardShortcutsDialog from '@/components/sudoku/panel/KeyboardShortcutsDialog';
 import { playErrorTone } from '@/components/sudoku/errorSound';
-import { resolveShortcut, isTypingTarget } from '@/components/sudoku/keyboardShortcuts';
-import { findNextLogicStep, onlySinglesRemain } from '@/components/sudoku/logicEngine';
-import { searchWhatIf, isCancelled, isTimedOut, HINT_SEARCH_DEPTH, HINT_TIME_BUDGET_MS } from '@/components/sudoku/whatIfSearch';
+import { resolveShortcut, isTypingTarget, overlayOwnsKeyboard } from '@/components/sudoku/keyboardShortcuts';
+import { restoreFocusAfterLesson } from '@/components/sudoku/lessonFocus';
+import { PRIMARY_GRADIENT, BADGE_GRADIENT } from '@/lib/brandGradient';
+import { onlySinglesRemain } from '@/components/sudoku/gridOps';
+import { loadLogicPanel, loadLogicEngine, loadedLogicEngine, warmMentor } from '@/components/sudoku/mentorLoader';
+import { UNIQUENESS_MANY, UNIQUENESS_ONE, uniquenessNote } from '@/components/sudoku/uniqueness';
+import { searchWhatIf, isCancelled, isTimedOut, HINT_TIME_BUDGET_MS } from '@/components/sudoku/whatIfSearch';
+import { NET_DEPTH } from '@/components/sudoku/searchLimits';
 import {
   buildRemovalMap,
   buildFocusedCandidates,
@@ -44,6 +49,50 @@ import { toast } from "@/components/ui/use-toast";
 const UnifiedPuzzleLoader = React.lazy(() => import('@/components/sudoku/UnifiedPuzzleLoader'));
 const ColorSettings = React.lazy(() => import('@/components/sudoku/ColorSettings'));
 const CompletionModal = React.lazy(() => import('@/components/sudoku/CompletionModal'));
+
+// The lesson panel and the technique detectors are not needed to place a
+// digit, so they arrive after the board (first-board payload, #91).
+const LogicPanel = React.lazy(loadLogicPanel);
+// Shown in the lesson column for the moment the panel's code is arriving.
+function MentorLoading() {
+  return (
+    <div role="status" className="rounded-2xl border border-slate-700 bg-slate-900/90 p-4 text-sm text-slate-300">
+      Getting the mentor ready…
+    </div>
+  );
+}
+
+// If the panel's code fails to arrive (offline before it was cached, or a
+// tab left open across a deploy), the page keeps the board and says so in
+// the lesson column, rather than losing the whole page to the error.
+class MentorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { failed: false };
+  }
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch(error) {
+    console.error('Lesson panel failed to load', error);
+  }
+  render() {
+    if (!this.state.failed) return this.props.children;
+    return (
+      <div role="alert" className="rounded-2xl border border-slate-700 bg-slate-900/90 p-4 text-sm text-slate-300 space-y-3">
+        <p>The mentor could not load. The board still works.</p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="rounded-lg bg-slate-800 px-3 py-2 text-slate-100 hover:bg-slate-700"
+        >
+          Reload to try again
+        </button>
+      </div>
+    );
+  }
+}
+
 
 const LESSON_PINNED_KEY = 'sudoku-mentor:lesson-pinned';
 const readLessonPinned = () => {
@@ -118,7 +167,9 @@ export default function SudokuMentor() {
   const boardAreaRef = useRef(/** @type {HTMLDivElement | null} */ (null));
   const stripCardRef = useRef(/** @type {HTMLDivElement | null} */ (null));
   const [boardMax, setBoardMax] = useState(null);
-  const [chainPlaybackIndex, setChainPlaybackIndex] = useState(0);
+  // The hint animation's current frame, read from its own store so it is
+  // not threaded through the page's props (#97).
+  const hintAnimation = useHintAnimation();
   const [showAppInfo, setShowAppInfo] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   // What this puzzle taught: one entry per presented hint, marked when the
@@ -257,6 +308,8 @@ export default function SudokuMentor() {
     setFocusedCandidates(null);
     setRemovalCandidates(null);
     setNothingLeft(false);
+    // The lesson is gone; focus must not be left at the top of the document.
+    restoreFocusAfterLesson();
   }, []);
 
   const handleCellClick = useCallback(
@@ -354,15 +407,56 @@ export default function SudokuMentor() {
   }, []);
   useEffect(() => () => hintSearchRef.current?.cancel(), []);
 
+  // The mentor's code arrives after the board (#91). Where the lesson is a
+  // column, the panel asks for it as soon as the page renders; where it is
+  // a sheet, nothing asks until the sheet opens, so it is also fetched once
+  // the browser is idle. Either way the first hint is normally instant, and
+  // the service worker has cached the code for offline play. Until it has
+  // arrived the lesson column says "Getting the mentor ready", and a hint
+  // asked for meanwhile shows on the strip as in progress, with Cancel.
+  // A phone has no lesson panel and no hints, so it fetches none of this
+  // until it is turned or widened into an arrangement that does.
+  const [preparingHint, setPreparingHint] = useState(false);
+  useEffect(() => (phone ? undefined : warmMentor()), [phone]);
+
   const handleNextStep = useCallback(async (force = false) => {
     if (effectiveNoAssist) return; // Block hints in no assist mode
     if (hintSearchRef.current) return; // a search is already running
-    setChainPlaybackIndex(0); // Reset playback for new hint
+    setHintAnimation(null); // a new hint, so the old animation is gone
     setSheetOpen(true); // the lesson sheet, where the lesson is not a column
     setOnboarding(onHintAsked);
 
+    const engine = loadedLogicEngine();
+    if (!engine) {
+      // The first hint, asked before the mentor's code arrived (#91). Hold
+      // the slot, say so on the strip, and ask again once it is here, so the
+      // hint is computed from the page as it is then. Cancel and any change
+      // to the board drop it, as they drop a search.
+      let cancelled = false;
+      const loading = { cancel: () => { cancelled = true; setPreparingHint(false); } };
+      hintSearchRef.current = loading;
+      setPreparingHint(true);
+      try {
+        await loadLogicEngine();
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Mentor failed to load', error);
+          toast({ title: 'The mentor could not load', description: 'Check the connection and ask for the hint again.', variant: 'destructive' });
+        }
+        return;
+      } finally {
+        if (hintSearchRef.current === loading) {
+          hintSearchRef.current = null;
+          setPreparingHint(false);
+        }
+      }
+      if (!cancelled) nextStepRef.current(force);
+      return;
+    }
+
     const gridAtStart = game.grid;
-    let step = findNextLogicStep(game.logicGrid, null);
+    const { findNextLogicStep } = engine;
+    let step = findNextLogicStep(game.logicGrid, null, { uniqueness: game.uniqueness });
     // Only singles left (issue #54): every empty cell on the player's board
     // shows one pencil mark, and this puzzle has already taught at least one
     // single. Until both hold, singles are lessons like any other technique.
@@ -381,15 +475,16 @@ export default function SudokuMentor() {
       return;
     }
     if (!step) {
-      // No regular technique applies: what-if search, off the main thread.
-      const search = searchWhatIf(game.logicGrid, HINT_SEARCH_DEPTH, { timeBudgetMs: HINT_TIME_BUDGET_MS });
+      // No pattern on the board: the search, off the main thread. It looks
+      // for a forcing proof first and only falls back to trial.
+      const search = searchWhatIf(game.logicGrid, { timeBudgetMs: HINT_TIME_BUDGET_MS });
       hintSearchRef.current = search;
       setSearchingHint(true);
       try {
         step = await search.promise;
       } catch (error) {
         if (isTimedOut(error)) {
-          toast({ title: 'No quick hint', description: `The what-if search ran out of time (${HINT_TIME_BUDGET_MS / 1000} s). The Search button under Techniques looks longer and deeper.` });
+          toast({ title: 'No quick hint', description: `The search ran out of time (${HINT_TIME_BUDGET_MS / 1000} s). The Search button under Techniques is given longer.` });
         } else if (!isCancelled(error)) {
           console.error('What-if search failed', error);
           toast({ title: 'Hint search failed', description: String(error?.message || error), variant: 'destructive' });
@@ -405,7 +500,7 @@ export default function SudokuMentor() {
       // the player no longer has.
       if (gridRef.current !== gridAtStart) return;
       if (!step) {
-        toast({ title: 'No hint found', description: `No technique or what-if chain within ${HINT_SEARCH_DEPTH} steps. Try the Search button under Techniques for a deeper look.` });
+        toast({ title: 'No hint found', description: `No pattern applies, and no proof or what-if chain inside the ${NET_DEPTH} suppositions the search may hold at once. That limit is deliberate: the mentor stops there rather than solving the puzzle for you.` });
         return;
       }
     }
@@ -415,9 +510,11 @@ export default function SudokuMentor() {
       highlightSteps([step]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [game.grid, game.logicGrid, game.noteAssistUsed, effectiveNoAssist, presentStep, highlightSteps, lessonLog, candidatesVisible]);
+  }, [game.grid, game.logicGrid, game.uniqueness, game.noteAssistUsed, effectiveNoAssist, presentStep, highlightSteps, lessonLog, candidatesVisible]);
   const gridRef = useRef(game.grid);
   gridRef.current = game.grid;
+  const nextStepRef = useRef(handleNextStep);
+  nextStepRef.current = handleNextStep;
 
   // The strip's Hint button: reopen a closed sheet that still holds a
   // lesson rather than logging the same hint twice.
@@ -439,8 +536,8 @@ export default function SudokuMentor() {
   // loaded. The solved card keeps it open.
   useEffect(() => {
     if (!sheetMode || sheetPinned) return;
-    if (currentStep === null && !searchingHint && !nothingLeft && !game.completed) setSheetOpen(false);
-  }, [sheetMode, sheetPinned, currentStep, searchingHint, nothingLeft, game.completed]);
+    if (currentStep === null && !searchingHint && !preparingHint && !nothingLeft && !game.completed) setSheetOpen(false);
+  }, [sheetMode, sheetPinned, currentStep, searchingHint, preparingHint, nothingLeft, game.completed]);
   useEffect(() => {
     if (sheetMode && game.completed) setSheetOpen(true);
   }, [sheetMode, game.completed]);
@@ -486,6 +583,7 @@ export default function SudokuMentor() {
     setHighlightedDigit(null);
     setRemovalCandidates(null);
     setFocusedCandidates(null);
+    restoreFocusAfterLesson();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep, effectiveNoAssist, game.applyStep]);
 
@@ -563,9 +661,14 @@ export default function SudokuMentor() {
         toast({ title: 'Invalid puzzle', description: 'This puzzle has no valid solution.', variant: 'destructive' });
         return;
       }
-      if (!result.ok && result.reason === 'multiple-solutions') {
-        toast({ title: 'Not a proper Sudoku', description: 'This puzzle has more than one solution. Check the givens and try again.', variant: 'destructive' });
-        return;
+      // More than one answer, or a count that did not finish: the player
+      // is told plainly and keeps playing. What goes away is the family of
+      // techniques that only holds when there is a single answer.
+      if (result.uniqueness && result.uniqueness !== UNIQUENESS_ONE) {
+        toast({
+          title: result.uniqueness === UNIQUENESS_MANY ? 'More than one answer' : 'Answer count unknown',
+          description: `${uniquenessNote(result.uniqueness)} If you typed this grid in or photographed it, it is worth checking the givens against the original.`,
+        });
       }
       markUserLoadRef.current();
       setShowPuzzleLoader(false);
@@ -574,7 +677,7 @@ export default function SudokuMentor() {
       setFocusedCandidates(null);
       setRemovalCandidates(null);
       setHighlightedDigit(null);
-      setChainPlaybackIndex(0);
+      setHintAnimation(null);
       setLessonLog([]);
       setNothingLeft(false);
     },
@@ -590,8 +693,9 @@ export default function SudokuMentor() {
       // Typing in a text field is never a shortcut.
       if (isTypingTarget(e.target)) return;
 
-      // Any open dialog owns the keyboard: the page-level flags plus the
-      // dialogs the logic panel opens on its own (technique info, scans).
+      // Any open dialog or menu owns the keyboard: the page-level flags
+      // plus the dialogs the logic panel opens on its own (technique info,
+      // scans) and the header menu.
       const isModalOpen =
         showPuzzleLoader ||
         showColorSettings ||
@@ -599,7 +703,7 @@ export default function SudokuMentor() {
         showAppInfo ||
         showClearConfirm ||
         showHowToPlay ||
-        !!document.querySelector('[role="dialog"]');
+        overlayOwnsKeyboard();
       if (isModalOpen) return;
 
       // Holding Shift switches to candidate mode for mouse clicks too
@@ -818,23 +922,22 @@ export default function SudokuMentor() {
   });
   markUserLoadRef.current = markUserLoad;
 
-  // Calculate ghost grid for chain visualization
+  // The case the player is standing on, as ghost digits on the board.
+  //
+  // A forcing proof has several cases, and they disagree with each other -
+  // that is the point of it - so only the one being shown is drawn, up to
+  // the frame the animation has reached. The frame carries the placements
+  // its case has forced so far, so there is one idea of what a case is and
+  // one thing driving it (#97).
   const ghostGrid = useMemo(() => {
-    if (!currentStep?.chain || !Array.isArray(currentStep.chain)) {
-      return game.grid;
-    }
-
-    const placementSteps = currentStep.chain.filter((s) => s.action === 'place');
-    const visibleSteps = placementSteps.slice(0, chainPlaybackIndex + 1);
-
-    return game.grid.map((cell, idx) => {
-      const ghostStep = visibleSteps.find((s) => s.cell === idx);
-      if (ghostStep) {
-        return { ...cell, ghostValue: ghostStep.value };
-      }
-      return cell;
-    });
-  }, [game.grid, currentStep, chainPlaybackIndex]);
+    const ghosts = hintAnimation?.frames?.[hintAnimation.index]?.ghosts;
+    if (!Array.isArray(ghosts) || ghosts.length === 0) return game.grid;
+    const byCell = new Map();
+    for (const { cell, digit } of ghosts) if (!byCell.has(cell)) byCell.set(cell, digit);
+    return game.grid.map((cell, idx) =>
+      byCell.has(idx) ? { ...cell, ghostValue: byCell.get(idx) } : cell
+    );
+  }, [game.grid, hintAnimation]);
 
   // The first visit's prompts: which are on screen now, and what moves them on.
   const prompts = visiblePrompts(onboarding, { hasStep: currentStep !== null, canHint: !effectiveNoAssist && !phone });
@@ -854,9 +957,40 @@ export default function SudokuMentor() {
   const boardPrompt = prompts.board ? (
     <div className="flex justify-center">
       <Callout arrow="down" onDismiss={() => setOnboarding((s) => dismissPrompt(s, 'board'))} testId="prompt-board">
-        {touchInput ? 'Pick a digit, then tap cells' : 'Tap a cell, then a digit'}
+        {touchInput ? 'Pick a digit, then tap cells' : 'Click a cell, then a digit'}
       </Callout>
     </div>
+  ) : null;
+
+  // Which puzzle you are in, and the way to change it. On a phone the top
+  // row has the logo, Load, the account and the menu in 374px, which left
+  // the name 62px: "Brain Teaser" arrived as "Brai..." and a player could
+  // not tell which puzzle they were in (issue #107). It gets a row of its
+  // own there, where the whole name fits, rather than the chip or the
+  // difficulty being dropped to make room.
+  const puzzleButton = game.puzzleName ? (
+    <button
+      type="button"
+      onClick={() => setShowPuzzleLoader(true)}
+      className={`flex items-center gap-2 min-w-0 rounded-lg px-2 py-1 hover:bg-slate-800 transition-colors text-left ${phone ? 'w-full' : ''}`}
+      title="Change puzzle"
+      aria-label={`${game.puzzleName}${game.puzzleDifficulty ? `, ${game.puzzleDifficulty}` : ''}. Change puzzle`}
+    >
+      <span className="text-sm lg:text-lg font-medium text-white truncate min-w-0">
+        {game.puzzleName}
+      </span>
+      {game.puzzleDifficulty && (
+        <span className="px-2 py-0.5 bg-slate-800 rounded-full text-xs lg:text-sm capitalize text-slate-300 shrink-0">{game.puzzleDifficulty}</span>
+      )}
+      {player.bestTime && !phone && (
+        <span className="hidden sm:flex px-2 py-0.5 bg-emerald-900/50 border border-emerald-600/30 rounded-full text-xs lg:text-sm text-emerald-400 items-center gap-1 shrink-0" title="Your best No Assist time">
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          best {formatClock(player.bestTime)}
+        </span>
+      )}
+    </button>
   ) : null;
 
   const board = (
@@ -875,7 +1009,6 @@ export default function SudokuMentor() {
         colors={colors}
         currentStep={currentStep}
         highlightedSteps={highlightedSteps}
-        playbackIndex={chainPlaybackIndex}
         rejectedInput={game.rejectedInput}
         onCellClick={handleCellClick}
         onCellInput={game.handleCellInput}
@@ -913,7 +1046,7 @@ export default function SudokuMentor() {
           ? {
               onClick: handleHintButton,
               disabled: effectiveNoAssist,
-              searching: searchingHint,
+              searching: searchingHint || preparingHint,
               onCancel: cancelHintSearch,
               prompt: prompts.hint ? { text: HINT_PROMPT, onDismiss: () => setOnboarding((s) => dismissPrompt(s, 'hint')) } : null,
             }
@@ -922,9 +1055,12 @@ export default function SudokuMentor() {
     />
   );
   const stripCard = (
-    <div ref={stripCardRef} className="relative bg-slate-900/90 backdrop-blur-sm rounded-2xl shadow-lg shadow-black/50 p-2 sm:p-3 border border-slate-700">
-      {strip}
-      <HintAnimationControls />
+    <div ref={stripCardRef} className="relative bg-slate-900/90 backdrop-blur-sm rounded-2xl shadow-lg shadow-black/50 border border-slate-700">
+      {/* While a hint animates, its caption and controls take the strip's
+          place; the card grows to fit the caption rather than cutting it. */}
+      <HintAnimationControls>
+        <div className="p-2 sm:p-3">{strip}</div>
+      </HintAnimationControls>
     </div>
   );
 
@@ -945,7 +1081,10 @@ export default function SudokuMentor() {
 
   // One lesson panel, rendered in the column or in the sheet.
   const lessonPanel = phone ? null : (
+    <MentorBoundary>
+    <Suspense fallback={<MentorLoading />}>
     <LogicPanel
+      uniqueness={game.uniqueness}
       currentStep={currentStep}
       grid={game.logicGrid}
       onAssistUsed={game.noteAssistUsed}
@@ -963,10 +1102,10 @@ export default function SudokuMentor() {
       cardPrompt={prompts.card ? { text: CARD_PROMPT, onDismiss: () => setOnboarding((s) => dismissPrompt(s, 'card')) } : null}
       searchingHint={searchingHint}
       onCancelHintSearch={cancelHintSearch}
-      onChainPlaybackChange={setChainPlaybackIndex}
-      chainPlaybackIndex={chainPlaybackIndex}
       onHighlightTechnique={handleHighlightTechnique}
     />
+    </Suspense>
+    </MentorBoundary>
   );
 
   return (
@@ -983,7 +1122,9 @@ export default function SudokuMentor() {
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 lg:gap-4 min-w-0">
               <div className="flex items-center gap-3 shrink-0">
-                <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-lg lg:rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
+                {/* The badge is the whole logo, so its "9" has to carry 4.5:1
+                    against both ends of the gradient in both themes (#109). */}
+                <div className={`w-8 h-8 lg:w-10 lg:h-10 rounded-lg lg:rounded-xl ${BADGE_GRADIENT} flex items-center justify-center shadow-lg shadow-blue-500/25`}>
                   <span className="text-white font-bold text-sm lg:text-lg">9</span>
                 </div>
                 {arrangement === 'wide' && (
@@ -991,30 +1132,7 @@ export default function SudokuMentor() {
                 )}
               </div>
 
-              {game.puzzleName ? (
-                <button
-                  type="button"
-                  onClick={() => setShowPuzzleLoader(true)}
-                  className="flex items-center gap-2 min-w-0 rounded-lg px-2 py-1 hover:bg-slate-800 transition-colors text-left"
-                  title="Change puzzle"
-                  aria-label={`${game.puzzleName}${game.puzzleDifficulty ? `, ${game.puzzleDifficulty}` : ''}. Change puzzle`}
-                >
-                  <span className="text-sm lg:text-lg font-medium text-white truncate max-w-[110px] sm:max-w-[200px] lg:max-w-[260px]">
-                    {game.puzzleName}
-                  </span>
-                  {game.puzzleDifficulty && (
-                    <span className="px-2 py-0.5 bg-slate-800 rounded-full text-xs lg:text-sm capitalize text-slate-300 shrink-0">{game.puzzleDifficulty}</span>
-                  )}
-                  {player.bestTime && !phone && (
-                    <span className="hidden sm:flex px-2 py-0.5 bg-emerald-900/50 border border-emerald-600/30 rounded-full text-xs lg:text-sm text-emerald-400 items-center gap-1 shrink-0" title="Your best No Assist time">
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      best {formatClock(player.bestTime)}
-                    </span>
-                  )}
-                </button>
-              ) : (
+              {phone ? null : puzzleButton || (
                 <p className="hidden lg:block text-base text-slate-400">Learn logic-based solving</p>
               )}
             </div>
@@ -1051,7 +1169,7 @@ export default function SudokuMentor() {
               <button
                 type="button"
                 onClick={() => setShowPuzzleLoader(true)}
-                className="px-2.5 lg:px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-lg lg:rounded-xl transition-all duration-200 flex items-center justify-center gap-1.5 font-medium text-sm"
+                className={`px-2.5 lg:px-4 py-2 ${PRIMARY_GRADIENT} text-white rounded-lg lg:rounded-xl transition-all duration-200 flex items-center justify-center gap-1.5 font-medium text-sm`}
                 title="Load puzzle" aria-label="Load Puzzle"
               >
                 <FolderOpen className="w-4 h-4 lg:w-5 lg:h-5 pointer-events-none" aria-hidden="true" />
@@ -1079,6 +1197,10 @@ export default function SudokuMentor() {
               />
             </div>
           </div>
+
+          {/* The phone's name row: the top row has no 130px to spare for it
+              (issue #107). */}
+          {phone && puzzleButton && <div className="mt-0.5 -mx-1">{puzzleButton}</div>}
         </div>
       </header>
 
@@ -1118,7 +1240,9 @@ export default function SudokuMentor() {
           className="fixed left-0 right-0 bottom-0 bg-slate-900/95 backdrop-blur-md border-t border-slate-700 z-40"
           style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
         >
-          <div className="relative px-2 pt-1 pb-1.5">{strip}<HintAnimationControls /></div>
+          <HintAnimationControls className="rounded-none border-x-0 border-b-0">
+            <div className="relative px-2 pt-1 pb-1.5">{strip}</div>
+          </HintAnimationControls>
         </div>
       )}
 
@@ -1129,7 +1253,10 @@ export default function SudokuMentor() {
           open={sheetOpen}
           pinned={sheetPinned}
           onPinnedChange={handlePinnedChange}
-          onClose={() => setSheetOpen(false)}
+          onClose={() => {
+            setSheetOpen(false);
+            restoreFocusAfterLesson();
+          }}
           topOffset={headerHeight}
           bottomOffset={bottomBarHeight}
           onHeightChange={lesson === 'bottom' ? setSheetHeight : undefined}

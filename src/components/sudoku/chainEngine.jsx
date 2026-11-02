@@ -1,6 +1,16 @@
 // Advanced Chain-Based Logic Engine for Expert Sudoku Techniques
 
-import { getRow, getCol, getBox, getRowIndices, getColIndices, getBoxIndices, arePeers } from './gridUnits';
+import { getRow, getCol, getRowIndices, getColIndices, getBoxIndices, arePeers, cellName } from './gridUnits';
+import { SCAN_CHAIN_NODES, fitsAHint } from './aicEngine';
+
+// A colouring is held to the same caps as an alternating chain (#88: the
+// larger library found 3D Medusa hints of 11, 13 and 15 nodes). A hint never
+// walks the player through more than HINT_CHAIN_NODES (fitsAHint); one whose shortest
+// proof is longer is still counted, up to SCAN_CHAIN_NODES as a chain is,
+// but it is not offered as the next lesson, and the ladder moves on to the
+// next rung, as it does for a chain past the cap.
+const tooLong = (walk, returnAll) =>
+  returnAll ? Array.isArray(walk) && walk.length > SCAN_CHAIN_NODES : !fitsAHint({ chainNodes: walk });
 
 // Strong Link: If one candidate is false, the other must be true
 const buildLinkGraph = (grid) => {
@@ -36,6 +46,93 @@ const buildLinkGraph = (grid) => {
   return { strongLinks };
 };
 
+// ---------------------------------------------------------------------------
+// Walking a colouring (#82)
+//
+// A colouring is a network rather than a single line, so there is no one
+// order to read it in. What makes a colour wrong is one pair of marks, and
+// what proves that pair is the run of links between them: follow the run
+// and the colours alternate, mark by mark, until the two ends come out the
+// same colour (or, for a trap, opposite colours either side of a cell that
+// sees both). That run is what the hint card walks, in the order the
+// colouring spread along it, and the board draws it with the chain overlay
+// the chain family already uses.
+// ---------------------------------------------------------------------------
+
+const edgeKey = (a, b) => (a < b ? `${a}:${b}` : `${b}:${a}`);
+
+// The shortest run of links joining two coloured marks, over the whole
+// colouring rather than the tree it happened to spread along (#88). The
+// tree's path up to where the two spreads meet and back down can be twice
+// as long as it needs to be, and the spec's promise is the shortest run.
+// Every run between two marks of one colouring alternates colours, so any
+// shortest one proves the same thing.
+
+/** A breadth-first spread from `a`: each mark it reaches, and where from. */
+const spreadFrom = (adjacency, a) => {
+  const cameFrom = new Map([[a, undefined]]);
+  const queue = [a];
+  for (let head = 0; head < queue.length; head++) {
+    for (const next of adjacency.get(queue[head]) ?? []) {
+      if (cameFrom.has(next)) continue;
+      cameFrom.set(next, queue[head]);
+      queue.push(next);
+    }
+  }
+  return cameFrom;
+};
+/** The run from where `spread` started to `b`, or null if it never got there. */
+const runTo = (spread, b) => {
+  if (!spread.has(b)) return null;
+  const run = [];
+  for (let at = b; at !== undefined; at = spread.get(at)) run.push(at);
+  return run.reverse();
+};
+
+/**
+ * Of the pairs [a, b] that `pairs` yields, the one joined by the shortest
+ * run, and that run. One spread per distinct first mark, however many
+ * partners it has.
+ */
+const shortestPairRun = (adjacency, pairs) => {
+  const spreads = new Map();
+  let best = null;
+  for (const pair of pairs) {
+    const [a, b] = pair;
+    if (!spreads.has(a)) spreads.set(a, spreadFrom(adjacency, a));
+    const run = runTo(spreads.get(a), b);
+    // The pair itself, not a copy: callers look up what they know about it.
+    if (run && (best === null || run.length < best.run.length)) best = { pair, run };
+  }
+  return best;
+};
+
+/**
+ * The run as chain nodes: the shape the card's link-by-link walk and the
+ * board's chain overlay already read. One node per mark, each saying how it
+ * joins the next; every link in a colouring is an exactly-one-of-two, so
+ * every one of them is a strong link.
+ */
+const colorChainNodes = (run, { cellOf, digitOf, colorOf, edges }) =>
+  run.map((node, i) => {
+    const next = run[i + 1];
+    const edge = next === undefined ? null : edges.get(edgeKey(node, next));
+    return {
+      cells: [cellOf(node)],
+      cell: cellOf(node),
+      digit: digitOf(node),
+      kind: 'candidate',
+      // 1 or 2, the two tints the board gives a colouring step.
+      color: colorOf(node) + 1,
+      truth: null,
+      endpoint: i === 0 || i === run.length - 1,
+      linkToNext: next === undefined ? null : 'strong',
+      linkVia: next === undefined ? null : edge?.via ?? 'unit',
+      linkUnit: edge?.unit ?? null,
+      linkSet: null,
+    };
+  });
+
 // X-Cycles (Simple Coloring on conjugate links)
 //
 // For each digit, connect cells joined by conjugate strong links (the digit
@@ -58,8 +155,11 @@ export const findXCycle = (grid, focusedDigit, returnAll = false) => {
 
     if (digitLinks.length < 2) continue;
 
-    // Build adjacency over conjugate links
+    // Build adjacency over conjugate links, keeping the unit each link was
+    // found in: the walk names it one link at a time ("in row 3, the only
+    // two places for 5 are...").
     const adjacency = new Map();
+    const edges = new Map();
     for (const link of digitLinks) {
       const a = link.from.cell;
       const b = link.to.cell;
@@ -67,6 +167,8 @@ export const findXCycle = (grid, focusedDigit, returnAll = false) => {
       if (!adjacency.has(b)) adjacency.set(b, new Set());
       adjacency.get(a).add(b);
       adjacency.get(b).add(a);
+      const key = edgeKey(a, b);
+      if (!edges.has(key)) edges.set(key, { via: 'unit', unit: { name: link.unit.toLowerCase() } });
     }
 
     // 2-color each connected component
@@ -101,10 +203,28 @@ export const findXCycle = (grid, focusedDigit, returnAll = false) => {
       const eliminations = [];
       let rule = null;
 
-      // Color wrap: same-colored cells sharing a unit kill that color
-      const wrappedColor = [colorA, colorB].findIndex(cells =>
-        cells.some((c1, idx) => cells.slice(idx + 1).some(c2 => arePeers(c1, c2)))
-      );
+      // Color wrap: same-colored cells sharing a unit kill that color. The
+      // pair itself is kept, not just the colour: it is what the card walks
+      // to, and the two marks the player is shown at the end.
+      let wrapPair = null;
+      let wrappedColor = -1;
+      // Of the pairs that wrap, the one with the shortest run between
+      // them, so the card walks as few links as the proof needs.
+      let wrapRun = null;
+      [colorA, colorB].forEach((cells, index) => {
+        if (wrappedColor !== -1) return;
+        const pairs = [];
+        for (let i = 0; i < cells.length; i++) {
+          for (let j = i + 1; j < cells.length; j++) {
+            if (arePeers(cells[i], cells[j])) pairs.push([cells[i], cells[j]]);
+          }
+        }
+        if (pairs.length === 0) return;
+        const best = shortestPairRun(adjacency, pairs);
+        wrapPair = best ? best.pair : pairs[0];
+        wrapRun = best ? best.run : null;
+        wrappedColor = index;
+      });
 
       if (wrappedColor !== -1) {
         const falseCells = wrappedColor === 0 ? colorA : colorB;
@@ -136,6 +256,51 @@ export const findXCycle = (grid, focusedDigit, returnAll = false) => {
             to: { cell: link.to.cell, digit }
           }));
 
+        // The run of links the card walks (#82). For a wrap it joins the
+        // two marks of one colour that cannot both be the digit; for a
+        // trap it joins the two opposite-coloured marks the erased cell
+        // sees, which is what makes that cell dead either way. The
+        // shortest such run is taken, so the player walks as few links as
+        // the proof needs.
+        // For a trap, of every cell it erases, the one whose two
+        // opposite-coloured marks are joined by the shortest run, so a trap
+        // with one short proof is never dropped for a long one.
+        let target = null;
+        let witness = wrapPair;
+        let run = wrapRun;
+        if (rule === 'trap') {
+          const pairs = [];
+          const targetOf = new Map();
+          for (const { cell } of eliminations) {
+            for (const a of colorA) {
+              if (!arePeers(cell, a)) continue;
+              for (const b of colorB) {
+                if (!arePeers(cell, b)) continue;
+                const pair = [a, b];
+                targetOf.set(pair, cell);
+                pairs.push(pair);
+              }
+            }
+          }
+          const best = shortestPairRun(adjacency, pairs);
+          witness = best ? best.pair : null;
+          run = best ? best.run : null;
+          target = best ? targetOf.get(best.pair) : eliminations[0].cell;
+        }
+        const walk = run
+          ? colorChainNodes(run, {
+              cellOf: (cell) => cell,
+              digitOf: () => digit,
+              colorOf: (cell) => colorOf.get(cell),
+              edges,
+            })
+          : null;
+        const survivingFirst = rule === 'wrap'
+          ? [wrappedColor === 0 ? colorB : colorA, wrappedColor === 0 ? colorA : colorB]
+          // A trap proves nothing against either colour, so these are just
+          // the two colours, in the order the colouring found them.
+          : [colorA, colorB];
+
         const step = {
           technique: 'X-Cycle',
           digit,
@@ -143,9 +308,17 @@ export const findXCycle = (grid, focusedDigit, returnAll = false) => {
           targetCells: eliminations.map(e => e.cell),
           chains: component,
           strongLinks: componentLinks,
+          // The two colours for the board, in the same two tints 3D Medusa
+          // uses, so the colouring family looks like one family.
+          colorGroups: survivingFirst.map((cells) => [...cells].sort((a, b) => a - b)),
+          colorRule: rule,
+          colorWitness: witness ? witness.map((cell) => ({ cell, digit })) : null,
+          colorTarget: target,
+          ...(walk && walk.length > 1 ? { chainNodes: walk, chainColouring: true } : {}),
+          // The animation reads the colours as the colouring found them,
+          // either side of the proof, and which colour a wrap kills.
           colorA,
           colorB,
-          rule,
           wrappedColor: rule === 'wrap' ? wrappedColor : null,
           eliminations,
           explanation: rule === 'wrap'
@@ -153,6 +326,7 @@ export const findXCycle = (grid, focusedDigit, returnAll = false) => {
             : `Simple coloring on digit ${digit}: chained strong links split these cells into two colors, one of which must be true. Any outside ${digit} that sees both colors can be eliminated.`
         };
 
+        if (tooLong(walk, returnAll)) continue;
         if (returnAll) {
           allInstances.push(step);
         } else {
@@ -165,6 +339,203 @@ export const findXCycle = (grid, focusedDigit, returnAll = false) => {
   return returnAll ? allInstances : null;
 };
 
+
+// 3D Medusa: colouring every digit at once.
+//
+// X-Cycle colours one digit along its conjugate pairs. Medusa adds the
+// other half of the picture: inside a cell with exactly two candidates,
+// one of the two is true, which is a strong link as well. Colour both
+// kinds of link together and the colouring spans every digit on the board.
+//
+// Every link is an exactly-one-of-two, so within a component one colour is
+// entirely true and the other entirely false. Two conclusions follow, and
+// both are implemented here because the second is the common one:
+//
+//   a cell that meets one colour twice - two candidates of the same cell
+//   in the same colour - cannot have that colour true, because a cell
+//   holds one digit;
+//
+//   a unit that meets one colour twice - the same digit in two cells of
+//   one row, column or box, both in the same colour - cannot have that
+//   colour true either.
+//
+// Either way that colour is false, and every candidate wearing it goes.
+export const find3DMedusa = (grid, focusedDigit = null, returnAll = false) => {
+  const allInstances = [];
+
+  // A node is one candidate: cell * 10 + digit.
+  const nodeCell = (node) => Math.floor(node / 10);
+  const nodeDigit = (node) => node % 10;
+
+  const adjacency = new Map();
+  // What kind of link each join was made with, so the walk can say it one
+  // link at a time: a digit with two homes left in a row, column or box,
+  // or a cell with two pencil marks left.
+  const edges = new Map();
+  const join = (a, b, edge) => {
+    if (!adjacency.has(a)) adjacency.set(a, new Set());
+    if (!adjacency.has(b)) adjacency.set(b, new Set());
+    adjacency.get(a).add(b);
+    adjacency.get(b).add(a);
+    const key = edgeKey(a, b);
+    if (!edges.has(key)) edges.set(key, edge);
+  };
+
+  const units = [
+    ...Array.from({ length: 9 }, (_, i) => ({ type: 'row', indices: getRowIndices(i), name: `row ${i + 1}` })),
+    ...Array.from({ length: 9 }, (_, i) => ({ type: 'column', indices: getColIndices(i), name: `column ${i + 1}` })),
+    ...Array.from({ length: 9 }, (_, i) => ({ type: 'box', indices: getBoxIndices(i), name: `box ${i + 1}` })),
+  ];
+
+  // Strong links of the first kind: a digit with exactly two homes in a unit.
+  for (const unit of units) {
+    for (let digit = 1; digit <= 9; digit++) {
+      const spots = unit.indices.filter(
+        (i) => grid[i].value === null && grid[i].candidates.includes(digit)
+      );
+      if (spots.length === 2) {
+        join(spots[0] * 10 + digit, spots[1] * 10 + digit, { via: 'unit', unit: { name: unit.name } });
+      }
+    }
+  }
+  // And of the second kind: a cell with exactly two candidates left.
+  for (let i = 0; i < 81; i++) {
+    if (grid[i].value !== null || grid[i].candidates.length !== 2) continue;
+    const [d1, d2] = grid[i].candidates;
+    join(i * 10 + d1, i * 10 + d2, { via: 'bivalue', unit: null });
+  }
+
+  const colorOf = new Map();
+  for (const start of adjacency.keys()) {
+    if (colorOf.has(start)) continue;
+
+    const component = [];
+    colorOf.set(start, 0);
+    const queue = [start];
+    let consistent = true;
+    while (queue.length > 0) {
+      const node = queue.shift();
+      component.push(node);
+      for (const next of adjacency.get(node)) {
+        if (!colorOf.has(next)) {
+          colorOf.set(next, 1 - colorOf.get(node));
+          queue.push(next);
+        } else if (colorOf.get(next) === colorOf.get(node)) {
+          // An odd cycle of exactly-one-of-two constraints cannot be
+          // coloured, and nothing may be concluded from it.
+          consistent = false;
+        }
+      }
+    }
+    if (!consistent || component.length < 3) continue;
+
+    const colors = [
+      component.filter((n) => colorOf.get(n) === 0),
+      component.filter((n) => colorOf.get(n) === 1),
+    ];
+    if (colors[0].length === 0 || colors[1].length === 0) continue;
+
+    // Which colour contradicts itself, and by which of the two rules.
+    let falseColor = -1;
+    let rule = null;
+    let witness = null;
+    // Of the pairs that clash in that colour, the one with the shortest
+    // run between them is the one the card walks: the eliminations are the
+    // whole colour either way, so only the length of the proof changes.
+    let run = null;
+    for (let c = 0; c < 2 && falseColor === -1; c++) {
+      const nodes = colors[c];
+      const pairs = [];
+      const ruleOf = new Map();
+      for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+          const a = nodes[i];
+          const b = nodes[j];
+          const clash =
+            nodeCell(a) === nodeCell(b)
+              ? 'cell'
+              : nodeDigit(a) === nodeDigit(b) && arePeers(nodeCell(a), nodeCell(b))
+                ? 'unit'
+                : null;
+          if (!clash) continue;
+          const pair = [a, b];
+          ruleOf.set(pair, clash);
+          pairs.push(pair);
+        }
+      }
+      if (pairs.length === 0) continue;
+      const best = shortestPairRun(adjacency, pairs);
+      falseColor = c;
+      witness = best ? best.pair : pairs[0];
+      rule = ruleOf.get(witness);
+      run = best ? best.run : null;
+    }
+    if (falseColor === -1) continue;
+
+    const eliminations = colors[falseColor].map((n) => ({ cell: nodeCell(n), digit: nodeDigit(n) }));
+    if (focusedDigit && !eliminations.some((e) => e.digit === focusedDigit)) continue;
+
+    const cellsOf = (nodes) => [...new Set(nodes.map(nodeCell))];
+    const trueColor = 1 - falseColor;
+    const falseCells = new Set(cellsOf(colors[falseColor]));
+    const trueCells = new Set(cellsOf(colors[trueColor]));
+    // A cell can wear both colours, when two of its candidates are in the
+    // network; those are left plain rather than given one of the two tints.
+    const onlyTrue = [...trueCells].filter((c) => !falseCells.has(c)).sort((a, b) => a - b);
+    const onlyFalse = [...falseCells].filter((c) => !trueCells.has(c)).sort((a, b) => a - b);
+    const name = (node) => `${cellName(nodeCell(node))}'s ${nodeDigit(node)}`;
+    const clash = rule === 'cell'
+      ? `${cellName(nodeCell(witness[0]))} would have to be both ${nodeDigit(witness[0])} and ${nodeDigit(witness[1])}`
+      : `${cellName(nodeCell(witness[0]))} and ${cellName(nodeCell(witness[1]))} would both be ${nodeDigit(witness[0])}, and they share a ${
+          getRow(nodeCell(witness[0])) === getRow(nodeCell(witness[1])) ? 'row'
+          : getCol(nodeCell(witness[0])) === getCol(nodeCell(witness[1])) ? 'column' : 'box'
+        }`;
+
+    // The run of links the card walks (#82): from one of the two marks
+    // that clash to the other, which is the part of the network that
+    // proves this colour wrong.
+    const walk = run
+      ? colorChainNodes(run, { cellOf: nodeCell, digitOf: nodeDigit, colorOf: (n) => colorOf.get(n), edges })
+      : null;
+
+    const step = {
+      technique: '3D Medusa',
+      digit: null,
+      baseCells: cellsOf(component),
+      targetCells: [...new Set(eliminations.map((e) => e.cell))],
+      medusaRule: rule,
+      medusaWitness: witness.map((n) => ({ cell: nodeCell(n), digit: nodeDigit(n) })),
+      // The same two fields X-Cycle carries, so one walk serves both.
+      colorRule: rule,
+      colorWitness: witness.map((n) => ({ cell: nodeCell(n), digit: nodeDigit(n) })),
+      ...(walk && walk.length > 1 ? { chainNodes: walk, chainColouring: true } : {}),
+      // The two colours for the board, the surviving one first and the
+      // false one second, in the two tints the ALS sets already use.
+      colorGroups: [onlyTrue, onlyFalse],
+      strongLinks: component.flatMap((node) =>
+        [...adjacency.get(node)]
+          .filter((other) => other > node)
+          .map((other) => ({
+            from: { cell: nodeCell(node), digit: nodeDigit(node) },
+            to: { cell: nodeCell(other), digit: nodeDigit(other) },
+          }))
+      ),
+      eliminations,
+      explanation:
+        `3D Medusa: strong links on every digit - a digit with two homes in a unit, and the two candidates of a ` +
+        `bi-value cell - chain these candidates into one network, two-coloured so that one colour is entirely true ` +
+        `and the other entirely false. ${rule === 'cell' ? 'A cell' : 'A unit'} meets one colour twice here: ` +
+        `${clash}. That colour cannot be the true one, so every candidate in it is eliminated` +
+        `${witness ? ` (${name(witness[0])} and ${name(witness[1])} among them)` : ''}.`,
+    };
+
+    if (tooLong(walk, returnAll)) continue;
+    if (returnAll) allInstances.push(step);
+    else return step;
+  }
+
+  return returnAll ? allInstances : null;
+};
 
 // Almost Locked Set (ALS) - XZ Rule
 export const findALSXZ = (grid, focusedDigit, returnAll = false) => {
@@ -293,167 +664,10 @@ export const findALSXZ = (grid, focusedDigit, returnAll = false) => {
   return returnAll ? allInstances : null;
 };
 
-// Unique Rectangle Type 1
-export const findUniqueRectangle = (grid, focusedDigit = null, returnAll = false) => {
-  const allInstances = [];
-  for (let r1 = 0; r1 < 8; r1++) {
-    for (let r2 = r1 + 1; r2 < 9; r2++) {
-      for (let c1 = 0; c1 < 8; c1++) {
-        for (let c2 = c1 + 1; c2 < 9; c2++) {
-          const corners = [
-            r1 * 9 + c1,
-            r1 * 9 + c2,
-            r2 * 9 + c1,
-            r2 * 9 + c2
-          ];
-          
-          // The deadly pattern only exists when the four corners span
-          // exactly two boxes (a 4-box rectangle is not interchangeable).
-          const boxes = corners.map(getBox);
-          if (new Set(boxes).size !== 2) continue;
-
-          // Check if all corners are empty
-          if (!corners.every(c => grid[c].value === null)) continue;
-
-          // Type 1: three corners hold exactly the same two candidates
-          // (the floor); the fourth holds those two plus extras (the roof).
-          const biValueCorners = corners.filter(c => grid[c].candidates.length === 2);
-          if (biValueCorners.length !== 3) continue;
-
-          const [d1, d2] = grid[biValueCorners[0]].candidates;
-          const floorMatches = biValueCorners.every(c =>
-            grid[c].candidates.includes(d1) && grid[c].candidates.includes(d2)
-          );
-          if (!floorMatches) continue;
-
-          const extraCorner = corners.find(c => !biValueCorners.includes(c));
-          const extraCands = grid[extraCorner].candidates;
-          if (
-            extraCands.length <= 2 ||
-            !extraCands.includes(d1) ||
-            !extraCands.includes(d2)
-          ) continue;
-
-          // If all four corners kept only {d1,d2}, the puzzle would have two
-          // solutions - so the roof corner must take one of its extras:
-          // remove d1 and d2 from it.
-          const eliminations = [d1, d2].map(digit => ({ cell: extraCorner, digit }));
-
-          if (focusedDigit && d1 !== focusedDigit && d2 !== focusedDigit) continue;
-
-          const step = {
-            technique: 'Unique Rectangle Type 1',
-            digit: null,
-            baseCells: corners,
-            targetCells: [extraCorner],
-            eliminations,
-            explanation: `Unique Rectangle on digits ${d1} and ${d2}: if R${getRow(extraCorner)+1}C${getCol(extraCorner)+1} were ${d1} or ${d2}, the four corners could swap ${d1}/${d2} freely and the puzzle would have two solutions. Since a valid Sudoku has one solution, ${d1} and ${d2} can be removed from R${getRow(extraCorner)+1}C${getCol(extraCorner)+1}.`
-          };
-
-          if (returnAll) {
-            allInstances.push(step);
-          } else {
-            return step;
-          }
-        }
-      }
-    }
-  }
-  
-  return returnAll ? allInstances : null;
-};
-
-// BUG+1 (Bivalue Universal Grave plus 1)
-export const findBUGPlus1 = (grid, focusedDigit = null, returnAll = false) => {
-  let extraCell = null;
-  let extraDigit = null;
-  
-  // Count bi-value cells and tri-value cells
-  let triValueCount = 0;
-  
-  for (let i = 0; i < 81; i++) {
-    const cell = grid[i];
-    if (cell.value !== null) continue;
-    
-    const candCount = cell.candidates.length;
-    
-    if (candCount === 3) {
-      triValueCount++;
-      extraCell = i;
-    } else if (candCount > 3) {
-      return returnAll ? [] : null; // Not a BUG pattern
-    }
-  }
-  
-  // BUG+1: All cells bi-value except one tri-value
-  if (triValueCount !== 1) return returnAll ? [] : null;
-  
-  // For each digit in units, count occurrences
-  const units = [
-    ...Array.from({ length: 9 }, (_, i) => getRowIndices(i)),
-    ...Array.from({ length: 9 }, (_, i) => getColIndices(i)),
-    ...Array.from({ length: 9 }, (_, i) => getBoxIndices(i))
-  ];
-  
-  // Find which digit appears 3 times in all units containing the extra cell
-  for (const digit of grid[extraCell].candidates) {
-    let isExtra = true;
-
-    const relevantUnits = units.filter(unit => unit.includes(extraCell));
-
-    for (const unit of relevantUnits) {
-      const count = unit.filter(c =>
-        grid[c].value === null && grid[c].candidates.includes(digit)
-      ).length;
-
-      if (count !== 3) {
-        isExtra = false;
-        break;
-      }
-    }
-
-    if (isExtra) {
-      extraDigit = digit;
-      break;
-    }
-  }
-
-  // Verify the actual BUG property before placing anything: in EVERY unit,
-  // every candidate digit must appear exactly 0 or 2 times - the only
-  // exception being the extra digit appearing 3 times in the three units
-  // that contain the tri-value cell. Cell-count shapes alone (all bi-value
-  // + one tri-value) do NOT guarantee a BUG, and a false positive here
-  // places a wrong digit.
-  if (extraDigit) {
-    for (const unit of units) {
-      for (let d = 1; d <= 9; d++) {
-        const count = unit.filter(c =>
-          grid[c].value === null && grid[c].candidates.includes(d)
-        ).length;
-        if (count === 0 || count === 2) continue;
-        if (count === 3 && d === extraDigit && unit.includes(extraCell)) continue;
-        return returnAll ? [] : null;
-      }
-    }
-  }
-
-  if (focusedDigit && extraDigit !== focusedDigit) return returnAll ? [] : null;
-
-  if (extraDigit) {
-    const step = {
-      technique: 'BUG+1',
-      digit: extraDigit,
-      baseCells: [extraCell],
-      targetCells: [],
-      placement: { cell: extraCell, digit: extraDigit },
-      eliminations: [],
-      explanation: `BUG+1 pattern detected. R${getRow(extraCell)+1}C${getCol(extraCell)+1} must be ${extraDigit} to avoid a deadly pattern with multiple solutions.`
-    };
-    return returnAll ? [step] : step;
-  }
-  
-  return returnAll ? [] : null;
-};
+// Unique Rectangle Type 1 and BUG+1 used to live here. They moved to
+// uniquenessEngine.jsx with the rest of the uniqueness family, because they
+// share its one argument and, more importantly, its guard: nothing in that
+// family may run on a grid that is not known to have exactly one answer.
 
 // Finned X-Wing, in both orientations.
 //
@@ -494,6 +708,14 @@ export const findFinnedXWing = (grid, focusedDigit, returnAll = false) => {
             ...l2.positions.filter(p => !commonCovers.includes(o.coverOf(p))),
           ];
           if (fins.length === 0 || fins.length > 2) continue;
+
+          // Both corners of the X-Wing occupied. A base line left with a
+          // single candidate inside the cover lines is the sashimi shape,
+          // which fishEngine reports as a Sashimi Fish at every size, so
+          // one pattern never carries two names.
+          const coreCount = (line) =>
+            line.positions.filter(p => commonCovers.includes(o.coverOf(p))).length;
+          if (coreCount(l1) < 2 || coreCount(l2) < 2) continue;
 
           const eliminations = [];
           for (const cover of commonCovers) {

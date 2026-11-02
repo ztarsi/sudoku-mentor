@@ -52,6 +52,18 @@ describe('playerData scoping', () => {
     expect(await bestNoAssistTime(null, 'Tea Time')).toBeNull();
   });
 
+  it('finds a best time set before a library puzzle was renamed (#79)', async () => {
+    filter.mockImplementation(async (query) =>
+      query.puzzle_name === 'X-Wing Territory' ? [{ time_seconds: 200 }] : query.puzzle_name === 'Garden Path' ? [{ time_seconds: 250 }] : []
+    );
+    expect(await bestNoAssistTime(me, 'Garden Path')).toBe(200);
+    expect(filter).toHaveBeenCalledWith({ created_by: me.email, puzzle_name: 'X-Wing Territory', no_assist: true }, 'time_seconds', 1);
+    filter.mockImplementation(async (query) => (query.puzzle_name === 'X-Wing Territory' ? [{ time_seconds: 200 }] : []));
+    expect(await bestNoAssistTime(me, 'Garden Path')).toBe(200);
+    filter.mockImplementation(async () => []);
+    expect(await bestNoAssistTime(me, 'Garden Path')).toBeNull();
+  });
+
   it('refuses to rename or delete a puzzle the player did not create', async () => {
     const theirs = { id: 'p1', created_by: 'someone@else.com' };
     await expect(renamePuzzle(me, theirs, 'x')).rejects.toThrow(/own puzzles/);

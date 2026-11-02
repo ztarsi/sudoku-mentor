@@ -72,6 +72,7 @@ export default function LessonSheet({
           transition={{ type: 'spring', damping: 30, stiffness: 300 }}
           ref={panelRef}
           aria-label="Lesson"
+          data-lesson-sheet
           data-testid="lesson-sheet"
           data-side={side}
           className={`fixed z-40 bg-slate-900 border-slate-700 shadow-2xl shadow-black/60 flex flex-col ${

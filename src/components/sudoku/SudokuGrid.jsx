@@ -3,11 +3,15 @@ import Cell from './Cell';
 import CellContextMenu from './CellContextMenu';
 import HintAnimationOverlay from './HintAnimationOverlay';
 import { useHintAnimation } from './hintAnimation';
-import { buildHighlightSets } from './stepHighlights';
+import { buildHighlightSets, buildChainOverlay } from './stepHighlights';
 import { commonUnit } from './gridUnits';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { isTypingTarget } from './keyboardShortcuts';
 import { dialogJustClosed } from '@/hooks/useDialog';
+
+// One colour per case of a forcing proof, from the palette the what-if
+// overlay has always used. Nothing new is invented here.
+const BRANCH_COLORS = ['#10b981', '#a855f7', '#3b82f6', '#f59e0b'];
 
 export default function SudokuGrid({
   grid,
@@ -22,7 +26,6 @@ export default function SudokuGrid({
   colors,
   currentStep,
   highlightedSteps = [],
-  playbackIndex,
   rejectedInput = null,
   maxSize = null,
   onCellClick,
@@ -107,26 +110,32 @@ export default function SudokuGrid({
 
   // DOM focus follows the selection so keyboard users can Tab to the grid
   // and screen readers hear the newly selected cell. Never steal focus
-  // from a dialog or a text field.
+  // from a dialog, an open menu or a text field.
   useEffect(() => {
     if (selectedCell === null || selectedCell === undefined) return;
     const el = document.getElementById(`sudoku-cell-${selectedCell}`);
     if (!el) return;
     const active = document.activeElement;
-    if (active && (active.closest('[role="dialog"]') || isTypingTarget(active))) return;
+    if (active && (active.closest('[role="dialog"], [role="menu"]') || isTypingTarget(active))) return;
     if (active === el) return;
     el.focus({ preventScroll: true });
   }, [selectedCell]);
 
   // Highlight flags are derived from the presented steps at render time;
   // the grid data itself stays purely game state.
-  // While a hint animation plays, the overlay owns the picture: the step's
-  // own highlights would give the conclusion away before the animation does.
+  //
+  // While a hint animation plays, the overlay owns the picture: everything
+  // the step would otherwise draw at rest stands down for its duration -
+  // the highlighted cells, the marks it is about, and above all the red
+  // marks it is going to erase. An animation that opens on its own answer
+  // has nothing left to show.
   const animating = !!useHintAnimation();
   const highlightSets = useMemo(
     () => buildHighlightSets(animating ? [] : highlightedSteps ?? []),
     [highlightedSteps, animating]
   );
+  const shownRemovals = animating ? null : removalCandidates;
+  const shownFocused = animating ? null : focusedCandidates;
 
   const handleTouchStart = (e, cellIndex) => {
     const touch = e.touches[0];
@@ -182,7 +191,9 @@ export default function SudokuGrid({
     if (contextMenu.cellIndex !== null && focusedDigit) onToggleCandidate(contextMenu.cellIndex, focusedDigit);
   };
 
+  // The ALS bridge, which the animation also draws in its own time.
   const alsLinks = useMemo(() => {
+    if (animating) return [];
     if (currentStep?.technique !== 'ALS-XZ' || !currentStep.als1 || !currentStep.als2) return [];
     const links = [];
     const { als1, als2, zDigit, xDigit } = currentStep;
@@ -201,29 +212,31 @@ export default function SudokuGrid({
         links.push({ from: getCellCenter(xCell1), to: getCellCenter(xCell2), color: '#f59e0b', type: 'bridge', strokeWidth: 4, dashArray: '8,4' });
     return links;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep, grid, overlayCellSize]);
+  }, [animating, currentStep, grid, overlayCellSize]);
 
-  const forcingChains = useMemo(() => {
-    const forcingTechniques = ['Deep Forcing Chain', 'Hypothesis Mode', 'Cell Forcing Chain'];
-    if (!forcingTechniques.includes(currentStep?.technique)) return null;
+  // The chain overlay (#67): the nodes in order, strong links solid and
+  // weak links dashed, a group drawn as one outlined region so the player
+  // sees one node, and a continuous loop drawn closed. The base and target
+  // colours already in use, and nothing new. The geometry is a pure helper
+  // so the drawing can be checked without a browser.
+  // While the animation plays it owns the picture, here too: the step's
+  // own chain would draw the whole proof before the animation reaches it.
+  const chainOverlay = useMemo(
+    () => buildChainOverlay(animating ? null : currentStep, overlayCellSize),
+    [animating, currentStep, overlayCellSize]
+  );
 
-    const rawChains = currentStep.chains
-      ? currentStep.chains
-      : currentStep.chain && currentStep.contradiction
-      ? [{ cells: currentStep.chain, color: '#ef4444', label: `If ${currentStep.contradictoryDigit}` }]
-      : null;
-    if (!rawChains) return null;
-
-    // Chain entries are {cell, value, action, reason} records; the overlay
-    // needs the sequence of placed cell INDICES. (Passing the raw entries
-    // into getCellCenter produced NaN coordinates before.)
-    return rawChains.map((chain) => ({
-      ...chain,
-      cellIndices: (chain.cells ?? [])
-        .filter((entry) => (typeof entry === 'object' ? entry.action === 'place' : true))
-        .map((entry) => (typeof entry === 'object' ? entry.cell : entry)),
-    }));
-  }, [currentStep]);
+  // A colouring step (3D Medusa) carries its two colours as cell lists,
+  // the surviving colour first. Mapped once, not per cell.
+  const colorGroupOf = useMemo(() => {
+    if (animating) return null;
+    const groups = currentStep?.colorGroups;
+    if (!Array.isArray(groups) || groups.length !== 2) return null;
+    const map = new Map();
+    groups[0]?.forEach((cell) => map.set(cell, 1));
+    groups[1]?.forEach((cell) => map.set(cell, 2));
+    return map;
+  }, [animating, currentStep]);
 
   // Hoisted out of the 81-cell render loop (it was recomputed per cell).
   const alsUnits = useMemo(() => {
@@ -325,13 +338,14 @@ export default function SudokuGrid({
                   hasError={validationErrors.includes(index)}
                   borderClasses={`${borderRight} ${borderBottom}`}
                   focusedDigit={focusedDigit}
-                  focusedCandidates={focusedCandidates}
-                  removalCandidates={removalCandidates?.[index]}
+                  focusedCandidates={shownFocused}
+                  removalCandidates={shownRemovals?.[index]}
                   candidateMode={candidateMode}
                   candidatesVisible={candidatesVisible}
                   colors={colors}
                   alsSet={alsSet}
                   alsUnitHighlight={alsUnitHighlight}
+                  colorGroup={colorGroupOf?.get(index) ?? null}
                   currentStep={currentStep}
                   xDigit={currentStep?.technique === 'ALS-XZ' ? currentStep.xDigit : null}
                   zDigit={currentStep?.technique === 'ALS-XZ' ? currentStep.zDigit : null}
@@ -360,25 +374,145 @@ export default function SudokuGrid({
               </svg>
             )}
 
-            {/* Forcing chain overlay: connect consecutive placements up to
-                the current playback position */}
-            {forcingChains && overlaySize > 0 && (
-              <svg className="absolute inset-0 pointer-events-none" width={overlaySize} height={overlaySize} style={{ overflow: 'visible' }}>
-                {forcingChains.map((chain, chainIndex) => {
-                  const visible = playbackIndex != null
-                    ? chain.cellIndices.slice(0, playbackIndex + 2)
-                    : chain.cellIndices;
-                  return visible.slice(0, -1).map((cellIdx, i) => {
-                    const from = getCellCenter(cellIdx);
-                    const to = getCellCenter(visible[i + 1]);
-                    return (
-                      <line key={`${chainIndex}-${i}`} x1={from.x} y1={from.y} x2={to.x} y2={to.y}
-                        stroke={chain.color || '#ef4444'} strokeWidth={2} strokeLinecap="round" opacity={0.7} />
-                    );
-                  });
+            {/* Chain overlay: the nodes in order, strong links solid and
+                weak links dashed, groups outlined as one node, a continuous
+                loop closed. The animation draws its own picture over it. */}
+            {chainOverlay && overlaySize > 0 && (
+              <svg
+                className="absolute inset-0 pointer-events-none"
+                width={overlaySize}
+                height={overlaySize}
+                style={{ overflow: 'visible' }}
+                data-testid="chain-overlay"
+                data-chain-links={chainOverlay.links.length}
+                data-chain-groups={chainOverlay.groups.length}
+                data-chain-closed={chainOverlay.closed ? 'true' : 'false'}
+                data-chain-sets={chainOverlay.sets.length}
+              >
+                {chainOverlay.sets.map((s, i) => (
+                  <g key={`s${i}`}>
+                    {s.joins.map((j, n) => (
+                      <line key={`sj${n}`} x1={j.from.x} y1={j.from.y} x2={j.to.x} y2={j.to.y}
+                        stroke="#3b82f6" strokeWidth={1.5} strokeDasharray="4,3" opacity={0.5} />
+                    ))}
+                    {s.parts.map((p, n) => (
+                      <rect
+                        key={`sp${n}`}
+                        x={p.x}
+                        y={p.y}
+                        width={p.width}
+                        height={p.height}
+                        rx={overlayCellSize ? overlayCellSize * 0.18 : 6}
+                        fill="none"
+                        stroke="#3b82f6"
+                        strokeWidth={2}
+                        strokeDasharray="4,3"
+                        opacity={0.6}
+                      />
+                    ))}
+                    {/* The set's digits, inside its own region and outlined
+                        so they read over a pencil mark. Where a step says
+                        what part a region plays - the overlap, the line and
+                        the box of a Sue de Coq - it is named underneath, so
+                        three regions can be told apart without inventing a
+                        colour for each. */}
+                    <text
+                      x={s.x + 3}
+                      y={s.y + (overlayCellSize ? overlayCellSize * 0.24 : 9)}
+                      fill="#60a5fa"
+                      stroke={colors?.cellBg || '#020617'}
+                      strokeWidth={3}
+                      paintOrder="stroke"
+                      fontSize={overlayCellSize ? overlayCellSize * 0.24 : 9}
+                      fontWeight="600"
+                    >
+                      {s.digits.join('')}
+                    </text>
+                    {s.label && (
+                      <text
+                        x={s.x + 3}
+                        y={s.y + (overlayCellSize ? overlayCellSize * 0.48 : 18)}
+                        fill="#60a5fa"
+                        stroke={colors?.cellBg || '#020617'}
+                        strokeWidth={3}
+                        paintOrder="stroke"
+                        fontSize={overlayCellSize ? overlayCellSize * 0.2 : 8}
+                        fontWeight="500"
+                      >
+                        {s.label}
+                      </text>
+                    )}
+                  </g>
+                ))}
+                {/* A group is one node: its cells are outlined and joined,
+                    cell by cell, so the gap between two of them is never
+                    drawn as part of the group. */}
+                {chainOverlay.groups.map((g, i) => (
+                  <g key={`g${i}`}>
+                    {g.joins.map((j, n) => (
+                      <line key={`gj${n}`} x1={j.from.x} y1={j.from.y} x2={j.to.x} y2={j.to.y}
+                        stroke="#3b82f6" strokeWidth={2} opacity={0.9} />
+                    ))}
+                    {g.parts.map((p, n) => (
+                      <rect
+                        key={`gp${n}`}
+                        x={p.x}
+                        y={p.y}
+                        width={p.width}
+                        height={p.height}
+                        rx={overlayCellSize ? overlayCellSize * 0.18 : 6}
+                        fill="none"
+                        stroke="#3b82f6"
+                        strokeWidth={2}
+                        opacity={0.9}
+                      />
+                    ))}
+                  </g>
+                ))}
+                {/* The whole chain stays on the board, so the step is
+                    readable at rest; the link the player is standing on is
+                    drawn heavier as they walk it. */}
+                {chainOverlay.links.map((link, i) => {
+                  // The whole step at rest: what the player is standing
+                  // on is the animation's business, and it draws its own
+                  // picture over this one (#97).
+                  const stroke = link.branch != null ? BRANCH_COLORS[link.branch % BRANCH_COLORS.length] : '#3b82f6';
+                  return (
+                    <line
+                      key={`l${i}`}
+                      x1={link.from.x}
+                      y1={link.from.y}
+                      x2={link.to.x}
+                      y2={link.to.y}
+                      stroke={stroke}
+                      strokeWidth={link.strong ? 3 : 2}
+                      strokeDasharray={link.strong ? undefined : '5,5'}
+                      strokeLinecap="round"
+                      opacity={0.6}
+                      data-chain-link={i}
+                      data-chain-branch={link.branch != null ? link.branch : undefined}
+                      data-chain-strong={link.strong ? 'true' : 'false'}
+                    />
+                  );
                 })}
+                {/* The two ends, ringed: one of them is true. They are part
+                    of the pattern, so they keep the base colour; the target
+                    colour stays reserved for what is erased. */}
+                {chainOverlay.endpoints.map((end, i) => (
+                  <circle
+                    key={`e${i}`}
+                    cx={end.x}
+                    cy={end.y}
+                    r={overlayCellSize ? overlayCellSize * 0.38 : 14}
+                    fill="none"
+                    stroke="#3b82f6"
+                    strokeWidth={3.5}
+                    opacity={0.95}
+                  />
+                ))}
               </svg>
             )}
+
           </div>
         </div>
       </div>

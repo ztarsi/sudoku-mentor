@@ -1,5 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Menu, Check } from 'lucide-react';
+import { useDialog } from '@/hooks/useDialog';
+
+const ITEM_SELECTOR = '[role="menuitem"], [role="menuitemradio"]';
 
 /**
  * The one overflow menu in the header (header-and-menu spec). Everything
@@ -11,12 +14,20 @@ import { Menu, Check } from 'lucide-react';
  * entry draws a divider and `{ heading }` labels the group that follows.
  * The menu closes on Escape, on a click outside and after any selection,
  * and returns focus to its button. Arrow keys move between items.
+ *
+ * While it is open it holds the keyboard, the way the Library and Scan
+ * dialogs do: `useDialog` moves focus to the first item, keeps Tab inside
+ * the list and hands focus back to the hamburger when it closes, so Tab no
+ * longer walks the board and the digit pad behind an open menu (issue
+ * #109). It keeps `role="menu"` and its arrow keys rather than becoming a
+ * dialog, because that is what it is.
  */
 export default function HeaderMenu({ items, label = 'Menu' }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(/** @type {HTMLDivElement | null} */ (null));
   const buttonRef = useRef(/** @type {HTMLButtonElement | null} */ (null));
-  const listRef = useRef(/** @type {HTMLDivElement | null} */ (null));
+  const menu = useDialog({ open, onClose: () => setOpen(false), initialFocus: ITEM_SELECTOR });
+  const listRef = menu.ref;
 
   useEffect(() => {
     if (!open) return undefined;
@@ -24,16 +35,10 @@ export default function HeaderMenu({ items, label = 'Menu' }) {
       if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false);
     };
     const onKey = (e) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        setOpen(false);
-        buttonRef.current?.focus();
-        return;
-      }
       if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
       const list = listRef.current;
       if (!list) return;
-      const entries = Array.from(list.querySelectorAll('[role="menuitem"], [role="menuitemradio"]'));
+      const entries = Array.from(list.querySelectorAll(ITEM_SELECTOR));
       if (entries.length === 0) return;
       e.preventDefault();
       const at = entries.indexOf(/** @type {any} */ (document.activeElement));
@@ -42,24 +47,24 @@ export default function HeaderMenu({ items, label = 'Menu' }) {
     };
     document.addEventListener('pointerdown', onPointerDown);
     document.addEventListener('keydown', onKey, true);
-    // Focus the first item so the keyboard lands inside the menu.
-    const raf = requestAnimationFrame(() => {
-      const first = listRef.current?.querySelector('[role="menuitem"], [role="menuitemradio"]');
-      if (first instanceof HTMLElement) first.focus();
-    });
     return () => {
-      cancelAnimationFrame(raf);
       document.removeEventListener('pointerdown', onPointerDown);
       document.removeEventListener('keydown', onKey, true);
     };
-  }, [open]);
+  }, [open, listRef]);
 
   return (
     <div className="relative" ref={rootRef}>
       <button
         ref={buttonRef}
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          // Focus the hamburger before opening: it is where focus goes back
+          // to when the menu closes, and a click does not focus a button on
+          // every browser.
+          buttonRef.current?.focus();
+          setOpen((v) => !v);
+        }}
         className="p-2 bg-slate-800 text-slate-300 rounded-lg lg:rounded-xl hover:bg-slate-700 transition-all duration-200 flex items-center justify-center"
         aria-label={label}
         aria-haspopup="menu"
@@ -94,7 +99,6 @@ export default function HeaderMenu({ items, label = 'Menu' }) {
                 aria-checked={radio ? item.checked : undefined}
                 onClick={() => {
                   setOpen(false);
-                  buttonRef.current?.focus();
                   item.onSelect();
                 }}
                 className={`w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors focus:outline-none focus:bg-slate-700 hover:bg-slate-700 ${

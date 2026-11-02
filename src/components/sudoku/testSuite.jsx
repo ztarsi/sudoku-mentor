@@ -579,7 +579,7 @@ export const testSuites = {
             }
           }
 
-          const result = findForcingChain(grid, 5);
+          const result = findForcingChain(grid);
 
           if (!result) {
             return { pass: false, message: 'FAIL: Expected a Cell Forcing Chain converging on R2C2=4, got null' };
@@ -612,7 +612,7 @@ export const testSuites = {
             grid[i].candidates = [1, 2, 3, 4, 5, 6, 7, 8, 9];
           }
 
-          const result = findHypothesis(grid, 8);
+          const result = findHypothesis(grid);
 
           if (!result) {
             return { pass: false, message: 'FAIL: Expected hypothesis contradiction proving R1C1=2, got null' };

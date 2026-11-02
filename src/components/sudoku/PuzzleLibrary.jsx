@@ -5,7 +5,10 @@ import { listMyPuzzles, listMyNoAssistRecords, renamePuzzle, deletePuzzle } from
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/components/ui/use-toast';
 
-import { PUZZLES } from './puzzles';
+import { PUZZLES, currentPuzzleName } from './puzzles';
+import { startPuzzleAnalysis, teachingLabel } from './difficultyAnalyzer';
+import { LIBRARY_TEACHING } from './libraryTeaching';
+import { advanceInSlices } from './sliceRunner';
 export { PUZZLES };
 
 const DIFFICULTY_CONFIG = {
@@ -15,6 +18,18 @@ const DIFFICULTY_CONFIG = {
   expert: { icon: Crown, color: 'purple', label: 'Expert' },
   diabolical: { icon: Skull, color: 'red', label: 'Diabolical' },
   ultimate: { icon: Brain, color: 'violet', label: 'Ultimate' }
+};
+
+/**
+ * What a screen reader reads for one puzzle button: the name first, then
+ * what the row shows next to it. Without it the accessible name came from
+ * the preview grid, so it began with eighty-one digit and "dot" tokens
+ * (issue #109).
+ */
+const puzzleButtonLabel = (puzzle, teaching) => {
+  const clues = puzzle.puzzle.filter((v) => v !== 0).length;
+  const teaches = teachingLabel(teaching);
+  return [`${puzzle.name}, ${clues} clues given`, teaches].filter(Boolean).join(', ');
 };
 
 export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = false, user = null }) {
@@ -46,9 +61,12 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
   // Create a map of puzzle names to best times
   const bestTimesMap = React.useMemo(() => {
     const map = {};
+    // Under the name the puzzle has now: a record set before a library
+    // puzzle was renamed (#79) still counts.
     solveRecords.forEach(record => {
-      if (!map[record.puzzle_name] || record.time_seconds < map[record.puzzle_name]) {
-        map[record.puzzle_name] = record.time_seconds;
+      const name = currentPuzzleName(record.puzzle_name);
+      if (!map[name] || record.time_seconds < map[name]) {
+        map[name] = record.time_seconds;
       }
     });
     return map;
@@ -89,6 +107,43 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
       .map(p => ({ id: p.id, name: p.name, puzzle: p.puzzle, isCustom: true, record: p }))
   ];
 
+  // What each puzzle on this shelf teaches, measured rather than labelled by
+  // hand (technique-panel-at-scale spec). The built-in puzzles were
+  // measured once, and a test holds those answers to the live analyser
+  // (libraryTeaching.js, #95), so their labels are there on the first
+  // paint. The player's own puzzles are measured here: after the shelf has
+  // painted, in slices short enough not to be felt, and a shelf the player
+  // leaves drops the work for the one they moved to.
+  const [teaching, setTeaching] = useState(/** @type {Record<string, any>} */ (LIBRARY_TEACHING));
+  const puzzlesRef = useRef(allPuzzles);
+  puzzlesRef.current = allPuzzles;
+  const shelfKey = allPuzzles.map(p => p.puzzle.join('')).join(',');
+  useEffect(() => {
+    const tasks = puzzlesRef.current
+      .filter(p => !LIBRARY_TEACHING[p.puzzle.join('')])
+      .map(p => ({
+        key: p.puzzle.join(''),
+        ...startPuzzleAnalysis(p.puzzle),
+      }));
+    return advanceInSlices(
+      tasks,
+      (key, analysis) => setTeaching(prev => (prev[key] ? prev : { ...prev, [key]: analysis })),
+      { budgetMs: 50 }
+    );
+  }, [shelfKey]);
+
+  // The shelf's own note about what-if search, from the same analysis, so
+  // the shelf cannot claim something the engine does not do.
+  const analysed = PUZZLES[selectedDifficulty]
+    .map(p => teaching[p.puzzle.join('')])
+    .filter(a => a && a.complete);
+  const needWhatIf = analysed.filter(a => !a.namedOnly).length;
+  const whatIfNote = analysed.length < PUZZLES[selectedDifficulty].length || needWhatIf === 0
+    ? null
+    : needWhatIf === analysed.length
+      ? 'Every puzzle on this shelf runs past the mentor\'s named techniques at some point. Hints there fall back to what-if search: assume a value and follow the consequences.'
+      : `${needWhatIf} of ${analysed.length} puzzles on this shelf run past the mentor's named techniques at some point. Hints there fall back to what-if search: assume a value and follow the consequences.`;
+
   const colorClasses = {
     emerald: 'from-emerald-400 to-green-500',
     blue: 'from-blue-400 to-indigo-500',
@@ -127,10 +182,9 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
         </div>
       </div>
       
-      {selectedDifficulty === 'ultimate' && (
+      {whatIfNote && (
         <p className="mb-4 text-sm text-violet-200 bg-violet-950/40 border border-violet-800/50 rounded-xl px-4 py-3">
-          These puzzles need techniques beyond the mentor's deductive toolkit. Hints here fall back to
-          what-if search (assume a value and follow the consequences) rather than a named technique.
+          {whatIfNote}
         </p>
       )}
 
@@ -144,10 +198,12 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.15, delay: Math.min(index * 0.03, 0.2) }}
               onClick={() => onSelectPuzzle(puzzle.puzzle, { name: puzzle.name, difficulty: selectedDifficulty })}
+              aria-label={puzzleButtonLabel(puzzle, teaching[puzzle.puzzle.join('')])}
               className="flex items-center gap-4 p-4 bg-slate-800/70 hover:bg-slate-700/80 border border-slate-700 rounded-2xl transition-all duration-300 group text-left"
               >
-              {/* Mini Preview */}
-              <div className="w-16 h-16 bg-slate-950 rounded-xl border border-slate-700 grid grid-cols-9 gap-0 p-1 flex-shrink-0">
+              {/* Mini Preview: a picture of the grid, not eighty-one digits
+                  to read out before the puzzle's name (issue #109). */}
+              <div aria-hidden="true" className="w-16 h-16 bg-slate-950 rounded-xl border border-slate-700 grid grid-cols-9 gap-0 p-1 flex-shrink-0">
                 {puzzle.puzzle.map((val, i) => (
                   <div
                     key={i}
@@ -212,10 +268,15 @@ export default function PuzzleLibrary({ onClose, onSelectPuzzle, embedded = fals
                     )}
                     </h3>
                     )}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm text-slate-400">
                         {puzzle.puzzle.filter(v => v !== 0).length} clues given
                       </p>
+                      {teachingLabel(teaching[puzzle.puzzle.join('')]) && (
+                        <span className="text-xs text-slate-300">
+                          {teachingLabel(teaching[puzzle.puzzle.join('')])}
+                        </span>
+                      )}
                       {bestTimesMap[puzzle.name] && (
                         <span className="text-xs px-2 py-0.5 bg-emerald-900/50 text-emerald-300 rounded-full flex items-center gap-1" title="Your best no-assist time">
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">

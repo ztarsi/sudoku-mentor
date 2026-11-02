@@ -14,3 +14,12 @@ export function useMediaQuery(query) {
   }, [query]);
   return matches;
 }
+
+/**
+ * True when the player has asked their system for less motion.
+ *
+ * One definition, because three parts of the hint animation have to agree
+ * about it: the button that starts it, the controls that advance it, and
+ * the board that draws it.
+ */
+export const usePrefersReducedMotion = () => useMediaQuery('(prefers-reduced-motion: reduce)');

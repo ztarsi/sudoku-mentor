@@ -78,9 +78,16 @@ or a step. Nothing in here touches React or the network.
 | --- | --- |
 | `gridUnits.js` | rows, columns, boxes, peers, cell names (`R5C3`) |
 | `solver.jsx` | backtracking solver; the source of truth for "the solution" |
-| `logicEngine.jsx` | named techniques from Naked Single to XY-Wing, in order; `findNextLogicStep`, `findAllTechniqueInstances`, `applyLogicStep` |
-| `chainEngine.jsx` | X-Cycle, Finned X-Wing, ALS-XZ, Unique Rectangle, BUG+1 |
-| `forcingChainEngine.jsx` | what-if search: `applyValueAndPropagate` (naked and hidden singles to a fixpoint), Cell Forcing Chains by convergence, Hypothesis Mode by contradiction |
+| `logicEngine.jsx` | named techniques from Naked Single to the wings, in order; `findNextLogicStep`, `findAllTechniqueInstances`, `applyLogicStep` |
+| `chainEngine.jsx` | the colouring and set techniques: X-Cycle, 3D Medusa, Finned X-Wing, ALS-XZ |
+| `uniquenessEngine.jsx` | the uniqueness family: the Unique Rectangles and their hidden form, the Avoidable Rectangles, the BUG variants, unique loops. One argument proves all of them, and none of it may run without the guard below |
+| `uniqueness.js` | the guard: how many answers a puzzle has, established once from its givens, and what the panel says when it is not one |
+| `fishEngine.jsx` | the rest of the fish family and the single-digit patterns: Jellyfish, the finned and sashimi forms, Franken and Mutant fish, Empty Rectangle |
+| `aicEngine.js` | alternating inference chains: the named short chains (Skyscraper, Two-String Kite, W-Wing, Remote Pairs), the general X-Chain, XY-Chain and Alternating Chain, and the richer forms (grouped nodes, continuous loops, almost-locked-set nodes) |
+| `alsEngine.js` | the rest of the almost-locked-set family: ALS-XY-Wing, Death Blossom, Sue de Coq and its extended form |
+| `restrictedCommon.js` | almost locked sets, the restricted-common check they are joined by, and where a digit cornered in several of them may be erased. Shared by `aicEngine` and `alsEngine`, and tested on its own, because this is where a wrong hint in that family comes from |
+| `forcingChainEngine.jsx` | the search: `applyValueAndPropagate` (naked and hidden singles to a fixpoint), the forcing proofs over a cell, a strong link or a unit, the dynamic net, and Hypothesis Mode as the trial fallback |
+| `searchLimits.js` | `NET_DEPTH`, the one stated limit the search has, on its own so the panel and the dialogs can name the number without importing the engine |
 | `whatIfSearch.js`, `whatIf.worker.js` | the same search, off the main thread and cancellable |
 | `difficultyAnalyzer.jsx` | rates a puzzle by the hardest technique the engines need |
 | `stepShape.js` | `makeStep()`: the one shape every step has |
@@ -94,13 +101,94 @@ eliminations, explanation, ... }`. Base cells form the pattern, target cells
 lose candidates or take the placement. The UI never infers structure from
 the explanation text.
 
+A forcing step carries its proof as data as well: `forcingOrigin` (the
+options that must contain the answer - a cell's candidates, the two ends of
+a strong link, or a unit's places for a digit), `forcingBranches` (one per
+option: what it assumes, every move it forced, the few of them the card
+walks, and what became of it), `forcingConclusion` and, for a net,
+`forcingNet` with the depth it was allowed and whether it stopped there.
+`chainWalk()` and `buildChainOverlay()` read those as well, so a branching
+proof is walked by the same walker and drawn by the same overlay as a
+chain - one case per path, told apart by colour.
+
+A chain step carries its proof as data too: `chainNodes`, the nodes in
+order with each node's cells, digit and the type of link to the next one,
+plus `chainClosed` for a continuous loop and `chainSets` for the almost
+locked sets it passes through. `explainStep.chainWalk()` turns that into
+one sentence per link, which the hint card steps through, and
+`stepHighlights.buildChainOverlay()` turns it into the lines, regions and
+endpoint rings the board draws.
+
+A set step walks the same way. Where its proof is not one line of
+reasoning from the first node to the last - a Death Blossom takes a case
+for each number its stem could be, a Sue de Coq counts three regions that
+cannot clash - the step lists its links explicitly in `chainLinks`, each
+naming the two nodes it joins and what kind of link it is (`strong` and
+`weak` for a chain, `case`, `count` for these). `chainWalk` and
+`buildChainOverlay` read that list where it is there and fall back to "each
+node to the next" where it is not, so there is one replay and one drawing
+for every proof the mentor shows.
+
+`aicEngine` builds one implication graph per board and keeps it (in a
+WeakMap keyed by the grid) for as long as the board stands, because the
+ladder asks several chain detectors about the same board and the
+Techniques panel asks every one of them for a count. `alsEngine` keeps its
+sets the same way, for the same reason.
+
+## The honesty line
+
+A step either proves its conclusion or it does not, and the card has to say
+which without the player reading it (`docs/specs/forcing-chains-and-nets.md`).
+The line is not "found by the search": a forcing proof is found by
+searching and is still a deduction, because every option an exhaustive
+origin has is followed and the conclusion is what they all force. So the
+Forcing tier is presented like any other deduction - its own name, its own
+tier chip, the deduction colour - and only Hypothesis Mode, which assumes
+one candidate and examines nothing else, keeps the what-if heading and the
+amber colour.
+
+One flag in the catalog draws it: `trial: true`, which only Hypothesis Mode
+carries. `TRIAL_TECHNIQUES` and `isTrialTechnique()` come from it, and
+everything downstream reads those rather than keeping its own list -
+`TECHNIQUE_INFO` (so a forcing proof has a tier chip and a trial does not),
+the hint card's tone, and the difficulty analyser's named-versus-what-if
+count, which is the number the coverage programme is judged by.
+
+## The single-solution guard
+
+Every technique in the uniqueness family is only valid on a puzzle with
+exactly one answer: each one argues "if this were that digit the puzzle
+would have two answers, and it has one". On a grid that really does have
+two, the same argument produces a confident wrong hint.
+
+So `useSudokuGame` establishes the answer count **once per puzzle, from the
+givens** (`establishUniqueness`, which counts to two and stops) and keeps it
+with the puzzle; a resumed game establishes it again from the same givens.
+`findNextLogicStep` and `findAllTechniqueInstances` take it as
+`{ uniqueness }` and run nothing from `uniquenessEngine.jsx` unless it is
+`'one'`. The default is `'unknown'`, so a caller that never establishes
+anything gets the family switched off - failing in the safe direction. The
+gate keys off the engine module itself rather than a list of names, so a
+technique added to that module is guarded by being there.
+
+A puzzle with more than one answer is still played: the player is told
+plainly, every other technique still works, and the Techniques list shows
+the family as unavailable with the reason rather than as counts of zero. On
+such a grid "wrong entry" widens from "not the answer's digit" to "no answer
+allows it", which is the same test when there is only one answer.
+
 ## The hint path
 
-1. `findNextLogicStep(grid)` walks the techniques in order and returns the
-   first that applies. This is fast (milliseconds).
-2. If nothing applies, the page asks `searchWhatIf(grid, depth)`. The worker
-   runs `findForcingChain` then `findHypothesis`; the page shows a spinner
-   with a Cancel button and drops the result if the grid changed meanwhile.
+1. `findNextLogicStep(grid, focusedDigit, { uniqueness })` walks the
+   techniques in order and returns the first that applies. This is fast
+   (milliseconds).
+2. If nothing applies, the page asks `searchWhatIf(grid)`. The worker runs
+   `findWhatIfStep`: the forcing proofs first (`findForcingChain`), then the
+   dynamic net (`findForcingNet`), and only then the trial fallback
+   (`findHypothesis`). The page shows a spinner with a Cancel button and
+   drops the result if the grid changed meanwhile. There is no depth
+   argument: how deep a net may go is `searchLimits.NET_DEPTH`, and a
+   search a caller could deepen without bound would be a solver.
 3. `presentStep` puts the step into the panel and highlights the grid;
    `applyStep` in the game hook applies it and counts a hint.
 
@@ -131,9 +219,18 @@ scoping on `SudokuPuzzle` and `SolveRecord`; the repo cannot express that.
 
 ## Adding a technique
 
-1. Implement the finder in `logicEngine.jsx` (or `chainEngine.jsx`), return
-   through `makeStep`, and add it to `TECHNIQUE_ORDER()`.
-2. Add its name, tier and learn-more text to `techniqueCatalog.js`.
+1. Implement the finder in `logicEngine.jsx` (or `chainEngine.jsx` for a
+   colouring technique, `fishEngine.jsx` for a fish or a single-digit
+   pattern, `aicEngine.js` for a chain, `alsEngine.js` for one built on
+   almost locked sets, `uniquenessEngine.jsx` for one that needs the puzzle
+   to have a single answer), return through
+   `makeStep`, and add it to `TECHNIQUE_ORDER()` and to the map
+   `findAllTechniqueInstances` reads. A uniqueness technique goes in
+   `UNIQUENESS_FINDERS` and is gated for free; mark it `uniqueness: true`
+   in the catalog so the panel can say why it is unavailable.
+2. Add its name, tier, `count` (live, scan or search) and learn-more text
+   to `techniqueCatalog.js`, and score it in `difficultyAnalyzer.jsx` so
+   the shelf every library puzzle rates stays what it was.
 3. Add Beginner and Expert explanations in `explainStep.js`.
 4. Run the oracle tests. If the library never exercises it, add a puzzle
    that does; `oracleAll.spec.js` requires every named technique to appear.

@@ -10,9 +10,78 @@
 //   eliminations [{ cell, digit }]
 //   explanation  the engine's own text, standard vocabulary
 //
-// Optional, technique-specific: unit, orientation, pairDigits, finCells,
+// Optional, technique-specific: unit, orientation, pairDigits,
+// subsetDigits (the digits a subset of any size is about), zCells, finCells,
 // strongLinks, chains, chain, contradiction, contradictionCell,
-// contradictoryDigit, als1, als2, xDigit, zDigit.
+// contradictoryDigit, als1, als2, xDigit, zDigit, fishSize, sashimi,
+// baseUnits and coverUnits (a fish whose lines are not all rows or all
+// columns), crossing and linkUnit (Empty Rectangle), medusaRule,
+// medusaWitness and colorGroups (a colouring step's two colours, the
+// surviving one first), and from the uniqueness family: rectangle
+// ({ corners, floor, roof } - the four corners in reading order, which of
+// them match and which are the odd ones, so the card can draw the shape),
+// extraDigits, placedDigits (an Avoidable Rectangle's already-worked-out
+// corners), loopCells (a unique loop, in the order the ring closes) and
+// bugExtras (the candidates whose removal would leave a grave).
+//
+// A forcing step (the Forcing tier and Hypothesis Mode) carries its proof
+// as data, so the card can walk it and the board draw it:
+//   forcingOrigin      { kind: 'cell'|'digit'|'unit'|'candidate', cells,
+//                        digit, unitName, options } - the options that must
+//                        contain the answer. 'candidate' is the trial
+//                        fallback, where there is only the one option.
+//   forcingBranches    one per option, in order: { assume, moves (every
+//                        placement it forced, with its reason and, for a
+//                        net move, the `net` split that justified it),
+//                        proof (the few moves the card walks), skipped,
+//                        outcome, net, limited }
+//   forcingConclusion  { kind: 'convergence'|'refutation', placement,
+//                        eliminations }
+//   forcingNet         { depth, limited } when the proof needed more than
+//                        one assumption at a time; null otherwise
+// and, for Hypothesis Mode only, the contradiction fields above.
+//
+// A set-based step (the almost-locked-set family) also carries:
+//   alsSets     the groups the pattern is made of, each { cells, digits }
+//               plus the part it plays: 'outer' / 'middle' for an
+//               ALS-XY-Wing, 'petal' with its stemDigit for a Death
+//               Blossom, 'overlap' / 'line' / 'box' for a Sue de Coq.
+//   stemCell    the cell a Death Blossom hangs on
+//   xDigit, yDigit, zDigit  the digits a step is joined by and erases
+//
+// A chain step (the alternating-inference family) also carries:
+//   chainNodes   the nodes in order, each { cells, cell, digit, kind,
+//                truth, endpoint, linkToNext: 'strong'|'weak'|null,
+//                linkVia: 'unit'|'bivalue'|'cell'|'als'|null, linkUnit,
+//                linkSet }. `linkToNext` describes the link from this node
+//                to the next; for a closed loop the last node links back
+//                to the first.
+//   chainClosed  true for a continuous loop
+//   chainSets    the almost locked sets the chain passes through
+//   chainLoopEliminations  per weak link of a loop, what it licenses
+//   chainNotation  the Expert notation, "(5)R1C3 = (5)R1C7 - ..."
+//   chainLinks   an explicit link list, for a step whose proof is not one
+//                line of reasoning from the first node to the last: each
+//                { from, to, type, via, digit, unit, set } naming the two
+//                node indices it joins. `type` is 'strong' or 'weak' for a
+//                chain link, 'case' for one of the values a stem cell may
+//                take, or 'count' for two groups that cannot hold the same
+//                number. Left out, the links run from each node to the next
+//                one along, which is what a chain does. `chainNodes[i]
+//                .endpoint` marks the nodes the conclusion rests on.
+//                `chainSets[i].label` names the part a region plays.
+//
+// A colouring step (X-Cycle, 3D Medusa) carries the same `chainNodes`, so
+// the card walks it and the board draws it the same way, plus:
+//   chainColouring  true: every link is an exactly-one-of-two, and the
+//                   nodes are the run of links that decides the step
+//                   rather than a whole chain
+//   colorRule       'wrap' or 'unit' (one colour twice in a row, column or
+//                   box), 'cell' (one colour twice in one cell), or
+//                   'trap' (a cell that sees both colours)
+//   colorWitness    the two marks the run joins, which is what the rule is
+//                   about
+//   colorTarget     for a trap, the cell that is dead either way
 //
 // makeStep() fills the defaults so the UI and tests can rely on every
 // field being present with the right type.

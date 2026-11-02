@@ -1,12 +1,16 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import TechniqueModal from './TechniqueModal';
-import UltimateTechniqueScanModal from './UltimateTechniqueScanModal';
 import DeepSearchModal from './DeepSearchModal';
-import TechniqueHierarchy from './panel/TechniqueHierarchy';
+import TechniquePanel from './panel/TechniquePanel';
+import TechniqueBrowser from './panel/TechniqueBrowser';
 import CurrentStepCard from './panel/CurrentStepCard';
 import PanelInfoModal from './panel/PanelInfoModal';
 import { findAllTechniqueInstances } from './logicEngine';
+import { useTechniqueCounts } from './useTechniqueCounts';
+import { COUNT_SEARCH, TECHNIQUES, TIERS, needsUniqueness } from './techniqueCatalog';
+import { UNIQUENESS_UNKNOWN, uniquenessAllowed } from './uniqueness';
 import { searchWhatIf, isCancelled, isTimedOut, DEEP_TIME_BUDGET_MS } from './whatIfSearch';
+import { NET_DEPTH } from './searchLimits';
 import { toast } from '@/components/ui/use-toast';
 
 const TECHNIQUES_OPEN_KEY = 'sudoku-mentor:techniques-open';
@@ -25,34 +29,18 @@ const writeTechniquesOpen = (open) => {
   }
 };
 
-const SCANNABLE_TECHNIQUES = [
-  'Naked Single', 'Hidden Single',
-  'Pointing Pair', 'Pointing Triple', 'Claiming',
-  'Naked Pair', 'Hidden Pair', 'Naked Triple',
-  'X-Wing', 'Swordfish', 'XY-Wing',
-];
-
-const ULTIMATE_TECHNIQUES = [
-  'X-Cycle',
-  'Finned X-Wing',
-  'ALS-XZ',
-  'Unique Rectangle Type 1',
-  'BUG+1',
-];
-
 /**
- * Right-hand panel orchestrator: composes the technique hierarchy, current
- * hint card, auto-solve controls, and shortcut reference, and owns the
- * cross-cutting state (scans, deep search, auto-play timers).
+ * Right-hand panel orchestrator: composes the current hint card and the
+ * Techniques list, and owns the cross-cutting state (technique counts,
+ * scans, deep search, chain playback).
  */
 export default function LogicPanel({
   currentStep,
   grid,
+  uniqueness = UNIQUENESS_UNKNOWN,
   noAssistMode,
   onHighlightTechnique,
   onNextStep,
-  onChainPlaybackChange,
-  chainPlaybackIndex,
   searchingHint = false,
   onCancelHintSearch,
   onAssistUsed,
@@ -68,6 +56,10 @@ export default function LogicPanel({
   cardPrompt = null,
 }) {
   const [selectedTechnique, setSelectedTechnique] = useState(null);
+  // Browsing the catalog happens in the reference dialog rather than in the
+  // column beside the board (#122). Null when it is closed; otherwise where
+  // the panel asked for it to open: a tier, a query, or neither.
+  const [browse, setBrowse] = useState(/** @type {any} */ (null));
   // The lesson comes first; the technique browser is an expert tool,
   // collapsed by default and remembered per player.
   const [techniqueExpanded, setTechniqueExpanded] = useState(readTechniquesOpen);
@@ -79,21 +71,7 @@ export default function LogicPanel({
   };
   const [techniqueIndices, setTechniqueIndices] = useState({});
   const [showInfoModal, setShowInfoModal] = useState(null);
-  const [showUltimateScan, setShowUltimateScan] = useState(false);
-  const [scanningTechnique, setScanningTechnique] = useState(null);
-  const [scanResults, setScanResults] = useState({});
-  const [searchingForcingChain, setSearchingForcingChain] = useState(false);
   const [showDeepSearchModal, setShowDeepSearchModal] = useState(false);
-  const [currentSearchDepth, setCurrentSearchDepth] = useState(10);
-  const [isPlayingChain, setIsPlayingChain] = useState(false);
-
-  // Ultimate scan counts describe one grid; drop them when it changes, and
-  // let a scan still running for the old grid know it is stale.
-  const gridRef = useRef(grid);
-  useEffect(() => {
-    gridRef.current = grid;
-    setScanResults({});
-  }, [grid]);
 
   // Live technique counts, scans and searches are assistance: a No Assist
   // record must not be earned with them on screen.
@@ -103,43 +81,52 @@ export default function LogicPanel({
     if (techniqueExpanded && !noAssistMode) onAssistUsedRef.current?.();
   }, [techniqueExpanded, noAssistMode, grid]);
 
-  // Count occurrences of each technique (excluding ultimate for performance).
-  // Only scan while the hierarchy section is actually visible - these 11
-  // full-grid scans used to run on every candidate toggle even collapsed,
-  // which was the main source of input lag.
-  const techniqueCounts = useMemo(() => {
-    if (!techniqueExpanded || noAssistMode) return {};
-    const counts = {};
-    SCANNABLE_TECHNIQUES.forEach((tech) => {
-      counts[tech] = findAllTechniqueInstances(grid, tech).length;
-    });
+  // Counts for every tier, computed after the board has been still for a
+  // moment and off the main thread (useTechniqueCounts, countPass.js), so
+  // entering a digit never waits for a detector, however dear (#126).
+  // Nothing in the uniqueness family may be counted or shown on a grid that
+  // is not known to have exactly one answer. The panel says why instead of
+  // printing a row of zeroes.
+  const uniquenessOn = uniquenessAllowed(uniqueness);
 
-    if (Object.keys(scanResults).length > 0) {
-      ULTIMATE_TECHNIQUES.forEach((tech) => {
-        counts[tech] = scanResults[tech] || 0;
-      });
-    }
+  // The tiers, easiest first, as groups rather than as one list: the pass
+  // stops at the first tier that has something, because a count of a
+  // harder technique taken while an easier move is on the board is four
+  // times out of five a count of patterns that will not survive the move
+  // (#128). The tiers after it are not counted and say why. Only the
+  // techniques found by Search are never counted: they are proofs to look
+  // for, not patterns to count.
+  const countTiers = useMemo(
+    () =>
+      TIERS.map((tier) => ({
+        tier: tier.level,
+        names: TECHNIQUES.filter(
+          (tech) =>
+            tech.tier === tier.level &&
+            tech.count !== COUNT_SEARCH &&
+            (uniquenessOn || !needsUniqueness(tech.name))
+        ).map((tech) => tech.name),
+      })).filter((group) => group.names.length > 0),
+    [uniquenessOn]
+  );
 
-    return counts;
-  }, [grid, scanResults, techniqueExpanded, noAssistMode]);
+  // The what-if search and the counts would otherwise compete for the same
+  // cores, on a phone above all. The search is what the player is waiting
+  // for, so counting stands aside while it runs and starts again after.
+  const [searchingForcingChain, setSearchingForcingChain] = useState(false);
+  const searching = searchingHint || searchingForcingChain;
 
-  const handleUltimateScan = async () => {
+  const { counts: techniqueCounts, counting, countNow, countTier } = useTechniqueCounts(grid, {
+    enabled: techniqueExpanded && !noAssistMode,
+    paused: searching,
+    groups: countTiers,
+    uniqueness,
+  });
+
+  /** Count a tier the gate is holding back, because the player asked. */
+  const handleCountTier = (level) => {
     onAssistUsedRef.current?.();
-    setShowUltimateScan(true);
-    setScanResults({});
-
-    const scanned = grid;
-    const results = {};
-    for (const tech of ULTIMATE_TECHNIQUES) {
-      setScanningTechnique(tech);
-      await new Promise((resolve) => setTimeout(resolve, 100)); // Small delay for UI update
-      if (gridRef.current !== scanned) break; // the board changed: these counts would lie
-
-      results[tech] = findAllTechniqueInstances(scanned, tech).length;
-      setScanResults({ ...results });
-    }
-
-    setScanningTechnique(null);
+    countTier(countTiers.find((group) => group.tier === level)?.names ?? []);
   };
 
   // What-if search (forcing chains, then hypothesis) runs in a worker so
@@ -152,17 +139,17 @@ export default function LogicPanel({
   };
   useEffect(() => () => searchRef.current?.cancel(), []);
 
-  const performDeepSearch = async (depth) => {
+  const performDeepSearch = async () => {
     onAssistUsedRef.current?.();
     searchRef.current?.cancel();
-    const search = searchWhatIf(grid, depth, { timeBudgetMs: DEEP_TIME_BUDGET_MS });
+    const search = searchWhatIf(grid, { timeBudgetMs: DEEP_TIME_BUDGET_MS });
     searchRef.current = search;
     setSearchingForcingChain(true);
     try {
       return await search.promise;
     } catch (error) {
       if (isTimedOut(error)) {
-        toast({ title: 'Search ran out of time', description: `No chain found within ${DEEP_TIME_BUDGET_MS / 1000} s at depth ${depth}. The board is unusually hard for what-if search from here.` });
+        toast({ title: 'Search ran out of time', description: `Nothing found within ${DEEP_TIME_BUDGET_MS / 1000} s. The board is unusually hard to search from here.` });
       } else if (!isCancelled(error)) {
         console.error('What-if search failed', error);
       }
@@ -180,53 +167,21 @@ export default function LogicPanel({
       cancelSearch();
       return;
     }
-    setCurrentSearchDepth(100);
-    const result = await performDeepSearch(100);
+    const result = await performDeepSearch();
     if (result === undefined) return;
 
     if (result) {
       onHighlightTechnique([result], 1, 1);
     } else {
+      // Nothing to be found inside the net's stated depth. There is no
+      // "deeper" to offer: a search without a limit is a solver, not a
+      // mentor (#75), so the dialog says where the search stopped.
       setShowDeepSearchModal(true);
     }
   };
 
-  const handleGoDeeper = async () => {
-    const newDepth = currentSearchDepth + 10;
-    setCurrentSearchDepth(newDepth);
-    const result = await performDeepSearch(newDepth);
-    if (result === undefined) return;
-
-    if (result) {
-      setShowDeepSearchModal(false);
-      onHighlightTechnique([result], 1, 1);
-    }
-    // else: keep the modal open so the user can go even deeper
-  };
-
-  // Chain playback animation
-  useEffect(() => {
-    if (isPlayingChain && currentStep?.chain) {
-      const maxSteps = currentStep.chain.filter((s) => s.action === 'place').length;
-      if (chainPlaybackIndex < maxSteps - 1) {
-        const timer = setTimeout(() => {
-          onChainPlaybackChange?.(chainPlaybackIndex + 1);
-        }, 800);
-        return () => clearTimeout(timer);
-      } else {
-        setIsPlayingChain(false);
-      }
-    }
-  }, [isPlayingChain, chainPlaybackIndex, currentStep, onChainPlaybackChange]);
-
-  // Reset playback when currentStep changes
-  useEffect(() => {
-    onChainPlaybackChange?.(0);
-    setIsPlayingChain(false);
-  }, [currentStep, onChainPlaybackChange]);
-
   const handleTechniqueClick = (techniqueName) => {
-    const instances = findAllTechniqueInstances(grid, techniqueName);
+    const instances = findAllTechniqueInstances(grid, techniqueName, { uniqueness });
     if (instances.length > 0 && onHighlightTechnique) {
       // Get current index for this technique (or start at 0), ensure it's valid
       let currentIndex = techniqueIndices[techniqueName] || 0;
@@ -265,57 +220,53 @@ export default function LogicPanel({
         hintPrompt={hintPrompt}
         cardPrompt={cardPrompt}
         onSelectTechnique={setSelectedTechnique}
-        chainPlaybackIndex={chainPlaybackIndex}
-        onChainPlaybackChange={onChainPlaybackChange}
-        isPlayingChain={isPlayingChain}
-        onToggleChainPlayback={() => {
-          if (!isPlayingChain) {
-            setIsPlayingChain(true);
-            onChainPlaybackChange?.(0);
-          } else {
-            setIsPlayingChain(false);
-          }
-        }}
       />
 
-      <TechniqueHierarchy
+      <TechniquePanel
         expanded={techniqueExpanded}
         onToggleExpanded={toggleTechniques}
         noAssistMode={noAssistMode}
-        techniqueCounts={techniqueCounts}
+        uniqueness={uniqueness}
+        counts={techniqueCounts}
+        counting={counting}
         searchingForcingChain={searchingForcingChain}
         onSelectTechnique={setSelectedTechnique}
-        onTechniqueClick={handleTechniqueClick}
-        onUltimateScan={handleUltimateScan}
+        onHighlight={handleTechniqueClick}
+        onBrowse={setBrowse}
+        onCountTier={handleCountTier}
         onWhatIfSearch={handleWhatIfSearch}
         onShowInfo={() => setShowInfoModal('techniques')}
       />
 
 
+      <TechniqueBrowser
+        browse={browse}
+        counts={techniqueCounts}
+        noAssistMode={noAssistMode}
+        uniqueness={uniqueness}
+        onSelectTechnique={setSelectedTechnique}
+        onClose={() => setBrowse(null)}
+      />
+
       {selectedTechnique && (
         <TechniqueModal
           technique={selectedTechnique}
+          count={techniqueCounts[selectedTechnique]}
+          noAssistMode={noAssistMode}
+          uniqueness={uniqueness}
+          onCount={countNow}
           onClose={() => setSelectedTechnique(null)}
         />
       )}
-
-      <UltimateTechniqueScanModal
-        isOpen={showUltimateScan}
-        currentTechnique={scanningTechnique}
-        results={scanResults}
-        onClose={() => setShowUltimateScan(false)}
-      />
 
       <DeepSearchModal
         isOpen={showDeepSearchModal}
         onClose={() => {
           cancelSearch();
           setShowDeepSearchModal(false);
-          setCurrentSearchDepth(100);
         }}
         onCancel={cancelSearch}
-        onGoDeeper={handleGoDeeper}
-        currentDepth={currentSearchDepth}
+        netDepth={NET_DEPTH}
         isSearching={searchingForcingChain}
       />
 

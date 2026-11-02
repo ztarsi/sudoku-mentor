@@ -1,16 +1,16 @@
-// Web Worker: runs the what-if search (forcing chains, then hypothesis)
-// off the main thread so the page stays responsive during a deep search.
+// Web Worker: runs the what-if search off the main thread so the page
+// stays responsive. Forcing proofs first, then the trial fallback; how
+// deep it may go is the engine's own stated limit, not a parameter.
 //
-// Message in:  { id, grid, depth, timeBudgetMs }
+// Message in:  { id, grid, timeBudgetMs }
 // Message out: { id, step } | { id, timedOut: true } | { id, error }
-import { findForcingChain, findHypothesis } from './forcingChainEngine';
+import { findWhatIfStep } from './forcingChainEngine';
 
 self.onmessage = (event) => {
-  const { id, grid, depth, timeBudgetMs } = event.data || {};
+  const { id, grid, timeBudgetMs } = event.data || {};
   const deadline = typeof timeBudgetMs === 'number' ? Date.now() + timeBudgetMs : Infinity;
   try {
-    const step = findForcingChain(grid, depth, deadline) || findHypothesis(grid, depth, deadline);
-    self.postMessage({ id, step: step || null });
+    self.postMessage({ id, step: findWhatIfStep(grid, { deadline }) });
   } catch (error) {
     if (error && error.timedOut) self.postMessage({ id, timedOut: true });
     else self.postMessage({ id, error: error instanceof Error ? error.message : String(error) });

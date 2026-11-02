@@ -1,12 +1,12 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Lightbulb, Eye, Sparkles, Check, FlaskConical, Timer, Trophy, Play, ChevronRight, Loader2, X, Sprout } from 'lucide-react';
-import { LEVEL_COLORS, TECHNIQUE_INFO } from '../techniqueCatalog';
-import { explainStep, readExplainLevel, writeExplainLevel, legendFor } from '../explainStep';
+import { LEVEL_COLORS, TECHNIQUE_INFO, isTrialTechnique } from '../techniqueCatalog';
+import { announceStep, explainStep, readExplainLevel, writeExplainLevel, legendFor } from '../explainStep';
 
 import { cellName as cellRef } from '../gridUnits';
 import Callout from '../Callout';
-import HintAnimator, { canAnimate } from './HintAnimator';
+import HintAnimator from './HintAnimator';
 
 /**
  * Beginner / Expert switch for the explanation text. The selected option is
@@ -103,138 +103,108 @@ const Explanation = ({ explanation, legend }) => {
   );
 };
 
-const ChainTrace = ({
-  currentStep,
-  chainPlaybackIndex,
-  onChainPlaybackChange,
-  isPlayingChain,
-  onToggleChainPlayback,
-}) => {
-  const placements = currentStep.chain.filter((s) => s.action === 'place');
+/**
+ * The "current hint" card: technique badge, explanation, the shape a
+ * pattern makes, eliminations and placement summary - or the hint prompt
+ * when idle. A proof of more than one step is walked on the board, by the
+ * one animator there is (#97), not in a second list in here.
+ */
 
+/**
+ * The deadly pattern, drawn as the shape it is.
+ *
+ * A uniqueness step is about four cells that form a rectangle, and reading
+ * four cell names off a line does not show that. The corners that match
+ * each other are drawn one way and the odd one (or ones) another, so the
+ * shape and which corner breaks it are visible at a glance.
+ */
+const RectangleShape = ({ rectangle, grid }) => {
+  const { corners, roof } = rectangle;
+  if (!Array.isArray(corners) || corners.length !== 4) return null;
+  const odd = new Set(roof ?? []);
+  const corner = (cell) => {
+    const value = grid?.[cell]?.value ?? null;
+    const marks = value ? String(value) : (grid?.[cell]?.candidates ?? []).join(' ');
+    return (
+      <div
+        key={cell}
+        className={`rounded-lg border px-2 py-1.5 ${
+          odd.has(cell)
+            ? 'border-amber-600/70 bg-amber-950/30'
+            : 'border-blue-700/70 bg-blue-950/30'
+        }`}
+      >
+        <p className="text-xs font-medium text-slate-200">{cellRef(cell)}</p>
+        <p className={`text-xs tabular-nums ${odd.has(cell) ? 'text-amber-300' : 'text-blue-300'}`}>
+          {value ? `= ${value}` : marks}
+        </p>
+      </div>
+    );
+  };
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-base font-medium text-slate-300">Logical Chain Trace:</p>
-        {currentStep.chain.length > 1 && (
-          <div className="flex gap-2">
-            <button
-              onClick={() => onChainPlaybackChange?.(Math.max(0, chainPlaybackIndex - 1))}
-              disabled={chainPlaybackIndex === 0}
-              className="p-1.5 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-600 rounded transition-colors"
-              title="Previous Step"
-              aria-label="Previous chain step"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <button
-              onClick={onToggleChainPlayback}
-              className={`p-1.5 ${isPlayingChain ? 'bg-red-600 hover:bg-red-500' : 'bg-blue-600 hover:bg-blue-500'} rounded transition-colors`}
-              title={isPlayingChain ? 'Pause' : 'Play Chain'}
-              aria-label={isPlayingChain ? 'Pause chain playback' : 'Play chain'}
-            >
-              {isPlayingChain ? (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6" />
-                </svg>
-              ) : (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                </svg>
-              )}
-            </button>
-            <button
-              onClick={() => onChainPlaybackChange?.(Math.min(placements.length - 1, chainPlaybackIndex + 1))}
-              disabled={chainPlaybackIndex >= placements.length - 1}
-              className="p-1.5 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-600 rounded transition-colors"
-              title="Next Step"
-              aria-label="Next chain step"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          </div>
-        )}
-      </div>
-      <div className="bg-slate-800 rounded-xl p-4 max-h-72 overflow-y-auto space-y-2">
-        {placements.map((step, idx) => {
-          const isActive = idx <= chainPlaybackIndex;
-          const isCurrentStep = idx === chainPlaybackIndex;
-
-          return (
-            <motion.div
-              key={idx}
-              onClick={() => onChainPlaybackChange?.(idx)}
-              className={`flex items-start gap-2 text-sm p-2 rounded cursor-pointer hover:bg-slate-700/50 transition-colors ${isCurrentStep ? 'bg-blue-900/30 border border-blue-600' : ''} ${!isActive ? 'opacity-40' : ''}`}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <span className={`font-bold ${idx === 0 ? 'text-purple-400' : isCurrentStep ? 'text-blue-300' : 'text-slate-400'}`}>
-                {idx + 1}.
-              </span>
-              <div className="flex-1">
-                <span className={isCurrentStep ? 'text-white font-medium' : 'text-slate-300'}>
-                  {cellRef(step.cell)} = {step.value}
-                </span>
-                {step.reason && (
-                  <p className="text-slate-400 text-xs mt-1">{step.reason}</p>
-                )}
-              </div>
-              {isCurrentStep && (
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  className="w-2 h-2 bg-blue-500 rounded-full"
-                />
-              )}
-            </motion.div>
-          );
-        })}
-        {currentStep.contradiction && chainPlaybackIndex >= placements.length - 1 && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="mt-3 p-3 bg-red-950/50 border border-red-600 rounded-lg"
-          >
-            <div className="flex items-center gap-2 text-red-400 font-medium mb-2">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-              CONTRADICTION REACHED
-            </div>
-            <p className="text-sm text-red-300">
-              {currentStep.contradictionText
-                ? `${currentStep.contradictionText[0].toUpperCase()}${currentStep.contradictionText.slice(1)}.`
-                : `${cellRef(currentStep.contradictionCell)} has no valid candidates left!`}
-            </p>
-            {currentStep.chain.filter((s) => s.action === 'note').map((n, i) => (
-              <p key={i} className="text-sm text-red-200/80 mt-1">{n.reason}</p>
-            ))}
-            {currentStep.placement && (
-              <p className="text-sm text-emerald-400 mt-2">
-                ✓ Therefore: {cellRef(currentStep.placement.cell)} must be {currentStep.placement.digit}
-              </p>
-            )}
-          </motion.div>
-        )}
-      </div>
-      <div className="text-xs text-slate-500 text-center">
-        Step {Math.min(chainPlaybackIndex + 1, placements.length)} of {placements.length}
-      </div>
+    <div>
+      <div className="grid grid-cols-2 gap-2 max-w-[15rem]">{corners.map(corner)}</div>
+      <p className="text-xs text-slate-500 mt-1">
+        {corners.some((cell) => grid?.[cell]?.value)
+          ? 'The corners already worked out, and in amber the ones still open.'
+          : odd.size === 0
+            ? 'The four corners of the rectangle.'
+            : odd.size === 1
+              ? 'Three corners match; the one in amber is the odd one out.'
+              : `The corners in amber are the ones that differ (${odd.size} of four).`}
+      </p>
     </div>
   );
 };
 
 /**
- * The "current hint" card: technique badge, explanation, chain trace,
- * eliminations, and placement summary - or the hint prompt when idle.
+ * What a net had to hold at once, and whether it ran into the limit.
+ *
+ * A net that stalls against its depth has not finished looking, and saying
+ * nothing would let the card read as though there were nothing more to
+ * find (#75).
  */
+const NetNote = ({ net }) => (
+  <p className="text-xs text-slate-400">
+    This one needed a net: it held up to {net.depth} suppositions at once where the forced moves ran out.
+    {net.limited
+      ? ` It stopped at that limit rather than finishing the board, so there may be more to find here that the mentor did not reach.`
+      : ''}
+  </p>
+);
 
-const WHAT_IF_TECHNIQUES = new Set(['Hypothesis Mode', 'Cell Forcing Chain', 'Deep Forcing Chain']);
+/** A unique loop: the ring, in the order it closes. */
+const LoopShape = ({ loopCells, grid }) => {
+  if (!Array.isArray(loopCells) || loopCells.length === 0) return null;
+  return (
+    <div>
+      <div className="flex flex-wrap items-center gap-1">
+        {loopCells.map((cell, i) => (
+          <span key={cell} className="flex items-center gap-1">
+            <span
+              className={`px-2 py-1 rounded-lg text-xs border ${
+                (grid?.[cell]?.candidates ?? []).length > 2
+                  ? 'border-amber-600/70 bg-amber-950/30 text-amber-300'
+                  : 'border-blue-700/70 bg-blue-950/30 text-blue-300'
+              }`}
+            >
+              {cellRef(cell)}
+            </span>
+            {i < loopCells.length - 1 && <span className="text-slate-600" aria-hidden="true">→</span>}
+          </span>
+        ))}
+        <span className="text-slate-600" aria-hidden="true">↩</span>
+      </div>
+      <p className="text-xs text-slate-500 mt-1">
+        The ring closes back on itself; the cells in amber carry something extra.
+      </p>
+    </div>
+  );
+};
+
+/** What the "only singles left" card says, for the live region. */
+const ONLY_SINGLES =
+  'Only singles left. Every empty cell now shows a single pencil mark; write them in to finish.';
 
 const formatTime = (seconds) => {
   const s = Math.max(0, Math.floor(seconds || 0));
@@ -244,14 +214,29 @@ const formatTime = (seconds) => {
 /** Every digit a step is about: placed, paired, or erased. */
 const digitsOf = (step) => {
   const placed = step.placement ? [step.placement.digit] : [];
-  const paired = Array.isArray(step.pairDigits) ? step.pairDigits : [];
+  const paired = Array.isArray(step.subsetDigits)
+    ? step.subsetDigits
+    : Array.isArray(step.pairDigits) ? step.pairDigits : [];
   const erased = (step.eliminations ?? []).map((e) => e.digit);
   const involved = [...new Set([...placed, ...paired, ...(paired.length || placed.length ? [] : erased)])].sort((a, b) => a - b);
   const removed = [...new Set(erased)].sort((a, b) => a - b);
   return { involved, removed };
 };
 
-const CardShell = ({ tone = 'slate', icon: Icon, title, subtitle, children }) => {
+/**
+ * The frame every card state shares.
+ *
+ * Every state is focusable (`tabIndex={-1}`) and takes the card ref, so the
+ * lesson that just arrived can be given focus instead of leaving it at the
+ * top of the document; `announce` is what a screen reader hears when the
+ * card appears (issue #109). Both are passed by every state rather than
+ * only the two that use them, because the shell is updated in place when
+ * one state replaces another and a ref that arrives on an update is not
+ * attached. The ring is `focus-visible`, so a lesson asked for with the
+ * keyboard shows where focus went and one asked for with the mouse does
+ * not light up under the pointer.
+ */
+const CardShell = ({ tone = 'slate', icon: Icon, title, subtitle, innerRef = null, announce = '', children }) => {
   const tones = {
     slate: { icon: 'bg-slate-800 text-slate-500', title: 'text-white' },
     found: { icon: 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg', title: 'text-white' },
@@ -261,11 +246,17 @@ const CardShell = ({ tone = 'slate', icon: Icon, title, subtitle, children }) =>
   const t = tones[tone] || tones.slate;
   return (
     <motion.div
+      ref={innerRef}
+      tabIndex={-1}
+      data-lesson-card
       data-tone={tone}
-      className={`rounded-2xl shadow-lg shadow-black/50 overflow-hidden border ${
+      className={`rounded-2xl shadow-lg shadow-black/50 overflow-hidden border focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/80 ${
         tone === 'whatif' ? 'bg-amber-950/30 border-amber-700/60' : 'bg-slate-900 border-slate-700'
       }`}
     >
+      {/* What a screen reader hears when this card appears. The region is
+          part of the card, the way the refusal line is part of the strip. */}
+      <p className="sr-only" role="status" aria-live="polite">{announce}</p>
       <div className={`px-5 py-4 border-b ${tone === 'whatif' ? 'border-amber-800/50' : 'border-slate-800'}`}>
         <div className="flex items-center gap-3">
           <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${t.icon}`}>
@@ -318,10 +309,6 @@ export default function CurrentStepCard({
   searching = false,
   onCancelSearch,
   onSelectTechnique,
-  chainPlaybackIndex,
-  onChainPlaybackChange,
-  isPlayingChain,
-  onToggleChainPlayback,
   solved = null,
   lessonLog = [],
   onNextPuzzle,
@@ -352,7 +339,50 @@ export default function CurrentStepCard({
     return () => clearInterval(id);
   }, [noAssistMode, solved, getElapsedSeconds]);
 
-  const isWhatIf = !!currentStep && WHAT_IF_TECHNIQUES.has(currentStep.technique);
+  // ---------- Focus and speech when a lesson arrives (issue #109)
+  //
+  // Pressing "Get a hint" used to render the lesson, drop focus on <body>
+  // and say nothing. Focus now moves into the card, so the next Tab
+  // continues from the lesson, and the card's live region says what was
+  // found. Both are keyed on the step itself: re-reading the same hint, or
+  // switching between Beginner and Expert, is not a new lesson and neither
+  // moves focus nor interrupts.
+  const cardRef = useRef(/** @type {any} */ (null));
+  const stepId = currentStep
+    ? [
+        currentStep.technique,
+        currentStep.placement ? `${currentStep.placement.cell}=${currentStep.placement.digit}` : '',
+        (currentStep.eliminations ?? []).map((e) => `${e.cell}-${e.digit}`).join(','),
+      ].join('|')
+    : '';
+  // The effect reads the latest step through a ref, so it fires for a new
+  // lesson and not for every re-render of the one on screen.
+  const latest = useRef({ currentStep, grid, explainLevel });
+  latest.current = { currentStep, grid, explainLevel };
+
+  useEffect(() => {
+    if (!stepId && !nothingLeft) return;
+    const node = cardRef.current;
+    if (!node || typeof node.focus !== 'function') return;
+    // Never take focus from somewhere the player put it themselves.
+    if (node.contains(document.activeElement)) return;
+    node.focus();
+  }, [stepId, nothingLeft]);
+
+  // The region is rendered empty and filled a commit later: a screen reader
+  // announces a change to a live region, and a region that arrives with its
+  // text already in it has not changed.
+  const [announced, setAnnounced] = useState('');
+  useEffect(() => {
+    const { currentStep: step, grid: atGrid, explainLevel: level } = latest.current;
+    if (step) setAnnounced(announceStep(step, atGrid, level));
+    else if (nothingLeft) setAnnounced(ONLY_SINGLES);
+    else setAnnounced('');
+  }, [stepId, nothingLeft]);
+
+  // Only trial and error wears the what-if heading and colour: a forcing
+  // proof checks every option, so it is a deduction and is shown as one (#75).
+  const isWhatIf = !!currentStep && isTrialTechnique(currentStep.technique);
   const legendCell = currentStep ? (currentStep.placement?.cell ?? currentStep.baseCells?.[0] ?? currentStep.targetCells?.[0]) : null;
 
   // ---------- Solved
@@ -363,7 +393,14 @@ export default function CurrentStepCard({
       seen.set(entry.technique, { count: prev.count + 1, byPlayer: prev.byPlayer + (entry.byPlayer ? 1 : 0) });
     }
     return (
-      <CardShell tone="solved" icon={Trophy} title="Solved" subtitle={`${formatTime(solved.timeInSeconds)} · ${solved.errorCount === 0 ? 'no errors' : `${solved.errorCount} error${solved.errorCount === 1 ? '' : 's'}`}`}>
+      <CardShell
+        tone="solved"
+        icon={Trophy}
+        title="Solved"
+        subtitle={`${formatTime(solved.timeInSeconds)} · ${solved.errorCount === 0 ? 'no errors' : `${solved.errorCount} error${solved.errorCount === 1 ? '' : 's'}`}`}
+        innerRef={cardRef}
+        announce={announced}
+      >
         <div className="p-4 space-y-3">
           {seen.size > 0 ? (
             <div>
@@ -400,7 +437,13 @@ export default function CurrentStepCard({
   // ---------- No Assist
   if (noAssistMode) {
     return (
-      <CardShell icon={Timer} title={formatTime(clock)} subtitle="Hints are off in No Assist.">
+      <CardShell
+        icon={Timer}
+        title={formatTime(clock)}
+        subtitle="Hints are off in No Assist."
+        innerRef={cardRef}
+        announce={announced}
+      >
         <div className="p-4 text-sm text-slate-400">Every solve is timed and recorded when it is clean. Switch No Assist off in the header to get hints again.</div>
       </CardShell>
     );
@@ -409,7 +452,14 @@ export default function CurrentStepCard({
   // ---------- Searching
   if (searching) {
     return (
-      <CardShell tone="whatif" icon={Loader2} title="Looking for a what-if chain..." subtitle="No named technique applies here.">
+      <CardShell
+        tone="whatif"
+        icon={Loader2}
+        title="Looking for a what-if chain..."
+        subtitle="No named technique applies here."
+        innerRef={cardRef}
+        announce={announced}
+      >
         <div className="p-4 space-y-3" role="status" aria-live="polite">
           <p className="text-sm text-slate-300">The board stays usable. Changing it stops the search.</p>
           <ActionRow>
@@ -429,6 +479,8 @@ export default function CurrentStepCard({
         icon={isWhatIf ? FlaskConical : Lightbulb}
         title={isWhatIf ? 'Reasoning by trial' : currentStep.technique}
         subtitle={isWhatIf ? 'No named technique applies. This hint tests a value and follows where it leads.' : techniqueInfo?.level}
+        innerRef={cardRef}
+        announce={announced}
       >
         <AnimatePresence mode="wait">
           <motion.div
@@ -444,7 +496,11 @@ export default function CurrentStepCard({
                 title="Learn how this technique works"
                 className={`px-3 py-1 rounded-full text-sm font-medium bg-gradient-to-r ${LEVEL_COLORS[techniqueInfo?.color || 'emerald']} text-white hover:shadow-lg transition-all cursor-pointer`}
               >
-                {isWhatIf ? currentStep.technique : 'How to spot it'}
+                {isWhatIf
+                  ? currentStep.technique
+                  : currentStep.forcingBranches
+                    ? 'How this proof works'
+                    : 'How to spot it'}
               </button>
               {involved.map((d) => (
                 <span key={`d${d}`} className="px-2 py-1 bg-slate-800 rounded-lg text-sm font-semibold text-slate-100" aria-label={`digit ${d}`}>{d}</span>
@@ -459,33 +515,14 @@ export default function CurrentStepCard({
 
             <Explanation explanation={explanation} legend={legendFor(legendCell)} />
 
-            {explainLevel === 'simple' && canAnimate(currentStep) && <HintAnimator step={currentStep} />}
+            <HintAnimator step={currentStep} grid={grid} level={explainLevel} />
 
-            {(currentStep.technique === 'Deep Forcing Chain' || currentStep.technique === 'Hypothesis Mode') && currentStep.chain && (
-              <ChainTrace
-                currentStep={currentStep}
-                chainPlaybackIndex={chainPlaybackIndex}
-                onChainPlaybackChange={onChainPlaybackChange}
-                isPlayingChain={isPlayingChain}
-                onToggleChainPlayback={onToggleChainPlayback}
-              />
+            {currentStep.rectangle && (
+              <RectangleShape rectangle={currentStep.rectangle} grid={grid} />
             )}
+            {currentStep.loopCells && <LoopShape loopCells={currentStep.loopCells} grid={grid} />}
 
-            {currentStep.technique === 'Cell Forcing Chain' && Array.isArray(currentStep.chains) && (
-              <div className="space-y-2">
-                <p className="text-base font-medium text-slate-300">Both paths:</p>
-                {currentStep.chains.map((path, pi) => (
-                  <div key={pi} className="bg-slate-800 rounded-xl p-3">
-                    <p className="text-sm font-medium mb-1" style={{ color: path.color || '#94a3b8' }}>{path.label}</p>
-                    <ol className="text-xs text-slate-300 space-y-0.5">
-                      {(path.cells ?? []).filter((e) => e.action === 'place').map((e, i) => (
-                        <li key={i}>{cellRef(e.cell)} = {e.value}{e.reason && i > 0 ? <span className="text-slate-500"> ({e.reason})</span> : null}</li>
-                      ))}
-                    </ol>
-                  </div>
-                ))}
-              </div>
-            )}
+            {currentStep.forcingNet && <NetNote net={currentStep.forcingNet} />}
 
             {currentStep.eliminations && currentStep.eliminations.length > 0 && (
               <div className="flex flex-wrap gap-2">
@@ -520,7 +557,13 @@ export default function CurrentStepCard({
   // ---------- Only singles left
   if (nothingLeft) {
     return (
-      <CardShell icon={Sprout} title="Only singles left" subtitle="The pencil marks say the rest.">
+      <CardShell
+        icon={Sprout}
+        title="Only singles left"
+        subtitle="The pencil marks say the rest."
+        innerRef={cardRef}
+        announce={announced}
+      >
         <div className="p-4 space-y-3">
           <p className="text-base text-slate-200">Every empty cell now shows a single pencil mark; write them in to finish.</p>
           <ActionRow>
@@ -535,14 +578,20 @@ export default function CurrentStepCard({
 
   // ---------- Idle
   return (
-    <CardShell icon={Lightbulb} title="Stuck? Ask for a hint." subtitle="The mentor finds the next logical step and explains it.">
+    <CardShell
+      icon={Lightbulb}
+      title="Stuck? Ask for a hint."
+      subtitle="The mentor finds the next logical step and explains it."
+      innerRef={cardRef}
+      announce={announced}
+    >
       <div className="p-4 space-y-3">
         {hintPrompt && (
           <div>
             <Callout arrow="down" onDismiss={hintPrompt.onDismiss} testId="prompt-hint">{hintPrompt.text}</Callout>
           </div>
         )}
-        <PrimaryButton onClick={onNextStep} aria-label="Get a hint" aria-keyshortcuts="H">
+        <PrimaryButton onClick={onNextStep} aria-label="Get a hint" aria-keyshortcuts="H" data-hint-control>
           <Lightbulb className="w-4 h-4" aria-hidden="true" /> Hint
         </PrimaryButton>
       </div>

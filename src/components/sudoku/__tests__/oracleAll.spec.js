@@ -10,10 +10,12 @@ import {
   eliminateCandidatesFromPeers,
   applyLogicStep,
 } from '../logicEngine';
-import { findForcingChain, findHypothesis } from '../forcingChainEngine';
+import { findWhatIfStep, findForcingChain, findForcingNet, findHypothesis } from '../forcingChainEngine';
 import { solveSudoku } from '../solver';
 import { PUZZLES } from '../puzzles';
-import { TECHNIQUE_INFO } from '../techniqueCatalog';
+import { LIBRARY_TEACHING } from '../libraryTeaching';
+import { TECHNIQUE_INFO, TECHNIQUES, SEARCH_TECHNIQUES, TRIAL_TECHNIQUES, COUNT_SEARCH } from '../techniqueCatalog';
+import { establishUniqueness } from '../uniqueness';
 import { cellName } from '../gridUnits';
 
 const buildGrid = (puzzle) =>
@@ -24,17 +26,31 @@ const buildGrid = (puzzle) =>
     }))
   );
 
-const CHEAP = [
-  'Naked Single', 'Hidden Single', 'Pointing Pair', 'Pointing Triple', 'Claiming',
-  'Naked Pair', 'Hidden Pair', 'Naked Triple', 'X-Wing', 'Swordfish', 'XY-Wing',
-  'Unique Rectangle Type 1', 'BUG+1', 'Finned X-Wing', 'X-Cycle',
+// Every deductive technique in the catalog, so a technique added there
+// joins this oracle without anyone remembering to list it twice. The split
+// is by what a detector costs to run on every intermediate grid, not by
+// tier: ALS-XZ, the rest of the almost-locked-set family, the two unit fish
+// and the larger finned forms are too slow for every iteration and run
+// every eighth one. Unique Loop was here until #125 made it cheap.
+const EXPENSIVE = [
+  'ALS-XZ',
+  'ALS-XY-Wing',
+  'Death Blossom',
+  'Sue de Coq',
+  'Sue de Coq, extended',
+  'Sashimi Fish',
+  'Finned Jellyfish',
+  'Franken Fish',
+  'Mutant Fish',
 ];
-const EXPENSIVE = ['ALS-XZ'];
+const CHEAP = TECHNIQUES
+  .filter((t) => t.count !== COUNT_SEARCH && !EXPENSIVE.includes(t.name))
+  .map((t) => t.name);
 
 const checkStep = (step, solution, where) => {
   // Shape contract from stepShape.js
   expect(typeof step.technique).toBe('string');
-  expect(TECHNIQUE_INFO[step.technique] || ['Cell Forcing Chain', 'Hypothesis Mode'].includes(step.technique)).toBeTruthy();
+  expect(TECHNIQUE_INFO[step.technique] || SEARCH_TECHNIQUES.includes(step.technique)).toBeTruthy();
   expect(Array.isArray(step.baseCells)).toBe(true);
   expect(Array.isArray(step.targetCells)).toBe(true);
   expect(Array.isArray(step.eliminations)).toBe(true);
@@ -66,17 +82,23 @@ describe('every technique instance agrees with the solution', () => {
     it(`${difficulty}: ${name}`, () => {
       let grid = buildGrid(puzzle);
       const solution = solveSudoku(grid).map((c) => c.value);
+      // The library is vetted, so the uniqueness family applies here - and
+      // the count is established the same way the app does it rather than
+      // assumed, so a library puzzle that stopped having one answer would
+      // turn the family off here too.
+      const { state: uniqueness } = establishUniqueness(puzzle);
+      const options = { uniqueness };
       for (let iteration = 0; iteration < 300; iteration++) {
         const techniques = iteration % 8 === 0 ? [...CHEAP, ...EXPENSIVE] : CHEAP;
         for (const tech of techniques) {
-          const instances = findAllTechniqueInstances(grid, tech);
+          const instances = findAllTechniqueInstances(grid, tech, options);
           for (const inst of instances) {
             expect(inst.technique).toBe(tech);
             checkStep(inst, solution, `${name} step ${iteration}`);
             seen[tech] = (seen[tech] || 0) + 1;
           }
         }
-        const step = findNextLogicStep(grid, null);
+        const step = findNextLogicStep(grid, null, options);
         if (!step) break;
         grid = applyLogicStep(grid, step);
         if (step.placement) grid = eliminateCandidatesFromPeers(grid, step.placement.cell, step.placement.digit);
@@ -84,40 +106,124 @@ describe('every technique instance agrees with the solution', () => {
     });
   }
 
-  it('the library exercises every named technique at least once', () => {
+  // Twenty puzzles could not exercise forty-odd techniques (#83); the
+  // teaching-coverage batch (#88) took the library to forty-eight, and this
+  // walk now reaches every named technique but one. Avoidable Rectangle
+  // Type 2 appears nowhere in the library, and is checked against
+  // hand-built grids in uniqueness.spec.js.
+  //
+  // The list is exact on purpose: a technique that quietly stops firing
+  // fails this test, and so does one the library starts covering.
+  const NOT_ON_THE_NAMED_WALK = ['Avoidable Rectangle Type 2'];
+
+  it('the library exercises every named technique it can reach', () => {
     const missing = CHEAP.concat(EXPENSIVE).filter((t) => !seen[t]);
-    // Report what the library covers; a technique with zero instances has
-    // no oracle coverage and needs a puzzle that shows it.
-    expect(missing, `no library instance of: ${missing.join(', ')}`).toEqual([]);
+    expect(
+      missing.slice().sort(),
+      `library coverage changed - techniques with no instance on this walk: ${missing.join(', ')}`
+    ).toEqual(NOT_ON_THE_NAMED_WALK.slice().sort());
   });
 });
 
-describe('what-if engines agree with the solution (Ultimate shelf)', () => {
+describe('the search engines agree with the solution (Ultimate shelf)', () => {
+  // The Ultimate shelf is where the ladder of patterns stops and the
+  // search takes over. Every step it produces is checked against the true
+  // solution, the way the pattern detectors are, and the proofs and the
+  // trial fallback are checked separately: the forcing engines on the path
+  // the player would actually walk, and Hypothesis Mode on the same boards
+  // even though it is no longer the step the player gets there (#75).
+  let proofSteps = 0;
+  let trialSteps = 0;
+  const seenForcing = new Set();
+
   for (const { name, puzzle } of PUZZLES.ultimate) {
-    it(`${name}: forcing chain / hypothesis steps are sound`, () => {
+    it(`${name}: every forcing proof and every trial is sound`, () => {
       let grid = buildGrid(puzzle);
       const solution = solveSudoku(grid).map((c) => c.value);
-      // Play the deductive engine as far as it goes, then take a few
-      // what-if steps, checking each and applying it.
-      for (let i = 0; i < 300; i++) {
-        const step = findNextLogicStep(grid, null);
-        if (!step) break;
+      const { state: uniqueness } = establishUniqueness(puzzle);
+
+      for (let i = 0; i < 400; i++) {
+        if (grid.every((cell) => cell.value !== null)) break;
+        let step = findNextLogicStep(grid, null, { uniqueness });
+        if (!step) {
+          // The hint path's own order, so what is checked here is what a
+          // player would be shown.
+          step = findWhatIfStep(grid);
+          if (!step) break;
+          checkStep(step, solution, `${name} search step ${i}`);
+          expect(SEARCH_TECHNIQUES).toContain(step.technique);
+          if (TRIAL_TECHNIQUES.includes(step.technique)) trialSteps++;
+          else {
+            proofSteps++;
+            seenForcing.add(step.technique);
+            // A proof by cases carries its branches, and the card walks them.
+            expect(Array.isArray(step.forcingBranches)).toBe(true);
+            expect(step.forcingBranches.length).toBeGreaterThan(1);
+          }
+
+          // The trial engine still has to be sound wherever it fires, even
+          // where a proof got there first, so it is asked about the same
+          // board and its answer checked without being applied.
+          const trial = findHypothesis(grid);
+          if (trial) {
+            checkStep(trial, solution, `${name} hypothesis at step ${i}`);
+            expect(trial.technique).toBe('Hypothesis Mode');
+            trialSteps++;
+          }
+        }
         grid = applyLogicStep(grid, step);
         if (step.placement) grid = eliminateCandidatesFromPeers(grid, step.placement.cell, step.placement.digit);
       }
-      let whatIfSteps = 0;
-      for (let i = 0; i < 4; i++) {
-        const step = findForcingChain(grid, 30) || findHypothesis(grid, 30);
-        if (!step) break;
-        checkStep(step, solution, `${name} what-if ${i}`);
-        expect(['Cell Forcing Chain', 'Hypothesis Mode']).toContain(step.technique);
-        whatIfSteps++;
-        grid = applyLogicStep(grid, step);
-        if (step.placement) grid = eliminateCandidatesFromPeers(grid, step.placement.cell, step.placement.digit);
-      }
-      expect(whatIfSteps).toBeGreaterThan(0);
+      // Whatever it took, the mentor finishes the puzzle.
+      expect(grid.every((cell) => cell.value !== null), `${name} was not solved`).toBe(true);
     });
   }
+
+  it('the shelf exercises the forcing engines, proofs and trial alike', () => {
+    expect(proofSteps).toBeGreaterThan(0);
+    expect(trialSteps).toBeGreaterThan(0);
+    // Every name in the Forcing tier is reached somewhere on this shelf,
+    // so none of them can quietly stop firing.
+    expect([...seenForcing].sort()).toEqual(
+      ['Cell Forcing Chain', 'Digit Forcing Chain', 'Double Forcing Chain', 'Forcing Net', 'Unit Forcing Chain']
+    );
+  });
+
+  // One test per puzzle, since the teaching-coverage batch (#88) took the
+  // Ultimate shelf from seven puzzles to twenty-eight: one test walking all
+  // of them outgrew the per-test limit, which bounds the harness, not the
+  // product.
+  for (const { name, puzzle } of PUZZLES.ultimate) {
+    it(`${name}: a forcing proof is tried before a net, and a net before a trial`, () => {
+      // The order matters for the honesty line as much as for speed: a
+      // position that has a proof must never be shown as a trial.
+      let grid = buildGrid(puzzle);
+      const { state: uniqueness } = establishUniqueness(puzzle);
+      for (let i = 0; i < 400; i++) {
+        if (grid.every((cell) => cell.value !== null)) break;
+        let step = findNextLogicStep(grid, null, { uniqueness });
+        if (!step) {
+          const chain = findForcingChain(grid);
+          const net = chain ? null : findForcingNet(grid);
+          const whole = findWhatIfStep(grid);
+          expect(whole).toBeTruthy();
+          if (chain) expect(whole.technique).toBe(chain.technique);
+          else if (net) expect(whole.technique).toBe(net.technique);
+          else expect(whole.technique).toBe('Hypothesis Mode');
+          step = whole;
+        }
+        grid = applyLogicStep(grid, step);
+        if (step.placement) grid = eliminateCandidatesFromPeers(grid, step.placement.cell, step.placement.digit);
+      }
+    });
+  }
+  // Not vacuous: the shelf holds puzzles whose path does reach the search,
+  // read from the analyser's precomputed answers rather than from whichever
+  // of the tests above happened to run.
+  it('the shelf reaches the search at all', () => {
+    const reaching = PUZZLES.ultimate.filter((p) => LIBRARY_TEACHING[p.puzzle.join('')]?.hardestTier === 'Forcing');
+    expect(reaching.length).toBeGreaterThan(0);
+  });
 });
 
 describe('Finned X-Wing scans both orientations', () => {
@@ -139,6 +245,8 @@ describe('Finned X-Wing scans both orientations', () => {
   });
 
   it('BUG+1 honours returnAll', () => {
-    expect(Array.isArray(findAllTechniqueInstances(buildGrid(PUZZLES.easy[0].puzzle), 'BUG+1'))).toBe(true);
+    const grid = buildGrid(PUZZLES.easy[0].puzzle);
+    const { state: uniqueness } = establishUniqueness(PUZZLES.easy[0].puzzle);
+    expect(Array.isArray(findAllTechniqueInstances(grid, 'BUG+1', { uniqueness }))).toBe(true);
   });
 });

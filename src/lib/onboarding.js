@@ -2,7 +2,8 @@
  * The first visit's three in-context prompts (inline-onboarding spec), as
  * a small pure state machine the page drives:
  *
- *   board  "Tap a cell, then a digit"        until the first digit is placed
+ *   board  "Click a cell, then a digit", or   until the first digit is placed
+ *          "Pick a digit, then tap cells"    on a coarse pointer
  *   hint   "Stuck? Ask for a hint."          after the first placement, or
  *                                            after 30 s without one
  *   card   "Apply it, or place the digit     on the first hint card
