@@ -241,3 +241,49 @@ describe('the animate button', () => {
     expect(expert.link).toContain('(5)R1C1 = (5)R1C3');
   });
 });
+
+// A forcing proof's claim that rests on a trial of its own carries that
+// trial as the frame's detail (#141): Show why steps into it, Back returns.
+describe('stepping into why a frame holds', () => {
+  const trial = [
+    { ...frames[0], caption: 'Try R1C1 as 3.' },
+    { ...frames[1], caption: 'So R1C1 cannot be 3.' },
+  ];
+  const withDetail = [frames[0], { ...frames[1], caption: 'Trying 3 breaks the board. Show why to watch it break.', detail: trial }, frames[2]];
+
+  it('offers Show why only on a frame that has a detail', () => {
+    startHintAnimation(withDetail, { reducedMotion: true });
+    const view = render(<HintAnimationControls />);
+    expect(view.queryByRole('button', { name: 'Show why' })).toBeNull();
+    fireEvent.click(view.getByRole('button', { name: 'Next' }));
+    expect(view.getByRole('button', { name: 'Show why' })).toBeTruthy();
+  });
+
+  it('walks the detail by hand and comes back to where it was opened', () => {
+    startHintAnimation(withDetail, { reducedMotion: false });
+    const view = render(<HintAnimationControls />);
+    fireEvent.click(view.getByRole('button', { name: 'Pause' }));
+    fireEvent.click(view.getByRole('button', { name: 'Next' }));
+    fireEvent.click(view.getByRole('button', { name: 'Show why' }));
+    expect(liveCaption(view.container)).toBe('Try R1C1 as 3.');
+    expect(view.container.textContent).toContain('Why, step 1 of 2');
+    // A detour does not play by itself.
+    expect(view.getByRole('button', { name: 'Play' })).toBeTruthy();
+    fireEvent.click(view.getByRole('button', { name: 'Next' }));
+    expect(liveCaption(view.container)).toBe('So R1C1 cannot be 3.');
+    // At its end, Back takes Replay's place.
+    expect(view.queryByRole('button', { name: 'Replay' })).toBeNull();
+    fireEvent.click(view.getByRole('button', { name: 'Back to the proof' }));
+    expect(liveCaption(view.container)).toBe('Trying 3 breaks the board. Show why to watch it break.');
+    expect(view.container.textContent).toContain('Step 2 of 3');
+  });
+
+  it('can leave a detail before its end', () => {
+    startHintAnimation(withDetail, { reducedMotion: true });
+    const view = render(<HintAnimationControls />);
+    fireEvent.click(view.getByRole('button', { name: 'Next' }));
+    fireEvent.click(view.getByRole('button', { name: 'Show why' }));
+    fireEvent.click(view.getByRole('button', { name: 'Back to the proof' }));
+    expect(view.container.textContent).toContain('Step 2 of 3');
+  });
+});
