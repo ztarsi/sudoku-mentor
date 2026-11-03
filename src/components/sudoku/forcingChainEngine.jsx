@@ -25,6 +25,7 @@
 // the what-if heading and colour while the proofs above it do not (#75).
 
 import { ALL_UNITS, getPeers, cellName } from './gridUnits';
+import { explainBranch } from './forcingCauses';
 import { makeStep } from './stepShape';
 import { NET_DEPTH } from './searchLimits';
 
@@ -151,23 +152,45 @@ export const applyValueAndPropagate = (grid, cellIndex, value) => {
 
 const asMoves = (placements) => placements.map((p) => ({ cell: p.cell, digit: p.value, reason: p.reason, net: null }));
 
+/**
+ * One option a net tried, as the step keeps it: what it assumed, the moves
+ * it forced, and either where it broke the board or what it reached. Nested
+ * trials inside its moves are kept the same way (#141).
+ */
+const trialOf = (digit, result, reaches = null) => ({
+  digit,
+  moves: result.moves,
+  broke: result.contradiction
+    ? { text: result.text, cell: result.cell ?? null, unit: result.unit || null, trials: result.trials ?? null }
+    : null,
+  reaches,
+});
+
 /** Is there a two-option cell left to split on? */
 const hasSplit = (grid) => grid.some((cell) => cell.value === null && cell.candidates.length === 2);
 
-/** Take the one option a cell has left, once the other has been refuted. */
-const take = (grid, cell, digit, refuted, split) => {
+/**
+ * Take the one option a cell has left, once the other has been refuted.
+ * `trial` is the refuted option followed to where it broke the board, kept
+ * so the animation can show why rather than say so (#141).
+ */
+const take = (grid, cell, digit, refuted, split, trial = null) => {
   const applied = applyValueAndPropagate(grid, cell, digit);
+  const moves = [
+    {
+      cell,
+      digit,
+      reason: `${cellName(cell)} cannot be ${refuted}: that breaks the board. So it is ${digit}`,
+      net: trial ? { ...split, trials: [trialOf(refuted, trial)] } : split,
+    },
+    ...asMoves(applied.placements),
+  ];
+  // The option left breaks the board too. Its moves are kept, so the break
+  // can be traced back to them (#141).
   if (applied.contradiction) {
-    return { contradiction: true, cell: applied.cell, text: applied.text, unit: applied.unit || null };
+    return { contradiction: true, cell: applied.cell, text: applied.text, unit: applied.unit || null, moves };
   }
-  return {
-    contradiction: false,
-    grid: applied.grid,
-    moves: [
-      { cell, digit, reason: `${cellName(cell)} cannot be ${refuted}: that breaks the board. So it is ${digit}`, net: split },
-      ...asMoves(applied.placements),
-    ],
-  };
+  return { contradiction: false, grid: applied.grid, moves };
 };
 
 /**
@@ -194,6 +217,7 @@ const tryOption = (grid, cell, digit, budget, deadline) => {
       text: deeper.text,
       cell: deeper.cell,
       unit: deeper.unit || null,
+      trials: deeper.trials ?? null,
     };
   }
   return { contradiction: false, grid: deeper.grid, moves: [...moves, ...deeper.moves], limited: deeper.limited };
@@ -216,7 +240,7 @@ const tryOption = (grid, cell, digit, budget, deadline) => {
  *
  * @returns {{ contradiction: boolean, moves: object[], grid?: any[],
  *             text?: string, cell?: number, unit?: object|null,
- *             limited?: boolean }}
+ *             limited?: boolean, trials?: object[]|null }}
  */
 const netWork = (grid, budget, deadline, width) => {
   let g = grid;
@@ -248,10 +272,11 @@ const netWork = (grid, budget, deadline, width) => {
             cell: i,
             unit: null,
             text: `${cellName(i)} has no option left: both ${a} and ${b} break the board`,
+            trials: [trialOf(a, first), trialOf(b, second)],
           };
         }
-        const taken = take(g, i, b, a, split);
-        if (taken.contradiction) return { ...taken, moves };
+        const taken = take(g, i, b, a, split, first);
+        if (taken.contradiction) return { ...taken, moves: [...moves, ...taken.moves] };
         g = taken.grid;
         moves.push(...taken.moves);
         progressed = true;
@@ -264,8 +289,8 @@ const netWork = (grid, budget, deadline, width) => {
 
       const second = tryOption(g, i, b, budget, deadline);
       if (second.contradiction) {
-        const taken = take(g, i, a, b, split);
-        if (taken.contradiction) return { ...taken, moves };
+        const taken = take(g, i, a, b, split, second);
+        if (taken.contradiction) return { ...taken, moves: [...moves, ...taken.moves] };
         g = taken.grid;
         moves.push(...taken.moves);
         progressed = true;
@@ -283,7 +308,7 @@ const netWork = (grid, budget, deadline, width) => {
           cell: shared.cell,
           digit: shared.digit,
           reason: `${cellName(i)} is ${a} or ${b}, and either way ${cellName(shared.cell)} is ${shared.digit}`,
-          net: split,
+          net: { ...split, trials: [trialOf(a, first, shared), trialOf(b, second, shared)] },
         });
         moves.push(...asMoves(applied.placements));
         progressed = true;
@@ -314,7 +339,7 @@ const netWork = (grid, budget, deadline, width) => {
  * @returns {{ assume: {cell:number, digit:number}, moves: object[],
  *             ruledOut?: Set<number>, contradiction: boolean, text?: string,
  *             cell?: number, unit?: object|null, net: boolean,
- *             limited: boolean }}
+ *             limited: boolean, trials?: object[]|null }}
  */
 const runBranch = (grid, cell, digit, depth, deadline) => {
   const assume = { cell, digit };
@@ -323,7 +348,7 @@ const runBranch = (grid, cell, digit, depth, deadline) => {
     : tryOption(grid, cell, digit, 1, deadline);
   const net = result.moves.some((move) => move.net);
   if (result.contradiction) {
-    return { assume, moves: result.moves, contradiction: true, text: result.text, cell: result.cell, unit: result.unit || null, net, limited: false };
+    return { assume, moves: result.moves, contradiction: true, text: result.text, cell: result.cell, unit: result.unit || null, trials: result.trials ?? null, net, limited: false };
   }
   // What the branch rules out is worked out here and the board it worked
   // it out on is dropped: a pass keeps every branch it has run (they are
@@ -345,7 +370,7 @@ const runBranch = (grid, cell, digit, depth, deadline) => {
 /**
  * @returns {{ contradiction: boolean, moves: object[], grid?: any[],
  *             text?: string, cell?: number, unit?: object|null,
- *             limited?: boolean }}
+ *             limited?: boolean, trials?: object[]|null }}
  */
 const tryOptionWide = (grid, cell, digit, budget, deadline) => {
   checkDeadline(deadline);
@@ -356,7 +381,7 @@ const tryOptionWide = (grid, cell, digit, budget, deadline) => {
   }
   const deeper = netWork(applied.grid, budget - 1, deadline, TOP_WIDTH);
   if (deeper.contradiction) {
-    return { contradiction: true, moves: [...moves, ...deeper.moves], text: deeper.text, cell: deeper.cell, unit: deeper.unit || null };
+    return { contradiction: true, moves: [...moves, ...deeper.moves], text: deeper.text, cell: deeper.cell, unit: deeper.unit || null, trials: deeper.trials ?? null };
   }
   return { contradiction: false, grid: deeper.grid, moves: [...moves, ...deeper.moves], limited: deeper.limited };
 };
@@ -445,7 +470,7 @@ const CAVEAT =
 
 const outcomeFor = (branch, decisive, kind) => {
   if (branch.contradiction) {
-    return { kind: 'contradiction', text: branch.text, cell: branch.cell ?? null };
+    return { kind: 'contradiction', text: branch.text, cell: branch.cell ?? null, unit: branch.unit ?? null };
   }
   // In a refutation the live case is the conclusion, so saying it "ends
   // with" what it assumed would be the argument chasing its own tail.
@@ -463,7 +488,20 @@ const outcomeFor = (branch, decisive, kind) => {
  * branches agreed on (a placement or a list of eliminations); `kind` says
  * which of the two arguments proved it.
  */
-const forcingStep = ({ origin, branches, conclusion, kind }) => {
+/**
+ * A branch's moves as the step keeps them: the trials a net ran are what
+ * `explained` is built from, and are dropped once it has been. Kept, they
+ * made a step fifteen times the size, all of it carried across the worker
+ * for nothing.
+ */
+const withoutTrials = (moves) =>
+  moves.map((move) => {
+    if (!move.net?.trials) return move;
+    const { trials: _trials, ...net } = move.net;
+    return { ...move, net };
+  });
+
+const forcingStep = ({ grid, origin, branches, conclusion, kind }) => {
   const net = branches.some((b) => b.net);
   const technique = net
     ? 'Forcing Net'
@@ -506,10 +544,19 @@ const forcingStep = ({ origin, branches, conclusion, kind }) => {
       const { proof, skipped } = proofOf(branch, branch.contradiction ? null : decisive);
       return {
         assume: branch.assume,
-        moves: branch.moves,
+        moves: withoutTrials(branch.moves),
         proof,
         skipped,
         outcome: outcomeFor(branch, branch.contradiction ? null : decisive, kind),
+        // Every move with why it follows, cut to what the ending rests on
+        // (#141). A branch that survives a refutation proves nothing by its
+        // moves, so it carries none.
+        explained:
+          kind === 'refutation' && !branch.contradiction
+            ? null
+            : branch.contradiction
+              ? explainBranch(grid, branch)
+              : explainBranch(grid, branch, decisive, placed ? null : conclusion.eliminations),
         net: branch.net,
         limited: branch.limited,
       };
@@ -603,11 +650,11 @@ const searchOrigins = (grid, { depth, deadline, origins: originLimit, maxOptions
 
     if (live.length > 1) {
       const placement = sharedPlacement(live);
-      if (placement) return forcingStep({ origin, branches, conclusion: { placement }, kind: 'convergence' });
+      if (placement) return forcingStep({ grid, origin, branches, conclusion: { placement }, kind: 'convergence' });
       if (!placementsOnly) {
         const eliminations = sharedEliminations(live);
         if (eliminations.length > 0) {
-          return forcingStep({ origin, branches, conclusion: { eliminations }, kind: 'convergence' });
+          return forcingStep({ grid, origin, branches, conclusion: { eliminations }, kind: 'convergence' });
         }
       }
     }
@@ -617,7 +664,7 @@ const searchOrigins = (grid, { depth, deadline, origins: originLimit, maxOptions
     if (live.length === 1) {
       // One option left standing, and every other one tried and broken.
       const { cell, digit } = live[0].assume;
-      return forcingStep({ origin, branches, conclusion: { placement: { cell, digit } }, kind: 'refutation' });
+      return forcingStep({ grid, origin, branches, conclusion: { placement: { cell, digit } }, kind: 'refutation' });
     }
 
     if (placementsOnly) return null;
@@ -627,7 +674,7 @@ const searchOrigins = (grid, { depth, deadline, origins: originLimit, maxOptions
     const eliminations = branches
       .filter((b) => b.contradiction)
       .map((b) => ({ cell: b.assume.cell, digit: b.assume.digit }));
-    return forcingStep({ origin, branches, conclusion: { eliminations }, kind: 'refutation' });
+    return forcingStep({ grid, origin, branches, conclusion: { eliminations }, kind: 'refutation' });
   };
 
   for (const placementsOnly of [true, false]) {

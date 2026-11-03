@@ -40,6 +40,8 @@ const frame = (caption, parts = {}) => ({
   crosses: [],
   ghosts: [],
   place: null,
+  // Frames that explain this one in full, opened with Show why (#141).
+  detail: null,
   ...parts,
 });
 
@@ -156,6 +158,267 @@ const chainFrames = (step, grid, level) => {
   });
 
   frames.push(resultFrame(step, captions.action, { lines, rings, regions }));
+  return frames;
+};
+
+// ---------------------------------------------------------------------------
+// Forcing proofs, explained move by move (#141)
+//
+// The founder's two complaints about the first version, both right: it
+// played the case that survives first, which proves nothing, and its moves
+// said what happened ("Only place for 3 in row 5") without saying why, so
+// the player had to work out in their head which earlier move had taken
+// the other places away. So: the options that break the board come first,
+// the one left standing is the conclusion, and every move says which
+// earlier move ruled out each alternative, with those cells ringed and a
+// line from each cause to what it rules out. A claim that rests on a whole
+// trial of its own ("R5C3 cannot be 3: that breaks the board") carries
+// that trial as `detail`, which the player opens with Show why: the story
+// stays short at the top, and nothing in it has to be taken on trust.
+// ---------------------------------------------------------------------------
+
+const cn = (i) => `R${getRow(i) + 1}C${getCol(i) + 1}`;
+const joinAnd = (xs) => (xs.length < 2 ? xs[0] ?? '' : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
+const joinOr = (xs) => (xs.length < 2 ? `${xs[0] ?? ''}` : `${xs.slice(0, -1).join(', ')} or ${xs[xs.length - 1]}`);
+const capFirst = (t) => (t ? t[0].toUpperCase() + t.slice(1) : t);
+
+/** "4 is taken by R2C3 in the same column", for one ruled-out digit. */
+const ruledOut = (b, level) =>
+  level === 'detailed'
+    ? `${b.digit}: ${b.by ? cn(b.by.cell) : 'earlier'}`
+    : b.by
+      ? `${b.digit} is taken by ${cn(b.by.cell)} in the same ${b.by.line}`
+      : `${b.digit} was already ruled out`;
+
+/** Why one cell of a row, column or box cannot take `digit` any more. */
+const blocked = (b, digit, level) =>
+  level === 'detailed'
+    ? b.filled != null
+      ? `${cn(b.cell)}=${b.filled}`
+      : `${cn(b.cell)}: ${b.by ? cn(b.by.cell) : 'earlier'}`
+    : b.filled != null
+      ? `${cn(b.cell)} is now ${b.filled}`
+      : b.by
+        ? `${cn(b.cell)} cannot, because ${cn(b.by.cell)} is ${digit} in the same ${b.by.line}`
+        : `${cn(b.cell)} was already out`;
+
+const itemCaption = (item, level) => {
+  const at = cn(item.cell);
+  const d = item.digit;
+  const because = item.because ?? [];
+  if (item.kind === 'naked') {
+    if (level === 'detailed') return `${at}=${d} (naked single; ${because.map((b) => ruledOut(b, level)).join(', ')})`;
+    return because.length > 0
+      ? `${at} must be ${d}: ${joinAnd(because.map((b) => ruledOut(b, level)))}.`
+      : `${at} must be ${d}: it is the only number it has left.`;
+  }
+  if (item.kind === 'hidden') {
+    if (level === 'detailed') return `${at}=${d} (hidden single in ${item.unit}; ${because.map((b) => blocked(b, d, level)).join(', ')})`;
+    return because.length > 0
+      ? `The ${d} in ${item.unit} must go in ${at}, the only place left for it: ${joinAnd(because.map((b) => blocked(b, d, level)))}.`
+      : `The ${d} in ${item.unit} must go in ${at}: it is the only place left for it.`;
+  }
+  if (item.kind === 'net-refuted' || item.kind === 'net-either') {
+    const split = item.split ?? { cell: item.cell, digits: [] };
+    const narrowed = split.narrowed ?? [];
+    if (item.kind === 'net-either') {
+      if (level === 'detailed') return `${cn(split.cell)}∈{${split.digits.join(',')}}: each ⇒ ${at}=${d}`;
+      return `${cn(split.cell)} could be ${joinOr(split.digits)}, and either way ${at} is ${d}. Show why to watch both.`;
+    }
+    const refuted = item.trials?.[0]?.digit;
+    if (level === 'detailed') return `${cn(split.cell)}=${refuted} ⇒ contradiction, so ${at}=${d}`;
+    const why = narrowed.length > 0 ? ` (${joinAnd(narrowed.map((b) => ruledOut(b, level)))})` : '';
+    return `${cn(split.cell)} could only be ${joinOr(split.digits)}${why}. Trying ${refuted} breaks the board, so ${at} must be ${d}. Show why to watch it break.`;
+  }
+  return level === 'detailed' ? `${at}=${d} (${item.reason})` : `${at} must be ${d}. ${capFirst(item.reason || '')}.`;
+};
+
+/** How a case or a trial ends, and what that means for it. */
+const endingCaption = (ending, level, conclusion) => {
+  if (!ending) return '';
+  const because = ending.because ?? [];
+  if (ending.kind === 'reaches') {
+    return level === 'detailed' ? `⇒ ${cn(ending.cell)}=${ending.digit}` : `This way, ${cn(ending.cell)} is ${ending.digit}.`;
+  }
+  if (ending.kind === 'removes') {
+    const removes = ending.removes ?? [];
+    if (level === 'detailed') {
+      return `⇒ ${removes.map((r) => `${cn(r.cell)}≠${r.digit} (${r.filled != null ? `=${r.filled}` : r.by ? cn(r.by.cell) : 'earlier'})`).join(', ')}`;
+    }
+    const one = (r) =>
+      r.filled != null
+        ? `the ${r.digit} in ${cn(r.cell)} goes, because ${cn(r.cell)} is ${r.filled}`
+        : r.by
+          ? `the ${r.digit} in ${cn(r.cell)} goes, because ${cn(r.by.cell)} is ${r.digit} in the same ${r.by.line}`
+          : `the ${r.digit} in ${cn(r.cell)} goes`;
+    const parts = removes.map(one);
+    return `This way, ${parts.length < 2 ? parts[0] ?? '' : `${parts.slice(0, -1).join('; ')}; and ${parts[parts.length - 1]}`}.`;
+  }
+  const end = level === 'detailed' ? ' ⇒ contradiction' : ` The board breaks. ${conclusion}`;
+  if (ending.kind === 'empty-cell') {
+    return level === 'detailed'
+      ? `${cn(ending.cell)}: nothing left (${because.map((b) => ruledOut(b, level)).join(', ')})${end}`
+      : `Now ${cn(ending.cell)} has no number left: ${joinAnd(because.map((b) => ruledOut(b, level)))}.${end}`;
+  }
+  if (ending.kind === 'no-place') {
+    return level === 'detailed'
+      ? `No ${ending.digit} in ${ending.unit} (${because.map((b) => blocked(b, ending.digit, level)).join(', ')})${end}`
+      : `Now no cell in ${ending.unit} can hold a ${ending.digit}: ${joinAnd(because.map((b) => blocked(b, ending.digit, level)))}.${end}`;
+  }
+  if (ending.kind === 'no-option') {
+    const digits = (ending.trials ?? []).map((t) => t.digit);
+    const narrowed = ending.narrowed ?? [];
+    if (level === 'detailed') return `${cn(ending.cell)}∈{${digits.join(',')}}: each ⇒ contradiction`;
+    const why = narrowed.length > 0 ? ` (${joinAnd(narrowed.map((b) => ruledOut(b, level)))})` : '';
+    return `Now ${cn(ending.cell)} could only be ${joinOr(digits)}${why}, and each of those breaks the board. ${conclusion} Show why to watch both break.`;
+  }
+  return level === 'detailed' ? `${ending.text}${end}` : `${capFirst(ending.text || 'The board breaks')}.${end}`;
+};
+
+/** The cells a move rests on, ringed, with a line from each cause. */
+const causePicture = (cell, because, kind) => {
+  const rings = [];
+  const lines = [];
+  for (const b of because ?? []) {
+    if (kind === 'hidden' || kind === 'no-place') {
+      rings.push({ cell: b.cell, color: RESULT });
+      if (b.by) {
+        rings.push({ cell: b.by.cell, color: PATTERN });
+        lines.push({ from: b.by.cell, to: b.cell, color: PATTERN, dashed: true });
+      }
+    } else if (b.by) {
+      rings.push({ cell: b.by.cell, color: PATTERN });
+      lines.push({ from: b.by.cell, to: cell, color: PATTERN, dashed: true });
+    }
+  }
+  return { rings, lines };
+};
+
+/**
+ * The frames of one case or trial, from the board `ghosts` already shows.
+ * `conclusion` is what breaking the board means for it.
+ */
+const sequenceFrames = (items, ending, level, ghosts, conclusion) => {
+  const frames = [];
+  let shown = [...ghosts];
+  for (const item of items) {
+    const detail =
+      item.trials && item.trials.length > 0
+        ? item.trials.flatMap((t) => trialFrames(t, level, shown))
+        : null;
+    // A net's split names why its cell was down to two options; draw those.
+    const cause = item.split
+      ? causePicture(item.split.cell, item.split.narrowed, 'naked')
+      : causePicture(item.cell, item.because, item.kind);
+    const splitRing = item.split ? [{ cell: item.split.cell, color: PATTERN }] : [];
+    shown = [...shown, { cell: item.cell, digit: item.digit }];
+    frames.push(
+      frame(itemCaption(item, level), {
+        ghosts: shown,
+        rings: [...cause.rings, ...splitRing, { cell: item.cell, color: ACTIVE }],
+        lines: cause.lines,
+        detail,
+      })
+    );
+  }
+  if (ending) {
+    const detail =
+      ending.kind === 'no-option' ? (ending.trials ?? []).flatMap((t) => trialFrames(t, level, shown)) : null;
+    const removes = ending.kind === 'removes' ? ending.removes ?? [] : [];
+    const cause = ending.kind === 'removes'
+      ? {
+          rings: removes.flatMap((r) => (r.by ? [{ cell: r.by.cell, color: PATTERN }] : [])),
+          lines: removes.flatMap((r) => (r.by ? [{ from: r.by.cell, to: r.cell, color: PATTERN, dashed: true }] : [])),
+        }
+      : ending.kind === 'no-option'
+        ? causePicture(ending.cell, ending.narrowed, 'naked')
+        : causePicture(ending.cell, ending.because, ending.kind);
+    const broken = typeof ending.cell === 'number' && ending.kind !== 'reaches' ? [{ cell: ending.cell, color: RESULT }] : [];
+    frames.push(
+      frame(endingCaption(ending, level, conclusion), {
+        ghosts: shown,
+        rings: [...cause.rings, ...broken],
+        lines: cause.lines,
+        crosses: removes.map((r) => r.cell),
+        detail,
+      })
+    );
+  }
+  return frames;
+};
+
+/** One option a net tried: suppose it, follow it, watch how it ends. */
+const trialFrames = (trial, level, ghosts) => {
+  const start = [...ghosts, { cell: trial.cell, digit: trial.digit }];
+  const conclusion = `So ${cn(trial.cell)} cannot be ${trial.digit}.`;
+  return [
+    frame(level === 'detailed' ? `Suppose ${cn(trial.cell)}=${trial.digit}` : `Try ${cn(trial.cell)} as ${trial.digit}.`, {
+      ghosts: start,
+      rings: [{ cell: trial.cell, color: ACTIVE }],
+    }),
+    ...sequenceFrames(trial.items ?? [], trial.ending, level, start, conclusion),
+  ];
+};
+
+/** A forcing proof whose branches carry their causes (#141). */
+const explainedForcingFrames = (step, grid, level) => {
+  const branches = step.forcingBranches ?? [];
+  const kind = step.forcingConclusion?.kind;
+  const origin = step.forcingOrigin?.cells ?? step.baseCells ?? [];
+  const broken = branches.filter((b) => b.outcome?.kind === 'contradiction');
+  const live = branches.filter((b) => b.outcome?.kind !== 'contradiction');
+  // The options that break the board first: they are the argument. In a
+  // refutation the one left standing is the conclusion, not a case.
+  const shown = kind === 'refutation' ? broken : [...broken, ...live];
+
+  const options = step.forcingOrigin?.options ?? branches.map((b) => b.assume);
+  const frames = [
+    frame(
+      level === 'detailed'
+        ? `${step.technique}: ${options.map((o) => `${cn(o.cell)}=${o.digit}`).join(' ∨ ')}`
+        : `${stagedCaptions(step, grid, level).body[0]} Each option is tried in turn. An option that breaks the board was never possible${
+            kind === 'refutation' ? '' : ', and whatever every other option leads to must be true'
+          }.`,
+      { rings: ringsOn(origin, PATTERN) }
+    ),
+  ];
+
+  shown.forEach((branch, i) => {
+    const letter = 'ABCDEFGHI'[i] ?? String(i + 1);
+    const assume = branch.assume;
+    const color = CASE_COLORS[i % CASE_COLORS.length];
+    const start = [{ cell: assume.cell, digit: assume.digit }];
+    frames.push(
+      frame(
+        level === 'detailed' ? `Case ${letter}: ${cn(assume.cell)}=${assume.digit}` : `Case ${letter}: suppose ${cn(assume.cell)} is ${assume.digit}.`,
+        { ghosts: start, rings: [...ringsOn(origin, PATTERN), { cell: assume.cell, color }] }
+      )
+    );
+    const explained = branch.explained ?? { items: [], ending: null };
+    frames.push(...sequenceFrames(explained.items ?? [], explained.ending, level, start, 'So this case was never possible.'));
+  });
+
+  const placement = step.placement;
+  const eliminations = step.eliminations ?? [];
+  let closing;
+  if (kind === 'refutation') {
+    closing = placement
+      ? level === 'detailed'
+        ? `All other options ⇒ contradiction, so ${cn(placement.cell)}=${placement.digit}`
+        : `That leaves ${cn(placement.cell)} as ${placement.digit}: every other option broke the board, so it is the answer.`
+      : level === 'detailed'
+        ? `Refuted: ${eliminations.map((e) => `${cn(e.cell)}≠${e.digit}`).join(', ')}`
+        : `Those options broke the board, so they can go: ${joinAnd(eliminations.map((e) => `the ${e.digit} in ${cn(e.cell)}`))}.`;
+  } else {
+    closing = placement
+      ? level === 'detailed'
+        ? `Every case ⇒ ${cn(placement.cell)}=${placement.digit}`
+        : `Every case that holds puts ${placement.digit} in ${cn(placement.cell)}, so ${cn(placement.cell)} is ${placement.digit}.`
+      : level === 'detailed'
+        ? `Every case ⇒ ${eliminations.map((e) => `${cn(e.cell)}≠${e.digit}`).join(', ')}`
+        : `Every case that holds rubs out ${joinAnd(eliminations.map((e) => `the ${e.digit} in ${cn(e.cell)}`))}, so ${eliminations.length === 1 ? 'it can' : 'they can'} go.`;
+  }
+  frames.push(resultFrame(step, closing, { rings: ringsOn(origin, PATTERN) }));
   return frames;
 };
 
@@ -382,7 +645,10 @@ export const buildHintFrames = (step, grid, level = 'simple') => {
   let frames = null;
   try {
     if (Array.isArray(step.forcingBranches) && step.forcingBranches.length > 0) {
-      frames = forcingFrames(step, grid, level);
+      // A step from before #141 carries no causes: the old walk still works.
+      frames = step.forcingBranches.some((b) => b.explained)
+        ? explainedForcingFrames(step, grid, level)
+        : forcingFrames(step, grid, level);
     } else if (Array.isArray(step.chainNodes) && step.chainNodes.length > 1) {
       frames = chainFrames(step, grid, level);
     } else {
