@@ -37,7 +37,11 @@ export default function HintAnimationControls({ children = null, className = 'ro
 
   useEffect(() => {
     if (!anim || !playing) return undefined;
-    const id = setTimeout(() => setHintAnimation({ ...anim, index: Math.min(last, index + 1), playing: index + 1 < last }), FRAME_MS);
+    // Playing stops on a frame that offers Show why, so the invitation is
+    // still there when the player reaches for it (#141).
+    const next = Math.min(last, index + 1);
+    const invites = Array.isArray(anim.frames[next]?.detail) && anim.frames[next].detail.length > 0;
+    const id = setTimeout(() => setHintAnimation({ ...anim, index: next, playing: next < last && !invites }), FRAME_MS);
     return () => clearTimeout(id);
   }, [anim, playing, index, last]);
 
@@ -72,7 +76,7 @@ export default function HintAnimationControls({ children = null, className = 'ro
             <Btn primary label="Back to the proof" onClick={closeHintDetail}><CornerUpLeft className="w-4 h-4" />Back</Btn>
           )}
           {index === last && depth > 0 ? null : index < last ? (
-            <Btn primary label={playing ? 'Pause' : 'Play'} onClick={() => go(index, !playing)}>
+            <Btn primary={playing || !hasDetail} label={playing ? 'Pause' : 'Play'} onClick={() => go(index, !playing)}>
               {playing ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}{playing ? 'Pause' : 'Play'}
             </Btn>
           ) : (

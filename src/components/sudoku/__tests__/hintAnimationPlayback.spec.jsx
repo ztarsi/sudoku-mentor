@@ -278,6 +278,17 @@ describe('stepping into why a frame holds', () => {
     expect(view.container.textContent).toContain('Step 2 of 3');
   });
 
+  it('stops playing on a frame that offers Show why', () => {
+    vi.useFakeTimers();
+    startHintAnimation(withDetail, { reducedMotion: false });
+    const view = render(<HintAnimationControls />);
+    act(() => { vi.advanceTimersByTime(3500); });
+    expect(view.container.textContent).toContain('Step 2 of 3');
+    act(() => { vi.advanceTimersByTime(10_000); });
+    expect(view.container.textContent).toContain('Step 2 of 3');
+    expect(view.getByRole('button', { name: 'Play' })).toBeTruthy();
+  });
+
   it('can leave a detail before its end', () => {
     startHintAnimation(withDetail, { reducedMotion: true });
     const view = render(<HintAnimationControls />);

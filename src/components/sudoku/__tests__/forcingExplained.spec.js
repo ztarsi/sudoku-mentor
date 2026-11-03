@@ -196,4 +196,15 @@ describe('forcing proofs, explained (#141)', () => {
   it('stays plain data, so it can cross the worker', () => {
     for (const { step, where } of FOUND) expect(structuredClone(step), where).toEqual(step);
   });
+
+  // The trials a net ran are what the explanation is built from. Left on the
+  // step's moves they made it fifteen times the size, for nothing.
+  it('keeps the trials only inside the explanation', () => {
+    for (const { step, where } of FOUND) {
+      for (const branch of step.forcingBranches) {
+        for (const move of branch.moves) expect(move.net?.trials, where).toBeUndefined();
+        expect(branch.outcome?.trials, where).toBeUndefined();
+      }
+    }
+  });
 });
