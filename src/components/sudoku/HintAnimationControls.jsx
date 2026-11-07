@@ -6,6 +6,16 @@ import { usePrefersReducedMotion } from '@/hooks/useMediaQuery';
 
 const FRAME_MS = 3500;
 
+/**
+ * How long a frame stays up when playing: never less than FRAME_MS, and
+ * long enough to read its caption at an unhurried pace (about 220 words a
+ * minute), so a two-sentence frame does not move on mid-sentence.
+ */
+export const frameMs = (caption = '') => {
+  const words = caption.split(/\s+/).filter(Boolean).length;
+  return Math.max(FRAME_MS, 1500 + words * 270);
+};
+
 const Btn = ({ label, onClick, disabled = false, primary = false, children }) => (
   <button type="button" aria-label={label} title={label} onClick={onClick} disabled={disabled}
     className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${primary ? 'bg-violet-600 hover:bg-violet-500 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-200'}`}>
@@ -41,7 +51,7 @@ export default function HintAnimationControls({ children = null, className = 'ro
     // still there when the player reaches for it (#141).
     const next = Math.min(last, index + 1);
     const invites = Array.isArray(anim.frames[next]?.detail) && anim.frames[next].detail.length > 0;
-    const id = setTimeout(() => setHintAnimation({ ...anim, index: next, playing: next < last && !invites }), FRAME_MS);
+    const id = setTimeout(() => setHintAnimation({ ...anim, index: next, playing: next < last && !invites }), frameMs(anim.frames[index]?.caption));
     return () => clearTimeout(id);
   }, [anim, playing, index, last]);
 

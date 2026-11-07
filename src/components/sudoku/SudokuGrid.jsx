@@ -239,8 +239,10 @@ export default function SudokuGrid({
   }, [animating, currentStep]);
 
   // Hoisted out of the 81-cell render loop (it was recomputed per cell).
+  // The two sets' shading stands down too: it fades every mark but the two
+  // the step turns on, which hides what the animation is pointing at.
   const alsUnits = useMemo(() => {
-    if (currentStep?.technique !== 'ALS-XZ' || !currentStep.als1 || !currentStep.als2) {
+    if (animating || currentStep?.technique !== 'ALS-XZ' || !currentStep.als1 || !currentStep.als2) {
       return null;
     }
     return {
@@ -249,7 +251,7 @@ export default function SudokuGrid({
       als1Unit: commonUnit(currentStep.als1.cells),
       als2Unit: commonUnit(currentStep.als2.cells),
     };
-  }, [currentStep]);
+  }, [animating, currentStep]);
 
   return (
     <>

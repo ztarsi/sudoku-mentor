@@ -4,7 +4,7 @@
 import React from 'react';
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, fireEvent, cleanup, act } from '@testing-library/react';
-import HintAnimationControls from '../HintAnimationControls';
+import HintAnimationControls, { frameMs } from '../HintAnimationControls';
 import HintAnimationOverlay from '../HintAnimationOverlay';
 import HintAnimator from '../panel/HintAnimator';
 import { setHintAnimation, startHintAnimation } from '../hintAnimation';
@@ -194,7 +194,18 @@ describe('when the player has asked for less motion', () => {
     const svg = container.querySelector('[data-testid="hint-animation-overlay"]');
     expect(svg).not.toBeNull();
     expect(svg?.getAttribute('data-frame')).toBe('0');
-    expect(container.querySelectorAll('circle').length).toBeGreaterThan(0);
+    // The ringed cell is drawn (an outline, as it names no digit).
+    expect(container.querySelectorAll('circle, rect').length).toBeGreaterThan(0);
+  });
+});
+
+describe('the pace of playing', () => {
+  it('holds a frame long enough to read its caption', () => {
+    // A short caption gets the usual three and a half seconds...
+    expect(frameMs('So erase the 5 there.')).toBe(3500);
+    // ...and a long one stays up long enough to finish reading it.
+    const long = Array.from({ length: 40 }, () => 'word').join(' ');
+    expect(frameMs(long)).toBeGreaterThan(10000);
   });
 });
 

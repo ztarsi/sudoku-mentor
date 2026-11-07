@@ -175,6 +175,9 @@ describe('every technique the library can show', () => {
       // obeys, because they are the same sentences.
       for (const f of beginner) {
         expect(f.caption, `${technique}: beginner caption uses jargon - "${f.caption}"`).not.toMatch(JARGON);
+        // Wording slips found by reading every animation (an 8, not a 8; a
+        // cell link is about the cell taking one number, not having one).
+        expect(f.caption, `${technique}: "${f.caption}"`).not.toMatch(/\ba 8\b|X-Wing-line|holds one number only|The highlighted cells/);
       }
       // Expert captions are the same proof in the standard notation, so
       // they name cells the way an expert writes them.
@@ -228,12 +231,66 @@ describe('a frame is the proof, family by family', () => {
     const hit = FOUND.get('X-Chain') ?? FOUND.get('Alternating Chain') ?? FOUND.get('Grouped X-Chain');
     expect(hit, 'no chain on the library').toBeTruthy();
     const frames = buildHintFrames(hit.step, hit.grid, 'simple');
-    let ringed = -1;
-    for (const f of frames) {
-      expect(f.rings.length).toBeGreaterThanOrEqual(ringed);
-      ringed = f.rings.length;
-    }
+    const key = (r) => `${r.cell}:${r.digit}:${r.color}`;
+    const nodes = frames[0].rings.map(key);
+    for (const f of frames) expect(f.rings.map(key), 'a node lost its ring').toEqual(expect.arrayContaining(nodes));
     expect(frames[frames.length - 1].lines.length).toBeGreaterThan(0);
+  });
+
+  it('a chain: each ring and each line is on the mark it is about, not the whole cell', () => {
+    const hit = FOUND.get('XY-Chain') ?? FOUND.get('W-Wing') ?? FOUND.get('X-Chain');
+    expect(hit, 'no chain on the library').toBeTruthy();
+    const frames = buildHintFrames(hit.step, hit.grid, 'simple');
+    for (const node of hit.step.chainNodes) {
+      expect(frames[0].rings, `${cellName(node.cell)} ${node.digit}`).toContainEqual(expect.objectContaining({ cell: node.cell, digit: node.digit }));
+    }
+    for (const line of frames[frames.length - 1].lines) {
+      expect(line.fromDigit).toBeGreaterThanOrEqual(1);
+      expect(line.toDigit).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it('a chain: says what its two ends prove before it erases anything', () => {
+    const hit = FOUND.get('X-Chain') ?? FOUND.get('XY-Chain');
+    expect(hit, 'no chain on the library').toBeTruthy();
+    const frames = buildHintFrames(hit.step, hit.grid, 'simple');
+    const nodes = hit.step.chainNodes;
+    const [first, last] = [nodes[0], nodes[nodes.length - 1]];
+    const before = frames[frames.length - 2];
+    // The two ends, by name, and the marks that see both, ringed.
+    expect(before.caption).toContain(cellName(first.cell));
+    expect(before.caption).toContain(cellName(last.cell));
+    for (const e of hit.step.eliminations) {
+      expect(before.caption).toContain(cellName(e.cell));
+      expect(before.rings).toContainEqual(expect.objectContaining({ cell: e.cell, digit: e.digit }));
+    }
+    expect(before.crosses).toHaveLength(0);
+  });
+
+  it('the last frame strikes out the marks that go, one by one', () => {
+    for (const technique of ['Hidden Pair', 'X-Wing', 'XY-Chain', 'Naked Triple']) {
+      const hit = FOUND.get(technique);
+      if (!hit) continue;
+      const frames = buildHintFrames(hit.step, hit.grid, 'simple');
+      const erase = frames[frames.length - 1].erase;
+      expect(erase, technique).toEqual(hit.step.eliminations.map(({ cell, digit }) => ({ cell, digit })));
+    }
+  });
+
+  it('a beginner reads one idea a frame, never a paragraph', () => {
+    for (const technique of TECHNIQUES.map((t) => t.name)) {
+      const hit = FOUND.get(technique);
+      if (!hit || techniqueTier(technique) === 'Basic') continue;
+      const frames = buildHintFrames(hit.step, hit.grid, 'simple');
+      // The last frame is the list of erasures; every other caption is a
+      // sentence or two the player can read before it moves on (and the
+      // player waits longer on a longer one).
+      for (const f of frames.slice(0, -1)) {
+        const words = f.caption.split(/\s+/).length;
+        const sentences = f.caption.split(/(?<=[.!?])\s+(?=[A-Z0-9])/).length;
+        expect(words <= 48 || sentences === 1, `${technique}: "${f.caption}"`).toBe(true);
+      }
+    }
   });
 
   it('a forcing proof: each case in its own colour, with the digits it forces as ghosts', () => {
@@ -272,6 +329,18 @@ describe('a frame is the proof, family by family', () => {
     }
   });
 
+  it('a trial says why every move follows, in plain words, and tries one option only', () => {
+    const hit = FOUND.get('@Trial');
+    expect(hit, 'no trial on the library').toBeTruthy();
+    const frames = buildHintFrames(hit.step, hit.grid, 'simple');
+    // One option, so no lettered cases; the opening already supposes it.
+    expect(frames.map((f) => f.caption).join(' ')).not.toMatch(/Case [A-Z]:/);
+    expect(frames[0].ghosts).toHaveLength(1);
+    for (const f of frames) expect(f.caption, f.caption).not.toMatch(JARGON);
+    // Nothing hand-waved: no "N more forced moves follow".
+    expect(frames.map((f) => f.caption).join(' ')).not.toMatch(/more forced moves? follow/);
+  });
+
   it('a fish: the base lines first, then the lines the eliminations come out of', () => {
     const hit = FOUND.get('Finned Swordfish') ?? FOUND.get('Swordfish') ?? FOUND.get('X-Wing');
     expect(hit, 'no fish on the library').toBeTruthy();
@@ -281,6 +350,22 @@ describe('a frame is the proof, family by family', () => {
     for (const f of frames) for (const region of f.regions) expect(region.cells).toHaveLength(9);
     // Fewer regions early than late: the picture is built, not dumped.
     expect(frames[0].regions.length).toBeLessThan(frames[frames.length - 1].regions.length);
+  });
+
+  it('a fish: every line the caption names is drawn when it is named', () => {
+    for (const technique of ['X-Wing', 'Swordfish', 'Jellyfish']) {
+      const hit = FOUND.get(technique);
+      if (!hit) continue;
+      const size = { 'X-Wing': 2, Swordfish: 3, Jellyfish: 4 }[technique];
+      const frames = buildHintFrames(hit.step, hit.grid, 'simple');
+      // "Look at rows 2 and 8": both rows, from the first frame...
+      expect(frames[0].regions, technique).toHaveLength(size);
+      // ..."no other cell in columns 2 and 5": both columns, not only the
+      // one that happens to lose a mark.
+      expect(frames[frames.length - 1].regions, technique).toHaveLength(size * 2);
+      // The 4s themselves are ringed, not the cells they sit in.
+      for (const ring of frames[0].rings) expect(ring.digit, technique).toBe(hit.step.digit);
+    }
   });
 
   it('a subset: the unit it locks, then what that erases', () => {
