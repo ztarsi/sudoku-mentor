@@ -754,10 +754,14 @@ const hypothesisStep = (grid, cellIndex, badValue, branch) => {
         proof,
         skipped,
         outcome: { kind: 'contradiction', text: branch.text, cell: branch.cell ?? null },
+        // Every move with why it follows, as the forcing proofs have it
+        // (#141), so the trial's animation can say why as well as what.
+        explained: explainBranch(grid, branch),
         net: branch.net,
         limited: branch.limited,
       },
     ],
+    forcingConclusion: { kind: 'refutation', placement, eliminations: placement ? [] : [{ cell: cellIndex, digit: badValue }] },
     forcingNet: branch.net ? { depth: NET_DEPTH, limited: branch.limited } : null,
     contradiction: true,
     contradictionCell: branch.cell,

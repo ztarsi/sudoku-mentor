@@ -25,6 +25,19 @@ export default function HintAnimationOverlay({ size }) {
   const f = anim.frames[anim.index];
   const cs = size / 9;
   const c = (i) => ({ x: (i % 9) * cs + cs / 2, y: Math.floor(i / 9) * cs + cs / 2 });
+  // Where a pencil mark sits: the cell's marks are a 3x3 grid inset 6% from
+  // its edges (Cell.jsx), 1 top left to 9 bottom right.
+  const mark = (i, d) => {
+    if (!d) return c(i);
+    const inner = cs * 0.88;
+    return {
+      x: (i % 9) * cs + cs * 0.06 + (inner * (((d - 1) % 3) + 0.5)) / 3,
+      y: Math.floor(i / 9) * cs + cs * 0.06 + (inner * (Math.floor((d - 1) / 3) + 0.5)) / 3,
+    };
+  };
+  const markR = cs * 0.15;
+  const erased = new Map();
+  for (const { cell, digit } of f.erase ?? []) erased.set(cell, [...(erased.get(cell) ?? []), digit]);
   // With reduced motion the frame is drawn at rest: no growing, no fading.
   const grow = reduced
     ? { initial: false, animate: { pathLength: 1 }, transition: { duration: 0 } }
@@ -80,8 +93,19 @@ export default function HintAnimationOverlay({ size }) {
         ) : null
       )}
       {f.lines.map((link, i) => {
-        const a = c(link.from);
-        const b = c(link.to);
+        let a = mark(link.from, link.fromDigit);
+        let b = mark(link.to, link.toDigit);
+        // A line between two marks stops at their rings, so it never
+        // covers the digit it points at.
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const len = Math.hypot(dx, dy);
+        if (len > markR * 2.5) {
+          const ta = link.fromDigit ? markR / len : 0;
+          const tb = link.toDigit ? markR / len : 0;
+          a = { x: a.x + dx * ta, y: a.y + dy * ta };
+          b = { x: b.x - dx * tb, y: b.y - dy * tb };
+        }
         return (
           <motion.line
             key={`l${i}`}
@@ -98,20 +122,40 @@ export default function HintAnimationOverlay({ size }) {
           />
         );
       })}
-      {/* A colouring can give two marks in one cell opposite colours, so a
-          second ring on the same cell is drawn inside the first rather than
-          over it: two rings, two colours, both still readable. */}
+      {/* A ring on a mark circles that one pencil mark, so the digit stays
+          readable inside it. A ring on a cell outlines the cell; a second
+          one on the same cell (a colouring can give a cell both colours)
+          sits inside the first, so both stay readable. */}
       {f.rings.map((ring, i) => {
+        if (ring.digit) {
+          const p = mark(ring.cell, ring.digit);
+          return (
+            <motion.circle
+              key={`m${ring.cell}-${ring.digit}-${ring.color}`}
+              cx={p.x}
+              cy={p.y}
+              r={markR}
+              fill={ring.color}
+              fillOpacity={0.3}
+              stroke={ring.color}
+              strokeWidth={2.5}
+              {...appear}
+            />
+          );
+        }
         const p = c(ring.cell);
-        const depth = f.rings.slice(0, i).filter((r) => r.cell === ring.cell).length;
+        const depth = f.rings.slice(0, i).filter((r) => r.cell === ring.cell && !r.digit).length;
+        const inset = 3 + depth * 5;
         return (
-          <motion.circle
+          <motion.rect
             key={`c${ring.cell}-${ring.color}-${depth}`}
-            cx={p.x}
-            cy={p.y}
-            r={cs * (0.36 - depth * 0.11)}
-            fill={depth === 0 ? ring.color : 'none'}
-            fillOpacity={0.25}
+            x={p.x - cs / 2 + inset}
+            y={p.y - cs / 2 + inset}
+            width={cs - inset * 2}
+            height={cs - inset * 2}
+            rx={cs * 0.14}
+            fill={ring.color}
+            fillOpacity={depth === 0 ? 0.12 : 0}
             stroke={ring.color}
             strokeWidth={3}
             {...appear}
@@ -119,7 +163,7 @@ export default function HintAnimationOverlay({ size }) {
         );
       })}
       {f.crosses.map((cell) => (
-        <Cross key={`x${cell}`} p={c(cell)} cs={cs} reduced={reduced} />
+        <Cross key={`x${cell}`} p={c(cell)} cs={cs} reduced={reduced} marks={(erased.get(cell) ?? []).map((d) => mark(cell, d))} r={markR} />
       ))}
       {f.place && (
         <motion.circle
@@ -136,16 +180,34 @@ export default function HintAnimationOverlay({ size }) {
   );
 }
 
-const Cross = ({ p, cs, reduced }) => {
+/**
+ * What goes, in red. Where the frame says which marks go, each of those
+ * marks is struck through and the rest of the cell is left alone, so
+ * "erase the 4" never reads as "this cell is wrong"; otherwise the whole
+ * cell is crossed.
+ */
+const Cross = ({ p, cs, reduced, marks, r: markR }) => {
   const r = cs * 0.28;
   const appear = reduced
     ? { initial: false, animate: { opacity: 1, scale: 1 }, transition: { duration: 0 } }
     : { initial: { opacity: 0, scale: 0.4 }, animate: { opacity: 1, scale: 1 }, transition: { delay: 0.5 } };
   return (
     <motion.g {...appear} style={{ transformOrigin: `${p.x}px ${p.y}px` }}>
-      <rect x={p.x - cs / 2 + 2} y={p.y - cs / 2 + 2} width={cs - 4} height={cs - 4} fill={RED} fillOpacity={0.18} stroke={RED} strokeWidth={2} rx={4} />
-      <line x1={p.x - r} y1={p.y - r} x2={p.x + r} y2={p.y + r} stroke={RED} strokeWidth={4} strokeLinecap="round" />
-      <line x1={p.x + r} y1={p.y - r} x2={p.x - r} y2={p.y + r} stroke={RED} strokeWidth={4} strokeLinecap="round" />
+      <rect x={p.x - cs / 2 + 2} y={p.y - cs / 2 + 2} width={cs - 4} height={cs - 4} fill={RED} fillOpacity={marks.length > 0 ? 0.1 : 0.18} stroke={RED} strokeWidth={2} rx={4} />
+      {marks.length > 0
+        ? marks.map((m, i) => (
+            <g key={i}>
+              <circle cx={m.x} cy={m.y} r={markR} fill={RED} fillOpacity={0.25} stroke={RED} strokeWidth={2} />
+              <line x1={m.x - markR} y1={m.y - markR} x2={m.x + markR} y2={m.y + markR} stroke={RED} strokeWidth={3} strokeLinecap="round" />
+              <line x1={m.x + markR} y1={m.y - markR} x2={m.x - markR} y2={m.y + markR} stroke={RED} strokeWidth={3} strokeLinecap="round" />
+            </g>
+          ))
+        : (
+          <>
+            <line x1={p.x - r} y1={p.y - r} x2={p.x + r} y2={p.y + r} stroke={RED} strokeWidth={4} strokeLinecap="round" />
+            <line x1={p.x + r} y1={p.y - r} x2={p.x - r} y2={p.y + r} stroke={RED} strokeWidth={4} strokeLinecap="round" />
+          </>
+        )}
     </motion.g>
   );
 };

@@ -11,7 +11,7 @@
 // tested; a frame picks the one that belongs to it at the player's chosen
 // explanation level. That is the whole reason the captions follow the
 // level: both wordings already exist, line by line.
-import { chainWalk, explainStep } from './explainStep';
+import { chainWalk, chainConclusion, explainStep } from './explainStep';
 import { getBox, getRow, getCol, getRowIndices, getColIndices, getBoxIndices } from './gridUnits';
 import { techniqueTier } from './techniqueCatalog';
 
@@ -38,6 +38,9 @@ const frame = (caption, parts = {}) => ({
   lines: [],
   rings: [],
   crosses: [],
+  // The pencil marks that go, one by one, so the board strikes out the
+  // mark rather than the whole cell.
+  erase: [],
   ghosts: [],
   place: null,
   // Frames that explain this one in full, opened with Show why (#141).
@@ -71,9 +74,40 @@ const anchorOf = (node) => (Array.isArray(node?.cells) ? node.cells[0] : node?.c
 
 const ringsOn = (cells, color) => uniq(cells).map((cell) => ({ cell, color }));
 
+/** The cells of a chain node: one, or a group's several. */
+const nodeCells = (node) =>
+  (Array.isArray(node?.cells) && node.cells.length > 0 ? node.cells : [node?.cell]).filter((c) => typeof c === 'number');
+
+/**
+ * Rings on the pencil marks a proof is about. A ring that knows its digit
+ * circles that one mark, so the player sees which 4 is meant rather than a
+ * disc over the whole cell hiding every mark in it; without a digit, or
+ * where the cell does not hold it, the cell itself is outlined.
+ */
+const marksOn = (cells, digits, grid, color) =>
+  uniq(cells).flatMap((cell) => {
+    const held = grid?.[cell]?.candidates;
+    const shown = digits && Array.isArray(held) ? digits.filter((d) => held.includes(d)) : [];
+    return shown.length > 0 ? shown.map((digit) => ({ cell, digit, color })) : [{ cell, color }];
+  });
+
+/** A chain's nodes as marks, each in its own digit, each mark once. */
+const nodeRings = (nodes, colorOf) => {
+  const seen = new Set();
+  const rings = [];
+  for (const node of nodes) {
+    for (const cell of nodeCells(node)) {
+      const key = `${cell}:${node.digit ?? ''}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      rings.push(node.digit ? { cell, digit: node.digit, color: colorOf(node) } : { cell, color: colorOf(node) });
+    }
+  }
+  return rings;
+};
+
 /** A colouring rings its two colours in the two tints the board gives it. */
-const colourRings = (nodes) =>
-  nodes.map((node) => ({ cell: anchorOf(node), color: node.color === 2 ? SECOND : PATTERN }));
+const colourRings = (nodes) => nodeRings(nodes, (node) => (node.color === 2 ? SECOND : PATTERN));
 
 // ---------------------------------------------------------------------------
 // The words
@@ -86,11 +120,38 @@ const colourRings = (nodes) =>
 const lineCaption = (line, level) =>
   (level === 'detailed' ? line.notation || line.text : line.text) || '';
 
+const wordCount = (text) => text.split(/\s+/).filter(Boolean).length;
+
+/** A paragraph's sentences. A sentence ends at a stop followed by a capital or a digit. */
+const sentencesOf = (text) =>
+  (text || '')
+    .split(/(?<=[.!?])\s+(?=[A-Z0-9"(])/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+// About as much as a beginner reads comfortably under the board before the
+// frame moves on: a sentence or two, never a paragraph (spec: a frame is
+// one idea).
+const CHUNK_WORDS = 30;
+
+/** A paragraph cut into frame-sized pieces, whole sentences only. */
+const chunksOf = (text) => {
+  const chunks = [];
+  for (const sentence of sentencesOf(text)) {
+    const last = chunks[chunks.length - 1];
+    // A short sentence ("Look at box 7.") never stands alone as a frame.
+    if (last && (wordCount(last) < 8 || wordCount(last) + wordCount(sentence) <= CHUNK_WORDS)) chunks[chunks.length - 1] = `${last} ${sentence}`;
+    else chunks.push(sentence);
+  }
+  return chunks;
+};
+
 /**
- * The lesson text, as the two or three captions a staged animation needs:
- * what to look at, why it works, and what to do. Beginner has all three
- * hand-written; Expert has the engine's own sentence, which is one block of
- * standard vocabulary, so it is read out a sentence at a time.
+ * The lesson text, as the captions a staged animation needs: what to look
+ * at, why it works, and what to do. Beginner has all three hand-written,
+ * cut into pieces a player can read before the frame moves on; Expert has
+ * the engine's own sentence, which is one block of standard vocabulary, so
+ * it is read out a sentence at a time, the first as the opening.
  */
 const stagedCaptions = (step, grid, level) => {
   const parts = explainStep(step, grid, level) || { look: null, why: '', action: '' };
@@ -99,9 +160,14 @@ const stagedCaptions = (step, grid, level) => {
       .split(/(?<=[.:])\s+/)
       .map((s) => s.trim())
       .filter(Boolean);
-    return { body: sentences.length > 0 ? sentences : [parts.why || ''], action: parts.action || '' };
+    const all = sentences.length > 0 ? sentences : [parts.why || ''];
+    return { look: all.slice(0, 1), why: all.slice(1), action: parts.action || '' };
   }
-  return { body: [parts.look, parts.why].filter(Boolean), action: parts.action || '' };
+  const look = chunksOf(parts.look);
+  const why = chunksOf(parts.why);
+  // No opening of its own: the first piece of the reason opens instead.
+  if (look.length === 0) return { look: why.slice(0, 1), why: why.slice(1), action: parts.action || '' };
+  return { look, why, action: parts.action || '' };
 };
 
 /** The last frame: what the step actually does to the board. */
@@ -109,6 +175,10 @@ const resultFrame = (step, caption, picture) =>
   frame(caption, {
     ...picture,
     crosses: uniq((step.eliminations ?? []).map((e) => e.cell)),
+    erase: (step.eliminations ?? []).map(({ cell, digit }) => ({ cell, digit })),
+    // The digit that goes in is written in, faintly, so the last frame
+    // shows the answer rather than only a ring round where it goes.
+    ghosts: step.placement ? [...(picture.ghosts ?? []), step.placement] : picture.ghosts ?? [],
     place: step.placement ?? null,
   });
 
@@ -132,30 +202,58 @@ const chainFrames = (step, grid, level) => {
   // The marks the proof is about stay on the board throughout: the step has
   // to be readable at rest, and it is the links between them that build up.
   // A colouring shows its two tints, because the alternation is the proof.
+  // Each ring circles the one mark a node is about, so a cell in the chain
+  // twice, for two different digits, shows both marks rather than one disc.
   const regions = groups.map((n) => ({ cells: n.cells, color: PATTERN, label: String(n.digit ?? '') }));
+  const covered = new Set(nodes.flatMap(nodeCells));
   const rings = colouring
     ? colourRings(nodes)
-    : ringsOn([...(step.baseCells ?? []), ...nodes.map(anchorOf)], PATTERN);
+    : [...nodeRings(nodes, () => PATTERN), ...ringsOn((step.baseCells ?? []).filter((c) => !covered.has(c)), PATTERN)];
 
   const captions = stagedCaptions(step, grid, level);
-  const frames = [frame(captions.body[0], { rings, regions })];
+  const frames = captions.look.map((caption) => frame(caption, { rings, regions }));
 
   const lines = [];
   walk.forEach((line) => {
     const from = anchorOf(line.from);
     const to = anchorOf(line.to);
     if (typeof from === 'number' && typeof to === 'number') {
-      lines.push({ from, to, color: PATTERN, dashed: !line.strong });
+      // From mark to mark: a link inside one cell, between its two
+      // digits, is a short line across the cell rather than nothing.
+      lines.push({ from, to, fromDigit: line.from.digit, toDigit: line.to.digit, color: PATTERN, dashed: !line.strong });
     }
     const current = lines.length - 1;
-    frames.push(
-      frame(lineCaption(line, level), {
-        lines: lines.map((l, i) => (i === current ? { ...l, color: ACTIVE, emphasis: true } : l)),
-        rings,
-        regions,
-      })
-    );
+    const said = lineCaption(line, level);
+    // A link worth two sentences (a set that locks, a stem's case) holds
+    // its picture for both, one frame each.
+    for (const caption of level === 'detailed' ? [said] : chunksOf(said)) {
+      frames.push(
+        frame(caption, {
+          lines: lines.map((l, i) => (i === current ? { ...l, color: ACTIVE, emphasis: true } : l)),
+          rings,
+          regions,
+        })
+      );
+    }
   });
+
+  // What the chain proves, before what to do about it: the two ends, and
+  // the marks that see both. A colouring's walk already ends on its
+  // verdict; a chain's does not, and without this the player is left to
+  // work out why the last link means anything (Expert reads it in the
+  // opening line's notation).
+  // A plain chain says it in the chain's own words, about its two ends; a
+  // set-based one (a Death Blossom, a Sue de Coq) in its lesson's, whose
+  // opening goes over the links again, so only its closing pieces.
+  const conclusion = Array.isArray(step.alsSets) ? captions.why.slice(-3) : chunksOf(chainConclusion(step));
+  if (!colouring && level !== 'detailed' && conclusion.length > 0) {
+    const ends = step.chainClosed ? [] : [nodes[0], nodes[nodes.length - 1]].filter(Boolean);
+    const targets = (step.eliminations ?? []).map(({ cell, digit }) => ({ cell, digit, color: RESULT }));
+    const endRings = nodeRings(ends, () => ACTIVE);
+    for (const caption of conclusion) {
+      frames.push(frame(caption, { lines, regions, rings: [...rings, ...endRings, ...targets] }));
+    }
+  }
 
   frames.push(resultFrame(step, captions.action, { lines, rings, regions }));
   return frames;
@@ -372,18 +470,36 @@ const explainedForcingFrames = (step, grid, level) => {
   const shown = kind === 'refutation' ? broken : [...broken, ...live];
 
   const options = step.forcingOrigin?.options ?? branches.map((b) => b.assume);
-  const frames = [
-    frame(
-      level === 'detailed'
-        ? `${step.technique}: ${options.map((o) => `${cn(o.cell)}=${o.digit}`).join(' ∨ ')}`
-        : `${stagedCaptions(step, grid, level).body[0]} Each option is tried in turn. An option that breaks the board was never possible${
-            kind === 'refutation' ? '' : ', and whatever every other option leads to must be true'
-          }.`,
-      { rings: ringsOn(origin, PATTERN) }
-    ),
-  ];
+  // A trial tries one option only: its opening is its supposition, and it
+  // has no cases to letter.
+  const trial = options.length === 1 && shown.length === 1;
+  const frames = trial
+    ? [
+        frame(
+          level === 'detailed'
+            ? `${step.technique}: suppose ${cn(options[0].cell)}=${options[0].digit}`
+            : `${stagedCaptions(step, grid, level).look.join(' ')} If that breaks the board, it was never possible.`,
+          { ghosts: [options[0]], rings: [...ringsOn(origin, PATTERN), { cell: options[0].cell, color: CASE_COLORS[0] }] }
+        ),
+      ]
+    : [
+        frame(
+          level === 'detailed'
+            ? `${step.technique}: ${options.map((o) => `${cn(o.cell)}=${o.digit}`).join(' ∨ ')}`
+            : `${stagedCaptions(step, grid, level).look.join(' ')} Each option is tried in turn. An option that breaks the board was never possible${
+                kind === 'refutation' ? '' : ', and whatever every other option leads to must be true'
+              }.`,
+          { rings: ringsOn(origin, PATTERN) }
+        ),
+      ];
 
   shown.forEach((branch, i) => {
+    const assumed = { cell: branch.assume.cell, digit: branch.assume.digit };
+    if (trial) {
+      const explained = branch.explained ?? { items: [], ending: null };
+      frames.push(...sequenceFrames(explained.items ?? [], explained.ending, level, [assumed], `So ${cn(assumed.cell)} cannot be ${assumed.digit}.`));
+      return;
+    }
     const letter = 'ABCDEFGHI'[i] ?? String(i + 1);
     const assume = branch.assume;
     const color = CASE_COLORS[i % CASE_COLORS.length];
@@ -408,7 +524,7 @@ const explainedForcingFrames = (step, grid, level) => {
         : `That leaves ${cn(placement.cell)} as ${placement.digit}: every other option broke the board, so it is the answer.`
       : level === 'detailed'
         ? `Refuted: ${eliminations.map((e) => `${cn(e.cell)}≠${e.digit}`).join(', ')}`
-        : `Those options broke the board, so they can go: ${joinAnd(eliminations.map((e) => `the ${e.digit} in ${cn(e.cell)}`))}.`;
+        : `${eliminations.length === 1 ? 'That option' : 'Those options'} broke the board, so ${eliminations.length === 1 ? 'it' : 'they'} can go: ${joinAnd(eliminations.map((e) => `the ${e.digit} in ${cn(e.cell)}`))}.`;
   } else {
     closing = placement
       ? level === 'detailed'
@@ -435,7 +551,7 @@ const forcingFrames = (step, grid, level) => {
   const origin = step.forcingOrigin?.cells ?? step.baseCells ?? [];
 
   const frames = [
-    frame(stagedCaptions(step, grid, level).body[0], { rings: ringsOn(origin, PATTERN) }),
+    frame(stagedCaptions(step, grid, level).look.join(' '), { rings: ringsOn(origin, PATTERN) }),
   ];
 
   let branch = null;
@@ -502,6 +618,8 @@ const forcingFrames = (step, grid, level) => {
  */
 const regionsOf = (step) => {
   const regions = [];
+  // A BUG is about the whole board: no one row, column or box stands for it.
+  if (Array.isArray(step.bugExtras)) return regions;
   const add = (cells, color, label) => {
     const members = uniq((cells ?? []).filter((c) => typeof c === 'number'));
     if (members.length === 0) return;
@@ -545,7 +663,11 @@ const regionsOf = (step) => {
     for (const line of uniq((step.baseCells ?? []).map(base)).sort((a, b) => a - b)) {
       add(cellsOf(line), PATTERN, `${alongRows ? 'row' : 'column'} ${line + 1}`);
     }
-    for (const line of uniq((step.eliminations ?? []).map((e) => cover(e.cell))).sort((a, b) => a - b)) {
+    // Every cover line the caption names: the ones the pattern's own cells
+    // (not its fins) stand in, not only those that happen to lose a mark.
+    const fins = new Set(step.finCells ?? []);
+    const covers = (step.baseCells ?? []).filter((c) => !fins.has(c)).map(cover);
+    for (const line of uniq(covers.length > 0 ? covers : (step.eliminations ?? []).map((e) => cover(e.cell))).sort((a, b) => a - b)) {
       add(coverCellsOf(line), EXTRA, `${alongRows ? 'column' : 'row'} ${line + 1}`);
     }
     return regions;
@@ -582,42 +704,49 @@ const extraCells = (step) =>
   ]);
 
 /**
+ * The digits whose marks a pattern is about: a subset's digits, a
+ * rectangle's pair, or the one digit a fish or a wing turns on. A naked
+ * subset is about every mark its cells hold, so it outlines the cells.
+ */
+const markDigitsOf = (step) => {
+  if (step.pairDigits?.length) return step.pairDigits;
+  if (step.subsetDigits?.length) return step.subsetDigits;
+  if (/^Naked /.test(step.technique ?? '')) return null;
+  return step.digit ? [step.digit] : null;
+};
+
+/**
  * A pattern, in stages: the shape it stands on, then the extra piece that
- * makes it work, then what it erases. Three or four frames, each with the
- * sentence the lesson text already gives that stage.
+ * makes it work, then what it erases. Each stage carries the sentences the
+ * lesson text already gives it, a piece at a time.
  */
 const patternFrames = (step, grid, level) => {
-  const { body, action } = stagedCaptions(step, grid, level);
-  if (body.length === 0) return null;
+  const { look, why, action } = stagedCaptions(step, grid, level);
+  if (look.length === 0) return null;
   const regions = regionsOf(step);
-  const base = ringsOn(step.baseCells ?? [], PATTERN);
-  const extra = extraCells(step);
-  // The first region alone, then all of them: a fish's base lines before
-  // its cover lines, a set-based step's first set before the one it joins.
-  const stages = regions.length > 1 ? [regions.slice(0, 1), regions] : [regions];
+  // What the opening names, then everything: a fish's base lines before
+  // its cover lines, a box before the line it points along.
+  const named = regions.filter((r) => r.color !== EXTRA);
+  const opening = named.length > 0 ? named : regions;
+  const digits = markDigitsOf(step);
+  const extras = Array.isArray(step.bugExtras) ? step.bugExtras : [];
+  const base = extras.length > 0
+    ? extras.map(({ cell, digit }) => ({ cell, digit, color: PATTERN }))
+    : marksOn(step.baseCells ?? [], digits, grid, PATTERN);
+  const extra = marksOn(extraCells(step), step.digit ? [step.digit] : null, grid, EXTRA);
+  // A set-based step turns on two digits: the one the sets share and must
+  // not both hold (yellow, the link), then the one that is erased.
+  const shared = step.xDigit ? marksOn(step.baseCells ?? [], [step.xDigit], grid, ACTIVE).filter((r) => r.digit) : [];
+  const full = [...base, ...extra, ...shared];
 
-  const frames = [];
-  body.forEach((caption, i) => {
-    frames.push(
-      frame(caption, {
-        regions: stages[Math.min(i, stages.length - 1)],
-        rings: i === 0 ? base : [...base, ...ringsOn(extra, EXTRA)],
-      })
-    );
-  });
-  // More regions than sentences: the rest still get shown, under the last
-  // sentence, rather than never being drawn at all.
-  for (let i = body.length; i < stages.length; i++) {
-    frames.push(
-      frame(body[body.length - 1], {
-        regions: stages[i],
-        rings: [...base, ...ringsOn(extra, EXTRA)],
-      })
-    );
+  const frames = look.map((caption) => frame(caption, { regions: opening, rings: base }));
+  why.forEach((caption) => frames.push(frame(caption, { regions, rings: full })));
+  // More regions than the opening showed but no sentence left for them:
+  // they still get shown, under the last sentence, rather than never at all.
+  if (why.length === 0 && opening.length < regions.length) {
+    frames.push(frame(look[look.length - 1], { regions, rings: full }));
   }
-  frames.push(
-    resultFrame(step, action, { regions, rings: [...base, ...ringsOn(extra, EXTRA)] })
-  );
+  frames.push(resultFrame(step, action, { regions, rings: [...base, ...extra] }));
   return frames;
 };
 
