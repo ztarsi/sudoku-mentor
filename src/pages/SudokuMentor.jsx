@@ -45,7 +45,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { toast } from "@/components/ui/use-toast";
 import PracticeBar from '@/components/sudoku/PracticeBar';
 import { loadDrills, drillFound, practiceLine } from '@/components/sudoku/practice';
-import { encodeCells } from '@/components/sudoku/boardCode';
+import { decodeCells } from '@/components/sudoku/boardCode';
 
 // Dialogs that carry their own weight (OCR, colour presets, confetti) load
 // on first open rather than with the page.
@@ -977,8 +977,12 @@ export default function SudokuMentor() {
   const handlePractise = useCallback(
     async (technique) => {
       if (effectiveNoAssist) return;
+      const before = gameRef.current.grid;
       const drills = await loadDrills(technique);
-      if (drills.length === 0) return;
+      // The drills arrive later the first time. If the player has switched
+      // No Assist on or moved on to another board meanwhile, the press is
+      // stale and their board is left alone.
+      if (drills.length === 0 || noAssistRef.current.noAssistMode || gameRef.current.grid !== before) return;
       // Where Stop goes back to: the player's game as it stands, or,
       // practising a second technique, the game they left first.
       const returnTo = practiceRef.current ? practiceRef.current.returnTo : gameRef.current.exportGame();
@@ -999,20 +1003,27 @@ export default function SudokuMentor() {
     }
     setPractice({ ...current, index, instances: null, found: false });
   }, [openDrill, stopPractice]);
-  // What the technique proves on the drill's board, once that board is up.
-  const drillBoard = practice ? practice.drills[practice.index].board : null;
+  // What the technique proves on the drill's board. Worked out from the
+  // drill's own position, not the board as it stands: a player who makes a
+  // move before the engine has loaded must still get Show me and Found it.
+  const drill = practice ? practice.drills[practice.index] : null;
   useEffect(() => {
-    if (!practice || practice.instances !== null || encodeCells(game.grid) !== drillBoard) return undefined;
+    if (!practice || practice.instances !== null || !drill) return undefined;
+    const givens = [...drill.puzzle].map((d, i) => ({ ...game.grid[i], value: d === '0' ? null : Number(d), isFixed: d !== '0', candidates: [] }));
+    const position = decodeCells(drill.board, givens);
+    if (!position) return undefined;
     let cancelled = false;
     loadLogicEngine().then(({ findAllTechniqueInstances }) => {
       if (cancelled) return;
-      const instances = findAllTechniqueInstances(game.grid, practice.technique, { uniqueness: game.uniqueness });
+      const instances = findAllTechniqueInstances(position, practice.technique, { uniqueness: game.uniqueness });
       setPractice((p) => (p && p.technique === practice.technique && p.index === practice.index ? { ...p, instances } : p));
     });
     return () => {
       cancelled = true;
     };
-  }, [practice, drillBoard, game.grid, game.uniqueness]);
+    // game.grid only lends the cells their shape; the position is the drill's.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [practice, drill, game.uniqueness]);
   // Found: the player's board shows one instance carried out.
   useEffect(() => {
     if (!practice?.instances || practice.found) return;

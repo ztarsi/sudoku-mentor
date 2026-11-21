@@ -750,7 +750,7 @@ const hypothesisStep = (grid, cellIndex, badValue, branch) => {
     forcingBranches: [
       {
         assume: branch.assume,
-        moves: branch.moves,
+        moves: withoutTrials(branch.moves),
         proof,
         skipped,
         outcome: { kind: 'contradiction', text: branch.text, cell: branch.cell ?? null },

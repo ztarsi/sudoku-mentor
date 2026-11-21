@@ -373,19 +373,29 @@ const endingCaption = (ending, level, conclusion) => {
   return level === 'detailed' ? `${ending.text}${end}` : `${capFirst(ending.text || 'The board breaks')}.${end}`;
 };
 
-/** The cells a move rests on, ringed, with a line from each cause. */
+/**
+ * The cells a move rests on, ringed, with a line from each cause. One
+ * placement often rules out several things; it is ringed once, since the
+ * board draws a second ring on a cell as a second outline inside the first.
+ */
 const causePicture = (cell, because, kind) => {
   const rings = [];
   const lines = [];
+  const ringed = new Set();
+  const ring = (at, color) => {
+    if (ringed.has(`${at}:${color}`)) return;
+    ringed.add(`${at}:${color}`);
+    rings.push({ cell: at, color });
+  };
   for (const b of because ?? []) {
     if (kind === 'hidden' || kind === 'no-place') {
-      rings.push({ cell: b.cell, color: RESULT });
+      ring(b.cell, RESULT);
       if (b.by) {
-        rings.push({ cell: b.by.cell, color: PATTERN });
+        ring(b.by.cell, PATTERN);
         lines.push({ from: b.by.cell, to: b.cell, color: PATTERN, dashed: true });
       }
     } else if (b.by) {
-      rings.push({ cell: b.by.cell, color: PATTERN });
+      ring(b.by.cell, PATTERN);
       lines.push({ from: b.by.cell, to: cell, color: PATTERN, dashed: true });
     }
   }
@@ -408,7 +418,8 @@ const sequenceFrames = (items, ending, level, ghosts, conclusion) => {
     const cause = item.split
       ? causePicture(item.split.cell, item.split.narrowed, 'naked')
       : causePicture(item.cell, item.because, item.kind);
-    const splitRing = item.split ? [{ cell: item.split.cell, color: PATTERN }] : [];
+    // The cell a net split on, when it is not the cell the move fills.
+    const splitRing = item.split && item.split.cell !== item.cell ? [{ cell: item.split.cell, color: PATTERN }] : [];
     shown = [...shown, { cell: item.cell, digit: item.digit }];
     frames.push(
       frame(itemCaption(item, level), {
@@ -437,7 +448,10 @@ const sequenceFrames = (items, ending, level, ghosts, conclusion) => {
         ghosts: shown,
         rings: [...cause.rings, ...broken],
         lines: cause.lines,
-        crosses: removes.map((r) => r.cell),
+        // The marks that go, struck through one by one, as every other
+        // erasure is: a cross over the whole cell would say the cell is wrong.
+        crosses: uniq(removes.map((r) => r.cell)),
+        erase: removes.map(({ cell, digit }) => ({ cell, digit })),
         detail,
       })
     );

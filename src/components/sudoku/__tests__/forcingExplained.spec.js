@@ -16,7 +16,7 @@
 import { describe, it, expect } from 'vitest';
 import { PUZZLES } from '../puzzles';
 import { findNextLogicStep, applyLogicStep, eliminateCandidatesFromPeers, generateCandidates } from '../logicEngine';
-import { findWhatIfStep } from '../forcingChainEngine';
+import { findWhatIfStep, findHypothesis } from '../forcingChainEngine';
 import { establishUniqueness } from '../uniqueness';
 import { buildHintFrames } from '../hintFrames';
 import { arePeers, cellName } from '../gridUnits';
@@ -183,6 +183,21 @@ describe('forcing proofs, explained (#141)', () => {
     expect(opened).toBeGreaterThan(0);
   });
 
+  // A case that rubs marks out strikes those marks, as every other erasure
+  // does (#144): a cross over the whole cell would say the cell is wrong.
+  it('strikes out the marks a case rubs out, not the cells', () => {
+    let seen = 0;
+    for (const { step, grid, where } of FOUND) {
+      for (const { f } of everyFrame(buildHintFrames(step, grid, 'simple'))) {
+        if (f.crosses.length === 0 || f.place) continue;
+        seen++;
+        expect(new Set(f.crosses).size, where).toBe(f.crosses.length);
+        expect([...new Set(f.erase.map((e) => e.cell))].sort(), where).toEqual([...f.crosses].sort());
+      }
+    }
+    expect(seen).toBeGreaterThan(0);
+  });
+
   it('speaks plainly to a beginner at every depth, and in notation to an expert', () => {
     for (const { step, grid, where } of FOUND) {
       const simple = everyFrame(buildHintFrames(step, grid, 'simple'));
@@ -200,7 +215,12 @@ describe('forcing proofs, explained (#141)', () => {
   // The trials a net ran are what the explanation is built from. Left on the
   // step's moves they made it fifteen times the size, for nothing.
   it('keeps the trials only inside the explanation', () => {
-    for (const { step, where } of FOUND) {
+    // Hypothesis Mode carries explained moves too, and a net of its own
+    // where the singles alone break nothing.
+    const trials = FOUND.map(({ grid, where }) => ({ step: findHypothesis(grid), where: `${where}, as a trial` })).filter(({ step }) => step);
+    expect(trials.length).toBeGreaterThan(0);
+    globalThis.process?.stdout?.write(`  trials checked: ${trials.length}, with a net: ${trials.filter(({ step }) => step.forcingNet).length}\n`);
+    for (const { step, where } of [...FOUND, ...trials]) {
       for (const branch of step.forcingBranches) {
         for (const move of branch.moves) expect(move.net?.trials, where).toBeUndefined();
         expect(branch.outcome?.trials, where).toBeUndefined();
