@@ -16,7 +16,9 @@ export const loadDrills = async (technique) => {
  * Whether the player's board shows one instance of the technique carried
  * out: its digit placed, or every pencil mark it rules out erased. An
  * erasure counts as done when the mark is gone from a cell still open; a
- * cell the player has since filled with a different digit has lost it too.
+ * cell the player has since filled with a different digit has lost it too,
+ * but at least one mark must have been erased from a cell still open, or
+ * solving those cells some other way would count as finding the technique.
  * Legal moves that belong to no instance are allowed and not praised.
  *
  * @param {any[]} instances what the technique proves on the drill's board
@@ -27,11 +29,12 @@ export const drillFound = (instances, grid) =>
     if (step.placement) return grid[step.placement.cell]?.value === step.placement.digit;
     const erasures = step.eliminations ?? [];
     if (erasures.length === 0) return false;
-    return erasures.every(({ cell, digit }) => {
+    const gone = erasures.every(({ cell, digit }) => {
       const now = grid[cell];
       if (!now) return false;
       return now.value !== null ? now.value !== digit : !now.candidates.includes(digit);
     });
+    return gone && erasures.some(({ cell }) => grid[cell]?.value === null);
   });
 
 // "the", not "a": technique names include plurals ("Remote Pairs") and

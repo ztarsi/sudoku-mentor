@@ -259,7 +259,10 @@ export default function LogicPanel({
           onPractise={
             onPractise
               ? (technique) => {
+                  // The drill is on the board: nothing may stay open over it,
+                  // the reference it was chosen from included.
                   setSelectedTechnique(null);
+                  setBrowse(null);
                   onPractise(technique);
                 }
               : null

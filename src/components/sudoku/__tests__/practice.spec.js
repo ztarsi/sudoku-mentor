@@ -20,6 +20,11 @@ describe('when a drill is found', () => {
     expect(drillFound([erase], [placed(4), open([9])])).toBe(false);
   });
 
+  it('is not found by solving every such cell some other way', () => {
+    // Both cells filled before any mark was erased: that is not this technique.
+    expect(drillFound([erase], [placed(1), placed(9)])).toBe(false);
+  });
+
   it('needs the placement for a technique that places', () => {
     expect(drillFound([place], [open([1]), open([2]), open([7, 8])])).toBe(false);
     expect(drillFound([place], [open([1]), open([2]), placed(7)])).toBe(true);
