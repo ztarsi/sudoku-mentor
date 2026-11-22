@@ -27,6 +27,7 @@ import { buildHighlightSets, buildChainOverlay } from '../stepHighlights';
 import { TECHNIQUE_INFO, TECHNIQUE_TIERS, TECHNIQUE_DETAILS, techniqueTier, matchTechniques } from '../techniqueCatalog';
 import { arePeers, cellName } from '../gridUnits';
 import { PUZZLES } from '../puzzles';
+import { PRACTICE_INDEX } from '../practiceIndex';
 
 /** R,C in the 1-based names the product uses, as a 0..80 index. */
 const at = (row, col) => (row - 1) * 9 + (col - 1);
@@ -563,12 +564,12 @@ describe('Continuous Loop', () => {
 });
 
 describe('a loop that cannot alternate is rejected', () => {
-  it('every loop the engine reports has an even number of links, all the way round', () => {
-    // An odd number of links cannot alternate round a loop. Rather than
-    // trusting one hand-built case, this walks the whole library and checks
-    // the invariant on every loop the engine finds anywhere.
-    let checked = 0;
-    for (const { name, puzzle } of library) {
+  // An odd number of links cannot alternate round a loop. Rather than
+  // trusting one hand-built case, this walks the whole library and checks
+  // the invariant on every loop the engine finds anywhere: one case per
+  // puzzle, since a library of forty-eight (#88) outgrew one case's time.
+  for (const { name, puzzle } of library) {
+    it(`${name}: every loop the engine reports has an even number of links, all the way round`, () => {
       let grid = buildGrid(puzzle);
       for (let i = 0; i < 120; i++) {
         for (const step of findAllTechniqueInstances(grid, 'Continuous Loop')) {
@@ -579,15 +580,18 @@ describe('a loop that cannot alternate is rejected', () => {
           walk.forEach((link, index) => {
             expect(link.strong, `${name}: link ${index}`).toBe(index % 2 === 0);
           });
-          checked++;
         }
         const step = findNextLogicStep(grid, null);
         if (!step) break;
         grid = applyLogicStep(grid, step);
         if (step.placement) grid = eliminateCandidatesFromPeers(grid, step.placement.cell, step.placement.digit);
       }
-    }
-    expect(checked, 'the library should show the engine some loops').toBeGreaterThan(0);
+    });
+  }
+  // Not vacuous: the library's paths do hold loops, read from the practice
+  // positions, which their own test holds to the engine (#139).
+  it('the library shows the engine some loops', () => {
+    expect(PRACTICE_INDEX['Continuous Loop'] ?? 0).toBeGreaterThan(0);
   });
 });
 

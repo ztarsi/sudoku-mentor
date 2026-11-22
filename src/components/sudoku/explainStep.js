@@ -176,6 +176,11 @@ const listWords = (items) => {
 };
 
 const shortCells = (cells) => listWords(cells.map(shortCell));
+const FISH_NAMES = { 2: 'X-Wing', 3: 'Swordfish', 4: 'Jellyfish' };
+/** "a 4", but "an 8". */
+const aDigit = (d) => (Number(d) === 8 ? `an ${d}` : `a ${d}`);
+/** "R1C5 holds", "R1C5 and R1C6 hold". */
+const holdFor = (cells) => (cells.length === 1 ? 'holds' : 'hold');
 
 const uniq = (arr) => [...new Set(arr)];
 
@@ -251,9 +256,9 @@ const uniqueRectangleExtras = (step, howMany) => {
   const rest =
     floor.length === 0
       ? 'every corner carries the same one extra'
-      : `${shortCells(floor)} hold exactly ${a} and ${b}`;
+      : `${shortCells(floor)} ${holdFor(floor)} exactly ${a} and ${b}`;
   return {
-    look: `Look at the four corners of a rectangle spread over two boxes: ${shortCells(corners)}. ${rest}, and the other ${howMany} (${shortCells(roof)}) hold those two plus ${extra}.`,
+    look: `Look at the four corners of a rectangle spread over two boxes: ${shortCells(corners)}. ${rest}, and the other ${howMany} (${shortCells(roof)}) ${holdFor(roof)} those two plus ${extra}.`,
     why: `${swapWhy(a, b)} So at least one of ${shortCells(roof)} must take its extra number, and ${extra} is the only extra on offer. ${extra} is therefore true in one of them, and any cell that clashes with all of them can never be ${extra}.`,
   };
 };
@@ -299,8 +304,8 @@ const SIMPLE = {
     return {
       look: `Look at ${unitName}. The number ${step.digit} is still missing from it, and ${shortCell(cell)} is the only empty cell there where ${step.digit} can go.`,
       why: allBlocked
-        ? `Every other empty cell in ${unitName} already has a ${step.digit} in its row, column, or box, so none of them can take it. Since ${unitName} must contain a ${step.digit} somewhere, it has to be this cell.`
-        : `No other empty cell in ${unitName} still has ${step.digit} as a pencil mark; the others were ruled out by digits nearby or by earlier steps. Since ${unitName} must contain a ${step.digit} somewhere, it has to be this cell.`,
+        ? `Every other empty cell in ${unitName} already has ${aDigit(step.digit)} in its row, column, or box, so none of them can take it. Since ${unitName} must contain ${aDigit(step.digit)} somewhere, it has to be this cell.`
+        : `No other empty cell in ${unitName} still has ${step.digit} as a pencil mark; the others were ruled out by digits nearby or by earlier steps. Since ${unitName} must contain ${aDigit(step.digit)} somewhere, it has to be this cell.`,
       _grid: grid,
     };
   },
@@ -313,8 +318,8 @@ const SIMPLE = {
     const box = commonUnit([...step.baseCells, ...elims.cells], 'box');
     const line = commonUnit(step.baseCells, 'row') || commonUnit(step.baseCells, 'column');
     return {
-      look: `Look at ${line.name}. The number ${step.digit} can only go in ${step.baseCells.length} cells there (${shortCells(step.baseCells)}), and all of them sit inside ${box.name}.`,
-      why: `${capitalize(line.name)} must contain a ${step.digit} somewhere, and every possible spot is in ${box.name}. So ${box.name} gets its ${step.digit} from ${line.name}, and no other cell in ${box.name} can be ${step.digit}.`,
+      look: `Look at ${line.name}. The number ${step.digit} can only go in ${step.baseCells.length} cells there (${shortCells(step.baseCells)}), and ${step.baseCells.length === 2 ? 'both' : 'all of them'} sit inside ${box.name}.`,
+      why: `${capitalize(line.name)} must contain ${aDigit(step.digit)} somewhere, and every possible spot is in ${box.name}. So ${box.name} gets its ${step.digit} from ${line.name}, and no other cell in ${box.name} can be ${step.digit}.`,
     };
   },
 
@@ -370,7 +375,7 @@ const SIMPLE = {
     const zCells = step.zCells ?? step.baseCells.filter((c) => candidatesOf(grid, c).includes(z));
     return {
       look: `Look at four cells: ${shortCells(step.baseCells)}. Between them, their only pencil marks are the four numbers ${listWords(digits)}, and the cells that could be ${z} are ${shortCells(zCells)}.`,
-      why: `Each of the other three numbers (${listWords(others)}) sits only in cells that share a row, column, or box with one another, so each of those three can be used once at most across the four cells. Three numbers cannot fill four cells, so one of these cells has to be ${z}. Any cell that shares a row, column, or box with every one of ${shortCells(zCells)} can never be ${z}.`,
+      why: `Each of the other three numbers (${listWords(others)}) sits only in cells that share a row, column, or box with one another, so each of those three can be used once at most across the four cells. Three numbers cannot fill four cells, so one of these cells has to be ${z}. Any cell that shares a row, column, or box with ${zCells.length === 2 ? 'both' : 'every one'} of ${shortCells(zCells)} can never be ${z}.`,
     };
   },
 
@@ -447,7 +452,7 @@ const SIMPLE = {
     const subset = step.subsetDigits;
     const withCells = step.zCells ?? [];
     return {
-      look: `Look at the four corners of a rectangle spread over two boxes: ${shortCells(corners)}. ${shortCells(floor)} hold exactly ${a} and ${b}. ${shortCells(roof)} hold those two as well, plus ${listOr(extras)}.`,
+      look: `Look at the four corners of a rectangle spread over two boxes: ${shortCells(corners)}. ${shortCells(floor)} ${holdFor(floor)} exactly ${a} and ${b}. ${shortCells(roof)} ${holdFor(roof)} those two as well, plus ${listOr(extras)}.`,
       why: `${swapWhy(a, b)} So one of ${shortCells(roof)} has to take one of its extra numbers, ${listOr(extras)}. That means those two cells behave like a single cell holding ${listWords(extras.map(String))}, sitting in ${step.unit?.name ?? 'the line they share'}. Put it beside ${shortCells(withCells)} and you have ${countWord(withCells.length + 1)} cells for the ${countWord(subset.length)} numbers ${listWords(subset.map(String))}, so those numbers are used up there and can go from the rest of ${step.unit?.name ?? 'that line'}.`,
     };
   },
@@ -458,7 +463,7 @@ const SIMPLE = {
     const gone = step.digit;
     const locked = gone === a ? b : a;
     return {
-      look: `Look at the four corners of a rectangle spread over two boxes: ${shortCells(corners)}. ${shortCells(floor)} hold exactly ${a} and ${b}; ${shortCells(roof)} hold those two plus something else. In ${step.unit?.name ?? 'the line they share'}, ${locked} has nowhere left to go but ${shortCells(roof)}.`,
+      look: `Look at the four corners of a rectangle spread over two boxes: ${shortCells(corners)}. ${shortCells(floor)} ${holdFor(floor)} exactly ${a} and ${b}; ${shortCells(roof)} ${holdFor(roof)} those two plus something else. In ${step.unit?.name ?? 'the line they share'}, ${locked} has nowhere left to go but ${shortCells(roof)}.`,
       why: `One of ${shortCells(roof)} is therefore ${locked}. Suppose the other were ${gone}: then the first takes ${locked}, and the two cells holding only ${a} and ${b} are forced to the numbers left over. All four corners would be down to ${a} and ${b}. ${swapWhy(a, b, true)} So neither of ${shortCells(roof)} can be ${gone}.`,
     };
   },
@@ -469,7 +474,7 @@ const SIMPLE = {
     const digit = step.digit;
     const other = digit === a ? b : a;
     return {
-      look: `Look at the four corners of a rectangle spread over two boxes: ${shortCells(corners)}. ${shortCells(floor)} hold exactly ${a} and ${b}, and they sit across the rectangle from each other. ${shortCells(roof)} hold those two plus something else.`,
+      look: `Look at the four corners of a rectangle spread over two boxes: ${shortCells(corners)}. ${shortCells(floor)} ${holdFor(floor)} exactly ${a} and ${b}, and they sit across the rectangle from each other. ${shortCells(roof)} ${holdFor(roof)} those two plus something else.`,
       why: `In both lines of the rectangle, ${digit} can only go in these corners, so it takes one corner in each - which means it runs along one diagonal of the rectangle or the other. If it ran along ${shortCells(roof)}, the other two corners would both be forced to ${other}, and all four corners would be down to ${a} and ${b}. ${swapWhy(a, b, true)} So ${digit} runs along the other diagonal, and it can go from ${shortCells(roof)}.`,
     };
   },
@@ -742,10 +747,12 @@ function linkSentence(from, to) {
     const fromDigits = from.digits ?? (from.digit === null ? [] : [from.digit]);
     const toDigits = to.digits ?? (to.digit === null ? [] : [to.digit]);
     const plural = to.cells.length > 1;
+    const aw = shortCells(from.cells);
+    const bw = shortCells(to.cells);
     if (from.linkVia === 'digits') {
-      return `${a} can only hold ${listWords(fromDigits)} and ${b} can only hold ${listWords(toDigits)}. They have no number in common, so those cannot clash either.`;
+      return `${aw} can only hold ${listWords(fromDigits)} and ${bw} can only hold ${listWords(toDigits)}. They have no number in common, so those cannot clash either.`;
     }
-    return `${b} ${plural ? 'are' : 'is'} in ${unit ?? 'that row, column, or box'} with the overlap cells and can only hold ${listWords(toDigits)}, every one of them on the overlap's list of ${countWord(fromDigits.length)}. So ${plural ? 'they take numbers from that list, and never the same one as' : 'it takes one of that list, and never the same one as'} any overlap cell.`;
+    return `${bw} ${plural ? 'are' : 'is'} in ${unit ?? 'that row, column, or box'} with the overlap cells and can only hold ${listWords(toDigits)}, every one of them on the overlap's list of ${countWord(fromDigits.length)}. So ${plural ? 'they take numbers from that list, and never the same one as' : 'it takes one of that list, and never the same one as'} any overlap cell.`;
   }
 
   if (from.linkToNext === 'strong') {
@@ -763,10 +770,10 @@ function linkSentence(from, to) {
   }
 
   if (from.linkVia === 'cell') {
-    return `${a} holds one number only, so if it is ${from.digit} it is not ${to.digit}.`;
+    return `A cell takes only one number, so if ${a} is ${from.digit}, it is not ${to.digit}.`;
   }
   if (isGroupNode(from) || isGroupNode(to)) {
-    return `Every cell in ${a} shares a row, column, or box with every cell in ${b}, so ${from.digit} cannot be in both places. So if ${from.digit} is in ${a}, it is not in ${b}.`;
+    return `${a} and ${b} ${unit ? `are both in ${unit}` : 'share a row, column, or box'}, so ${from.digit} cannot be in both. So if ${from.digit} is in ${a}, it is not in ${b}.`;
   }
   return `${a} and ${b} ${unit ? `are both in ${unit}` : 'share a row, column, or box'}, so they cannot both be ${from.digit}. So if ${a} is ${from.digit}, ${b} is not.`;
 }
@@ -1177,8 +1184,14 @@ export function chainWalk(step) {
 }
 
 /** What the two ends of the chain prove, in plain words. */
-function chainConclusion(step) {
+export function chainConclusion(step) {
   const nodes = step.chainNodes ?? [];
+  if (step.chainClosed && nodes.length > 0 && nodes.every((n) => n.digit === nodes[0].digit)) {
+    const d = nodes[0].digit;
+    const targets = uniq((step.eliminations ?? []).map((e) => e.cell));
+    const plural = targets.length !== 1;
+    return `The chain closes into a loop, so every dashed link holds exactly one ${d}: one of its two cells is ${d}, never neither. ${shortCells(targets)} ${plural ? 'share' : 'shares'} a row, column, or box with both cells of a dashed link, so ${plural ? 'they' : 'it'} can never be ${d}.`;
+  }
   if (step.chainClosed) {
     return 'Because the chain comes back to where it started, each link is now an exact either-or rather than a one-way push: in every dashed link, exactly one of its two sides is right. That is what lets the loop erase something at every one of them instead of only at one end.';
   }
@@ -1243,7 +1256,7 @@ function twoPairFish(step) {
   const plural = targets.length !== 1;
   return {
     look: `Look at the number ${d}. In ${unitA} it can only go in ${shortCell(freeA.cells[0])} or ${shortCell(nearA.cells[0])}; in ${unitB} only in ${shortCell(nearB.cells[0])} or ${shortCell(freeB.cells[0])}. ${shortCell(nearA.cells[0])} and ${shortCell(nearB.cells[0])} are both in ${join}.`,
-    why: `Those two cannot both be ${d}, because they share a ${join.split(' ')[0]}. ${capitalize(unitA)} and ${unitB} each need a ${d} somewhere, so at least one of the other two cells, ${shortCell(freeA.cells[0])} and ${shortCell(freeB.cells[0])}, must be ${d}. ${shortCells(targets)} ${plural ? 'see' : 'sees'} both of them, so ${plural ? 'they' : 'it'} can never be ${d}.`,
+    why: `Those two cannot both be ${d}, because they share a ${join.split(' ')[0]}. ${capitalize(unitA)} and ${unitB} each need ${aDigit(d)} somewhere, so at least one of the other two cells, ${shortCell(freeA.cells[0])} and ${shortCell(freeB.cells[0])}, must be ${d}. ${shortCells(targets)} ${plural ? 'see' : 'sees'} both of them, so ${plural ? 'they' : 'it'} can never be ${d}.`,
   };
 }
 
@@ -1290,8 +1303,8 @@ function pointing(step) {
   const line = commonUnit([...step.baseCells, ...elims.cells], 'row') || commonUnit([...step.baseCells, ...elims.cells], 'column');
   const n = step.baseCells.length;
   return {
-    look: `Look at ${box.name}. The number ${step.digit} can only go in ${n} cells there (${shortCells(step.baseCells)}), and they all sit in ${line.name}.`,
-    why: `${capitalize(box.name)} must contain a ${step.digit} somewhere, and every possible spot is in ${line.name}. So ${line.name} gets its ${step.digit} from inside ${box.name}, and no other cell in ${line.name} can be ${step.digit}.`,
+    look: `Look at ${box.name}. The number ${step.digit} can only go in ${n} cells there (${shortCells(step.baseCells)}), and ${n === 2 ? 'both' : 'they all'} sit in ${line.name}.`,
+    why: `${capitalize(box.name)} must contain ${aDigit(step.digit)} somewhere, and every possible spot is in ${line.name}. So ${line.name} gets its ${step.digit} from inside ${box.name}, and no other cell in ${line.name} can be ${step.digit}.`,
   };
 }
 
@@ -1347,12 +1360,13 @@ function finnedFish(step, size) {
   const cover = byRows ? cols : rows;
   const shape = size === 2 ? 'a rectangle' : `a ${countWord(size)}-line pattern`;
   const spots = fins.length === 1 ? 'one extra spot' : 'a couple of extra spots';
+  const targets = uniq((step.eliminations ?? []).map((e) => e.cell));
   const emptyCorner = step.sashimi
     ? ` One corner of the pattern has no ${d} left in it at all, which is the only difference from the usual shape.`
     : '';
   return {
     look: `Look at ${baseWord} ${listWords(base)}. Almost every ${d} in those ${baseWord} sits in ${coverWord} ${listWords(cover)}, forming ${shape}, except for ${spots} at ${shortCells(fins)} (the "fin").${emptyCorner}`,
-    why: `There are two cases. If the fin is not ${d}, the pattern works like a normal ${size === 2 ? 'X-Wing' : countWord(size)}-line fish and ${d} can be erased from the rest of ${coverWord} ${listWords(cover)}. If the fin is ${d}, then any cell sharing a row, column, or box with the fin can't be ${d}. The highlighted cells are ruled out in both cases, so they can never be ${d}.`,
+    why: `There are two cases. If the fin is not ${d}, the pattern is a plain ${FISH_NAMES[size] ?? `${countWord(size)}-line fish`}, and ${d} can be erased from the rest of ${coverWord} ${listWords(cover)}. If the fin is ${d}, no cell that shares a row, column, or box with the fin can be ${d}. ${shortCells(targets)} ${targets.length === 1 ? 'is' : 'are'} in one of those ${coverWord} and in the fin's box, so ${targets.length === 1 ? 'it loses' : 'they lose'} ${d} either way.`,
   };
 }
 
@@ -1363,8 +1377,8 @@ function unitFish(step) {
   const coverNames = (step.coverUnits ?? []).map((u) => u.name);
   const n = countWord(baseNames.length);
   return {
-    look: `Look at ${n} groups of cells, each of which has to hold a ${d} somewhere: ${listWords(baseNames)}. No two of them share a cell. Every place a ${d} could still go in those groups lies inside ${n} other groups: ${listWords(coverNames)}.`,
-    why: `The first ${n} groups need a ${d} each and share no cell, so there are ${n} different ${d}s among them. Each of the other ${n} groups can hold a ${d} once at most, and between them they cover all ${n}, so every one of those groups is spoken for by a ${d} that is already in the first ${n}. So no other cell inside ${listWords(coverNames)} can be ${d}. Nobody is expected to spot this shape by eye; finding it is the mentor's job, and the reasoning above is all of it.`,
+    look: `Look at ${n} groups of cells, each of which has to hold ${aDigit(d)} somewhere: ${listWords(baseNames)}. No two of them share a cell. Every place ${aDigit(d)} could still go in those groups lies inside ${n} other groups: ${listWords(coverNames)}.`,
+    why: `The first ${n} groups need ${aDigit(d)} each and share no cell, so there are ${n} different ${d}s among them. Each of the other ${n} groups can hold ${aDigit(d)} once at most, and between them they cover all ${n}, so every one of those groups is spoken for by ${aDigit(d)} that is already in the first ${n}. So no other cell inside ${listWords(coverNames)} can be ${d}. Nobody is expected to spot this shape by eye; finding it is the mentor's job, and the reasoning above is all of it.`,
   };
 }
 
@@ -1415,8 +1429,8 @@ function emptyRectangle(step) {
   const forcedOnto = alongRow ? `column ${crossCol}` : `row ${crossRow}`;
   const shared = alongRow ? 'column' : 'row';
   return {
-    look: `Look at ${boxName}. Every place a ${d} can still go there sits on row ${crossRow} or on column ${crossCol}, and nowhere else in the box, so ${boxName} takes its ${d} from one of those two lines.`,
-    why: `${capitalize(linkName)} has only two places left for a ${d}, ${shortCell(near)} and ${shortCell(far)}, so one of those two is it. Now suppose ${shortCell(target)} were ${d}. That uses up ${usedUp} outside ${boxName}, so ${boxName} would have to take its ${d} from ${forcedOnto}, which leaves no ${d} anywhere else along ${forcedOnto} - including ${shortCell(near)}. ${capitalize(linkName)} would then need ${shortCell(far)}, which shares a ${shared} with ${shortCell(target)}. Two ${d}s in one ${shared} is impossible, so ${shortCell(target)} cannot be ${d}.`,
+    look: `Look at ${boxName}. Every place ${aDigit(d)} can still go there sits on row ${crossRow} or on column ${crossCol}, and nowhere else in the box, so ${boxName} takes its ${d} from one of those two lines.`,
+    why: `${capitalize(linkName)} has only two places left for ${aDigit(d)}, ${shortCell(near)} and ${shortCell(far)}, so one of those two is it. Now suppose ${shortCell(target)} were ${d}. That uses up ${usedUp} outside ${boxName}, so ${boxName} would have to take its ${d} from ${forcedOnto}, which leaves no ${d} anywhere else along ${forcedOnto} - including ${shortCell(near)}. ${capitalize(linkName)} would then need ${shortCell(far)}, which shares a ${shared} with ${shortCell(target)}. Two ${d}s in one ${shared} is impossible, so ${shortCell(target)} cannot be ${d}.`,
   };
 }
 

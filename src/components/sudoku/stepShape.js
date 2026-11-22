@@ -34,7 +34,12 @@
 //                        placement it forced, with its reason and, for a
 //                        net move, the `net` split that justified it),
 //                        proof (the few moves the card walks), skipped,
-//                        outcome, net, limited }
+//                        outcome, explained, net, limited }. `explained`
+//                        (#141) is the branch replayed with the cause of
+//                        every move, cut to what its ending rests on, the
+//                        trials a net ran nested inside; null for the
+//                        survivor of a refutation, which proves nothing.
+//                        See forcingCauses.js.
 //   forcingConclusion  { kind: 'convergence'|'refutation', placement,
 //                        eliminations }
 //   forcingNet         { depth, limited } when the proof needed more than

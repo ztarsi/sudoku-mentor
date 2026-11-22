@@ -1,10 +1,20 @@
 import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Play, Pause, ChevronLeft, ChevronRight, RotateCcw, FastForward, X } from 'lucide-react';
-import { setHintAnimation, useHintAnimation } from './hintAnimation';
+import { Play, Pause, ChevronLeft, ChevronRight, RotateCcw, FastForward, X, ZoomIn, CornerUpLeft } from 'lucide-react';
+import { setHintAnimation, useHintAnimation, openHintDetail, closeHintDetail } from './hintAnimation';
 import { usePrefersReducedMotion } from '@/hooks/useMediaQuery';
 
 const FRAME_MS = 3500;
+
+/**
+ * How long a frame stays up when playing: never less than FRAME_MS, and
+ * long enough to read its caption at an unhurried pace (about 220 words a
+ * minute), so a two-sentence frame does not move on mid-sentence.
+ */
+export const frameMs = (caption = '') => {
+  const words = caption.split(/\s+/).filter(Boolean).length;
+  return Math.max(FRAME_MS, 1500 + words * 270);
+};
 
 const Btn = ({ label, onClick, disabled = false, primary = false, children }) => (
   <button type="button" aria-label={label} title={label} onClick={onClick} disabled={disabled}
@@ -31,10 +41,17 @@ export default function HintAnimationControls({ children = null, className = 'ro
   const playing = anim?.playing;
   const last = anim ? anim.frames.length - 1 : 0;
   const go = (i, play = false) => setHintAnimation({ ...anim, index: i, playing: play });
+  // Inside a detail (#141): how deep, and whether this frame has one of its own.
+  const depth = anim?.stack?.length ?? 0;
+  const hasDetail = Boolean(anim && Array.isArray(anim.frames[index]?.detail) && anim.frames[index].detail.length > 0);
 
   useEffect(() => {
     if (!anim || !playing) return undefined;
-    const id = setTimeout(() => setHintAnimation({ ...anim, index: Math.min(last, index + 1), playing: index + 1 < last }), FRAME_MS);
+    // Playing stops on a frame that offers Show why, so the invitation is
+    // still there when the player reaches for it (#141).
+    const next = Math.min(last, index + 1);
+    const invites = Array.isArray(anim.frames[next]?.detail) && anim.frames[next].detail.length > 0;
+    const id = setTimeout(() => setHintAnimation({ ...anim, index: next, playing: next < last && !invites }), frameMs(anim.frames[index]?.caption));
     return () => clearTimeout(id);
   }, [anim, playing, index, last]);
 
@@ -65,16 +82,27 @@ export default function HintAnimationControls({ children = null, className = 'ro
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Btn label="Previous" onClick={() => go(Math.max(0, index - 1))} disabled={index === 0}><ChevronLeft className="w-4 h-4" /></Btn>
-          {index < last ? (
-            <Btn primary label={playing ? 'Pause' : 'Play'} onClick={() => go(index, !playing)}>
+          {index < last || depth === 0 ? null : (
+            <Btn primary label="Back to the proof" onClick={closeHintDetail}><CornerUpLeft className="w-4 h-4" />Back</Btn>
+          )}
+          {index === last && depth > 0 ? null : index < last ? (
+            <Btn primary={playing || !hasDetail} label={playing ? 'Pause' : 'Play'} onClick={() => go(index, !playing)}>
               {playing ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}{playing ? 'Pause' : 'Play'}
             </Btn>
           ) : (
             <Btn primary label="Replay" onClick={() => go(0, !reduced)}><RotateCcw className="w-4 h-4" />Replay</Btn>
           )}
+          {hasDetail && (
+            <Btn primary={!playing} label="Show why" onClick={openHintDetail}><ZoomIn className="w-4 h-4" />Show why</Btn>
+          )}
           <Btn label="Next" onClick={() => go(Math.min(last, index + 1))} disabled={index === last}><ChevronRight className="w-4 h-4" /></Btn>
           <Btn label="Show result" onClick={() => go(last)} disabled={index === last}><FastForward className="w-4 h-4" /></Btn>
-          <span className="ml-auto text-xs text-slate-400">Step {index + 1} of {last + 1}</span>
+          {depth > 0 && index < last && (
+            <Btn label="Back to the proof" onClick={closeHintDetail}><CornerUpLeft className="w-4 h-4" /></Btn>
+          )}
+          <span className="ml-auto text-xs text-slate-400">
+            {depth > 0 ? `Why, ${depth > 1 ? `level ${depth}, ` : ''}step` : 'Step'} {index + 1} of {last + 1}
+          </span>
           <Btn label="Close animation" onClick={() => setHintAnimation(null)}><X className="w-4 h-4" /></Btn>
         </div>
       </div>

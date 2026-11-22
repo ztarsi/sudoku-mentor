@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { TECHNIQUE_DETAILS, needsUniqueness, techniqueTier } from './techniqueCatalog';
 import { whereTaughtLine } from './whereTaught';
+import { practiceCount } from './practice';
 import { UNIQUENESS_UNKNOWN, uniquenessAllowed, uniquenessShortNote } from './uniqueness';
 import { useDialog } from '@/hooks/useDialog';
 
@@ -21,6 +22,7 @@ export default function TechniqueModal({
   noAssistMode = false,
   uniqueness = UNIQUENESS_UNKNOWN,
   onCount,
+  onPractise,
   onClose,
 }) {
   const dialog = useDialog({ open: !!technique, onClose });
@@ -104,6 +106,17 @@ export default function TechniqueModal({
               <p className="text-slate-300 leading-relaxed" data-testid="where-taught">
                 {whereTaughtLine(technique, techniqueTier(technique))}
               </p>
+              {/* Practice is assistance, so not in No Assist; and a
+                  technique with no position offers no button (#139). */}
+              {onPractise && !noAssistMode && !blocked && practiceCount(technique) > 0 && (
+                <button
+                  type="button"
+                  onClick={() => onPractise(technique)}
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-sm text-white hover:bg-violet-500"
+                >
+                  Practise this on {practiceCount(technique)} real board{practiceCount(technique) === 1 ? '' : 's'}
+                </button>
+              )}
             </div>
 
             {/* Description */}

@@ -54,6 +54,7 @@ export default function LogicPanel({
   getElapsedSeconds,
   hintPrompt = null,
   cardPrompt = null,
+  onPractise = null,
 }) {
   const [selectedTechnique, setSelectedTechnique] = useState(null);
   // Browsing the catalog happens in the reference dialog rather than in the
@@ -255,6 +256,17 @@ export default function LogicPanel({
           noAssistMode={noAssistMode}
           uniqueness={uniqueness}
           onCount={countNow}
+          onPractise={
+            onPractise
+              ? (technique) => {
+                  // The drill is on the board: nothing may stay open over it,
+                  // the reference it was chosen from included.
+                  setSelectedTechnique(null);
+                  setBrowse(null);
+                  onPractise(technique);
+                }
+              : null
+          }
           onClose={() => setSelectedTechnique(null)}
         />
       )}
