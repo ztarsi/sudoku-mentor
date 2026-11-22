@@ -44,6 +44,7 @@ export const PRACTICE_INDEX = {
   'Unique Rectangle Type 6': 3,
   'Hidden Unique Rectangle': 3,
   'Avoidable Rectangle Type 1': 3,
+  'Avoidable Rectangle Type 2': 3,
   'BUG+1': 3,
   'BUG+2': 1,
   'BUG+3': 1,

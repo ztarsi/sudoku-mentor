@@ -153,9 +153,11 @@ describe('practice drills', () => {
   });
 
   // The spec's measure: the seven techniques the hint never reaches (#88)
-  // each have practice positions, which is the point of practice.
+  // each have practice positions, which is the point of practice. The
+  // seventh, Avoidable Rectangle Type 2, formed on no library board until
+  // three puzzles were added for it.
   it('has positions for the techniques the hint never reaches', () => {
-    for (const name of ['Remote Pairs', 'BUG+1', 'BUG+2', 'BUG+3', 'Mutant Fish', 'Continuous Loop']) {
+    for (const name of ['Remote Pairs', 'Avoidable Rectangle Type 2', 'BUG+1', 'BUG+2', 'BUG+3', 'Mutant Fish', 'Continuous Loop']) {
       expect(PRACTICE_DRILLS[name]?.length ?? 0, name).toBeGreaterThan(0);
     }
   });

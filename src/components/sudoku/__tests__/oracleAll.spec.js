@@ -107,14 +107,14 @@ describe('every technique instance agrees with the solution', () => {
   }
 
   // Twenty puzzles could not exercise forty-odd techniques (#83); the
-  // teaching-coverage batch (#88) took the library to forty-eight, and this
-  // walk now reaches every named technique but one. Avoidable Rectangle
-  // Type 2 appears nowhere in the library, and is checked against
-  // hand-built grids in uniqueness.spec.js.
+  // teaching-coverage batch (#88) took the library to forty-eight, and three
+  // puzzles added for Avoidable Rectangle Type 2 (Hidden Door, Mirror Lake,
+  // Spare Key) closed the last gap: this walk reaches every named technique,
+  // and every one is checked against a real puzzle's answer.
   //
   // The list is exact on purpose: a technique that quietly stops firing
   // fails this test, and so does one the library starts covering.
-  const NOT_ON_THE_NAMED_WALK = ['Avoidable Rectangle Type 2'];
+  const NOT_ON_THE_NAMED_WALK = [];
 
   it('the library exercises every named technique it can reach', () => {
     const missing = CHEAP.concat(EXPENSIVE).filter((t) => !seen[t]);
