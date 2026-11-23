@@ -4,7 +4,10 @@
 // puzzleLibrary spec enforces validity, uniqueness, and honest labels.
 // The generated entries (Morning Crossword, Tea Time, Deep Waters,
 // Falcon's Dive, Devil's Den, Witching Hour) were produced by random
-// dig-and-rate against the analyzer.
+// dig-and-rate against the analyzer. Hidden Door, Mirror Lake and Spare
+// Key were chosen the same way for one more reason: an Avoidable
+// Rectangle Type 2 forms on each one's solve path, the only boards in the
+// library where it does, so it can be practised (#88, #139).
 export const PUZZLES = {
   easy: [
     {
@@ -293,6 +296,48 @@ export const PUZZLES = {
         8,0,7,2,0,0,0,1,0,
         0,0,0,0,0,0,0,0,4,
         0,3,0,9,0,0,0,0,0
+      ]
+    },
+    {
+      name: 'Hidden Door',
+      puzzle: [
+        0,0,0,6,0,0,0,0,0,
+        0,2,7,0,0,9,0,6,0,
+        3,9,0,8,0,0,0,0,1,
+        9,0,2,0,0,7,0,0,0,
+        0,8,0,2,0,0,0,7,0,
+        0,4,0,0,0,0,0,0,5,
+        0,0,0,5,0,0,3,0,0,
+        0,0,0,1,0,0,0,2,0,
+        0,0,0,0,6,0,0,1,0
+      ]
+    },
+    {
+      name: 'Mirror Lake',
+      puzzle: [
+        4,9,0,5,0,0,7,0,0,
+        0,5,2,9,8,0,0,0,0,
+        0,0,6,0,0,0,0,0,0,
+        0,0,4,0,0,0,0,0,0,
+        6,0,0,4,0,0,0,0,0,
+        2,8,0,0,6,9,0,0,0,
+        0,0,8,0,0,0,0,0,6,
+        0,0,7,0,3,0,1,0,0,
+        0,0,0,2,0,1,4,0,0
+      ]
+    },
+    {
+      name: 'Spare Key',
+      puzzle: [
+        0,0,0,3,0,0,0,6,4,
+        0,4,0,7,6,9,1,0,0,
+        0,5,0,4,0,0,8,0,0,
+        0,9,0,0,0,0,0,2,0,
+        0,0,5,1,0,0,0,0,7,
+        6,7,0,0,0,4,5,0,0,
+        0,0,9,0,0,7,0,0,0,
+        0,0,0,5,0,0,0,0,8,
+        0,0,0,0,0,0,7,9,5
       ]
     }
   ],

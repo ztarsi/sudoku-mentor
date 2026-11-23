@@ -59,6 +59,12 @@ export const LIBRARY_TEACHING = {
   '001509000905003060043000000000040000000610700810900240500200810000000002020800097': { complete: true, namedOnly: true, hardestTechnique: 'X-Cycle', hardestTier: 'Ultimate', teaches: ['Naked Single','Hidden Single','Pointing Pair','Claiming','Naked Pair','Hidden Pair','X-Wing','Empty Rectangle','XY-Wing','XYZ-Wing','WXYZ-Wing','Skyscraper','Two-String Kite','W-Wing','X-Cycle'] },
   // diabolical: Open Water
   '780400000000003780093001000000000000109040302000052170807200010000000004030900000': { complete: true, namedOnly: true, hardestTechnique: 'Two-String Kite', hardestTier: 'Expert', teaches: ['Naked Single','Hidden Single','Pointing Pair','Pointing Triple','Claiming','Naked Pair','Hidden Pair','X-Wing','Swordfish','Empty Rectangle','XYZ-Wing','WXYZ-Wing','Skyscraper','Two-String Kite'] },
+  // diabolical: Hidden Door
+  '000600000027009060390800001902007000080200070040000005000500300000100020000060010': { complete: true, namedOnly: true, hardestTechnique: 'Skyscraper', hardestTier: 'Expert', teaches: ['Naked Single','Hidden Single','Pointing Pair','Naked Pair','Hidden Pair','Swordfish','Empty Rectangle','XY-Wing','XYZ-Wing','WXYZ-Wing','Skyscraper'] },
+  // diabolical: Mirror Lake
+  '490500700052980000006000000004000000600400000280069000008000006007030100000201400': { complete: true, namedOnly: true, hardestTechnique: 'WXYZ-Wing', hardestTier: 'Expert', teaches: ['Naked Single','Hidden Single','Pointing Pair','Claiming','Hidden Pair','Empty Rectangle','XY-Wing','WXYZ-Wing'] },
+  // diabolical: Spare Key
+  '000300064040769100050400800090000020005100007670004500009007000000500008000000795': { complete: true, namedOnly: true, hardestTechnique: 'Skyscraper', hardestTier: 'Expert', teaches: ['Naked Single','Hidden Single','Pointing Pair','WXYZ-Wing','Skyscraper'] },
   // ultimate: Night Owl
   '000600400700003600000091080000000000050180003000306045040200060903000000020000100': { complete: true, namedOnly: true, hardestTechnique: '3D Medusa', hardestTier: 'Ultimate', teaches: ['Naked Single','Hidden Single','Pointing Pair','Hidden Pair','Hidden Triple','3D Medusa'] },
   // ultimate: Long Haul
